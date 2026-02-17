@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/renderer",
-  "version": "0.1.0-beta.11",
+"version": "0.1.0-beta.12",
   "description": "Client-side renderer for Storybook Astro framework",
   "module": "./src/preset.ts",
   "type": "module",
