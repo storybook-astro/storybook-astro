@@ -1,0 +1,49 @@
+/* Import global styles */
+@import '../src/styles/global.css';
+
+/* Storybook docs panel overrides (scoped to .sbdocs) */
+/* The docs panel has a light/white background, so we need dark text */
+.sbdocs strong {
+  color: #1a1a1a;
+}
+
+.sbdocs p,
+.sbdocs li {
+  color: #333;
+}
+
+.sbdocs h1,
+.sbdocs h2,
+.sbdocs h3,
+.sbdocs h4,
+.sbdocs h5,
+.sbdocs h6 {
+  color: #1a1a1a;
+}
+
+.sbdocs code {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a1a;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.sbdocs pre {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+}
+
+.sbdocs pre code {
+  background: none;
+  padding: 0;
+  color: #1f2328;
+}
+
+.sbdocs a {
+  color: #0969da;
+}
+
+.sbdocs a:hover {
+  color: #0550ae;
+}

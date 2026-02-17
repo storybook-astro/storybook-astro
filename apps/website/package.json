@@ -1,0 +1,16 @@
+{
+  "name": "@storybook-astro/website",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@storybook-astro/framework": "workspace:*",
+    "astro": "6.0.0-beta.11",
+    "marked": "^17.0.1"
+  }
+}

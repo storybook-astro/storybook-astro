@@ -4,7 +4,7 @@ The community-supported Storybook framework for Astro. Build, test, and document
 
 > **Beta**: This project is in active development. APIs may change between releases. Feedback and contributions are welcome!
 
-**Website**: [storybook-astro.org](https://storybook-astro.org) · **npm**: [@storybook-astro/framework](https://www.npmjs.com/package/@storybook-astro/framework) · **GitHub**: [storybook-astro](https://github.com/lukemcd/storybook-astro)
+**Website**: [storybook-astro.org](https://storybook-astro.org) · **npm**: [@storybook-astro/framework](https://www.npmjs.com/package/@storybook-astro/framework) · **GitHub**: [storybook-astro](https://github.com/storybook-astro/storybook-astro)
 
 ## Quick Start
 
@@ -176,11 +176,11 @@ node --version
 # Should be 20.16.0+, 22.19.0+, or 24.0.0+
 ```
 
-### Installation
+### Installation (Development)
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/storybook-astro/storybook-astro.git
    cd storybook-astro
    ```
 
@@ -189,14 +189,19 @@ node --version
    yarn install
    ```
 
-3. Run Storybook:
+3. Run Storybook (from a sandbox app):
    ```bash
-   yarn storybook
+   yarn workspace @storybook-astro/sandbox-astro6 storybook
    ```
 
 4. Build a static Storybook:
    ```bash
-   yarn build-storybook
+   yarn workspace @storybook-astro/sandbox-astro6 build-storybook
+   ```
+
+5. Run tests:
+   ```bash
+   yarn test
    ```
 
 5. Run tests (validates component rendering and framework integration health):

@@ -1,0 +1,58 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Overview" />
+
+# Astro Storybook
+
+Welcome to the Astro Storybook experimental project! This repository demonstrates how Storybook can integrate with Astro components and multiple JavaScript frameworks.
+
+## About This Project
+
+This is an experimental project that enables Storybook support for Astro components. While not yet production-ready, it showcases the potential for building a comprehensive component library that works across multiple frameworks.
+
+## Architecture
+
+The project consists of two main packages:
+
+- **@storybook-astro/framework** - Defines the Storybook framework integration and handles server-side rendering of Astro components
+- **@storybook-astro/renderer** - A client-side package that sends render requests to the Astro rendering proxy
+
+## Supported Frameworks
+
+This project demonstrates integration with multiple popular JavaScript frameworks:
+
+- **Alpine.js** - Lightweight, declarative JavaScript framework
+- **React** - Component-based UI library
+- **Vue** - Progressive JavaScript framework
+- **Svelte** - Compiler-based framework
+- **Solid** - Fine-grained reactive framework
+- **Preact** - Lightweight React alternative
+
+## Component Examples
+
+Browse the sidebar to explore component examples for each framework. Each example includes a Counter component demonstrating how the framework's reactivity system works within an Astro environment.
+
+## Testing
+
+This project uses Vitest to verify that the Astro Container API works as expected. Run tests with:
+
+```bash
+yarn test
+```
+
+## Development
+
+To run the Storybook development server:
+
+```bash
+yarn storybook
+```
+
+## Learn More
+
+- [Astro Documentation](https://docs.astro.build)
+- [Storybook Documentation](https://storybook.js.org/docs)
+
+---
+
+**Note:** This is an experimental project and contributions are highly appreciated!

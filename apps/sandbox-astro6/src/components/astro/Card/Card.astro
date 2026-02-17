@@ -1,0 +1,46 @@
+---
+const { title = 'Default title', content = 'Default content', highlight = false } = Astro.props;
+
+---
+
+<div class="card" class:list={{ highlight }}>
+  <h2>{title}</h2>
+  <p>{content}</p>
+  <div class="slot-content">
+    <slot name="main" />
+  </div>
+</div>
+
+<style>
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease;
+  }
+
+  .card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .card.highlight {
+    background: #fffacd;
+    border: 2px solid #f0e68c;
+  }
+
+  .card h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #1a1a2e;
+  }
+
+  .card p {
+    color: #666;
+    margin-bottom: 1rem;
+  }
+
+  .slot-content {
+    margin-top: 1rem;
+  }
+</style>

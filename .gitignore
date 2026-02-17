@@ -27,4 +27,4 @@ pnpm-debug.log*
 
 .yarn/*
 !.yarn/releases
-storybook-static/
+**/storybook-static/
