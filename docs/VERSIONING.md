@@ -7,7 +7,8 @@ This document defines how the project handles versioning, branching, and the dis
 The repository contains two categories of content:
 
 - **Packages** — `@storybook-astro/framework` and `@storybook-astro/renderer` in `packages/@storybook-astro/*`. These are published to npm and follow semantic versioning with a formal release process.
-- **Website** — The Astro site at `src/`, `public/`, and root config files (`astro.config.mjs`, `wrangler.toml`). Deployed to [storybook-astro.org](https://storybook-astro.org) via CloudFlare. Website changes do **not** require a package release.
+- **Website** — The Astro site at `apps/website/`. Deployed to [storybook-astro.org](https://storybook-astro.org) via CloudFlare. Website changes do **not** require a package release.
+- **Sandbox Apps** — Test projects at `apps/sandbox-astro5/` and `apps/sandbox-astro6/` for validating the framework against different Astro versions. Changes to sandbox apps do not require a package release.
 
 ## Versioning
 
@@ -19,7 +20,7 @@ The project follows [Semantic Versioning](https://semver.org/):
 
 During beta, versions use the format `0.x.y-beta.z` (e.g. `0.1.0-beta.1`). Pre-release versions are published to npm with the `beta` dist-tag.
 
-Only the packages in `packages/@storybook-astro/*` are versioned and published. The website, stories, and root project config are not versioned separately.
+Only the packages in `packages/@storybook-astro/*` are versioned and published. The website, sandbox apps, stories, and root project config are not versioned separately.
 
 ## Branches
 
@@ -80,7 +81,7 @@ For critical bugs in a published release:
 
 ## Workflow: Website-Only Changes
 
-Changes that only affect the website (`src/pages/`, `src/components/`, `src/styles/`, `src/content/`, `public/`, `astro.config.mjs`) do **not** go through the release process. These changes:
+Changes that only affect the website (`apps/website/`) do **not** go through the release process. These changes:
 
 - Can be merged directly to `main` via PR
 - Do not require a version bump or changelog entry
@@ -89,19 +90,19 @@ Changes that only affect the website (`src/pages/`, `src/components/`, `src/styl
 
 ### Examples of Website-Only Changes
 
-- Updating page copy or styling
+- Updating page copy or styling in `apps/website/`
 - Adding or editing docs pages
 - Fixing layout or navigation bugs
 - Updating the home page hero or feature grid
-- Changing `astro.config.mjs` settings
+- Changing `apps/website/astro.config.mjs` settings
 
 ### How to Identify Website-Only Changes
 
-A PR is website-only if it touches **none** of the following:
+A PR is website-only if it **only** touches files under `apps/website/` and does not touch:
 
 - `packages/@storybook-astro/framework/**`
 - `packages/@storybook-astro/renderer/**`
-- Root config that affects packages (e.g. `tsconfig.json` workspace settings)
+- Root config that affects packages (e.g. `tsconfig.json`, `tsconfig.base.json`)
 
 ### Process
 

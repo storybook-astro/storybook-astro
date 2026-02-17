@@ -11,7 +11,7 @@ Thank you for your interest in contributing! This project is community-driven an
 
 ### Setup
 
-1. Fork the repository: [github.com/lukemcd/storybook-astro](https://github.com/lukemcd/storybook-astro)
+1. Fork the repository: [github.com/storybook-astro/storybook-astro](https://github.com/storybook-astro/storybook-astro)
 2. Clone your fork:
    ```bash
    git clone https://github.com/YOUR-USERNAME/storybook-astro.git
@@ -19,15 +19,15 @@ Thank you for your interest in contributing! This project is community-driven an
    ```
    Or clone the main repo directly if you have write access:
    ```bash
-   git clone https://github.com/lukemcd/storybook-astro.git
+   git clone https://github.com/storybook-astro/storybook-astro.git
    ```
 3. Install dependencies:
    ```bash
    yarn install
    ```
-4. Start Storybook:
+4. Start Storybook (from a sandbox app):
    ```bash
-   yarn storybook
+   yarn workspace @storybook-astro/sandbox-astro6 storybook
    ```
 5. Run tests:
    ```bash
@@ -91,10 +91,16 @@ For critical bugs in production:
 
 ## Project Structure
 
-The project has two main packages:
+This is a monorepo managed with Yarn 4 workspaces:
 
-- **`@storybook-astro/framework`** — Server-side framework integration (Vite plugins, Astro Container, middleware)
-- **`@storybook-astro/renderer`** — Client-side rendering logic (canvas rendering, HMR, style management)
+**Packages** (published to npm):
+- **`packages/@storybook-astro/framework`** — Server-side framework integration (Vite plugins, Astro Container, middleware)
+- **`packages/@storybook-astro/renderer`** — Client-side rendering logic (canvas rendering, HMR, style management)
+
+**Apps** (private, not published):
+- **`apps/website`** — Marketing website at storybook-astro.org
+- **`apps/sandbox-astro6`** — Test project using Astro 6 beta (also deployed as demo)
+- **`apps/sandbox-astro5`** — Test project using Astro 5.17.2 (stable)
 
 See `AGENTS.md` for detailed architecture documentation and AI-assisted development guidance.
 
@@ -111,22 +117,26 @@ All 17 test suites (36 tests) should pass, covering Astro, React, Vue, Svelte, P
 ### Manual Testing
 
 ```bash
-yarn storybook
+# Test with Astro 6
+yarn workspace @storybook-astro/sandbox-astro6 storybook
+
+# Test with Astro 5
+yarn workspace @storybook-astro/sandbox-astro5 storybook
 ```
 
-Check the browser console for errors and verify your changes work across different component types.
+Check the browser console for errors and verify your changes work across different component types and Astro versions.
 
 ## Adding a New Framework Integration
 
 1. Create an integration file in `packages/@storybook-astro/framework/src/integrations/`
 2. Implement the `Integration` interface from `base.ts`
 3. Export a factory function in `integrations/index.ts`
-4. Add example components and stories
+4. Add example components and stories in the sandbox apps
 5. Add tests
 
 See `AGENTS.md` for a detailed template and walkthrough.
 
 ## Questions?
 
-- Open a [GitHub Issue](https://github.com/lukemcd/storybook-astro/issues) for bugs or feature requests
+- Open a [GitHub Issue](https://github.com/storybook-astro/storybook-astro/issues) for bugs or feature requests
 - See [AGENTS.md](./AGENTS.md) for technical architecture details

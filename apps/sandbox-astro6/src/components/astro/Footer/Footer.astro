@@ -1,0 +1,93 @@
+---
+interface FooterLink {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  links?: FooterLink[];
+  licenseText?: string;
+}
+
+const defaultLinks: FooterLink[] = [
+  { label: 'Feature Request: storybookjs/storybook#18356', href: 'https://github.com/storybookjs/storybook/issues/18356' },
+  { label: 'Storybook Framework Docs', href: 'https://storybook.js.org/docs/configure/integration/frameworks' },
+  { label: 'Astro Container API', href: 'https://docs.astro.build/en/reference/container-reference/' },
+];
+
+const {
+  links = defaultLinks,
+  licenseText = 'Licensed under MIT',
+} = Astro.props;
+
+---
+
+<footer>
+  <div class="footer-content">
+    <div class="links">
+      {links.map((link) => (
+        <a href={link.href} target="_blank" rel="noopener noreferrer">
+          {link.label}
+        </a>
+      ))}
+    </div>
+    <p class="license">{licenseText}</p>
+  </div>
+</footer>
+
+<style>
+  footer {
+    width: 100%;
+    padding: 2.5rem 0;
+    margin-top: auto;
+    border-top: 1px solid #21262d;
+  }
+
+  .footer-content {
+    max-width: 1260px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .links {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .links a {
+    color: #8b949e;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.2s;
+  }
+
+  @media (min-width: 768px) {
+    .links {
+      flex-direction: row;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .links a:not(:last-child)::after {
+      content: '·';
+      color: #30363d;
+      margin: 0 1rem;
+    }
+  }
+
+  .links a:hover {
+    color: #f0f6fc;
+  }
+
+  .license {
+    color: #484f58;
+    font-size: 0.8rem;
+    margin: 0;
+  }
+</style>

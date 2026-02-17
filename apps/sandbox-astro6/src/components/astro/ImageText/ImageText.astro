@@ -1,0 +1,79 @@
+---
+import { Image } from 'astro:assets';
+
+interface Props {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  imageSrc: any;
+  imageAlt?: string;
+  reversed?: boolean;
+}
+
+const { imageSrc, imageAlt = 'Image', reversed = false } = Astro.props;
+
+// Handle both ImageMetadata objects and string URLs
+const isStringUrl = typeof imageSrc === 'string';
+
+---
+
+<div class="image-text" class:list={{ reversed }}>
+  <div class="image-container">
+    {isStringUrl ? (
+      <img src={imageSrc} alt={imageAlt} />
+    ) : (
+      <Image src={imageSrc} alt={imageAlt} />
+    )}
+  </div>
+  <div class="text-container">
+    <slot />
+  </div>
+</div>
+
+
+<style>
+  .image-text {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    padding: 1.5rem;
+    background: #161b22;
+  }
+
+  .image-text.reversed {
+    flex-direction: row-reverse;
+  }
+
+  .image-container {
+    flex: 0 0 45%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .image-container img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  .text-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  @media (max-width: 768px) {
+    .image-text,
+    .image-text.reversed {
+      flex-direction: column;
+    }
+
+    .image-container {
+      flex: 0 0 auto;
+      width: 100%;
+    }
+  }
+</style>
