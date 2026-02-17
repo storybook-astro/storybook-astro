@@ -4,29 +4,29 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Marked } from 'marked';
 
-// Read and parse the README.md file dynamically (lives at repo root)
-const readmePath = resolve(process.cwd(), '../../README.md');
-const readmeMarkdown = readFileSync(readmePath, 'utf-8');
+// Read and parse the Getting Started guide (lives at repo root docs/)
+const guidePath = resolve(process.cwd(), '../../docs/GETTING_STARTED.md');
+const guideMarkdown = readFileSync(guidePath, 'utf-8');
 const marked = new Marked();
-const readmeContent = marked.parse(readmeMarkdown);
+const guideContent = marked.parse(guideMarkdown);
 
 ---
 
-<Layout title="About - Storybook Astro">
-  <div class="readme-content" set:html={readmeContent} />
+<Layout title="Getting Started - Storybook Astro">
+  <div class="guide-content" set:html={guideContent} />
 </Layout>
 
 <style>
-  .readme-content {
+  .guide-content {
     line-height: 1.7;
   }
 
-  .readme-content :global(h1) {
+  .guide-content :global(h1) {
     font-size: 2.5rem;
     margin-bottom: 1rem;
   }
 
-  .readme-content :global(h2) {
+  .guide-content :global(h2) {
     font-size: 1.75rem;
     margin-top: 2.5rem;
     margin-bottom: 1rem;
@@ -34,33 +34,33 @@ const readmeContent = marked.parse(readmeMarkdown);
     border-bottom: 1px solid #21262d;
   }
 
-  .readme-content :global(h3) {
+  .guide-content :global(h3) {
     font-size: 1.35rem;
     margin-top: 1.5rem;
     margin-bottom: 0.75rem;
   }
 
-  .readme-content :global(p) {
+  .guide-content :global(p) {
     margin-bottom: 1rem;
     color: #c9d1d9;
   }
 
-  .readme-content :global(ul),
-  .readme-content :global(ol) {
+  .guide-content :global(ul),
+  .guide-content :global(ol) {
     margin-bottom: 1rem;
     padding-left: 2rem;
   }
 
-  .readme-content :global(li) {
+  .guide-content :global(li) {
     margin-bottom: 0.5rem;
     color: #c9d1d9;
   }
 
-  .readme-content :global(a) {
+  .guide-content :global(a) {
     color: #58a6ff;
   }
 
-  .readme-content :global(code) {
+  .guide-content :global(code) {
     background: rgba(110, 118, 129, 0.2);
     color: #e6edf3;
     padding: 0.15em 0.4em;
@@ -68,7 +68,7 @@ const readmeContent = marked.parse(readmeMarkdown);
     font-size: 0.9em;
   }
 
-  .readme-content :global(pre) {
+  .guide-content :global(pre) {
     background: #161b22;
     border: 1px solid #30363d;
     border-radius: 8px;
@@ -77,7 +77,7 @@ const readmeContent = marked.parse(readmeMarkdown);
     margin: 1rem 0;
   }
 
-  .readme-content :global(pre code) {
+  .guide-content :global(pre code) {
     background: none;
     padding: 0;
     border-radius: 0;
@@ -85,11 +85,11 @@ const readmeContent = marked.parse(readmeMarkdown);
     font-size: 0.875rem;
   }
 
-  .readme-content :global(strong) {
+  .guide-content :global(strong) {
     color: #e6edf3;
   }
 
-  .readme-content :global(blockquote) {
+  .guide-content :global(blockquote) {
     border-left: 3px solid #30363d;
     padding-left: 1rem;
     margin: 1rem 0;
@@ -97,27 +97,27 @@ const readmeContent = marked.parse(readmeMarkdown);
     font-style: italic;
   }
 
-  .readme-content :global(hr) {
+  .guide-content :global(hr) {
     border: none;
     border-top: 1px solid #21262d;
     margin: 2rem 0;
   }
 
-  .readme-content :global(table) {
+  .guide-content :global(table) {
     width: 100%;
     border-collapse: collapse;
     margin: 1rem 0;
   }
 
-  .readme-content :global(th),
-  .readme-content :global(td) {
+  .guide-content :global(th),
+  .guide-content :global(td) {
     border: 1px solid #30363d;
     padding: 0.75rem;
     text-align: left;
     color: #c9d1d9;
   }
 
-  .readme-content :global(th) {
+  .guide-content :global(th) {
     background: #161b22;
     font-weight: 600;
     color: #f0f6fc;
