@@ -37,12 +37,18 @@ jobs:
 
       - name: Build Storybook (Astro 6)
         run: yarn workspace @storybook-astro/sandbox-astro6 build-storybook
+        timeout-minutes: 5
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Run tests (Astro 6)
         run: yarn workspace @storybook-astro/sandbox-astro6 test
 
       - name: Build Storybook (Astro 5)
         run: yarn workspace @storybook-astro/sandbox-astro5 build-storybook
+        timeout-minutes: 5
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Run tests (Astro 5)
         run: yarn workspace @storybook-astro/sandbox-astro5 test
