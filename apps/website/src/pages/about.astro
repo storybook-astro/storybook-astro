@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Marked } from 'marked';
 
-// Read and parse the README.md file dynamically
-const readmePath = resolve(process.cwd(), 'README.md');
+// Read and parse the README.md file dynamically (lives at repo root)
+const readmePath = resolve(process.cwd(), '../../README.md');
 const readmeMarkdown = readFileSync(readmePath, 'utf-8');
 const marked = new Marked();
 const readmeContent = marked.parse(readmeMarkdown);
