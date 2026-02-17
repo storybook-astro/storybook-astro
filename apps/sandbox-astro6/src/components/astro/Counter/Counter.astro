@@ -1,0 +1,30 @@
+<div class="astro-counter" data-testid="vanilla-counter">
+  <span>Astro counter: <span class="count">1</span></span>
+  <button class="increment">+1</button>
+</div>
+
+<script is:inline>
+  (function() {
+    function initCounter() {
+      const counter = document.querySelector('.astro-counter');
+
+      if (!counter) {return;}
+      
+      const countSpan = counter.querySelector('.count');
+      const button = counter.querySelector('.increment');
+      let count = 1;
+
+      button.addEventListener('click', () => {
+        count++;
+        countSpan.textContent = count;
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initCounter);
+    } else {
+      initCounter();
+    }
+  })();
+</script>
+

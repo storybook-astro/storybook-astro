@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Migrated repository from `lukemcd/storybook-astro` to `storybook-astro/storybook-astro`
+- Restructured as a monorepo with separate workspace apps: `apps/website`, `apps/sandbox-astro6`, `apps/sandbox-astro5`
+- Marketing website separated from Storybook demo/test project
+- Added Astro 5 sandbox for cross-version compatibility testing
+
 ## [0.1.0-beta.7] - 2026-02-16
 
 ### Fixed

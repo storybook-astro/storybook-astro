@@ -1,0 +1,197 @@
+---
+interface NavItem {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  logoText?: string;
+  navItems?: NavItem[];
+  currentPath?: string;
+}
+
+const defaultNavItems: NavItem[] = [
+  { label: 'About', href: '/about' },
+  { label: 'Contribute', href: '/contribute' },
+  { label: 'Sample Components', href: '/components' },
+  { label: 'Storybook Demo', href: 'https://demo.storybook-astro.org' },
+];
+
+const {
+  logoText = 'Storybook Astro',
+  navItems = defaultNavItems,
+  currentPath = Astro.url.pathname,
+} = Astro.props;
+
+function isActive(href: string, current: string): boolean {
+  if (href === '/') {return current === '/';}
+  
+return current === href || current === `${href}/`;
+}
+---
+
+<header>
+  <div class="header-content">
+    <a href="/" class="logo">{logoText}</a>
+    <button class="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </button>
+    <nav>
+      {navItems.map((item) => (
+        <a href={item.href} class:list={[{ active: isActive(item.href, currentPath) }]}>
+          {item.label}
+        </a>
+      ))}
+    </nav>
+  </div>
+</header>
+
+<script>
+  const hamburger = document.querySelector('.hamburger');
+  const nav = document.querySelector('header nav');
+
+  hamburger?.addEventListener('click', () => {
+    const expanded = hamburger.getAttribute('aria-expanded') === 'true';
+
+    hamburger.setAttribute('aria-expanded', String(!expanded));
+    hamburger.classList.toggle('open');
+    nav?.classList.toggle('open');
+  });
+
+  // Close menu when a nav link is clicked
+  nav?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => {
+      hamburger?.classList.remove('open');
+      hamburger?.setAttribute('aria-expanded', 'false');
+      nav.classList.remove('open');
+    });
+  });
+</script>
+
+<style>
+  header {
+    width: 100%;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid rgba(48, 54, 61, 0.6);
+    background: rgba(13, 17, 23, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-content {
+    max-width: 1260px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #f0f6fc;
+    text-decoration: none;
+    white-space: nowrap;
+    letter-spacing: -0.02em;
+  }
+
+  .logo:hover {
+    color: #58a6ff;
+  }
+
+  nav {
+    display: flex;
+    gap: 1.75rem;
+    align-items: center;
+  }
+
+  nav a {
+    color: #8b949e;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: color 0.2s ease;
+    white-space: nowrap;
+  }
+
+  nav a:hover {
+    color: #f0f6fc;
+  }
+
+  nav a.active {
+    color: #f0f6fc;
+  }
+
+  /* Hamburger button — hidden on desktop */
+  .hamburger {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .hamburger .bar {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: #f0f6fc;
+    border-radius: 2px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+
+  .hamburger.open .bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .hamburger.open .bar:nth-child(2) {
+    opacity: 0;
+  }
+
+  .hamburger.open .bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  @media (max-width: 768px) {
+    .hamburger {
+      display: flex;
+    }
+
+    .header-content {
+      flex-wrap: wrap;
+    }
+
+    nav {
+      display: none;
+      flex-direction: column;
+      width: 100%;
+      gap: 0;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(48, 54, 61, 0.6);
+      margin-top: 0.75rem;
+    }
+
+    nav.open {
+      display: flex;
+    }
+
+    nav a {
+      font-size: 0.95rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.3);
+    }
+
+    nav a:last-child {
+      border-bottom: none;
+    }
+  }
+</style>

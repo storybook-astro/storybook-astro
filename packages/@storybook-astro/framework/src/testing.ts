@@ -32,7 +32,7 @@
 // eslint-disable-next-line n/no-extraneous-import
 import { test, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import type { Plugin } from 'vite';
 
 // ---------------------------------------------------------------------------
@@ -138,6 +138,32 @@ export function testStoryComposition(storyName: string, story: any, expectedArgs
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Walk up from cwd to find a package in node_modules.
+ * Supports monorepos where packages are hoisted to the root.
+ */
+function findPackageDir(pkgName: string): string | null {
+  let dir = process.cwd();
+
+  while (true) {
+    const candidate = join(dir, 'node_modules', pkgName);
+
+    if (existsSync(join(candidate, 'package.json'))) {
+      return candidate;
+    }
+    const parent = dirname(dir);
+
+    if (parent === dir) {break;}
+    dir = parent;
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Vite plugins for testing
 // ---------------------------------------------------------------------------
 
@@ -179,8 +205,11 @@ export function cjsInteropPlugin(): Plugin {
       if (subpath && !['server-renderer', 'server', 'client'].includes(subpath)) {return;}
 
       try {
-        // Find the package.json
-        const nmDir = join(process.cwd(), 'node_modules', pkgName);
+        // Find the package.json — walk up from cwd to find node_modules
+        // (supports monorepos where packages are hoisted to root)
+        const nmDir = findPackageDir(pkgName);
+
+        if (!nmDir) {return;}
         const pkgJsonPath = join(nmDir, 'package.json');
 
         if (!existsSync(pkgJsonPath)) {return;}

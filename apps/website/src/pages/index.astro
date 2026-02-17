@@ -1,0 +1,231 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Storybook Astro — Community Storybook Framework for Astro">
+  <section class="hero">
+    <span class="badge">Beta · Astro 6 + Storybook 10</span>
+    <h1>Build, test & document<br /><span class="gradient-text">Astro components</span></h1>
+    <p class="subtitle">
+      The community-supported Storybook framework for Astro. Render components server-side
+      via the Container API, with support for React, Vue, Svelte, Solid, Preact, and Alpine.js.
+    </p>
+    <div class="ctas">
+      <a href="https://demo.storybook-astro.org" class="btn btn-primary">Live Demo</a>
+      <a href="/about" class="btn btn-secondary">Get Started</a>
+    </div>
+    <div class="install-cmd">
+      <code>npm install --save-dev storybook @storybook/builder-vite @storybook-astro/framework</code>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <h3>Server-Side Rendering</h3>
+      <p>Astro components render via the Container API with full middleware support—just like production.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🧩</div>
+      <h3>Multi-Framework</h3>
+      <p>React, Vue, Svelte, Solid, Preact, and Alpine.js—all running side-by-side in one Storybook.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🧪</div>
+      <h3>Portable Stories</h3>
+      <p>Use composeStories to test your stories in Vitest with full type safety and zero config.</p>
+    </div>
+  </section>
+
+  <section class="explore">
+    <h2>See it in action</h2>
+    <p>Explore interactive component demos across every supported framework.</p>
+    <div class="explore-links">
+      <a href="/components" class="btn btn-secondary">Components Demo →</a>
+      <a href="https://github.com/storybook-astro/storybook-astro" class="btn btn-ghost">View on GitHub</a>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 4rem 0 3rem;
+  }
+
+  .badge {
+    display: inline-block;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    color: #58a6ff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35rem 1rem;
+    border-radius: 100px;
+    margin-bottom: 2rem;
+    letter-spacing: 0.02em;
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.03em;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #7c3aed, #f472b6, #fb923c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: 1.2rem;
+    color: #8b949e;
+    max-width: 640px;
+    margin: 0 auto 2.5rem;
+    line-height: 1.7;
+  }
+
+  .ctas {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0.75rem 1.75rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    text-decoration: none;
+  }
+
+  .btn-secondary {
+    background: #21262d;
+    color: #f0f6fc;
+    border: 1px solid #30363d;
+  }
+
+  .btn-secondary:hover {
+    background: #30363d;
+    border-color: #484f58;
+    text-decoration: none;
+  }
+
+  .btn-ghost {
+    color: #8b949e;
+    background: transparent;
+    border: 1px solid #30363d;
+  }
+
+  .btn-ghost:hover {
+    color: #f0f6fc;
+    border-color: #484f58;
+    text-decoration: none;
+  }
+
+  .install-cmd {
+    display: inline-block;
+    margin-top: 0.5rem;
+  }
+
+  .install-cmd code {
+    background: #161b22;
+    border: 1px solid #30363d;
+    padding: 0.6rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #8b949e;
+    user-select: all;
+  }
+
+  /* Features */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    padding: 4rem 0;
+    border-top: 1px solid #21262d;
+    border-bottom: 1px solid #21262d;
+  }
+
+  .feature {
+    padding: 1.5rem;
+  }
+
+  .feature-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .feature h3 {
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+    color: #f0f6fc;
+  }
+
+  .feature p {
+    font-size: 0.95rem;
+    color: #8b949e;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* Explore */
+  .explore {
+    text-align: center;
+    padding: 4rem 0 2rem;
+  }
+
+  .explore h2 {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .explore p {
+    color: #8b949e;
+    margin-bottom: 2rem;
+  }
+
+  .explore-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 768px) {
+    .hero {
+      padding: 2rem 0;
+    }
+
+    .features {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .feature {
+      padding: 1.5rem 0;
+    }
+  }
+</style>

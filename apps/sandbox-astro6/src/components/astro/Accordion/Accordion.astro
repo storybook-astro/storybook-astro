@@ -1,0 +1,124 @@
+---
+interface AccordionItem {
+  title: string;
+  content: string;
+}
+
+interface Props {
+  items?: AccordionItem[];
+  allowMultiple?: boolean;
+}
+
+const { items = [], allowMultiple = false } = Astro.props;
+const componentId = `accordion-${Math.random().toString(36).substr(2, 9)}`;
+
+---
+
+<div class="astro-accordion" data-testid="vanilla-accordion" data-component-id={componentId} data-allow-multiple={allowMultiple}>
+  {items.map((item, index) => (
+    <div class="accordion-item" data-index={index}>
+      <button class="accordion-header" aria-expanded="false">
+        {item.title}
+        <span class="accordion-icon">+</span>
+      </button>
+      <div class="accordion-content" style="display: none;">
+        {item.content}
+      </div>
+    </div>
+  ))}
+</div>
+
+<script is:inline>
+  (function() {
+    function initAccordion() {
+      const accordions = document.querySelectorAll('.astro-accordion');
+      
+      accordions.forEach(accordion => {
+        const allowMultiple = accordion.getAttribute('data-allow-multiple') === 'true';
+        const items = accordion.querySelectorAll('.accordion-item');
+        
+        items.forEach(item => {
+          const header = item.querySelector('.accordion-header');
+          const content = item.querySelector('.accordion-content');
+          const icon = item.querySelector('.accordion-icon');
+          
+          header.addEventListener('click', () => {
+            const isOpen = content.style.display === 'block';
+            
+            if (!allowMultiple) {
+              // Close all other items
+              accordion.querySelectorAll('.accordion-content').forEach(c => {
+                c.style.display = 'none';
+              });
+              accordion.querySelectorAll('.accordion-header').forEach(h => {
+                h.setAttribute('aria-expanded', 'false');
+              });
+              accordion.querySelectorAll('.accordion-icon').forEach(i => {
+                i.textContent = '+';
+              });
+            }
+            
+            // Toggle current item
+            if (isOpen) {
+              content.style.display = 'none';
+              header.setAttribute('aria-expanded', 'false');
+              icon.textContent = '+';
+            } else {
+              content.style.display = 'block';
+              header.setAttribute('aria-expanded', 'true');
+              icon.textContent = '−';
+            }
+          });
+        });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initAccordion);
+    } else {
+      initAccordion();
+    }
+  })();
+</script>
+
+<style>
+  .astro-accordion {
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .accordion-item {
+    border-bottom: 1px solid #30363d;
+  }
+  .accordion-item:last-child {
+    border-bottom: none;
+  }
+  .accordion-header {
+    width: 100%;
+    padding: 1rem;
+    background: #21262d;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #c9d1d9;
+    transition: background 0.2s;
+  }
+  .accordion-header:hover {
+    background: #292e36;
+  }
+  .accordion-icon {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #8b949e;
+  }
+  .accordion-content {
+    padding: 1rem;
+    background: #161b22;
+    color: #c9d1d9;
+  }
+</style>

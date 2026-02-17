@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
 
 jobs:
   build-and-test:
@@ -12,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -26,13 +27,22 @@ jobs:
         run: yarn install
 
       - name: Lint code
-        run: yarn eslint
+        run: yarn lint
 
-      - name: Build Astro
-        run: yarn build
+      - name: Build packages
+        run: yarn build:packages
 
-      - name: Build Storybook
-        run: yarn build-storybook
+      - name: Build website
+        run: yarn workspace @storybook-astro/website build
 
-      - name: Run tests
-        run: yarn test
+      - name: Build Storybook (Astro 6)
+        run: yarn workspace @storybook-astro/sandbox-astro6 build-storybook
+
+      - name: Run tests (Astro 6)
+        run: yarn workspace @storybook-astro/sandbox-astro6 test
+
+      - name: Build Storybook (Astro 5)
+        run: yarn workspace @storybook-astro/sandbox-astro5 build-storybook
+
+      - name: Run tests (Astro 5)
+        run: yarn workspace @storybook-astro/sandbox-astro5 test

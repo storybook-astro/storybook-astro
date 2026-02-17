@@ -12,20 +12,28 @@ import ts from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import globals from 'globals';
 import vue from 'eslint-plugin-vue';
-import svelteConfig from './svelte.config.js';
+// Svelte config lives in sandbox apps — use a minimal fallback for root ESLint
+let svelteConfig;
+
+try {
+  svelteConfig = (await import('./apps/sandbox-astro6/svelte.config.js')).default;
+} catch {
+  svelteConfig = {};
+}
+
 import astro from 'eslint-plugin-astro';
 
 const ALL_EXTENSIONS = 'js,ts,jsx,tsx,cjs,mjs,mts,astro,svelte,vue';
 const NODE_JS_FILES = [
   `./packages/@storybook-astro/framework/**/*.{${ALL_EXTENSIONS}}`,
-  `./.storybook/**/*.{${ALL_EXTENSIONS}}`,
+  `./apps/*/.storybook/**/*.{${ALL_EXTENSIONS}}`,
   'eslint.config.mjs',
   'prettier.config.mjs'
 ];
 const JSX_EXTENSIONS = 'js,ts,jsx,tsx,cjs,mjs,mts';
 const JSX_FILES = [
   `./packages/@storybook-astro/renderer/**/*.{${JSX_EXTENSIONS}}`,
-  `./src/**/*.{${JSX_EXTENSIONS}}`
+  `./apps/*/src/**/*.{${JSX_EXTENSIONS}}`
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -81,7 +89,6 @@ export default [
       parserOptions: {
         svelteConfig,
         parser: ts.parser,
-        project: './tsconfig.json',
         extraFileExtensions: ['.svelte']
       }
     },
@@ -214,7 +221,7 @@ export default [
       '**/@types/',
       '.vscode/',
       '.idea/',
-      'storybook-static/',
+      '**/storybook-static/',
       '**/dist/',
       '**/node_modules/'
     ]
