@@ -79,7 +79,7 @@ export default preview;
 npm run storybook
 ```
 
-> **Note:** `npm create storybook@latest` does not yet recognize Astro as a framework. Use the manual setup above instead. If you've already run `storybook init --type web-components`, replace the framework in `.storybook/main.js` with `@storybook-astro/framework` and remove the generated example stories.
+> **Note:** `npm create storybook@latest` does not yet recognize Astro as a framework. Use the manual setup above instead.
 
 ## Requirements
 
