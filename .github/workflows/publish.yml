@@ -2,10 +2,8 @@ name: Publish to npm
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/@storybook-astro/**'
+    tags:
+      - 'v*'
 
 jobs:
   publish:
