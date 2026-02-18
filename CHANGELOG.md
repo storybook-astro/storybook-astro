@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-beta.13] - 2026-02-18
+
+### Changed
+- Documentation and website updated to reflect support for both Astro 5 (5.5.3+) and Astro 6 Beta
+- Framework package description, README, Getting Started guide, and root README now list Astro 5 + 6
+
 ## [0.1.0-beta.12] - 2026-02-17
 
 ### Changed
