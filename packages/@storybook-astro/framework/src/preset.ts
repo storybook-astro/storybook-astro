@@ -73,7 +73,6 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
     finalConfig.optimizeDeps.esbuildOptions.external = [];
   }
   const vueVirtualModules = ['virtual:@astrojs/vue/app', 'virtual:astro:vue-app'];
-
   for (const mod of vueVirtualModules) {
     if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
       finalConfig.optimizeDeps.esbuildOptions.external.push(mod);

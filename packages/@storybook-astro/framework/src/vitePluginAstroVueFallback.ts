@@ -32,7 +32,6 @@ export function vitePluginAstroVueFallback(): Plugin {
 
     resolveId(id) {
       const resolved = resolvedIds.get(id);
-
       if (resolved) {
         return resolved;
       }
