@@ -1,0 +1,65 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/@storybook-astro/**'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Lint code
+        run: yarn lint
+
+      - name: Run tests (Astro 6)
+        run: yarn workspace @storybook-astro/sandbox-astro6 test
+
+      - name: Run tests (Astro 5)
+        run: yarn workspace @storybook-astro/sandbox-astro5 test
+
+      - name: Build packages
+        run: |
+          rm -rf packages/@storybook-astro/renderer/dist
+          rm -rf packages/@storybook-astro/framework/dist
+          yarn build:packages
+
+      - name: Publish renderer
+        run: yarn workspace @storybook-astro/renderer npm publish --tag beta --access public
+        env:
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
+
+      - name: Publish framework
+        run: yarn workspace @storybook-astro/framework npm publish --tag beta --access public
+        env:
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
+
+      - name: Promote to latest
+        run: |
+          yarn npm tag add @storybook-astro/renderer@$(node -p "require('./packages/@storybook-astro/renderer/package.json').version") latest
+          yarn npm tag add @storybook-astro/framework@$(node -p "require('./packages/@storybook-astro/framework/package.json').version") latest
+        env:
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
