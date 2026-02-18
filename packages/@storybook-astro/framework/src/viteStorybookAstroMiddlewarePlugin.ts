@@ -5,6 +5,8 @@ import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
+import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 
 export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptions) {
   // The internal Vite server is created lazily inside configureServer (dev-only).
@@ -109,9 +111,12 @@ export async function createViteServer(integrations: Integration[]) {
     configFile: false,
     ...config,
     plugins: [
+      // Fallbacks must come first to intercept before Astro's plugins
+      vitePluginAstroFontsFallback(),
+      vitePluginAstroVueFallback(),
+      vitePluginAstroRoutesFallback(),
       ...(config.plugins?.filter(Boolean) ?? []),
-      viteAstroContainerRenderersPlugin(safeIntegrations),
-      vitePluginAstroFontsFallback()
+      viteAstroContainerRenderersPlugin(safeIntegrations)
     ]
   });
 

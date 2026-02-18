@@ -7,11 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-beta.12] - 2026-02-17
+
 ### Changed
 - Migrated repository from `lukemcd/storybook-astro` to `storybook-astro/storybook-astro`
-- Restructured as a monorepo with separate workspace apps: `apps/website`, `apps/sandbox-astro6`, `apps/sandbox-astro5`
-- Marketing website separated from Storybook demo/test project
-- Added Astro 5 sandbox for cross-version compatibility testing
+- Restructured as a monorepo with Yarn workspaces (`packages/@storybook-astro/*`, `apps/*`)
+- Marketing website separated into `apps/website/`
+- Storybook demo/test project moved to `apps/sandbox-astro6/`
+- Added Astro 5 sandbox (`apps/sandbox-astro5/`) for cross-version compatibility testing
+- Root `package.json` stripped to monorepo config with shared devDeps only
+
+### Added
+- Getting Started guide (`docs/GETTING_STARTED.md`) with detailed story file and Astro slots documentation
+- Package README for npm display
+- `findPackageDir` helper in `cjsInteropPlugin` for monorepo-aware `node_modules` resolution
+
+### Fixed
+- `cjsInteropPlugin` now walks up from `process.cwd()` to find hoisted packages in monorepo structure
+- ESLint config updated for monorepo paths and Svelte parser compatibility
+- CI workflow updated with workspace-based builds and `timeout` for hung Storybook processes
+- Website build fixes: resolved missing assets, styles, and README path for monorepo layout
 
 ## [0.1.0-beta.7] - 2026-02-16
 

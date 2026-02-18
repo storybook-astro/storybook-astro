@@ -3,6 +3,7 @@ import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewa
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
+import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 
 export const core = {
@@ -28,6 +29,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
     vitePluginAstroComponentMarker() as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vitePluginAstroBuildPrerender(integrations) as any,
+    vitePluginAstroVueFallback(),
     ...viteConfig.plugins
   );
 
@@ -50,6 +52,32 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
   }
 
   const finalConfig = await mergeWithAstroConfig(config, integrations);
+
+  // Exclude @astrojs/vue from dependency optimization because it imports
+  // virtual modules that esbuild cannot resolve (virtual:@astrojs/vue/app).
+  // This must be done after mergeWithAstroConfig to avoid being overwritten.
+  if (!finalConfig.optimizeDeps) {
+    finalConfig.optimizeDeps = {};
+  }
+  if (!finalConfig.optimizeDeps.exclude) {
+    finalConfig.optimizeDeps.exclude = [];
+  }
+  if (!finalConfig.optimizeDeps.exclude.includes('@astrojs/vue')) {
+    finalConfig.optimizeDeps.exclude.push('@astrojs/vue');
+  }
+  // Mark Vue virtual modules as external so esbuild doesn't try to resolve them
+  if (!finalConfig.optimizeDeps.esbuildOptions) {
+    finalConfig.optimizeDeps.esbuildOptions = {};
+  }
+  if (!finalConfig.optimizeDeps.esbuildOptions.external) {
+    finalConfig.optimizeDeps.esbuildOptions.external = [];
+  }
+  const vueVirtualModules = ['virtual:@astrojs/vue/app', 'virtual:astro:vue-app'];
+  for (const mod of vueVirtualModules) {
+    if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
+      finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
+    }
+  }
 
   return finalConfig;
 };

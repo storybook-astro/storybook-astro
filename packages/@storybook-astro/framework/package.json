@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/framework",
-  "version": "0.1.0-beta.11",
+  "version": "0.1.0-beta.12",
   "description": "Community-supported Storybook framework for Astro 6 components",
   "type": "module",
   "license": "MIT",
