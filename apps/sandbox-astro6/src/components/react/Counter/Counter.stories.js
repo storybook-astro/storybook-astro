@@ -2,11 +2,19 @@ import Counter from './Counter.jsx';
 
 export default {
   parameters: {
-    renderer: 'react'
+    renderer: 'react',
+    docs: {
+      description: {
+        component: 'A simple counter using React\'s `useState` hook. No props — starts at 1 and increments on click.',
+      },
+    },
   },
   title: 'React/Counter',
   component: Counter,
-  args: {},
 };
 
-export const Default = {};
+export const Default = {
+  parameters: {
+    docs: { description: { story: 'Counter starting at 1.' } },
+  },
+};

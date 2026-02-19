@@ -1,0 +1,51 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Preact/About" />
+
+# Preact Components
+
+Preact components rendered **client-side** via `@storybook/preact`. Uses Preact's hooks API (`useState`) for state management.
+
+## Configuration
+
+Stories must set `parameters.renderer: 'preact'` to trigger framework delegation:
+
+```js
+export default {
+  parameters: { renderer: 'preact' },
+  title: 'Preact/MyComponent',
+  component: MyComponent,
+};
+```
+
+The Preact integration is configured in `.storybook/main.js` with an `include` glob:
+
+```js
+preact({ include: ['**/preact/**'] })
+```
+
+## Frozen Args Workaround
+
+Storybook freezes args objects, but Preact's internal state management may mutate array items. The Accordion story uses an `AccordionWrapper` that clones props before passing them to the component:
+
+```js
+function AccordionWrapper(props) {
+  const clonedProps = {
+    ...props,
+    items: props.items ? props.items.map(item => ({ ...item })) : []
+  };
+  return h(Accordion, clonedProps);
+}
+```
+
+## Required Packages
+
+- `@astrojs/preact` — Astro's Preact integration
+- `@storybook/preact` — Storybook Preact renderer
+- `@preact/preset-vite` — Vite Preact plugin
+- `preact` — Preact runtime
+
+## Components
+
+- **Counter** — Simple `useState` counter (no props)
+- **Accordion** — Collapsible sections with Preact hooks (`items`, `allowMultiple`)

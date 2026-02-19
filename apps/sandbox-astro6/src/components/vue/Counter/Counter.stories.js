@@ -2,11 +2,19 @@ import Counter from './Counter.vue';
 
 export default {
   parameters: {
-    renderer: 'vue'
+    renderer: 'vue',
+    docs: {
+      description: {
+        component: 'A simple counter using Vue\'s `ref` reactivity. No props — starts at 1 and increments on click.',
+      },
+    },
   },
   title: 'Vue/Counter',
   component: Counter,
-  args: {}
 };
 
-export const Default = {};
+export const Default = {
+  parameters: {
+    docs: { description: { story: 'Counter starting at 1.' } },
+  },
+};

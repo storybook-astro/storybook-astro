@@ -1,0 +1,50 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Svelte/About" />
+
+# Svelte Components
+
+Svelte components rendered **client-side** via `@storybook/svelte`. Uses Svelte 5's runes (`$state`) for reactivity.
+
+## Configuration
+
+Stories must set `parameters.renderer: 'svelte'` to trigger framework delegation:
+
+```js
+export default {
+  parameters: { renderer: 'svelte' },
+  title: 'Svelte/MyComponent',
+  component: MyComponent,
+};
+```
+
+The Svelte integration is configured in `.storybook/main.js`. No `include` glob is needed — Svelte's Vite plugin handles `.svelte` files globally:
+
+```js
+svelte()
+```
+
+## Story Render Function
+
+Svelte stories with complex props (like the Accordion) require an explicit `render` function that returns `{ Component, props }`:
+
+```js
+export const Default = {
+  render: (args) => ({
+    Component: Accordion,
+    props: args,
+  }),
+  args: { items: [...] },
+};
+```
+
+## Required Packages
+
+- `@astrojs/svelte` — Astro's Svelte integration
+- `@storybook/svelte` — Storybook Svelte renderer
+- `svelte` — Svelte runtime (5.x)
+
+## Components
+
+- **Counter** — Simple `$state` counter (no props)
+- **Accordion** — Collapsible sections with Svelte reactivity (`items`, `allowMultiple`)

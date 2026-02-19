@@ -4,9 +4,43 @@ import storybookAstro from '../../../assets/storybook-astro.png';
 export default {
   title: 'Astro/ImageText',
   component: ImageText,
+  parameters: {
+    docs: {
+      description: {
+        component: 'A two-column layout with an image and text content side by side. Supports reversing the order and accepts a `default` slot for the text column. Responsive — stacks vertically on mobile.',
+      },
+    },
+  },
+  argTypes: {
+    imageSrc: {
+      description: 'Image source — an imported asset (ImageMetadata) or a URL string.',
+      table: {
+        type: { summary: 'ImageMetadata | string' },
+      },
+    },
+    imageAlt: {
+      description: 'Alt text for the image.',
+      control: 'text',
+      table: {
+        type: { summary: 'string' },
+        defaultValue: { summary: "'Image'" },
+      },
+    },
+    reversed: {
+      description: 'Places the image on the right side instead of the left.',
+      control: 'boolean',
+      table: {
+        type: { summary: 'boolean' },
+        defaultValue: { summary: 'false' },
+      },
+    },
+  },
 };
 
 export const Default = {
+  parameters: {
+    docs: { description: { story: 'Image on the left with welcome text in the default slot.' } },
+  },
   args: {
     imageSrc: storybookAstro,
     imageAlt: 'Astro Storybook Earth',
@@ -23,6 +57,9 @@ export const Default = {
 };
 
 export const ImageRight = {
+  parameters: {
+    docs: { description: { story: 'Reversed layout with image on the right.' } },
+  },
   args: {
     imageSrc: storybookAstro,
     imageAlt: 'Astro Storybook Earth',

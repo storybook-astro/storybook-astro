@@ -2,13 +2,39 @@ import Accordion from './Accordion.tsx';
 
 export default {
   parameters: {
-    renderer: 'solid'
+    renderer: 'solid',
+    docs: {
+      description: {
+        component: 'A collapsible section list using Solid\'s fine-grained reactivity (`createSignal`).',
+      },
+    },
   },
   title: 'Solid/Accordion',
   component: Accordion,
+  argTypes: {
+    items: {
+      description: 'Sections to render. Each item has a `title` and `content`.',
+      control: 'object',
+      table: {
+        type: { summary: '{ title: string, content: string }[]' },
+        defaultValue: { summary: '[]' },
+      },
+    },
+    allowMultiple: {
+      description: 'When true, multiple sections can be open simultaneously.',
+      control: 'boolean',
+      table: {
+        type: { summary: 'boolean' },
+        defaultValue: { summary: 'false' },
+      },
+    },
+  },
 };
 
 export const Default = {
+  parameters: {
+    docs: { description: { story: 'Three sections in single-open mode.' } },
+  },
   args: {
     items: [
       { title: 'Section 1', content: 'Content for section 1' },
@@ -19,6 +45,9 @@ export const Default = {
 };
 
 export const AllowMultiple = {
+  parameters: {
+    docs: { description: { story: 'Multiple sections can be open simultaneously.' } },
+  },
   args: {
     allowMultiple: true,
     items: [

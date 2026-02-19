@@ -2,6 +2,7 @@ import './preview.css';
 
 /** @type { import('@storybook-astro/framework').Preview } */
 const preview = {
+  tags: ['autodocs'],
   parameters: {
     controls: {
       matchers: {
@@ -11,7 +12,16 @@ const preview = {
     },
     options: {
       storySort: {
-        order: ['Overview', 'Astro', 'Alpine', 'React', 'Vue', 'Svelte', 'Preact', 'Solid'],
+        order: [
+          'Overview',
+          'Astro', ['About', '*'],
+          'Alpine', ['About', '*'],
+          'React', ['About', '*'],
+          'Vue', ['About', '*'],
+          'Svelte', ['About', '*'],
+          'Preact', ['About', '*'],
+          'Solid', ['About', '*'],
+        ],
       },
     },
   },
