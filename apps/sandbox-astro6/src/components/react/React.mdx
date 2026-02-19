@@ -1,0 +1,37 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="React/About" />
+
+# React Components
+
+React components rendered **client-side** via `@storybook/react`. The renderer delegates directly to React's `renderToCanvas` before calling `storyFn()`, avoiding orphaned reactive effects.
+
+## Configuration
+
+Stories must set `parameters.renderer: 'react'` to trigger framework delegation:
+
+```js
+export default {
+  parameters: { renderer: 'react' },
+  title: 'React/MyComponent',
+  component: MyComponent,
+};
+```
+
+The React integration is configured in `.storybook/main.js` with an `include` glob to scope which files are processed by the React Vite plugin:
+
+```js
+react({ include: ['**/react/**'] })
+```
+
+## Required Packages
+
+- `@astrojs/react` — Astro's React integration
+- `@storybook/react` — Storybook React renderer
+- `@vitejs/plugin-react` — Vite React plugin
+- `react`, `react-dom` — React runtime
+
+## Components
+
+- **Counter** — Simple `useState` counter (no props)
+- **Accordion** — Collapsible sections with React state (`items`, `allowMultiple`)

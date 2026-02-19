@@ -2,13 +2,39 @@ import Accordion from './Accordion.svelte';
 
 export default {
   parameters: {
-    renderer: 'svelte'
+    renderer: 'svelte',
+    docs: {
+      description: {
+        component: 'A collapsible section list using Svelte\'s reactive state. Stories use an explicit `render` function returning `{ Component, props }`.',
+      },
+    },
   },
   title: 'Svelte/Accordion',
   component: Accordion,
+  argTypes: {
+    items: {
+      description: 'Sections to render. Each item has a `title` and `content`.',
+      control: 'object',
+      table: {
+        type: { summary: '{ title: string, content: string }[]' },
+        defaultValue: { summary: '[]' },
+      },
+    },
+    allowMultiple: {
+      description: 'When true, multiple sections can be open simultaneously.',
+      control: 'boolean',
+      table: {
+        type: { summary: 'boolean' },
+        defaultValue: { summary: 'false' },
+      },
+    },
+  },
 };
 
 export const Default = {
+  parameters: {
+    docs: { description: { story: 'Three sections in single-open mode.' } },
+  },
   render: (args) => ({
     Component: Accordion,
     props: args,
@@ -23,6 +49,9 @@ export const Default = {
 };
 
 export const AllowMultiple = {
+  parameters: {
+    docs: { description: { story: 'Multiple sections can be open simultaneously.' } },
+  },
   render: (args) => ({
     Component: Accordion,
     props: args,

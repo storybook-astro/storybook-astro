@@ -1,0 +1,41 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Solid/About" />
+
+# Solid Components
+
+Solid components rendered **client-side** via `storybook-solidjs`. Uses Solid's fine-grained reactivity with `createSignal`.
+
+## Configuration
+
+Stories must set `parameters.renderer: 'solid'` to trigger framework delegation:
+
+```js
+export default {
+  parameters: { renderer: 'solid' },
+  title: 'Solid/MyComponent',
+  component: MyComponent,
+};
+```
+
+The Solid integration is configured in `.storybook/main.js` with an `include` glob to scope which files are processed by `vite-plugin-solid`:
+
+```js
+solid({ include: ['**/solid/**'] })
+```
+
+## Testing Limitation
+
+Solid components render correctly in Storybook's browser, but Vitest portable story tests only validate composition — not actual rendering. This is because Vitest runs in happy-dom (client compilation mode), but Solid's runtime resolves to `server.js` where client APIs like `template()` throw. The Vitest config uses a non-recursive include glob so `vite-plugin-solid` doesn't compile nested component files.
+
+## Required Packages
+
+- `@astrojs/solid-js` — Astro's Solid integration
+- `storybook-solidjs` — Storybook Solid renderer
+- `vite-plugin-solid` — Vite Solid plugin
+- `solid-js` — Solid runtime
+
+## Components
+
+- **Counter** — Simple `createSignal` counter (no props)
+- **Accordion** — Collapsible sections with Solid reactivity (`items`, `allowMultiple`)

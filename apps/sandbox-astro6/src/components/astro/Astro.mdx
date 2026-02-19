@@ -1,0 +1,44 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Astro/About" />
+
+# Astro Components
+
+Pure Astro components rendered **server-side** via Astro's [Container API](https://docs.astro.build/en/reference/container-reference/). No framework runtime is loaded — interactivity is handled with inline `<script is:inline>` tags and vanilla JavaScript.
+
+## How It Works
+
+1. The renderer detects Astro components by the `isAstroComponentFactory` flag (set by `vitePluginAstroComponentMarker`)
+2. A render request is sent to the Vite dev server middleware via HMR
+3. The middleware renders the component using `AstroContainer.renderToString()` with the provided props and slots
+4. The rendered HTML is injected into Storybook's canvas
+5. Inline scripts are re-executed to add interactivity
+
+## Props & Slots
+
+Props are passed via `args` in the story and received through `Astro.props` in the component. Slots are passed as HTML strings in `args.slots`:
+
+```jsx
+export const Example = {
+  args: {
+    title: 'Hello',
+    slots: {
+      default: '<p>Slot content</p>',
+      named: '<span>Named slot</span>',
+    },
+  },
+};
+```
+
+## Static Builds
+
+In `storybook build`, Astro components are **pre-rendered at build time** — changing args via the Controls panel has no effect. Framework components (React, Vue, etc.) remain fully interactive.
+
+## Components
+
+- **Accordion** — Collapsible sections with vanilla JS toggle (`items`, `allowMultiple`)
+- **Card** — Content card with optional highlight (`title`, `content`, `highlight`, slot: `main`)
+- **Counter** — Increment counter with vanilla JS (no props)
+- **Footer** — Site footer with configurable links (`links`, `licenseText`)
+- **Header** — Responsive nav header with hamburger menu (`logoText`, `navItems`, `currentPath`)
+- **ImageText** — Two-column image + text layout (`imageSrc`, `imageAlt`, `reversed`, slot: `default`)
