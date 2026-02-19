@@ -1,6 +1,6 @@
 # Sandbox — Astro 5
 
-Test project for validating `@storybook-astro/framework` against **Astro 5** (stable).
+Test project for validating `@storybook-astro/framework` against **Astro 5** (stable). Deployed as the [Astro 5 demo](https://demo-astro5.storybook-astro.org).
 
 ## Pinned Versions
 
