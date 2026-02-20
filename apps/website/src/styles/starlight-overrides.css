@@ -3,8 +3,10 @@
  * White/light body with a dark header to match the main website.
  */
 
-/* ── Light body tokens ── */
-:root {
+/* ── Force light body tokens for both light and dark themes ── */
+:root,
+[data-theme='dark'] {
+  color-scheme: light;
   --sl-color-bg: #ffffff;
   --sl-color-bg-sidebar: #f8f9fa;
   --sl-color-hairline: #e1e4e8;
@@ -23,17 +25,13 @@
   --sl-color-accent: #7c3aed;
   --sl-color-accent-high: #5b21b6;
   --sl-color-bg-inline-code: #f0f2f5;
+  --sl-color-bg-nav: #0d1117;
 
   /* Font — match the main website */
   --sl-font: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 /* ── Dark header (nav bar) ── */
-:root {
-  --sl-color-bg-nav: #0d1117;
-  --sl-color-hairline: #30363d;
-}
-
 /* Override the header bar background */
 header.header {
   background: rgba(13, 17, 23, 0.95);
