@@ -88,4 +88,4 @@ export const Default = {
 
 - **Module resolution**: `astro:assets` relies on virtual module resolution that may not fully work in Storybook's SSR context. The dual-source pattern above works around this.
 - **Image optimization**: In dev mode, images imported via `astro:assets` receive Astro's optimization pipeline. In static Storybook builds, the pre-render step emits images as Rollup assets with content-hashed filenames.
-- **Font optimization**: Astro's font virtual modules (`virtual:astro:assets/fonts/*`) are stubbed with no-op exports in Storybook. Components render correctly but without Astro's font optimization. See [Astro 6 Compatibility](/docs/how-it-works/astro6-compat/) for details.
+- **Font optimization**: Astro's font virtual modules (`virtual:astro:assets/fonts/*`) are stubbed with no-op exports in Storybook. Components render correctly but without Astro's font optimization. See [Astro 6 Compatibility](/how-it-works/astro6-compat/) for details.

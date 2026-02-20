@@ -73,4 +73,4 @@ The `include` patterns use recursive globs (`**`) to match components in nested 
 
 When a story specifies `parameters.renderer`, the Storybook Astro renderer delegates directly to the framework-specific `renderToCanvas` function — the Astro Container API is bypassed entirely. This means framework components behave exactly as they would in a native Storybook setup for that framework.
 
-See [Framework Integration](/docs/how-it-works/framework-integration/) for the full technical details.
+See [Framework Integration](/how-it-works/framework-integration/) for the full technical details.

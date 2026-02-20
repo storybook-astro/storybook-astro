@@ -17,7 +17,7 @@ node --version
 ```
 
 :::note
-`npm create storybook@latest` does not yet recognize Astro as a framework. Use the manual setup described in the [Installation](/docs/getting-started/installation/) guide instead.
+`npm create storybook@latest` does not yet recognize Astro as a framework. Use the manual setup described in the [Installation](/getting-started/installation/) guide instead.
 :::
 
-See the [Astro 6 Compatibility](/docs/how-it-works/astro6-compat/) page for details on running with Astro 6 beta.
+See the [Astro 6 Compatibility](/how-it-works/astro6-compat/) page for details on running with Astro 6 beta.

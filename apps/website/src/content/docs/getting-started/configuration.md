@@ -39,7 +39,7 @@ export default {
 };
 ```
 
-See the [Configuration Reference](/docs/reference/configuration/) for all available options.
+See the [Configuration Reference](/reference/configuration/) for all available options.
 
 ## 2. Create `.storybook/preview.js`
 
@@ -72,4 +72,4 @@ export default preview;
 npm run storybook
 ```
 
-Storybook will open at [http://localhost:6006](http://localhost:6006). You're ready to start [writing stories](/docs/writing-stories/).
+Storybook will open at [http://localhost:6006](http://localhost:6006). You're ready to start [writing stories](/writing-stories/).

@@ -23,4 +23,4 @@ Storybook Astro is the community-supported Storybook framework for Astro. It let
 This project is in beta. APIs may change between releases.
 :::
 
-Ready to get started? Check the [Requirements](/docs/getting-started/requirements/) and then follow the [Installation](/docs/getting-started/installation/) guide.
+Ready to get started? Check the [Requirements](/getting-started/requirements/) and then follow the [Installation](/getting-started/installation/) guide.
