@@ -1,0 +1,97 @@
+/*
+ * Starlight theme overrides for Storybook Astro docs.
+ * White/light body with a dark header to match the main website.
+ */
+
+/* ── Light body tokens ── */
+:root {
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-sidebar: #f8f9fa;
+  --sl-color-hairline: #e1e4e8;
+  --sl-color-hairline-light: #eef0f2;
+  --sl-color-text: #24292f;
+  --sl-color-text-accent: #7c3aed;
+  --sl-color-white: #24292f;
+  --sl-color-gray-1: #24292f;
+  --sl-color-gray-2: #424a53;
+  --sl-color-gray-3: #57606a;
+  --sl-color-gray-4: #8b949e;
+  --sl-color-gray-5: #d0d7de;
+  --sl-color-gray-6: #eef0f2;
+  --sl-color-black: #ffffff;
+  --sl-color-accent-low: #f3eeff;
+  --sl-color-accent: #7c3aed;
+  --sl-color-accent-high: #5b21b6;
+  --sl-color-bg-inline-code: #f0f2f5;
+
+  /* Font — match the main website */
+  --sl-font: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* ── Dark header (nav bar) ── */
+:root {
+  --sl-color-bg-nav: #0d1117;
+  --sl-color-hairline: #30363d;
+}
+
+/* Override the header bar background */
+header.header {
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(48, 54, 61, 0.6);
+}
+
+/* Make header text/icons light on the dark background */
+header.header :is(a, button, label) {
+  color: #f0f6fc;
+}
+
+header.header a:hover {
+  color: #58a6ff;
+}
+
+/* Site title in the header */
+header.header .title-wrapper a {
+  color: #f0f6fc;
+  font-weight: 700;
+}
+
+header.header .title-wrapper a:hover {
+  color: #58a6ff;
+}
+
+/* Social icons in the header */
+header.header .social-icons a {
+  color: #8b949e;
+}
+
+header.header .social-icons a:hover {
+  color: #f0f6fc;
+}
+
+/* Search button styling in dark header */
+header.header button[data-open-modal] {
+  color: #8b949e;
+  border-color: rgba(48, 54, 61, 0.6);
+}
+
+header.header button[data-open-modal]:hover {
+  color: #f0f6fc;
+  border-color: #484f58;
+}
+
+/* Mobile menu button */
+header.header starlight-menu-button button {
+  color: #f0f6fc;
+}
+
+/* ── Hide Starlight theme toggle (we force light mode) ── */
+starlight-theme-select {
+  display: none;
+}
+
+/* ── Sidebar hairline fix for light theme ── */
+.sidebar-pane {
+  border-color: #e1e4e8;
+}
