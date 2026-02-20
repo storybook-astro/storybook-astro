@@ -3,10 +3,8 @@
  * White/light body with a dark header to match the main website.
  */
 
-/* ── Force light body tokens for both light and dark themes ── */
-:root,
-[data-theme='dark'] {
-  color-scheme: light;
+/* ── Light body tokens ── */
+:root {
   --sl-color-bg: #ffffff;
   --sl-color-bg-sidebar: #f8f9fa;
   --sl-color-hairline: #e1e4e8;
@@ -84,9 +82,28 @@ header.header starlight-menu-button button {
   color: #f0f6fc;
 }
 
-/* ── Hide Starlight theme toggle (we force light mode) ── */
-starlight-theme-select {
-  display: none;
+/* ── Mobile "On this page" bar (dark nav background needs light text) ── */
+mobile-starlight-toc nav {
+  color: #f0f6fc;
+}
+
+mobile-starlight-toc .display-current {
+  color: #8b949e;
+}
+
+mobile-starlight-toc .toggle {
+  color: #f0f6fc;
+  border-color: rgba(48, 54, 61, 0.6);
+  background-color: rgba(13, 17, 23, 0.95);
+}
+
+mobile-starlight-toc .toggle:hover {
+  color: #f0f6fc;
+  border-color: #484f58;
+}
+
+mobile-starlight-toc .caret {
+  color: #8b949e;
 }
 
 /* ── Sidebar hairline fix for light theme ── */

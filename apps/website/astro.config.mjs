@@ -11,6 +11,10 @@ export default defineConfig({
         { icon: 'github', label: 'GitHub', href: 'https://github.com/storybook-astro/storybook-astro' },
         { icon: 'external', label: 'Live Demo', href: 'https://demo.storybook-astro.org' },
       ],
+      components: {
+        ThemeProvider: './src/components/ThemeProvider.astro',
+        ThemeSelect: './src/components/ThemeProvider.astro',
+      },
       customCss: [
         '@fontsource/inter/400.css',
         '@fontsource/inter/600.css',
