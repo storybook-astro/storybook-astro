@@ -84,4 +84,4 @@ if (Component.isAstroComponentFactory) {
 }
 ```
 
-In Astro 6, the client-side Vite transform no longer sets this flag. The `vitePluginAstroComponentMarker` plugin patches the stub to restore it. See [Astro 6 Compatibility](/docs/how-it-works/astro6-compat/) for details.
+In Astro 6, the client-side Vite transform no longer sets this flag. The `vitePluginAstroComponentMarker` plugin patches the stub to restore it. See [Astro 6 Compatibility](/how-it-works/astro6-compat/) for details.

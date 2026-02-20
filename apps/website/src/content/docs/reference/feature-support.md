@@ -16,7 +16,7 @@ This page tracks Astro's built-in framework features and their compatibility sta
 
 ## Partial support
 
-- **`astro:assets` (Image Optimization)** — Works in components but requires a fallback approach for Storybook stories due to module resolution issues. Components can accept both `ImageMetadata` and string URLs to maintain compatibility. See [Images](/docs/guides/images/).
+- **`astro:assets` (Image Optimization)** — Works in components but requires a fallback approach for Storybook stories due to module resolution issues. Components can accept both `ImageMetadata` and string URLs to maintain compatibility. See [Images](/guides/images/).
 - **Astro Fonts** — Font virtual modules are stubbed with no-op exports. Components render correctly but without Astro's font optimization.
 
 ## Not yet supported

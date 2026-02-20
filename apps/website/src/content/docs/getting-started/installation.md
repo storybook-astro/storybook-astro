@@ -35,6 +35,6 @@ npm install --save-dev @astrojs/solid-js @storybook/html vite-plugin-solid solid
 npm install --save-dev @astrojs/alpinejs @storybook/html alpinejs
 ```
 
-See the [Framework Components](/docs/writing-stories/framework-components/) page for how to configure and use these in stories.
+See the [Framework Components](/writing-stories/framework-components/) page for how to configure and use these in stories.
 
-Next, proceed to [Configuration](/docs/getting-started/configuration/) to set up your Storybook config files.
+Next, proceed to [Configuration](/getting-started/configuration/) to set up your Storybook config files.

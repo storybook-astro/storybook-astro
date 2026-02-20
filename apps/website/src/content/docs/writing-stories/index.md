@@ -55,7 +55,7 @@ Story files can use `.js`, `.jsx`, `.ts`, or `.tsx` extensions. JSX extensions (
 
 ## Next steps
 
-- [Props](/docs/writing-stories/props/) — Passing data to your components
-- [Slots](/docs/writing-stories/slots/) — Content projection with Astro slots
-- [Controls & ArgTypes](/docs/writing-stories/controls/) — Interactive controls in the Storybook UI
-- [Framework Components](/docs/writing-stories/framework-components/) — React, Vue, Svelte, and other framework stories
+- [Props](/writing-stories/props/) — Passing data to your components
+- [Slots](/writing-stories/slots/) — Content projection with Astro slots
+- [Controls & ArgTypes](/writing-stories/controls/) — Interactive controls in the Storybook UI
+- [Framework Components](/writing-stories/framework-components/) — React, Vue, Svelte, and other framework stories
