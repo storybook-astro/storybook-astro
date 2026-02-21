@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
-import type { Integration } from './integrations/index.ts';
 import type { HandlerProps } from './middleware.ts';
+import type { FrameworkOptions } from './types.ts';
 import { createViteServer } from './viteStorybookAstroMiddlewarePlugin.ts';
 
 /**
@@ -25,8 +25,9 @@ import { createViteServer } from './viteStorybookAstroMiddlewarePlugin.ts';
  * - Build time increases with the number of Astro stories
  * - Stories that override the meta component are skipped
  */
-export function vitePluginAstroBuildPrerender(integrations: Integration[]): Plugin {
-  const safeIntegrations = integrations ?? [];
+export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin {
+  const safeIntegrations = options.integrations ?? [];
+  const resolveFrom = options.resolveFrom ?? process.cwd();
   let viteServer: ViteDevServer | null = null;
   let handler: ((data: HandlerProps) => Promise<string>) | null = null;
 
@@ -42,14 +43,16 @@ export function vitePluginAstroBuildPrerender(integrations: Integration[]): Plug
 
     async buildStart() {
       try {
-        viteServer = await createViteServer(safeIntegrations);
+        viteServer = await createViteServer(safeIntegrations, resolveFrom);
 
         const filePath = fileURLToPath(new URL('./middleware', import.meta.url));
         const middleware = await viteServer.ssrLoadModule(filePath, {
           fixStacktrace: true
         });
 
-        handler = await middleware.handlerFactory(safeIntegrations);
+        handler = await middleware.handlerFactory(safeIntegrations, {
+          sanitization: options.sanitization
+        });
       } catch (err) {
         console.warn(
           '[storybook-astro] Failed to create pre-render server:',

@@ -15,7 +15,7 @@ export {
 } from './portable-stories.ts';
 
 // Export framework types
-export type { FrameworkOptions, StorybookConfig } from './types.ts';
+export type { FrameworkOptions, SanitizationOptions, StorybookConfig } from './types.ts';
 
 // Re-export preset functionality for framework usage
 export { core, viteFinal } from './preset.ts';

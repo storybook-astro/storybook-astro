@@ -28,6 +28,42 @@ export default {
 };
 ```
 
+Disable sanitization explicitly:
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      sanitization: { enabled: false },
+    },
+  },
+};
+```
+
+Sanitization is enabled by default with conservative HTML defaults. To disable it, set `sanitization.enabled` to `false`.
+
+You can sanitize incoming story args and slots through framework options:
+
+```javascript
+import { react, vue, svelte } from '@storybook-astro/framework/integrations';
+
+export default {
+  stories: ['../src/**/*.stories.@(js|jsx|ts|tsx)'],
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      integrations: [react(), vue(), svelte()],
+      sanitization: {
+        enabled: true,
+        args: ['content', 'items.*.description'],
+        slots: ['**'],
+      },
+    },
+  },
+};
+```
+
 To use non-Astro framework components (React, Vue, Svelte, etc.) inside your stories, add integrations:
 
 ```javascript

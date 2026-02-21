@@ -47,6 +47,51 @@ export default {
 };
 ```
 
+#### `sanitization`
+
+Controls HTML sanitization for incoming story `args` and `slots` before Astro component rendering.
+
+Sanitization is enabled by default with conservative `sanitize-html` defaults.
+
+- **`enabled`** - Optional boolean. Set to `false` to disable sanitization entirely (YOLO mode).
+- **`args`** - Optional array of dot-path patterns to sanitize in `args` (for example: `['content', 'items.*.description']`). Default: `[]`.
+- **`slots`** - Optional array of dot-path patterns to sanitize in `slots`. Default: `['**']` (all slot strings).
+- **`sanitizeHtml`** - Optional [`sanitize-html` options](https://www.npmjs.com/package/sanitize-html) object for custom allowlists/transforms.
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      sanitization: {
+        enabled: true,
+        args: ['content', 'items.*.description'],
+        slots: ['**'],
+        sanitizeHtml: {
+          allowedTags: ['p', 'strong', 'em', 'a', 'ul', 'li'],
+          allowedAttributes: {
+            a: ['href', 'target', 'rel'],
+          },
+        },
+      },
+    },
+  },
+};
+```
+
+Disable sanitization explicitly:
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      sanitization: { enabled: false },
+    },
+  },
+};
+```
+
 ### Integration options
 
 Each integration factory function accepts an options object:
