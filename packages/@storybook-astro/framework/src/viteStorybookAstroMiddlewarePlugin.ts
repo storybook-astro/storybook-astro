@@ -1,8 +1,10 @@
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createServer, type PluginOption, type ViteDevServer } from 'vite';
 import type { RenderRequestMessage, RenderResponseMessage } from '@storybook-astro/renderer/types';
 import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
+import { importAstroConfig } from './importAstroConfig.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
@@ -96,8 +98,9 @@ return;
 }
 
 export async function createViteServer(integrations: Integration[], resolveFrom = process.cwd()) {
-  const { getViteConfig } = await import('astro/config');
+  const { getViteConfig } = await importAstroConfig(resolveFrom);
   const safeIntegrations = integrations ?? [];
+  const projectAstroResolutionPlugin = createProjectAstroResolutionPlugin(resolveFrom);
 
   const config = await getViteConfig(
     {},
@@ -113,6 +116,7 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
     configFile: false,
     ...config,
     plugins: [
+      projectAstroResolutionPlugin,
       // Fallbacks must come first to intercept before Astro's plugins
       vitePluginAstroFontsFallback(),
       vitePluginAstroVueFallback(),
@@ -128,4 +132,26 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
   await viteServer.pluginContainer.buildStart({});
 
   return viteServer;
+}
+
+function createProjectAstroResolutionPlugin(resolveFrom: string): PluginOption {
+  const require = createRequire(import.meta.url);
+
+  return {
+    name: 'storybook-astro:resolve-project-astro',
+    enforce: 'pre',
+    resolveId(id: string) {
+      if (id !== 'astro' && !id.startsWith('astro/')) {
+        return null;
+      }
+
+      try {
+        return require.resolve(id, {
+          paths: [resolveFrom]
+        });
+      } catch {
+        return null;
+      }
+    }
+  } satisfies PluginOption;
 }
