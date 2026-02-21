@@ -37,12 +37,9 @@ export async function handlerFactory(integrations: Integration[]) {
     // Process args to convert ImageMetadata objects to usable URLs
     const processedArgs = await processImageMetadata(data.args || {});
 
-    // Wrap the component factory to fix the createAstro calling convention mismatch.
-    // Astro compiler v2 produces: result.createAstro($$Astro, $$props, $$slots) [3 args]
-    // Astro 6 runtime expects: result.createAstro($$props, $$slots) [2 args]
-    // When v2-compiled components run against the v6 runtime, $$Astro gets captured as
-    // "props" and actual props end up as "slots". This wrapper detects the 3-arg call
-    // and strips the leading $$Astro argument.
+    // Wrap the component factory to bridge Astro runtime/compiler createAstro signatures.
+    // Astro 5 runtime expects createAstro($$Astro, $$props, $$slots) while Astro 6 expects
+    // createAstro($$props, $$slots). We normalize calls based on the runtime signature.
     const patchedComponent = patchCreateAstroCompat(Component);
 
     const result = await container.renderToString(patchedComponent, {
@@ -55,12 +52,13 @@ export async function handlerFactory(integrations: Integration[]) {
 }
 
 /**
- * Wraps an Astro component factory to fix the createAstro calling convention mismatch
- * between Astro compiler v2 and the Astro 6 runtime.
+ * Wraps an Astro component factory to bridge createAstro calling conventions when
+ * Astro 6 runtime is paired with compiler output that still passes $$Astro.
  *
- * The compiled component calls result.createAstro($$Astro, $$props, $$slots) [3 args],
- * but the Astro 6 runtime's createResult defines createAstro(props, slots) [2 params].
- * This causes $$Astro to be captured as "props" and actual props to be lost.
+ * Astro 5 runtime defines createAstro($$Astro, $$props, $$slots) [3 params].
+ * Astro 6 runtime defines createAstro($$props, $$slots) [2 params].
+ * Some Astro 6 compiler output still calls with 3 args, so we strip $$Astro only
+ * when the runtime expects 2 params.
  *
  * The wrapper intercepts the result object and patches its createAstro method to
  * handle both calling conventions.
@@ -69,14 +67,17 @@ function patchCreateAstroCompat(Component: any): any {
   const wrapped = (result: any, props: any, slots: any) => {
     if (result && result.createAstro) {
       const origCreateAstro = result.createAstro;
+      // Astro 5 runtime exposes createAstro with 3 params; Astro 6 exposes 2.
+      // Using function arity lets us adapt without hard-coding Astro version checks.
+      const runtimeExpectsAstroGlobal = origCreateAstro.length >= 3;
 
       result.createAstro = (...args: any[]) => {
-        if (args.length === 3) {
-          // Compiler v2 convention: ($$Astro, $$props, $$slots) → skip $$Astro
+        if (args.length === 3 && !runtimeExpectsAstroGlobal) {
+          // Compiler v2 -> Astro 6 runtime: strip $$Astro.
           return origCreateAstro(args[1], args[2]);
         }
 
-        // Compiler v3 convention: ($$props, $$slots) → pass through
+        // Matching convention: pass through unchanged.
         return origCreateAstro(...args);
       };
     }
@@ -97,9 +98,11 @@ function patchCreateAstroCompat(Component: any): any {
  * This allows Astro's Image component to work properly in Storybook by converting
  * optimized asset references to direct file paths.
  */
-async function processImageMetadata(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function processImageMetadata(
+  args: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const processed: Record<string, unknown> = {};
-  
+
   for (const [key, value] of Object.entries(args)) {
     if (isImageMetadata(value)) {
       // Convert ImageMetadata to a usable URL
@@ -107,8 +110,8 @@ async function processImageMetadata(args: Record<string, unknown>): Promise<Reco
     } else if (Array.isArray(value)) {
       // Process arrays recursively
       processed[key] = await Promise.all(
-        value.map(async (item) => 
-          typeof item === 'object' && item !== null 
+        value.map(async (item) =>
+          typeof item === 'object' && item !== null
             ? await processImageMetadata(item as Record<string, unknown>)
             : item
         )
@@ -120,7 +123,7 @@ async function processImageMetadata(args: Record<string, unknown>): Promise<Reco
       processed[key] = value;
     }
   }
-  
+
   return processed;
 }
 
