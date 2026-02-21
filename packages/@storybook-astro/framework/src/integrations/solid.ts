@@ -1,5 +1,6 @@
 import type { Integration } from './base.ts';
 import type { Options as ViteSolidPluginOptions } from 'vite-plugin-solid';
+import { importModule } from './moduleResolver.ts';
 
 export type Options = Pick<ViteSolidPluginOptions, 'include' | 'exclude'>;
 
@@ -29,8 +30,10 @@ export class SolidIntegration implements Integration {
     }
   }
 
-  async loadIntegration() {
-    const framework = await import('@astrojs/solid-js');
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{
+      default: (options: Options) => Awaited<ReturnType<Integration['loadIntegration']>>;
+    }>('@astrojs/solid-js', resolveFrom);
 
     return framework.default(this.options);
   }

@@ -1,4 +1,5 @@
 import type { Integration } from './base.ts';
+import { importModule } from './moduleResolver.ts';
 
 export type Options = Record<string, unknown>;
 
@@ -17,8 +18,10 @@ export class AlpineIntegration implements Integration {
 
   resolveClient(_moduleName: string): undefined {}
 
-  async loadIntegration() {
-    const framework = await import('@astrojs/alpinejs');
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{
+      default: (options: Options) => Awaited<ReturnType<Integration['loadIntegration']>>;
+    }>('@astrojs/alpinejs', resolveFrom);
 
     return framework.default(this.options);
   }
