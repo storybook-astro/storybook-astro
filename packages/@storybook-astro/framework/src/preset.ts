@@ -4,6 +4,7 @@ import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFall
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
+import { resolveSanitizationOptions } from './sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 
 export const core = {
@@ -23,13 +24,15 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
   const integrations = options.integrations ?? [];
   const resolveFrom = options.resolveFrom ?? process.cwd();
 
+  resolveSanitizationOptions(options.sanitization);
+
   config.plugins.push(
     storybookAstroMiddlewarePlugin,
     viteStorybookRendererFallbackPlugin(integrations),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vitePluginAstroComponentMarker() as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vitePluginAstroBuildPrerender(integrations) as any,
+    vitePluginAstroBuildPrerender(options) as any,
     vitePluginAstroVueFallback(),
     ...viteConfig.plugins
   );

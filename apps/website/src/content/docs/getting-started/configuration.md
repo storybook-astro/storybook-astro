@@ -39,6 +39,19 @@ export default {
 };
 ```
 
+Sanitization is enabled by default. To disable it explicitly:
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      sanitization: { enabled: false },
+    },
+  },
+};
+```
+
 See the [Configuration Reference](/reference/configuration/) for all available options.
 
 ## 2. Create `.storybook/preview.js`

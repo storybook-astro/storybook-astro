@@ -31,6 +31,7 @@ export default defineConfig({
     '@storybook/preact',
     '@storybook-astro/renderer',
     'storybook-solidjs',
+    'sanitize-html',
     'virtual:astro-container-renderers',
   ],
 });

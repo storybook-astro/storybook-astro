@@ -1,5 +1,7 @@
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { Integration } from './integrations/index.ts';
+import type { SanitizationOptions } from './sanitization.ts';
+import { resolveSanitizationOptions, sanitizeRenderPayload } from './sanitization.ts';
 import { addRenderers } from 'virtual:astro-container-renderers';
 
 export type HandlerProps = {
@@ -8,7 +10,11 @@ export type HandlerProps = {
   slots?: Record<string, unknown>;
 };
 
-export async function handlerFactory(integrations: Integration[]) {
+type HandlerFactoryOptions = {
+  sanitization?: SanitizationOptions;
+};
+
+export async function handlerFactory(integrations: Integration[], options?: HandlerFactoryOptions) {
   const safeIntegrations = integrations ?? [];
   const container = await AstroContainer.create({
     // Somewhat hacky way to force client-side Storybook's Vite to resolve modules properly
@@ -30,6 +36,7 @@ export async function handlerFactory(integrations: Integration[]) {
   });
 
   addRenderers(container);
+  const sanitizationOptions = resolveSanitizationOptions(options?.sanitization);
 
   return async function handler(data: HandlerProps) {
     const { default: Component } = await import(/* @vite-ignore */ data.component);
@@ -42,9 +49,17 @@ export async function handlerFactory(integrations: Integration[]) {
     // createAstro($$props, $$slots). We normalize calls based on the runtime signature.
     const patchedComponent = patchCreateAstroCompat(Component);
 
+    const sanitizedPayload = sanitizeRenderPayload(
+      {
+        args: processedArgs,
+        slots: data.slots ?? {}
+      },
+      sanitizationOptions
+    );
+
     const result = await container.renderToString(patchedComponent, {
-      props: processedArgs,
-      slots: data.slots ?? {}
+      props: sanitizedPayload.args,
+      slots: sanitizedPayload.slots
     });
 
     return result;
