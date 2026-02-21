@@ -1,7 +1,7 @@
 import type { CompatibleString, Options } from 'storybook/internal/types';
 import type { InlineConfig } from 'vite';
 import type { Integration } from './integrations/index.ts';
-import type { SanitizationOptions } from './sanitization.ts';
+import type { SanitizationOptions } from './lib/sanitization.ts';
 
 type FrameworkName = CompatibleString<'@storybook-astro/framework'>;
 

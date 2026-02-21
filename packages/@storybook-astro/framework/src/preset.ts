@@ -4,7 +4,7 @@ import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFall
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
-import { resolveSanitizationOptions } from './sanitization.ts';
+import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 
 export const core = {
