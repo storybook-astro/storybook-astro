@@ -9,7 +9,7 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "yarn workspaces foreach -A --include '@storybook-astro/sandbox-*' run test",
+    "test": "yarn vitest run",
     "build:packages": "yarn workspaces foreach -A --include '@storybook-astro/{framework,renderer}' run build"
   },
   "devDependencies": {
@@ -36,6 +36,7 @@
     "tsup": "^8.5.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.18.2",
+    "vitest": "^4.0.18",
     "vue-eslint-parser": "^10.1.3"
   },
   "workspaces": [

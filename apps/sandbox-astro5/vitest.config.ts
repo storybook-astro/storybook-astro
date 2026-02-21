@@ -23,7 +23,7 @@ const vitestConfig = defineConfig({
     vitePluginAstroComponentMarker()
   ],
   test: {
-    name: 'storybook',
+    name: 'astro5',
     environment: 'happy-dom',
     setupFiles: ['.storybook/vitest.setup.ts'],
     include: ['**/*.test.ts', '**/*.test.tsx']
