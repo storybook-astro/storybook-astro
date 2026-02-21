@@ -7,6 +7,6 @@ export default defineConfig({
       clean: true,
       reporter: ['text', 'html', 'cobertura', 'lcov'],
     },
-    projects: ['apps/*/vitest.config.ts', 'packages/*/vitest.config.ts']
+    projects: ['apps/*/vitest.config.ts', 'packages/@storybook-astro/*/vitest.config.ts']
   }
 });
