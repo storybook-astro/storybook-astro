@@ -7,6 +7,7 @@ type FrameworkName = CompatibleString<'@storybook-astro/framework'>;
 export type { Integration };
 export type FrameworkOptions = {
   integrations: Integration[];
+  resolveFrom?: string;
 };
 
 type StorybookConfigFramework = {

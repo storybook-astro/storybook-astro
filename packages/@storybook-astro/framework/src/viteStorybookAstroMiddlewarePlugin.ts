@@ -13,10 +13,12 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   // During builds, configureServer never fires, so no server is created.
   let viteServer: ViteDevServer | null = null;
 
+  const resolveFrom = options.resolveFrom ?? process.cwd();
+
   const vitePlugin = {
     name: 'storybook-astro-middleware-plugin',
     async configureServer(server) {
-      viteServer = await createViteServer(options.integrations);
+      viteServer = await createViteServer(options.integrations, resolveFrom);
 
       const filePath = fileURLToPath(new URL('./middleware', import.meta.url));
       const middleware = await viteServer.ssrLoadModule(filePath, {
@@ -93,7 +95,7 @@ return;
   };
 }
 
-export async function createViteServer(integrations: Integration[]) {
+export async function createViteServer(integrations: Integration[], resolveFrom = process.cwd()) {
   const { getViteConfig } = await import('astro/config');
   const safeIntegrations = integrations ?? [];
 
@@ -102,7 +104,7 @@ export async function createViteServer(integrations: Integration[]) {
     {
       configFile: false,
       integrations: await Promise.all(
-        safeIntegrations.map((integration) => integration.loadIntegration())
+        safeIntegrations.map((integration) => integration.loadIntegration(resolveFrom))
       )
     }
   )({ mode: 'development', command: 'serve' });

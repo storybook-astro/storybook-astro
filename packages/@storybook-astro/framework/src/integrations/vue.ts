@@ -1,6 +1,7 @@
 import type { Integration } from './base.ts';
 import type { Options as VueOptions } from '@vitejs/plugin-vue';
 import type { Options as VueJsxOptions } from '@vitejs/plugin-vue-jsx';
+import { importModule } from './moduleResolver.ts';
 
 export type Options = Pick<VueOptions, 'include' | 'exclude'> & {
   jsx?: boolean | VueJsxOptions;
@@ -37,8 +38,10 @@ export class VueIntegration implements Integration {
     }
   }
 
-  async loadIntegration() {
-    const framework = await import('@astrojs/vue');
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{
+      default: (options: Options) => Awaited<ReturnType<Integration['loadIntegration']>>;
+    }>('@astrojs/vue', resolveFrom);
 
     return framework.default(this.options);
   }

@@ -21,6 +21,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
   }
 
   const integrations = options.integrations ?? [];
+  const resolveFrom = options.resolveFrom ?? process.cwd();
 
   config.plugins.push(
     storybookAstroMiddlewarePlugin,
@@ -51,7 +52,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
     aliases['react-dom'] = 'react-dom';
   }
 
-  const finalConfig = await mergeWithAstroConfig(config, integrations);
+  const finalConfig = await mergeWithAstroConfig(config, integrations, resolveFrom);
 
   // Exclude @astrojs/vue from dependency optimization because it imports
   // virtual modules that esbuild cannot resolve (virtual:@astrojs/vue/app).

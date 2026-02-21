@@ -1,5 +1,6 @@
 import type { Integration } from './base.ts';
 import type { Options as _foo, PluginOptions, SvelteConfig } from '@sveltejs/vite-plugin-svelte';
+import { importModule } from './moduleResolver.ts';
 
 // Using Omit with empty string to preserve index signature
 // capabilities while maintaining the structure of the original types
@@ -35,8 +36,10 @@ export class SvelteIntegration implements Integration {
     }
   }
 
-  async loadIntegration() {
-    const framework = await import('@astrojs/svelte');
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{
+      default: (options: Options) => Awaited<ReturnType<Integration['loadIntegration']>>;
+    }>('@astrojs/svelte', resolveFrom);
 
     return framework.default(this.options);
   }

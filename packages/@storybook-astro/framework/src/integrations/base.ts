@@ -19,5 +19,5 @@ export abstract class Integration {
   abstract readonly storybookEntryPreview?: string;
 
   abstract resolveClient(moduleName: string): string | undefined;
-  abstract loadIntegration(): Promise<AstroIntegration>;
-} 
+  abstract loadIntegration(resolveFrom?: string): Promise<AstroIntegration>;
+}
