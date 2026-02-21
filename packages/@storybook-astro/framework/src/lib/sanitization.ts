@@ -176,22 +176,20 @@ function mergeSanitizeHtmlOptions(userOptions?: IOptions): IOptions {
     };
   }
 
-  if (
-    isRecord(DEFAULT_SANITIZE_HTML_OPTIONS.allowedClasses) &&
-    isRecord(userOptions?.allowedClasses)
-  ) {
+  if (isRecord(userOptions?.allowedClasses)) {
     merged.allowedClasses = {
-      ...DEFAULT_SANITIZE_HTML_OPTIONS.allowedClasses,
+      ...(isRecord(DEFAULT_SANITIZE_HTML_OPTIONS.allowedClasses)
+        ? DEFAULT_SANITIZE_HTML_OPTIONS.allowedClasses
+        : {}),
       ...userOptions.allowedClasses
     };
   }
 
-  if (
-    isRecord(DEFAULT_SANITIZE_HTML_OPTIONS.allowedStyles) &&
-    isRecord(userOptions?.allowedStyles)
-  ) {
+  if (isRecord(userOptions?.allowedStyles)) {
     merged.allowedStyles = {
-      ...DEFAULT_SANITIZE_HTML_OPTIONS.allowedStyles,
+      ...(isRecord(DEFAULT_SANITIZE_HTML_OPTIONS.allowedStyles)
+        ? DEFAULT_SANITIZE_HTML_OPTIONS.allowedStyles
+        : {}),
       ...userOptions.allowedStyles
     };
   }
