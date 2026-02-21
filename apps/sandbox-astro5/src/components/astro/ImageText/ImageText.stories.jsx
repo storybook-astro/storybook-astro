@@ -75,3 +75,22 @@ export const ImageRight = {
     },
   },
 };
+
+export const SanitizeDangerousHtml = {
+  parameters: {
+    docs: { description: { story: 'Image on the left with welcome text in the default slot.' } },
+  },
+  args: {
+    imageSrc: storybookAstro,
+    imageAlt: 'Astro Storybook Earth',
+    slots: {
+      default: `
+        <script>document.body.innerHTML = 'This content should never be visible';</script>
+        <h2>Welcome to Storybook Astro</h2>
+        <p>
+          Script injected through default slot should not appear in produced HTML
+        </p>
+      `,
+    },
+  },
+};
