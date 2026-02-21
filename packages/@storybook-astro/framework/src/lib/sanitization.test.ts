@@ -100,11 +100,133 @@ describe('sanitization', () => {
     });
   });
 
+  test('merges sanitize-html classes and styles options', () => {
+    const options = resolveSanitizationOptions({
+      sanitizeHtml: {
+        allowedClasses: {
+          p: ['prose']
+        },
+        allowedStyles: {
+          '*': {
+            color: [/^#(?:[0-9a-fA-F]{3}){1,2}$/]
+          }
+        }
+      }
+    });
+
+    expect(options.sanitizeHtml.allowedClasses).toMatchObject({
+      p: ['prose']
+    });
+
+    expect(options.sanitizeHtml.allowedStyles).toMatchObject({
+      '*': {
+        color: [expect.any(RegExp)]
+      }
+    });
+  });
+
   test('rejects invalid path lists', () => {
     expect(() =>
       resolveSanitizationOptions({
         args: ['ok', '  ']
       })
     ).toThrow('framework.options.sanitization.args[1] cannot be an empty string.');
+  });
+
+  test('rejects non-array path list values', () => {
+    expect(() =>
+      resolveSanitizationOptions({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        args: 'content' as any
+      })
+    ).toThrow('framework.options.sanitization.args must be an array of dot-path patterns.');
+  });
+
+  test('rejects non-string entries in path lists', () => {
+    expect(() =>
+      resolveSanitizationOptions({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        args: ['ok', 1 as any]
+      })
+    ).toThrow('framework.options.sanitization.args[1] must be a string.');
+  });
+
+  test('supports ** suffix matching and leaves non-matching paths untouched', () => {
+    const options = resolveSanitizationOptions({
+      args: ['**.html'],
+      slots: []
+    });
+
+    const payload = sanitizeRenderPayload(
+      {
+        args: {
+          items: [
+            {
+              nested: {
+                html: '<p>Safe<script>alert(1)</script></p>'
+              },
+              content: '<p>Leave<script>alert(1)</script></p>'
+            }
+          ]
+        },
+        slots: {}
+      },
+      options
+    );
+
+    const items = payload.args.items as Array<{ nested: { html: string }; content: string }>;
+
+    expect(items[0].nested.html).toBe('<p>Safe</p>');
+    expect(items[0].content).toBe('<p>Leave<script>alert(1)</script></p>');
+  });
+
+  test('does not sanitize when path is shorter than pattern and keeps non-string values', () => {
+    const options = resolveSanitizationOptions({
+      args: ['title.html'],
+      slots: []
+    });
+
+    const regexValue = /hello/i;
+
+    const payload = sanitizeRenderPayload(
+      {
+        args: {
+          title: '<p>Keep<script>alert(1)</script></p>',
+          count: 1,
+          truthy: true,
+          pattern: regexValue
+        },
+        slots: {}
+      },
+      options
+    );
+
+    expect(payload.args.title).toBe('<p>Keep<script>alert(1)</script></p>');
+    expect(payload.args.count).toBe(1);
+    expect(payload.args.truthy).toBe(true);
+    expect(payload.args.pattern).toBe(regexValue);
+  });
+
+  test('supports null-prototype records during traversal', () => {
+    const options = resolveSanitizationOptions({
+      args: ['meta.html'],
+      slots: []
+    });
+
+    const meta = Object.create(null) as Record<string, unknown>;
+
+    meta.html = '<p>Safe<script>alert(1)</script></p>';
+
+    const payload = sanitizeRenderPayload(
+      {
+        args: {
+          meta
+        },
+        slots: {}
+      },
+      options
+    );
+
+    expect((payload.args.meta as Record<string, unknown>).html).toBe('<p>Safe</p>');
   });
 });
