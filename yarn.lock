@@ -2893,6 +2893,7 @@ __metadata:
     astro: "npm:^5.6.1 || ^6.0.0-beta.0"
     sanitize-html: "npm:^2.17.0"
     storybook-solidjs: "npm:^1.0.0-beta.7"
+    tsup: "npm:^8.5.1"
     vite: "npm:^6.2.5 || ^7.0.0"
     vite-plugin-solid: "npm:^2.11.10"
     vitest: "npm:^4.0.18"
@@ -2953,6 +2954,7 @@ __metadata:
   dependencies:
     "@types/node": "npm:^20.19.0"
     astro: "npm:^5.6.1 || ^6.0.0-beta.0"
+    tsup: "npm:^8.5.1"
   peerDependencies:
     "@storybook/react": ^10.0.0
     astro: ^5.5.3 || ^6.0.0-beta.0

@@ -9,7 +9,7 @@ export default defineConfig({
     'src/index.ts',
   ],
   format: ['esm'],
-  dts: false,
+  dts: true,
   sourcemap: true,
   clean: true,
   external: [

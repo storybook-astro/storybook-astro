@@ -10,7 +10,7 @@ export default defineConfig({
     'src/middleware.ts',
   ],
   format: ['esm'],
-  dts: false,
+  dts: true,
   sourcemap: true,
   clean: true,
   external: [
