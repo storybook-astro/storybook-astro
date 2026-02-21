@@ -1,7 +1,7 @@
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { Integration } from './integrations/index.ts';
-import type { SanitizationOptions } from './sanitization.ts';
-import { resolveSanitizationOptions, sanitizeRenderPayload } from './sanitization.ts';
+import type { SanitizationOptions } from './lib/sanitization.ts';
+import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { addRenderers } from 'virtual:astro-container-renderers';
 
 export type HandlerProps = {
