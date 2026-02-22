@@ -3,20 +3,26 @@ import {
   composeStory as portableComposeStory,
   setProjectAnnotations as portableSetProjectAnnotations,
 } from '../portable-stories.ts';
+import type { ProjectAnnotations, Store_CSFExports as StoreCsfExports } from 'storybook/internal/types';
+import type { AstroRenderer } from '../portable-stories.ts';
 import type { ComposedStory, StoryMeta } from './types.ts';
 
-export function composeStories<TModule extends Record<string, any>>(
+export function composeStories<
+  TModule extends StoreCsfExports<AstroRenderer> & Record<string, unknown>
+>(
   storiesImport: TModule,
-  projectAnnotations?: any
+  projectAnnotations?: ProjectAnnotations<AstroRenderer>
 ) {
   const composed = portableComposeStories(storiesImport, projectAnnotations);
 
   for (const [storyExportName, story] of Object.entries(composed)) {
     if (typeof story === 'function') {
-      (story as ComposedStory).__storybookAstroMeta = storiesImport.default as StoryMeta;
-      (story as ComposedStory).__storybookAstroStoryExport = storiesImport[storyExportName] as {
-        args?: Record<string, unknown>;
-      };
+      const composedStory = story as ComposedStory;
+
+      composedStory.__storybookAstroMeta = storiesImport.default as StoryMeta;
+      composedStory.__storybookAstroStoryExport = storiesImport[
+        storyExportName as keyof TModule
+      ] as ComposedStory['__storybookAstroStoryExport'];
     }
   }
 
