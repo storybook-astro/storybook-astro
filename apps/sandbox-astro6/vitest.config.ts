@@ -7,10 +7,14 @@ import vue from '@astrojs/vue';
 import preact from '@astrojs/preact';
 import svelte from '@astrojs/svelte';
 import alpinejs from '@astrojs/alpinejs';
+import { fileURLToPath } from 'node:url';
 import { cjsInteropPlugin, vitestPatchForSolidJs } from '@storybook-astro/framework/testing';
 import { vitePluginAstroComponentMarker } from '@storybook-astro/framework/vitePluginAstroComponentMarker.ts';
 
+const appRoot = fileURLToPath(new URL('./', import.meta.url));
+
 const vitestConfig = defineConfig({
+  root: appRoot,
   mode: 'test',
   plugins: [
     // Several Astro 6 runtime dependencies (cssesc, cookie, react, etc.) are

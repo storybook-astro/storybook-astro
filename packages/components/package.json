@@ -7,9 +7,37 @@
     "src",
     "package.json"
   ],
+  "scripts": {
+    "test": "vitest"
+  },
   "exports": {
     "./package.json": "./package.json",
     "./*": "./src/*"
+  },
+  "devDependencies": {
+    "@astrojs/alpinejs": "^0.4.5",
+    "@preact/preset-vite": "^2.10.3",
+    "@storybook-astro/framework": "workspace:*",
+    "@storybook/addon-docs": "10.2.7",
+    "@storybook/addon-vitest": "^10.2.7",
+    "@storybook/preact-vite": "10.2.7",
+    "@storybook/react-vite": "10.2.7",
+    "@storybook/svelte": "^10.2.7",
+    "@storybook/vue3": "^10.2.7",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3 || ^6.0.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-vue": "^5.2.3",
+    "@vitest/coverage-v8": "4.0.18",
+    "astro": "^5.17.2",
+    "happy-dom": "^17.4.4",
+    "jsdom": "^28.1.0",
+    "storybook": "10.2.7",
+    "storybook-solidjs-vite": "^10.0.9",
+    "vite-plugin-solid": "^2.11.10",
+    "vitest": "^4.0.18"
   },
   "peerDependencies": {
     "alpinejs": "^3.14.0",

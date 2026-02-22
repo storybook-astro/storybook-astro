@@ -4,5 +4,5 @@
   "compilerOptions": {
     "types": ["@testing-library/jest-dom"]
   },
-  "include": [".astro/types.d.ts", "./src/**/*"]
+  "include": ["./src/**/*"]
 }
