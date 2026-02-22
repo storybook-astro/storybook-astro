@@ -1,4 +1,4 @@
-import Counter from '@storybook-astro/components/react/Counter/Counter.jsx';
+import Counter from '@storybook-astro/components/Counter/react/Counter.jsx';
 
 export default {
   parameters: {

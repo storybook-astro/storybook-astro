@@ -14,8 +14,8 @@ export default defineConfig({
         { icon: 'external', label: 'Live Demo', href: 'https://demo.storybook-astro.org' },
       ],
       components: {
-        ThemeProvider: '@storybook-astro/components/astro/ThemeProvider/ThemeProvider.astro',
-        ThemeSelect: '@storybook-astro/components/astro/ThemeProvider/ThemeProvider.astro',
+        ThemeProvider: '@storybook-astro/components/ThemeProvider/astro/ThemeProvider.astro',
+        ThemeSelect: '@storybook-astro/components/ThemeProvider/astro/ThemeProvider.astro',
       },
       customCss: [
         '@fontsource/inter/400.css',

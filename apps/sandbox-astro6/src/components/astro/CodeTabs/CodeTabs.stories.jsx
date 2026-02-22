@@ -1,4 +1,4 @@
-import CodeTabs from '@storybook-astro/components/astro/CodeTabs/CodeTabs.astro';
+import CodeTabs from '@storybook-astro/components/CodeTabs/astro/CodeTabs.astro';
 
 export default {
   title: 'Astro/Code Tabs',
@@ -26,6 +26,8 @@ export default {
   },
 };
 
+export const Default = {};
+
 export const ReactHydrated = {
   name: 'React (client:load)',
   args: { framework: 'react' },
@@ -52,6 +54,6 @@ export const VueHydrated = {
 };
 
 export const AlpineRuntime = {
-  name: 'Alpine (runtime directives)',
+  name: 'Alpine',
   args: { framework: 'alpine' },
 };

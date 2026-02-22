@@ -1,4 +1,4 @@
-import Counter from '@storybook-astro/components/svelte/Counter/Counter.svelte';
+import Counter from '@storybook-astro/components/Counter/svelte/Counter.svelte';
 
 export default {
   parameters: {

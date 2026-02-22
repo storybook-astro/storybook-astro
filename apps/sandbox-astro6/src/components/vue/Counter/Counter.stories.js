@@ -1,4 +1,4 @@
-import Counter from '@storybook-astro/components/vue/Counter/Counter.vue';
+import Counter from '@storybook-astro/components/Counter/vue/Counter.vue';
 
 export default {
   parameters: {

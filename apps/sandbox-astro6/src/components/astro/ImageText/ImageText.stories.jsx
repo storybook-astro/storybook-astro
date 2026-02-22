@@ -1,4 +1,4 @@
-import ImageText from '@storybook-astro/components/astro/ImageText/ImageText.astro';
+import ImageText from '@storybook-astro/components/ImageText/astro/ImageText.astro';
 import storybookAstro from '../../../assets/storybook-astro.png';
 
 export default {

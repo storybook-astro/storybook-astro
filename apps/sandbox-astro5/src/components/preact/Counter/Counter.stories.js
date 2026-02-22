@@ -1,4 +1,4 @@
-import Counter from '@storybook-astro/components/preact/Counter/Counter.jsx';
+import Counter from '@storybook-astro/components/Counter/preact/Counter.jsx';
 
 export default {
   parameters: {
