@@ -1,11 +1,13 @@
-import { composeStories } from '@storybook-astro/framework';
-import { testStoryRenders, testStoryComposition } from '@storybook-astro/framework/testing';
+import { screen } from '@testing-library/dom';
+import { test, expect } from 'vitest';
+import { composeStories, renderStory } from '@storybook-astro/framework/testing';
 import * as stories from './Accordion.stories.jsx';
 
 const { Default } = composeStories(stories);
 
-// Test basic composition
-testStoryComposition('Default', Default);
+test('Accordion Default renders via SSR', async () => {
+  await renderStory(Default);
 
-// Test rendering capability
-testStoryRenders('Accordion Default', Default);
+  expect(screen.getByTestId('vanilla-accordion')).toBeInTheDocument();
+  expect(screen.getByText('Section 1')).toBeInTheDocument();
+});

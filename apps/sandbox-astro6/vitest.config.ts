@@ -28,7 +28,6 @@ const vitestConfig = defineConfig({
   ],
   test: {
     name: 'astro6',
-    environment: 'happy-dom',
     setupFiles: ['.storybook/vitest.setup.ts'],
     include: ['**/*.test.ts', '**/*.test.tsx']
   }

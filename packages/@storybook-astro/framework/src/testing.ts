@@ -9,8 +9,143 @@
 import { test, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
-import type { Plugin } from 'vite';
+import type { Plugin, ViteDevServer } from 'vite';
+import type { Integration as StorybookAstroIntegration } from './integrations/base.ts';
+import {
+  alpinejs as alpineIntegration,
+  preact as preactIntegration,
+  react as reactIntegration,
+  solid as solidIntegration,
+  svelte as svelteIntegration,
+  vue as vueIntegration,
+} from './integrations/index.ts';
+import {
+  composeStories as portableComposeStories,
+  composeStory as portableComposeStory,
+  setProjectAnnotations as portableSetProjectAnnotations,
+} from './portable-stories.ts';
+
+type StoryMeta = {
+  component: unknown;
+  args?: Record<string, unknown>;
+};
+
+type ComposedStory = {
+  (...args: unknown[]): unknown;
+  args?: Record<string, unknown>;
+  component?: unknown;
+  __storybookAstroMeta?: StoryMeta;
+  __storybookAstroStoryExport?: { args?: Record<string, unknown> };
+};
+
+let astroContainerPromise: Promise<{
+  renderToString: (component: unknown, options: { props: Record<string, unknown> }) => Promise<string>;
+}> | null = null;
+
+let astroSsrViteServerPromise: Promise<ViteDevServer> | null = null;
+
+let astroSsrHandlerPromise: Promise<
+  (data: { component: string; args?: Record<string, unknown> }) => Promise<string>
+> | null = null;
+
+async function getAstroContainer() {
+  if (!astroContainerPromise) {
+    const { experimental_AstroContainer: AstroContainer } = await import('astro/container');
+
+    astroContainerPromise = AstroContainer.create();
+  }
+
+  return astroContainerPromise;
+}
+
+async function getAstroSsrViteServer() {
+  if (!astroSsrViteServerPromise) {
+    const { createViteServer } = await import('./viteStorybookAstroMiddlewarePlugin.ts');
+    const integrations = createTestingIntegrations();
+
+    astroSsrViteServerPromise = createViteServer(integrations, process.cwd());
+  }
+
+  return astroSsrViteServerPromise;
+}
+
+function createTestingIntegrations(): StorybookAstroIntegration[] {
+  return [
+    reactIntegration({ include: ['**/react/**'] }),
+    solidIntegration({ include: ['**/solid/**'] }),
+    preactIntegration({ include: ['**/preact/**'] }),
+    vueIntegration(),
+    svelteIntegration(),
+    alpineIntegration(),
+  ];
+}
+
+async function getAstroSsrHandler() {
+  if (!astroSsrHandlerPromise) {
+    astroSsrHandlerPromise = (async () => {
+      const integrations = createTestingIntegrations();
+      const viteServer = await getAstroSsrViteServer();
+      const middlewareModulePath = fileURLToPath(new URL('./middleware', import.meta.url));
+      const middleware = await viteServer.ssrLoadModule(middlewareModulePath, {
+        fixStacktrace: true
+      });
+
+      return middleware.handlerFactory(integrations, {});
+    })();
+  }
+
+  return astroSsrHandlerPromise;
+}
+
+function isStorybookAstroClientStub(component: unknown) {
+  return (
+    typeof component === 'function' &&
+    String(component).includes('Astro components are rendered server-side by Storybook')
+  );
+}
+
+function isAstroComponentFactory(component: unknown) {
+  return typeof component === 'function' && 'isAstroComponentFactory' in component;
+}
+
+function getComponentModuleId(component: unknown) {
+  if (typeof component !== 'function' || !('moduleId' in component)) {
+    return null;
+  }
+
+  if (typeof component.moduleId !== 'string') {
+    return null;
+  }
+
+  return component.moduleId.split('?')[0].split('#')[0];
+}
+
+/**
+ * composeStories exported from the testing entrypoint, so Astro tests can import
+ * both composition and rendering helpers from one place.
+ */
+export function composeStories<TModule extends Record<string, any>>(
+  storiesImport: TModule,
+  projectAnnotations?: any
+) {
+  const composed = portableComposeStories(storiesImport, projectAnnotations);
+
+  for (const [storyExportName, story] of Object.entries(composed)) {
+    if (typeof story === 'function') {
+      (story as ComposedStory).__storybookAstroMeta = storiesImport.default as StoryMeta;
+      (story as ComposedStory).__storybookAstroStoryExport = storiesImport[storyExportName] as {
+        args?: Record<string, unknown>;
+      };
+    }
+  }
+
+  return composed;
+}
+
+export const composeStory = portableComposeStory;
+export const setProjectAnnotations = portableSetProjectAnnotations;
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -84,6 +219,129 @@ export function testStoryComposition(storyName: string, story: any, expectedArgs
     }
   });
 }
+
+async function resolveAstroComponent(component: unknown) {
+  let resolvedComponent = component;
+
+  if (!isAstroComponentFactory(resolvedComponent)) {
+    throw new Error('Story meta.component must be an Astro component factory.');
+  }
+
+  if ('moduleId' in resolvedComponent && typeof resolvedComponent.moduleId === 'string') {
+    const moduleId = resolvedComponent.moduleId;
+    const normalizedModuleId = moduleId.split('?')[0].split('#')[0];
+
+    try {
+      const mod = await import(/* @vite-ignore */ normalizedModuleId);
+
+      if (isAstroComponentFactory(mod.default)) {
+        resolvedComponent = mod.default;
+      }
+    } catch {
+      // keep current component when direct module import is unavailable
+    }
+
+    if (isStorybookAstroClientStub(resolvedComponent)) {
+      try {
+        const viteServer = await getAstroSsrViteServer();
+        let mod = await viteServer.ssrLoadModule(normalizedModuleId);
+
+        if (!isAstroComponentFactory(mod.default)) {
+          mod = await viteServer.ssrLoadModule(`/@fs${normalizedModuleId}`);
+        }
+
+        if (isAstroComponentFactory(mod.default)) {
+          resolvedComponent = mod.default;
+        }
+      } catch {
+        // keep current component when SSR module loading is unavailable
+      }
+    }
+  }
+
+  return resolvedComponent;
+}
+
+async function renderAstroComponentToDom(
+  component: unknown,
+  args: Record<string, unknown>
+) {
+  const moduleId = getComponentModuleId(component);
+
+  if (moduleId) {
+    try {
+      const handler = await getAstroSsrHandler();
+      const html = await handler({
+        component: moduleId,
+        args
+      });
+
+      if (typeof document !== 'undefined') {
+        document.body.innerHTML = html;
+      }
+
+      return html;
+    } catch {
+      // Fall back to direct Container rendering below
+    }
+  }
+
+  const resolvedComponent = await resolveAstroComponent(component);
+  const container = await getAstroContainer();
+  const html = await container.renderToString(resolvedComponent, {
+    props: args
+  });
+
+  if (typeof document !== 'undefined') {
+    document.body.innerHTML = html;
+  }
+
+  return html;
+}
+
+async function renderComposedStory(story: ComposedStory) {
+  const meta = story.__storybookAstroMeta;
+  const storyExport = story.__storybookAstroStoryExport;
+  let component = meta?.component ?? story.component;
+
+  if (!isAstroComponentFactory(component)) {
+    const maybeRendered = await story();
+
+    if (isAstroComponentFactory(maybeRendered)) {
+      component = maybeRendered;
+    } else if (
+      typeof maybeRendered === 'object' &&
+      maybeRendered !== null &&
+      'component' in maybeRendered &&
+      isAstroComponentFactory((maybeRendered as { component: unknown }).component)
+    ) {
+      component = (maybeRendered as { component: unknown }).component;
+    }
+  }
+
+  if (!component) {
+    throw new Error('Unable to resolve Astro component from composed story.');
+  }
+
+  const args = {
+    ...(meta?.args ?? {}),
+    ...(storyExport?.args ?? {}),
+    ...(story.args ?? {})
+  };
+
+  return renderAstroComponentToDom(component, args);
+}
+
+/**
+ * Renders an Astro story directly with Astro Container in test environments.
+ *
+ * Usage: `await renderStory(Default)` where `Default` comes from `composeStories`.
+ */
+export async function renderStory(story: ComposedStory) {
+  return renderComposedStory(story);
+}
+
+export const renderAstroStory = renderStory;
 
 // ---------------------------------------------------------------------------
 // Helpers
