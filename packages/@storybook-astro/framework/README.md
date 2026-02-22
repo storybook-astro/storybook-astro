@@ -7,7 +7,7 @@ The community-supported [Storybook](https://storybook.js.org/) framework for [As
 ## Install
 
 ```bash
-npm install --save-dev storybook @storybook/builder-vite @storybook-astro/framework
+npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 ```
 
 ## Setup

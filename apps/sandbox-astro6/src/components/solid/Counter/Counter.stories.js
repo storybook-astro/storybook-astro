@@ -1,4 +1,4 @@
-import Counter from './Counter.tsx';
+import Counter from '@storybook-astro/components/solid/Counter/Counter.tsx';
 
 export default {
   parameters: {

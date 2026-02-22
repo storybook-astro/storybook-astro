@@ -1,4 +1,4 @@
-import Counter from './Counter.astro';
+import Counter from '@storybook-astro/components/astro/Counter/Counter.astro';
 
 export default {
   title: 'Astro/Counter',

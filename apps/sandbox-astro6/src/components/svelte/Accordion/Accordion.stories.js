@@ -1,4 +1,4 @@
-import Accordion from './Accordion.svelte';
+import Accordion from '@storybook-astro/components/svelte/Accordion/Accordion.svelte';
 
 export default {
   parameters: {

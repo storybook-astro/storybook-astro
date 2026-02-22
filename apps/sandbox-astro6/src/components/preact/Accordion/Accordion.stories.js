@@ -1,4 +1,4 @@
-import Accordion from './Accordion.tsx';
+import Accordion from '@storybook-astro/components/preact/Accordion/Accordion.tsx';
 import { h } from 'preact';
 
 // Wrapper to clone frozen args from Storybook

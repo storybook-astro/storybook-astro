@@ -1,10 +1,12 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import preact from '@astrojs/preact';
 
 // https://astro.build/config
 export default defineConfig({
   integrations: [
+    preact(),
     starlight({
       title: 'Storybook Astro',
       social: [
@@ -12,8 +14,8 @@ export default defineConfig({
         { icon: 'external', label: 'Live Demo', href: 'https://demo.storybook-astro.org' },
       ],
       components: {
-        ThemeProvider: './src/components/ThemeProvider.astro',
-        ThemeSelect: './src/components/ThemeProvider.astro',
+        ThemeProvider: '@storybook-astro/components/astro/ThemeProvider/ThemeProvider.astro',
+        ThemeSelect: '@storybook-astro/components/astro/ThemeProvider/ThemeProvider.astro',
       },
       customCss: [
         '@fontsource/inter/400.css',

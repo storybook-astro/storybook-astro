@@ -41,6 +41,7 @@
   },
   "workspaces": [
     "packages/@storybook-astro/*",
+    "packages/components",
     "apps/*"
   ],
   "packageManager": "yarn@4.12.0",

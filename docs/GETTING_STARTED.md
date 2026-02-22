@@ -16,7 +16,7 @@ Add Storybook to an existing Astro project:
 ### 1. Install packages
 
 ```bash
-npm install --save-dev storybook @storybook/builder-vite @storybook-astro/framework
+npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 ```
 
 To use non-Astro framework components (React, Vue, Svelte, etc.) in your stories, also install the corresponding Astro integrations and Storybook renderers:

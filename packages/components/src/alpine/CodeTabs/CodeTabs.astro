@@ -1,0 +1,186 @@
+---
+const commandTabs = [
+  {
+    id: 'npm',
+    label: 'npm',
+    command: 'npm install -D storybook @storybook/builder-vite @storybook-astro/framework',
+  },
+  {
+    id: 'yarn',
+    label: 'yarn',
+    command: 'yarn add -D storybook @storybook/builder-vite @storybook-astro/framework',
+  },
+  {
+    id: 'pnpm',
+    label: 'pnpm',
+    command: 'pnpm add -D storybook @storybook/builder-vite @storybook-astro/framework',
+  },
+  {
+    id: 'bun',
+    label: 'bun',
+    command: 'bun add -d storybook @storybook/builder-vite @storybook-astro/framework',
+  },
+];
+
+const tabsData = JSON.stringify(commandTabs);
+const defaultId = commandTabs[0].id;
+const alpineData = `{ tabs: ${tabsData}, activeId: '${defaultId}', copyStatus: 'idle', resetTimer: null, getActiveTab() { return this.tabs.find((tab) => tab.id === this.activeId) || this.tabs[0]; }, statusMessage() { if (this.copyStatus === 'copied') { return 'Command copied to clipboard'; } if (this.copyStatus === 'failed') { return 'Could not auto-copy. Command selected for manual copy'; } return ''; }, selectCode() { const selection = window.getSelection(); if (!selection || !this.$refs.code) { return; } const range = document.createRange(); range.selectNodeContents(this.$refs.code); selection.removeAllRanges(); selection.addRange(range); }, fallbackCopyToClipboard(text) { const textarea = document.createElement('textarea'); textarea.value = text; textarea.setAttribute('readonly', ''); textarea.style.position = 'fixed'; textarea.style.top = '-9999px'; document.body.append(textarea); textarea.select(); const didCopy = document.execCommand('copy'); textarea.remove(); return didCopy; }, async copyCommand() { this.selectCode(); let didCopy = false; try { if (navigator && navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(this.getActiveTab().command); didCopy = true; } else { didCopy = this.fallbackCopyToClipboard(this.getActiveTab().command); } } catch (_error) { didCopy = this.fallbackCopyToClipboard(this.getActiveTab().command); } this.copyStatus = didCopy ? 'copied' : 'failed'; if (this.resetTimer) { clearTimeout(this.resetTimer); } this.resetTimer = window.setTimeout(() => { this.copyStatus = 'idle'; }, 1800); } }`;
+
+---
+
+<div
+  data-testid="alpine-code-tabs"
+  class="code-tabs alpine-code-tabs-root"
+  x-data={alpineData}
+>
+  <div class="code-tabs__toolbar">
+    <div class="code-tabs__list" role="tablist" aria-label="Package manager command switcher">
+      {commandTabs.map((tab) => (
+        <button
+          type="button"
+          role="tab"
+          class="code-tabs__tab"
+          :class={`{ 'is-active': activeId === '${tab.id}' }`}
+          :aria-selected={`activeId === '${tab.id}'`}
+          x-on:click={`activeId = '${tab.id}'`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+    <button
+      type="button"
+      class="code-tabs__copy"
+      :class="{ 'is-copied': copyStatus === 'copied' }"
+      :aria-label="copyStatus === 'copied' ? 'Copied to clipboard' : 'Copy install command'"
+      x-on:click="copyCommand()"
+      x-text="copyStatus === 'copied' ? 'Copied' : 'Copy'"
+    ></button>
+  </div>
+  <pre class="code-tabs__panel" x-on:click="copyCommand()">
+    <code x-ref="code" class="code-tabs__code" x-text="getActiveTab().command"></code>
+  </pre>
+  <span class="code-tabs__sr" aria-live="polite" x-text="statusMessage()"></span>
+</div>
+
+<style is:inline>
+  .alpine-code-tabs-root {
+    position: relative;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0d1117;
+    text-align: left;
+  }
+
+  .alpine-code-tabs-root .code-tabs__toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    border-bottom: 1px solid #30363d;
+    background: #161b22;
+  }
+
+  .alpine-code-tabs-root .code-tabs__list {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .alpine-code-tabs-root .code-tabs__tab {
+    appearance: none;
+    border: 0;
+    border-right: 1px solid #30363d;
+    background: transparent;
+    color: #8b949e;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .alpine-code-tabs-root .code-tabs__tab:last-child {
+    border-right: 0;
+  }
+
+  .alpine-code-tabs-root .code-tabs__tab:hover {
+    background: #21262d;
+    color: #c9d1d9;
+  }
+
+  .alpine-code-tabs-root .code-tabs__tab.is-active {
+    background: transparent;
+    color: #d18be8;
+    font-weight: 700;
+    box-shadow: inset 0 -2px 0 #d18be8;
+  }
+
+  .alpine-code-tabs-root .code-tabs__copy {
+    appearance: none;
+    border: 0;
+    border-left: 1px solid #30363d;
+    background: #161b22;
+    color: #8b949e;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.6rem 0.95rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .alpine-code-tabs-root .code-tabs__copy:hover {
+    background: #21262d;
+    color: #f0f6fc;
+  }
+
+  .alpine-code-tabs-root .code-tabs__copy.is-copied {
+    color: #7ee787;
+  }
+
+  .alpine-code-tabs-root .code-tabs__panel {
+    margin: 0;
+    padding: 0.85rem 1rem;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #c9d1d9;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    cursor: copy;
+    user-select: all;
+  }
+
+  .alpine-code-tabs-root .code-tabs__code {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    white-space: nowrap;
+  }
+
+  .alpine-code-tabs-root .code-tabs__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 520px) {
+    .alpine-code-tabs-root .code-tabs__toolbar {
+      grid-template-columns: 1fr;
+    }
+
+    .alpine-code-tabs-root .code-tabs__copy {
+      border-left: 0;
+      border-top: 1px solid #30363d;
+    }
+  }
+</style>

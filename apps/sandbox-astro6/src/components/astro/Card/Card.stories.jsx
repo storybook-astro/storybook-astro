@@ -1,4 +1,4 @@
-import Card from './Card.astro';
+import Card from '@storybook-astro/components/astro/Card/Card.astro';
 
 export default {
   title: 'Astro/Card',

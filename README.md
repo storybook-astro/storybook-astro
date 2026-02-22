@@ -13,7 +13,7 @@ Add Storybook to an existing Astro project:
 ### 1. Install packages
 
 ```bash
-npm install --save-dev storybook @storybook/builder-vite @storybook-astro/framework
+npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 ```
 
 ### 2. Create `.storybook/main.js`

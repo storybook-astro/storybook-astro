@@ -1,4 +1,4 @@
-import Accordion from './Accordion.vue';
+import Accordion from '@storybook-astro/components/vue/Accordion/Accordion.vue';
 
 export default {
   parameters: {

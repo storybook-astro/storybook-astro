@@ -1,4 +1,4 @@
-import Accordion from './Accordion.tsx';
+import Accordion from '@storybook-astro/components/react/Accordion/Accordion.tsx';
 
 export default {
   parameters: {

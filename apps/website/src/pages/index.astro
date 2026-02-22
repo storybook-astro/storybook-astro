@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import InstallCommandTabs from '@storybook-astro/components/preact/CodeTabs/CodeTabs.jsx';
 ---
 
 <Layout title="Storybook Astro — Community Storybook Framework for Astro">
@@ -15,7 +16,7 @@ import Layout from '../layouts/Layout.astro';
       <a href="/getting-started/" class="btn btn-secondary">Get Started</a>
     </div>
     <div class="install-cmd">
-      <code>npm install --save-dev storybook @storybook/builder-vite @storybook-astro/framework</code>
+      <InstallCommandTabs client:idle />
     </div>
   </section>
 
@@ -145,18 +146,8 @@ import Layout from '../layouts/Layout.astro';
   }
 
   .install-cmd {
-    display: inline-block;
+    width: 100%;
     margin-top: 0.5rem;
-  }
-
-  .install-cmd code {
-    background: #161b22;
-    border: 1px solid #30363d;
-    padding: 0.6rem 1.5rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    color: #8b949e;
-    user-select: all;
   }
 
   /* Features */

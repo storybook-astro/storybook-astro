@@ -2875,6 +2875,38 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@storybook-astro/components@workspace:*, @storybook-astro/components@workspace:packages/components":
+  version: 0.0.0-use.local
+  resolution: "@storybook-astro/components@workspace:packages/components"
+  peerDependencies:
+    alpinejs: ^3.14.0
+    astro: ^5.5.3 || ^6.0.0-beta.0
+    preact: ^10.28.0
+    react: ^18.3.0 || ^19.0.0
+    react-dom: ^18.3.0 || ^19.0.0
+    solid-js: ^1.9.0
+    svelte: ^5.0.0
+    vue: ^3.5.0
+  peerDependenciesMeta:
+    alpinejs:
+      optional: true
+    astro:
+      optional: true
+    preact:
+      optional: true
+    react:
+      optional: true
+    react-dom:
+      optional: true
+    solid-js:
+      optional: true
+    svelte:
+      optional: true
+    vue:
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "@storybook-astro/framework@workspace:*, @storybook-astro/framework@workspace:packages/@storybook-astro/framework":
   version: 0.0.0-use.local
   resolution: "@storybook-astro/framework@workspace:packages/@storybook-astro/framework"
@@ -2974,6 +3006,7 @@ __metadata:
     "@astrojs/svelte": "npm:^7.0.9"
     "@astrojs/vue": "npm:^5.0.9"
     "@chromatic-com/storybook": "npm:^5.0.0"
+    "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.2.7"
     "@storybook/addon-vitest": "npm:^10.2.7"
@@ -3016,6 +3049,7 @@ __metadata:
     "@astrojs/svelte": "npm:8.0.0-beta.2"
     "@astrojs/vue": "npm:6.0.0-beta.1"
     "@chromatic-com/storybook": "npm:^5.0.0"
+    "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.2.7"
     "@storybook/addon-vitest": "npm:^10.2.7"
@@ -3051,10 +3085,13 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@storybook-astro/website@workspace:apps/website"
   dependencies:
+    "@astrojs/preact": "npm:^4.0.8"
     "@astrojs/starlight": "npm:^0.37.6"
     "@fontsource/inter": "npm:^5.2.8"
+    "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     astro: "npm:^5.5.3"
+    preact: "npm:^10.28.1"
   languageName: unknown
   linkType: soft
 
