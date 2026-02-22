@@ -33,6 +33,7 @@
 import { test, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import type { AstroIntegration } from 'astro';
 import type { Plugin } from 'vite';
 
 // ---------------------------------------------------------------------------
@@ -166,6 +167,68 @@ function findPackageDir(pkgName: string): string | null {
 // ---------------------------------------------------------------------------
 // Vite plugins for testing
 // ---------------------------------------------------------------------------
+
+/**
+ * Astro integration that patches Solid's Vitest resolution conditions.
+ *
+ * In Vitest's happy-dom environment, Solid components are commonly transformed
+ * with DOM output while module resolution can still prefer Solid's server
+ * runtime. That mismatch triggers `notSup` errors.
+ *
+ * This patch forces `solid-js/web` to resolve to the browser bundle in tests
+ * without globally enabling `browser` conditions (which can break other deps).
+ */
+export function vitestPatchForSolidJs(): AstroIntegration {
+  return {
+    name: 'fix-solid',
+    hooks: {
+      'astro:config:done': ({ config }) => {
+        const solidPlugin = config.vite.plugins?.find(
+          (plugin) => plugin && 'name' in plugin && plugin.name === 'solid'
+        ) as Plugin | undefined;
+
+        if (!solidPlugin) {
+          return;
+        }
+
+        const originalConfigEnvironment = solidPlugin.configEnvironment;
+
+        if (typeof originalConfigEnvironment !== 'function') {
+          return;
+        }
+
+        solidPlugin.configEnvironment = async (name, resolvedConfig, opts) => {
+          await originalConfigEnvironment(name, resolvedConfig, opts);
+
+          resolvedConfig.resolve ??= {};
+          const alias = resolvedConfig.resolve.alias;
+          const replacement = 'solid-js/web/dist/web.js';
+
+          if (Array.isArray(alias)) {
+            const hasAlias = alias.some((entry) => {
+              if (!entry || typeof entry !== 'object' || !('find' in entry)) {
+                return false;
+              }
+
+              return entry.find === 'solid-js/web' || String(entry.find) === '/^solid-js\\/web$/';
+            });
+
+            if (!hasAlias) {
+              alias.unshift({ find: /^solid-js\/web$/, replacement });
+            }
+
+            return;
+          }
+
+          resolvedConfig.resolve.alias = {
+            ...(alias ?? {}),
+            'solid-js/web': replacement
+          };
+        };
+      }
+    }
+  };
+}
 
 /**
  * Vite plugin that wraps CJS modules with ESM-compatible shims.

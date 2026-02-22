@@ -7,7 +7,7 @@ import vue from '@astrojs/vue';
 import preact from '@astrojs/preact';
 import svelte from '@astrojs/svelte';
 import alpinejs from '@astrojs/alpinejs';
-import { cjsInteropPlugin } from '@storybook-astro/framework/testing';
+import { cjsInteropPlugin, vitestPatchForSolidJs } from '@storybook-astro/framework/testing';
 import { vitePluginAstroComponentMarker } from '@storybook-astro/framework/vitePluginAstroComponentMarker.ts';
 
 const vitestConfig = defineConfig({
@@ -40,10 +40,6 @@ export default getViteConfig(vitestConfig as any, {
       include: ['**/react/**']
     }),
     solid({
-      // Use non-recursive glob so vite-plugin-solid doesn't compile test
-      // components. In the test env, Solid's SSR compilation mode conflicts
-      // with the client-side runtime (template() becomes notSup() on server).
-      // Solid rendering is validated in Storybook's browser instead.
       include: ['**/solid/*.tsx']
     }),
     preact({
@@ -51,6 +47,7 @@ export default getViteConfig(vitestConfig as any, {
     }),
     vue(),
     svelte({ extensions: ['.svelte'] }),
-    alpinejs()
+    alpinejs(),
+    vitestPatchForSolidJs()
   ]
 });
