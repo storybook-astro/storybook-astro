@@ -15,9 +15,7 @@ const VITEST_CONFIG_FILES = [
 function extractStackFilePath(line: string) {
   const trimmed = line.trim();
 
-  const match =
-    trimmed.match(/\((.+):(\d+):(\d+)\)$/) ??
-    trimmed.match(/^at\s+(.+):(\d+):(\d+)$/);
+  const match = trimmed.match(/\((.+):(\d+):(\d+)\)$/) ?? trimmed.match(/^at\s+(.+):(\d+):(\d+)$/);
 
   if (!match) {
     return null;
@@ -157,6 +155,7 @@ function canResolveAstroFrom(dir: string) {
     const require = createRequire(`${join(dir, '__storybook-astro-testing-resolve__.js')}`);
 
     require.resolve('astro/package.json');
+
     return true;
   } catch {
     return false;
