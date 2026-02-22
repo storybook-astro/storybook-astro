@@ -129,8 +129,8 @@ npm run storybook
 This package provides a complete Storybook framework integration for Astro components, enabling developers to:
 
 - **Document and test Astro components** in Storybook's interactive environment
-- **Server-side render Astro components** using Astro's Container API
-- **Support multiple UI frameworks** within Astro components (React, Vue, Svelte, Preact, Solid, Alpine.js)
+- **Server-side render Astro components** directly in Storybook
+- **Render Astro and UI framework components together** in one Storybook (React, Vue, Svelte, Preact, Solid, Alpine.js)
 - **Live preview components** with hot module replacement during development
 - **Build and deploy static Storybook** with pre-rendered Astro components
 - **Handle component hydration** and client-side interactivity
@@ -145,7 +145,7 @@ The core framework implementation that integrates Astro with Storybook's build s
 
 - **Vite Plugin Integration**: Configures Vite to handle Astro components during the Storybook build process
 - **Middleware Handler**: Sets up an Astro Container that renders components server-side on demand
-- **Framework Integrations**: Manages multiple UI framework renderers (React, Vue, Svelte, etc.) that can be used within Astro components
+- **Framework Integrations**: Manages UI framework renderers (React, Vue, Svelte, etc.) so Astro and framework components can be documented side-by-side in the same Storybook
 - **Module Resolution**: Handles special module resolution for Astro's runtime and framework-specific modules
 
 **Key files:**
@@ -392,7 +392,7 @@ This section tracks Astro's built-in framework features and their compatibility 
 - **Component Rendering** - Core Astro component rendering via Container API
 - **Props & Slots** - Passing data and content to components
 - **Scoped Styles** - Component-scoped CSS (including Astro 6's style sub-module imports)
-- **Multiple Framework Support** - React, Vue, Svelte, Preact, Solid, and Alpine.js
+- **Astro + Framework Components** - Astro components and client-side UI components work together in one Storybook (React, Vue, Svelte, Preact, Solid, Alpine.js)
 - **Client Directives** - `client:load`, `client:only`, etc. for framework components
 - **Static Builds** - `storybook build` with build-time pre-rendering of Astro component stories
 

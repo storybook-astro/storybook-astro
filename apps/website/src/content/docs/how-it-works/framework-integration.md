@@ -1,6 +1,6 @@
 ---
 title: Framework Integration
-description: How Storybook Astro supports multiple UI frameworks.
+description: How Storybook Astro lets Astro and UI framework components work together.
 ---
 
 Storybook Astro supports rendering components from React, Vue, Svelte, Preact, Solid, and Alpine.js alongside native Astro components. Each framework is handled by an integration adapter.

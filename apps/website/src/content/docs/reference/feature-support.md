@@ -7,10 +7,10 @@ This page tracks Astro's built-in framework features and their compatibility sta
 
 ## Supported
 
-- **Component Rendering** — Core Astro component rendering via Container API
+- **Component Rendering** — Core Astro component rendering in Storybook
 - **Props & Slots** — Passing data and content to components
 - **Scoped Styles** — Component-scoped CSS (including Astro 6's style sub-module imports)
-- **Multiple Framework Support** — React, Vue, Svelte, Preact, Solid, and Alpine.js
+- **Astro + UI Framework Components** — Astro components and client-side UI components render together in one Storybook (React, Vue, Svelte, Preact, Solid, Alpine.js)
 - **Client Directives** — `client:load`, `client:only`, etc. for framework components
 - **Static Builds** — `storybook build` with build-time pre-rendering of Astro component stories
 

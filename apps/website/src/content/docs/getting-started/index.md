@@ -7,8 +7,8 @@ Storybook Astro is the community-supported Storybook framework for Astro. It let
 
 ## What it does
 
-- **Server-side renders Astro components** using the Container API — just like production
-- **Supports multiple UI frameworks** within Astro: React, Vue, Svelte, Preact, Solid, and Alpine.js
+- **Server-side renders Astro components** in Storybook — close to production behavior
+- **Supports Astro + UI frameworks together** in one Storybook: Astro components alongside React, Vue, Svelte, Preact, Solid, and Alpine.js
 - **Hot module replacement** during development for fast iteration
 - **Static builds** with pre-rendered Astro component stories
 - **Portable stories** for testing with Vitest
