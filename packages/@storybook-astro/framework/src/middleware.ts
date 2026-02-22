@@ -12,6 +12,7 @@ export type HandlerProps = {
 
 type HandlerFactoryOptions = {
   sanitization?: SanitizationOptions;
+  loadModule?: (id: string) => Promise<{ default: any }>;
 };
 
 export async function handlerFactory(integrations: Integration[], options?: HandlerFactoryOptions) {
@@ -37,9 +38,10 @@ export async function handlerFactory(integrations: Integration[], options?: Hand
 
   addRenderers(container);
   const sanitizationOptions = resolveSanitizationOptions(options?.sanitization);
+  const loadModule = options?.loadModule ?? ((id: string) => import(/* @vite-ignore */ id));
 
   return async function handler(data: HandlerProps) {
-    const { default: Component } = await import(/* @vite-ignore */ data.component);
+    const { default: Component } = await loadModule(data.component);
 
     // Process args to convert ImageMetadata objects to usable URLs
     const processedArgs = await processImageMetadata(data.args || {});

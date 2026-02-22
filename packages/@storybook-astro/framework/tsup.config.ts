@@ -6,6 +6,7 @@ export default defineConfig({
     'src/index.ts',
     'src/preset.ts',
     'src/testing.ts',
+    'src/vitest/index.ts',
     'src/integrations/index.ts',
     'src/middleware.ts',
   ],

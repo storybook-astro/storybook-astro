@@ -27,6 +27,7 @@
     ".": "./src/index.ts",
     "./integrations": "./src/integrations/index.ts",
     "./testing": "./src/testing.ts",
+    "./vitest": "./src/vitest/index.ts",
     "./preset": "./preset.ts",
     "./package.json": "./package.json",
     "./*": "./src/*"
@@ -44,6 +45,10 @@
       "./testing": {
         "types": "./src/testing.ts",
         "import": "./dist/testing.js"
+      },
+      "./vitest": {
+        "types": "./src/vitest/index.ts",
+        "import": "./dist/vitest/index.js"
       },
       "./preset": {
         "types": "./preset.ts",

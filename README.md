@@ -276,60 +276,9 @@ export const Highlighted = {
 
 ## Testing and Portable Stories
 
-### Component Testing with `composeStories`
+For testing setup and API usage, see the testing guide:
 
-The package includes a `composeStories` function that enables testing of Storybook stories outside the Storybook environment. This allows you to verify that components render correctly and detect integration issues with different frameworks.
-
-```javascript
-// Card.test.ts
-import { composeStories } from '@storybook-astro/framework';
-import { testStoryRenders, testStoryComposition } from '@storybook-astro/framework/testing';
-import * as stories from './Card.stories.jsx';
-
-const { Default, Highlighted } = composeStories(stories);
-
-// Test that the story can be composed
-testStoryComposition('Default', Default);
-
-// Test that the story renders successfully in Storybook
-testStoryRenders('Card Default', Default);
-```
-
-### Framework Integration Health
-
-The test suite validates the health of all framework integrations by attempting to render components from each supported framework. All 17 test suites (36 tests) pass, covering Astro, React, Vue, Svelte, Preact, Solid, and Alpine.js components.
-
-### Vitest / Vite 6 Compatibility
-
-Vite 6's ESM module runner cannot evaluate raw CommonJS modules. The `cjsInteropPlugin()` from `@storybook-astro/framework/testing` handles this by:
-- Redirecting bare package imports to their ESM entry points via `resolveId`
-- Auto-detecting and wrapping remaining CJS modules with ESM-compatible shims (providing `module`, `exports`, `require`, `__dirname`, `__filename`)
-
-The `vitePluginAstroComponentMarker` is also loaded in the Vitest config so that portable stories can detect Astro components in the test environment.
-
-### Solid Testing Limitation
-
-Solid components render correctly in Storybook's browser, but the Vitest config intentionally uses a non-recursive include glob (`**/solid/*.tsx`) so that `vite-plugin-solid` does not compile the nested component files. This avoids an SSR/client mismatch: Vitest runs in happy-dom (client compilation mode), but the Solid runtime resolves to `server.js` where client APIs like `template()` throw. The portable stories tests validate Solid story composition without requiring actual Solid rendering.
-
-### Available Testing Functions
-
-- **`composeStories(stories)`** - Composes all stories from a story file for testing
-- **`composeStory(story, meta)`** - Composes a single story for testing
-- **`setProjectAnnotations(annotations)`** - Sets global Storybook configuration for tests
-
-### Test Utilities
-
-All testing utilities are available from the `@storybook-astro/framework/testing` entry point:
-
-```javascript
-import { testStoryRenders, testStoryComposition, cjsInteropPlugin } from '@storybook-astro/framework/testing';
-```
-
-- `testStoryComposition(name, story)` - Verifies story can be imported and composed
-- `testStoryRenders(name, story)` - Validates story renders without errors
-- `cjsInteropPlugin()` - Vite plugin that wraps CJS modules for Vite 6's ESM runner
-
-These utilities provide consistent testing patterns across all component tests.
+- [apps/website/src/content/docs/guides/testing.md](./apps/website/src/content/docs/guides/testing.md)
 
 ## Framework Integration
 
@@ -369,7 +318,8 @@ storybook-astro/
 │       │   │   ├── middleware.ts                         # SSR handler + createAstro compat
 │       │   │   ├── preset.ts                             # Storybook config
 │       │   │   ├── portable-stories.ts                   # composeStories for testing
-│       │   │   ├── testing.ts                             # Test utilities (testStoryRenders, cjsInteropPlugin, etc.)
+│       │   │   ├── testing.ts                             # Testing runtime APIs (composeStories, renderStory)
+│       │   │   ├── vitest/                                # Vitest config helpers (defineConfig)
 │       │   │   ├── vitePluginAstroComponentMarker.ts     # Astro 6 component detection
 │       │   │   ├── vitePluginAstroBuildPrerender.ts      # Build-time pre-rendering
 │       │   │   ├── vitePluginAstroFontsFallback.ts       # Astro 6 font module stubs
@@ -392,11 +342,7 @@ storybook-astro/
 
 ## Known Issues
 
-### Solid Testing Limitation
-
-Solid components render and work correctly in Storybook's browser. However, in the Vitest test environment, Solid's SSR compilation mode conflicts with the client-side runtime: the compiled code calls `template()` (a client API) but at runtime it resolves to `server.js` where `template` is aliased to a function that throws "Client-only API called on the server side". The workaround is a non-recursive include glob in `vitest.config.ts` so that `vite-plugin-solid` doesn't compile the nested component files. Composition tests still pass; actual Solid rendering is validated in the browser.
-
-### Other Known Issues
+### Current Known Issues
 
 - This is experimental software not ready for production
 - Some Astro features may not work as expected in the Storybook environment
@@ -436,12 +382,6 @@ Astro 6 introduced several breaking changes to how components are transformed an
 **Problem**: In Astro 5, `renderToCanvas()` called `storyFn()` first, then delegated to framework renderers. In Astro 6 with updated framework integrations, this created orphaned reactive effects for frameworks like Solid that manage their own rendering lifecycle.
 
 **Solution**: `renderToCanvas()` now delegates to framework-specific renderers *before* calling `storyFn()`. This lets each framework (React, Solid, Vue, etc.) manage its own reactive root without interference.
-
-### 6. CJS Module Interop (`cjsInteropPlugin`)
-
-**Problem**: Vite 6's ESM module runner cannot evaluate raw CommonJS modules (e.g. `cssesc`, `cookie`, `react`). Several Astro 6 runtime dependencies are still CJS.
-
-**Solution**: `cjsInteropPlugin()` from `@storybook-astro/framework/testing` auto-detects CJS modules and wraps them with ESM-compatible shims providing `module`, `exports`, `require`, `__dirname`, and `__filename`. It also redirects bare package imports to ESM entry points when available. This plugin is used in `vitest.config.ts`.
 
 ## Roadmap: Astro Framework Feature Support
 

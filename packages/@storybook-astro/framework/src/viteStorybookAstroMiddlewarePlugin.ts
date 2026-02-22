@@ -9,6 +9,7 @@ import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderers
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
+import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 
 export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptions) {
   // The internal Vite server is created lazily inside configureServer (dev-only).
@@ -27,7 +28,11 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
         fixStacktrace: true
       });
       const handler = await middleware.handlerFactory(options.integrations ?? [], {
-        sanitization: options.sanitization
+        sanitization: options.sanitization,
+        loadModule: (id: string) =>
+          ssrLoadModuleWithFsFallback(viteServer!, id, {
+            fixStacktrace: true
+          })
       });
 
       server.ws.on('astro:render:request', async (data: RenderRequestMessage['data']) => {
@@ -105,7 +110,7 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
   const projectAstroResolutionPlugin = createProjectAstroResolutionPlugin(resolveFrom);
 
   const config = await getViteConfig(
-    {},
+    { root: resolveFrom },
     {
       configFile: false,
       integrations: await Promise.all(
