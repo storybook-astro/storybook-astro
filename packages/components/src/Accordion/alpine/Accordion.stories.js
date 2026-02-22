@@ -1,4 +1,4 @@
-import Accordion from '@storybook-astro/components/Accordion/alpine/Accordion.astro';
+import Accordion from './Accordion.astro';
 
 export default {
   title: 'Alpine/Accordion',

@@ -1,4 +1,4 @@
-import Accordion from '@storybook-astro/components/Accordion/solid/Accordion.tsx';
+import Accordion from './Accordion.tsx';
 
 export default {
   parameters: {

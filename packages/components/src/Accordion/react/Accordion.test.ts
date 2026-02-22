@@ -1,4 +1,4 @@
-import { composeStories, setProjectAnnotations } from '@storybook/react-vite';
+import { composeStories } from '@storybook/react-vite';
 import { screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { flushSync } from 'react-dom';
@@ -13,6 +13,7 @@ const { Default } = composeStories(stories);
 
 test('React Accordion Default renders with native React renderer', () => {
   const element = document.createElement('div');
+
   document.body.append(element);
   const root = createRoot(element);
 

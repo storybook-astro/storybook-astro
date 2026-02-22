@@ -14,6 +14,7 @@ const { Default } = composeStories(stories, composedProjectAnnotations);
 
 test('Preact Accordion Default renders with native renderer composition', () => {
   const element = document.createElement('div');
+
   document.body.append(element);
 
   try {
