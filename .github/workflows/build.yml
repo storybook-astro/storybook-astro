@@ -35,20 +35,17 @@ jobs:
       - name: Build website
         run: yarn workspace @storybook-astro/website build
 
+      - name: Run tests
+        run: yarn test
+
       - name: Build Storybook (Astro 6)
         continue-on-error: true
         run: timeout 180 yarn workspace @storybook-astro/sandbox-astro6 build-storybook || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
-      - name: Run tests (Astro 6)
-        run: yarn workspace @storybook-astro/sandbox-astro6 test
-
       - name: Build Storybook (Astro 5)
         continue-on-error: true
         run: timeout 180 yarn workspace @storybook-astro/sandbox-astro5 build-storybook || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
-
-      - name: Run tests (Astro 5)
-        run: yarn workspace @storybook-astro/sandbox-astro5 test
