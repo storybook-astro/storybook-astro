@@ -4,7 +4,7 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "yarn storybook",
     "build": "astro build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
