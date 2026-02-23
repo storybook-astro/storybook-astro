@@ -31,7 +31,9 @@ const ASTRO_PLUGINS_THAT_ARE_SUPPOSEDLY_NOT_NEEDED_IN_STORYBOOK = [
 export async function mergeWithAstroConfig(
   config: InlineConfig,
   integrations: Integration[] = [],
-  resolveFrom = process.cwd()
+  resolveFrom = process.cwd(),
+  mode = 'development',
+  command: 'build' | 'serve' = 'serve'
 ) {
   const { getViteConfig } = await importAstroConfig(resolveFrom);
   const safeIntegrations = integrations ?? [];
@@ -45,8 +47,8 @@ export async function mergeWithAstroConfig(
       )
     }
   )({
-    mode: 'development',
-    command: 'serve'
+    mode,
+    command
   });
 
   const filteredPlugins = astroConfig

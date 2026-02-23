@@ -2,7 +2,7 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
-import { addRenderers } from 'virtual:astro-container-renderers';
+import { addRenderers, resolveClientModules } from 'virtual:astro-container-renderers';
 
 export type HandlerProps = {
   component: string;
@@ -15,8 +15,7 @@ type HandlerFactoryOptions = {
   loadModule?: (id: string) => Promise<{ default: any }>;
 };
 
-export async function handlerFactory(integrations: Integration[], options?: HandlerFactoryOptions) {
-  const safeIntegrations = integrations ?? [];
+export async function handlerFactory(_integrations: Integration[], options?: HandlerFactoryOptions) {
   const container = await AstroContainer.create({
     // Somewhat hacky way to force client-side Storybook's Vite to resolve modules properly
     resolve: async (s) => {
@@ -24,12 +23,10 @@ export async function handlerFactory(integrations: Integration[], options?: Hand
         return `/@id/${s}`;
       }
 
-      for (const integration of safeIntegrations) {
-        const resolution = integration.resolveClient(s);
+      const resolution = resolveClientModules(s);
 
-        if (resolution) {
-          return resolution;
-        }
+      if (resolution) {
+        return resolution;
       }
 
       return s;

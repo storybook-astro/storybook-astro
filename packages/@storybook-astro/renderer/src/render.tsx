@@ -14,6 +14,8 @@ type RendererRegistry = Record<string, FallbackRenderer>;
 
 // Cache for pending Astro component render requests
 const messages = new Map<string, RenderPromise>();
+const PRERENDERED_STORIES_FILE = 'astro-prerendered-stories.json';
+let prerenderedStoriesPromise: Promise<Record<string, string>> | undefined;
 
 /**
  * Renders a Storybook story component with appropriate handling for different component types.
@@ -208,8 +210,7 @@ function isAstroComponent(element: unknown): element is AstroComponentFactory {
 /**
  * Renders an Astro component to the canvas using server-side rendering.
  *
- * In static builds, checks for build-time pre-rendered HTML (injected by
- * vitePluginAstroBuildPrerender) before falling back to the HMR path.
+ * In static builds, uses pre-rendered HTML from astro-prerendered-stories.json.
  */
 async function renderAstroToCanvas(
   element: AstroComponentFactory,
@@ -217,10 +218,12 @@ async function renderAstroToCanvas(
   canvasElement: HTMLElement,
   storyContext?: StoryContext<AstroRenderer>
 ): Promise<void> {
-  // In static builds, use build-time pre-rendered HTML if available
-  const prerenderedHtml = storyContext?.parameters?.__astroPrerendered;
+  if (!import.meta.hot) {
+    const prerenderedHtml = await resolvePrerenderedStoryHtml(
+      storyContext?.id,
+      storyContext?.parameters?.__astroPrerendered
+    );
 
-  if (prerenderedHtml && !import.meta.hot) {
     canvasElement.innerHTML = prerenderedHtml;
     activateScriptTags(canvasElement);
 
@@ -321,10 +324,7 @@ function activateScriptTags(container: HTMLElement): void {
 
 /**
  * Renders an Astro component using server-side rendering via Vite HMR communication.
- * 
- * In static builds (no dev server), returns an informational fallback message since
- * Astro components require server-side rendering via the Container API.
- * 
+ *
  * @param data - Component render request data
  * @param timeoutMs - Maximum time to wait for rendering (default: 5000ms)
  * @returns Promise that resolves with the rendered HTML
@@ -333,22 +333,10 @@ async function renderAstroComponent(
   data: RenderComponentInput, 
   timeoutMs = 5000
 ): Promise<RenderResponseMessage['data']> {
-  // In static builds, import.meta.hot is undefined — no dev server to handle SSR.
   if (!import.meta.hot) {
-    return {
-      id: 'static-build',
-      html:
-        '<div style="padding: 20px; border: 2px dashed #8b8b8b; border-radius: 8px; ' +
-        'text-align: center; color: #6b6b6b; font-family: system-ui, sans-serif; ' +
-        'background: #f8f8f8">' +
-        '<p style="margin: 0 0 8px; font-size: 16px; font-weight: 600">' +
-        'Astro Component</p>' +
-        '<p style="margin: 0; font-size: 13px">' +
-        'Astro components require server-side rendering and cannot be displayed ' +
-        'in a static build. Run <code style="background: #e8e8e8; padding: 2px 6px; ' +
-        'border-radius: 3px">storybook dev</code> for interactive rendering.</p>' +
-        '</div>'
-    };
+    throw new Error(
+      'Astro render requests require Vite HMR. In static builds, use pre-rendered story HTML.'
+    );
   }
 
   const id = crypto.randomUUID();
@@ -432,4 +420,47 @@ function setupViteHMRListeners(): void {
 function isAstroStyleUpdate(path: string): boolean {
   // Match Astro style files: *.astro?astro&type=style&index=0&lang.css
   return /\.astro\?astro&type=style&index=\d+&lang\.(css|scss|sass|less|stylus)$/.test(path);
+}
+
+async function resolvePrerenderedStoryHtml(storyId: string | undefined, fallbackHtml: unknown) {
+  if (typeof fallbackHtml === 'string') {
+    return fallbackHtml;
+  }
+
+  if (!storyId) {
+    throw new Error('Astro static renderer expected a story id, but none was provided.');
+  }
+
+  const prerenderedStories = await loadPrerenderedStories();
+  const html = prerenderedStories[storyId];
+
+  if (html === undefined) {
+    throw new Error(
+      `No prerendered HTML was found for story "${storyId}". Rebuild Storybook static output.`
+    );
+  }
+
+  return html;
+}
+
+async function loadPrerenderedStories() {
+  if (!prerenderedStoriesPromise) {
+    const jsonPath = resolvePrerenderedStoriesUrl();
+
+    prerenderedStoriesPromise = fetch(jsonPath).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load ${PRERENDERED_STORIES_FILE}. Received ${response.status} ${response.statusText}.`
+        );
+      }
+
+      return (await response.json()) as Record<string, string>;
+    });
+  }
+
+  return prerenderedStoriesPromise;
+}
+
+function resolvePrerenderedStoriesUrl() {
+  return new URL(PRERENDERED_STORIES_FILE, window.location.href).toString();
 }

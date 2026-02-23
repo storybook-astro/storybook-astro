@@ -1,35 +1,69 @@
 import type { Integration } from './integrations/index.ts';
+import { createVirtualModulePlugin } from './vite/createVirtualModulePlugin.ts';
 
-export function viteAstroContainerRenderersPlugin(integrations: Integration[]) {
+type PluginOptions = {
+  mode?: 'development' | 'production';
+  staticModuleMap?: Record<string, string>;
+};
+
+export function viteAstroContainerRenderersPlugin(
+  integrations: Integration[],
+  options: PluginOptions = {}
+) {
   const safeIntegrations = integrations ?? [];
-  const name = 'astro-container-renderers';
-  const virtualModuleId = `virtual:${name}`;
-  const resolvedVirtualModuleId = `\0${virtualModuleId}`;
+  const mode = options.mode ?? 'development';
+  const staticModuleMap = options.staticModuleMap ?? {};
 
-  return {
-    name,
+  return createVirtualModulePlugin({
+    pluginName: 'storybook-astro:container-renderers',
+    virtualModuleId: 'virtual:astro-container-renderers',
+    load() {
+      const importStatements = buildImportStatements(safeIntegrations);
+      const clientResolvers =
+        mode === 'development'
+          ? safeIntegrations
+              .filter((integration) => typeof integration.resolveClient === 'function')
+              .map((integration) =>
+                integration.resolveClient.toString().replace(/^resolveClient/, 'function')
+              )
+              .join(',\n')
+          : '';
 
-    resolveId(id: string) {
-      if (id === virtualModuleId) {
-        return resolvedVirtualModuleId;
-      }
-    },
+      return `
+        ${importStatements}
 
-    load(id: string) {
-      if (id === resolvedVirtualModuleId) {
-        const importStatements = buildImportStatements(safeIntegrations);
+        export function addRenderers(container) {
+          ${safeIntegrations.map((integration) => buildServerRenderer(integration) + '\n' + buildClientRenderer(integration)).join('\n')}
+        }
 
-        const code = `
-          ${importStatements}
-          export function addRenderers(container) {
-            ${safeIntegrations.map((integration) => buildServerRenderer(integration) + '\n' + buildClientRenderer(integration)).join('\n')}
+        const staticClientModules = ${JSON.stringify(staticModuleMap, null, 2)};
+
+        const clientModulesResolvers = [
+          ${clientResolvers}
+        ];
+
+        export function resolveClientModules(specifier) {
+          if (Object.hasOwn(staticClientModules, specifier)) {
+            return staticClientModules[specifier];
           }
-        `;
 
-        return code;
-      }
+          const normalizedSpecifier = specifier.replace(/\\\\/g, '/').replace(/\\?.*$/, '');
+
+          if (Object.hasOwn(staticClientModules, normalizedSpecifier)) {
+            return staticClientModules[normalizedSpecifier];
+          }
+
+          for (const resolver of clientModulesResolvers) {
+            const resolution = resolver(specifier);
+
+            if (resolution) {
+              return resolution;
+            }
+          }
+        }
+      `;
     }
-  };
+  });
 }
 
 function buildImportStatements(integrations: Integration[]) {

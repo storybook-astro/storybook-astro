@@ -1,256 +1,649 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { basename } from 'node:path';
-import type { Plugin, ViteDevServer } from 'vite';
-import type { HandlerProps } from './middleware.ts';
+import { createRequire } from 'node:module';
+import type { Dirent } from 'node:fs';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import { createServer, mergeConfig, type Plugin, type Rollup } from 'vite';
+import { importAstroConfig } from './importAstroConfig.ts';
+import type { Integration } from './integrations/index.ts';
+import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import type { FrameworkOptions } from './types.ts';
-import { createViteServer } from './viteStorybookAstroMiddlewarePlugin.ts';
+import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
+import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 
-/**
- * Vite plugin that pre-renders Astro component stories at build time.
- *
- * During `storybook build`, this plugin:
- * 1. Creates an internal Vite SSR server with AstroContainer
- * 2. Detects story files that import Astro components
- * 3. Loads each story module via ssrLoadModule to get fully evaluated args
- *    (including imported assets, computed values, etc.)
- * 4. Renders each story variant using AstroContainer
- * 5. Injects the pre-rendered HTML as a story parameter (`__astroPrerendered`)
- *
- * The renderer checks for this parameter in static builds and uses the
- * pre-rendered HTML directly instead of showing a fallback message.
- *
- * Limitations:
- * - Controls panel changes won't update Astro components (HTML is static)
- * - Build time increases with the number of Astro stories
- * - Stories that override the meta component are skipped
- */
+const PRERENDERED_STORIES_FILE = 'astro-prerendered-stories.json';
+
+type StoryIndex = {
+  entries?: Record<
+    string,
+    {
+      type?: string;
+      id?: string;
+      importPath?: string;
+      exportName?: string;
+      componentPath?: string;
+    }
+  >;
+};
+
+type StoryEntry = {
+  id: string;
+  importPath: string;
+  exportName: string;
+};
+
+type AstroCreateResult = {
+  createAstro?: (...args: unknown[]) => unknown;
+};
+
+type AstroComponentFactory = ((
+  result: AstroCreateResult,
+  props: unknown,
+  slots: unknown
+) => unknown) & {
+  isAstroComponentFactory?: boolean;
+  moduleId?: string;
+  propagation?: unknown;
+};
+
 export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin {
-  const safeIntegrations = options.integrations ?? [];
+  const integrations = options.integrations ?? [];
   const resolveFrom = options.resolveFrom ?? process.cwd();
-  let viteServer: ViteDevServer | null = null;
-  let handler: ((data: HandlerProps) => Promise<string>) | null = null;
-
-  // Maps placeholder strings to Rollup emitted-file reference IDs.
-  // Placeholders are injected into pre-rendered HTML during transform,
-  // then resolved to final asset paths in renderChunk.
-  const assetRefIds = new Map<string, string>();
+  const trackedSpecifiers = collectTrackedSpecifiers(integrations);
+  const staticEntrypointRefs = new Map<string, string>();
+  const componentEntrypointRefs = new Map<string, string>();
+  let outDir = resolve(resolveFrom, 'storybook-static');
 
   return {
-    name: 'storybook-astro-build-prerender',
+    name: 'storybook-astro:build-prerender',
     apply: 'build',
     enforce: 'post',
 
-    async buildStart() {
-      try {
-        viteServer = await createViteServer(safeIntegrations, resolveFrom);
+    configResolved(config) {
+      outDir = resolve(resolveFrom, config.build.outDir ?? 'storybook-static');
+    },
 
-        const filePath = fileURLToPath(new URL('./middleware', import.meta.url));
-        const middleware = await viteServer.ssrLoadModule(filePath, {
-          fixStacktrace: true
-        });
+    resolveId(id: string) {
+      if (id.startsWith('virtual:astro-static-module/')) {
+        return `\0${id}`;
+      }
 
-        handler = await middleware.handlerFactory(safeIntegrations, {
-          sanitization: options.sanitization
-        });
-      } catch (err) {
-        console.warn(
-          '[storybook-astro] Failed to create pre-render server:',
-          err instanceof Error ? err.message : err
-        );
+      if (id.startsWith('virtual:astro-component-module/')) {
+        return `\0${id}`;
       }
     },
 
-    async transform(code, id) {
-      if (!handler || !viteServer) {return null;}
+    load(id: string) {
+      if (id.startsWith('\0virtual:astro-static-module/')) {
+        const encodedSpecifier = id.replace('\0virtual:astro-static-module/', '');
+        const specifier = decodeURIComponent(encodedSpecifier);
 
-      // Only process story files
-      if (!/\.stories\.(jsx?|tsx?|mjs)$/.test(id)) {return null;}
+        if (isClientEntrypoint(specifier)) {
+          return [`export { default } from '${specifier}';`, `export * from '${specifier}';`].join('\n');
+        }
 
-      // Parse AST to find .astro imports
-      const ast = this.parse(code);
-      const astroImport = findFirstAstroImport(ast);
-
-      if (!astroImport) {return null;}
-
-      // Resolve the .astro import to an absolute path
-      const resolved = await this.resolve(astroImport.source, id);
-
-      if (!resolved) {return null;}
-      const componentPath = resolved.id;
-
-      // Load the story module via SSR to get fully evaluated args
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let storyModule: Record<string, any>;
-
-      try {
-        storyModule = await viteServer.ssrLoadModule(id);
-      } catch (err) {
-        console.warn(
-          `[storybook-astro] Failed to load story for pre-render: ${id}`,
-          err instanceof Error ? err.message : err
-        );
-        
-return null;
+        return [`import '${specifier}';`, 'export default undefined;'].join('\n');
       }
 
-      const meta = storyModule.default || {};
+      if (id.startsWith('\0virtual:astro-component-module/')) {
+        const encodedSpecifier = id.replace('\0virtual:astro-component-module/', '');
+        const specifier = decodeURIComponent(encodedSpecifier);
 
-      // Confirm the meta component is an Astro component
-      if (!meta.component?.isAstroComponentFactory) {return null;}
+        return [`export { default } from '${specifier}';`, `export * from '${specifier}';`].join('\n');
+      }
+    },
 
-      // Find all named exports that are story objects
-      const storyNames = Object.keys(storyModule).filter(
-        (k) =>
-          k !== 'default' &&
-          k !== '__esModule' &&
-          typeof storyModule[k] === 'object' &&
-          storyModule[k] !== null
+    async buildStart(this: Rollup.PluginContext) {
+      integrations.forEach((integration) => {
+        const entrypoint = integration.renderer.client?.entrypoint;
+
+        if (entrypoint) {
+          this.addWatchFile(entrypoint);
+        }
+      });
+
+      trackedSpecifiers.forEach((specifier) => {
+        const fileReferenceId = this.emitFile({
+          type: 'chunk',
+          id: toStaticVirtualId(specifier)
+        });
+
+        staticEntrypointRefs.set(specifier, fileReferenceId);
+      });
+
+      const srcRoot = resolve(resolveFrom, 'src/components');
+      const specifiers = await collectHydratableSourceModules(srcRoot);
+
+      specifiers.forEach((specifier) => {
+        const fileReferenceId = this.emitFile({
+          type: 'chunk',
+          id: toComponentVirtualId(specifier)
+        });
+
+        componentEntrypointRefs.set(specifier, fileReferenceId);
+      });
+    },
+
+    async writeBundle(this: Rollup.PluginContext) {
+      const staticModuleMap = buildStaticModuleMap(
+        this,
+        staticEntrypointRefs,
+        componentEntrypointRefs
       );
 
-      if (storyNames.length === 0) {return null;}
+      const stories = await collectAstroStories(outDir);
 
-      // Pre-render each story
-      const prerendered: Record<string, string> = {};
+      if (stories.length === 0) {
+        await writePrerenderedStoriesFile(outDir, {});
 
-      for (const name of storyNames) {
-        const story = storyModule[name];
+        return;
+      }
 
-        // Skip stories that override the component — the resolved path
-        // corresponds to the meta component and may not match
-        if (story.component && story.component !== meta.component) {continue;}
+      const prerenderedStories = await prerenderStories({
+        stories,
+        integrations,
+        sanitization: options.sanitization,
+        staticModuleMap,
+        trackedSpecifiers,
+        resolveFrom
+      });
 
-        // Merge meta args with story args (story args take precedence)
-        const mergedArgs = { ...meta.args, ...story.args };
-        const { slots = {}, ...componentArgs } = mergedArgs;
+      await writePrerenderedStoriesFile(outDir, prerenderedStories);
+    }
+  };
+}
 
-        try {
-          const html = await handler({
-            component: componentPath,
-            args: componentArgs,
-            slots: (slots ?? {}) as Record<string, unknown>
-          });
-          // Rewrite /@fs dev-server URLs to Rollup asset placeholders.
-          // The actual files are emitted via this.emitFile and the
-          // placeholders are resolved to final paths in renderChunk.
+async function writePrerenderedStoriesFile(outDir: string, payload: Record<string, string>) {
+  await mkdir(outDir, { recursive: true });
+  await writeFile(resolve(outDir, PRERENDERED_STORIES_FILE), JSON.stringify(payload), 'utf-8');
+}
 
-          prerendered[name] = emitAndRewriteAssetUrls(html, this, assetRefIds);
-        } catch (err) {
-          console.warn(
-            `[storybook-astro] Pre-render failed for "${name}" in ${id}:`,
-            err instanceof Error ? err.message : err
-          );
+async function prerenderStories(options: {
+  stories: StoryEntry[];
+  integrations: Integration[];
+  sanitization?: FrameworkOptions['sanitization'];
+  staticModuleMap: Record<string, string>;
+  trackedSpecifiers: Set<string>;
+  resolveFrom: string;
+}) {
+  const sanitizationOptions = resolveSanitizationOptions(options.sanitization ?? undefined);
+  const resolveClientModule = createClientModuleResolver(
+    options.integrations,
+    options.staticModuleMap
+  );
+  const viteServer = await createStorySsrServer(
+    options.integrations,
+    options.trackedSpecifiers,
+    options.resolveFrom
+  );
+
+  try {
+    const container = await AstroContainer.create({
+      resolve: async (specifier) => {
+        const resolution = resolveClientModule(specifier);
+
+        if (resolution) {
+          return resolution;
+        }
+
+        return specifier;
+      }
+    });
+
+    await addContainerRenderers(container, options.integrations, resolveClientModule, viteServer);
+
+    const output: Record<string, string> = {};
+
+    for (const story of options.stories) {
+      const modulePath = resolveImportPath(story.importPath, options.resolveFrom);
+      const storyModule = await viteServer.ssrLoadModule(modulePath);
+      const meta = isRecord(storyModule.default) ? storyModule.default : {};
+      const storyExport = isRecord(storyModule[story.exportName]) ? storyModule[story.exportName] : {};
+
+      if (typeof meta.component !== 'function') {
+        throw new Error(
+          `Unable to prerender story "${story.id}". Missing default export component in ${story.importPath}.`
+        );
+      }
+
+      if (storyExport.component && storyExport.component !== meta.component) {
+        continue;
+      }
+
+      const mergedArgs = mergeStoryArgs(toRecord(meta.args), toRecord(storyExport.args));
+      const { args, slots } = separateSlots(mergedArgs);
+      const processedArgs = await processImageMetadata(args);
+      const sanitizedPayload = sanitizeRenderPayload(
+        {
+          args: processedArgs,
+          slots
+        },
+        sanitizationOptions
+      );
+
+      output[story.id] = await container.renderToString(patchCreateAstroCompat(meta.component), {
+        props: sanitizedPayload.args,
+        slots: sanitizedPayload.slots
+      });
+    }
+
+    return output;
+  } finally {
+    await viteServer.close();
+  }
+}
+
+async function createStorySsrServer(
+  integrations: Integration[],
+  trackedSpecifiers: Set<string>,
+  resolveFrom: string
+) {
+  const { getViteConfig } = await importAstroConfig(resolveFrom);
+  const astroConfig = await getViteConfig(
+    { root: resolveFrom },
+    {
+      configFile: false,
+      integrations: await Promise.all(
+        integrations.map((integration) => integration.loadIntegration(resolveFrom))
+      )
+    }
+  )({
+    mode: 'production',
+    command: 'serve'
+  });
+
+  const config = mergeConfig(astroConfig, {
+    appType: 'custom',
+    server: {
+      middlewareMode: true
+    },
+    plugins: [
+      createProjectAstroResolutionPlugin(resolveFrom),
+      vitePluginAstroFontsFallback(),
+      vitePluginAstroVueFallback(),
+      vitePluginAstroRoutesFallback(),
+      {
+        name: 'storybook-astro:static-prerender-ssr-stubs',
+        resolveId(id: string) {
+          if (trackedSpecifiers.has(id)) {
+            return `\0storybook-astro-static-prerender-stub:${encodeURIComponent(id)}`;
+          }
+        },
+        load(id: string) {
+          if (id.startsWith('\0storybook-astro-static-prerender-stub:')) {
+            return 'export default undefined;';
+          }
         }
       }
+    ]
+  });
 
-      if (Object.keys(prerendered).length === 0) {return null;}
+  return createServer(config);
+}
 
-      // Append code that injects pre-rendered HTML as story parameters.
-      // This runs as module-level side effects during import, before
-      // Storybook reads the story exports.
-      const injections = Object.entries(prerendered).map(
-        ([name, html]) =>
-          `if (typeof ${name} !== 'undefined' && ${name} && typeof ${name} === 'object') {\n` +
-          `  ${name}.parameters = Object.assign({}, ${name}.parameters, ` +
-          `{ __astroPrerendered: ${JSON.stringify(html)} });\n` +
-          `}`
-      );
+async function addContainerRenderers(
+  container: Awaited<ReturnType<typeof AstroContainer.create>>,
+  integrations: Integration[],
+  resolveClientModule: (specifier: string) => string | undefined,
+  viteServer: Awaited<ReturnType<typeof createStorySsrServer>>
+) {
+  for (const integration of integrations) {
+    const serverRenderer = integration.renderer.server;
 
-      return {
-        code:
-          code +
-          '\n// Pre-rendered by storybook-astro-build-prerender\n' +
-          injections.join('\n'),
-        map: null
-      };
-    },
+    if (serverRenderer) {
+      const serverRendererModule = await viteServer.ssrLoadModule(serverRenderer.entrypoint);
+      const renderer = serverRendererModule.default ?? serverRendererModule;
 
-    renderChunk(code) {
-      if (assetRefIds.size === 0) {return null;}
-
-      let result = code;
-      let modified = false;
-
-      for (const [placeholder, refId] of assetRefIds) {
-        if (!result.includes(placeholder)) {continue;}
-        const fileName = this.getFileName(refId);
-
-        result = result.replaceAll(placeholder, fileName);
-        modified = true;
+      if (integration.name === 'solid' && isRecord(renderer)) {
+        container.addServerRenderer({
+          name: serverRenderer.name,
+          renderer: {
+            ...renderer,
+            name: serverRenderer.name
+          }
+        });
+      } else {
+        container.addServerRenderer({
+          name: serverRenderer.name,
+          renderer
+        });
       }
+    }
 
-      return modified ? { code: result, map: null } : null;
-    },
+    const clientRenderer = integration.renderer.client;
 
-    async buildEnd() {
-      if (viteServer) {
-        await viteServer.close();
-        viteServer = null;
-        handler = null;
+    if (clientRenderer) {
+      const resolvedEntrypoint =
+        resolveClientModule(clientRenderer.entrypoint) ?? clientRenderer.entrypoint;
+
+      container.addClientRenderer({
+        name: clientRenderer.name,
+        entrypoint: resolvedEntrypoint
+      });
+    }
+  }
+}
+
+function createClientModuleResolver(
+  integrations: Integration[],
+  staticModuleMap: Record<string, string>
+) {
+  return function resolveClientModule(specifier: string) {
+    if (Object.hasOwn(staticModuleMap, specifier)) {
+      return staticModuleMap[specifier];
+    }
+
+    const normalizedSpecifier = specifier.replace(/\\/g, '/').replace(/\?.*$/, '');
+
+    if (Object.hasOwn(staticModuleMap, normalizedSpecifier)) {
+      return staticModuleMap[normalizedSpecifier];
+    }
+
+    for (const integration of integrations) {
+      const resolution = integration.resolveClient(specifier);
+
+      if (resolution) {
+        return resolution;
       }
     }
   };
 }
 
-/**
- * Finds the first import declaration with a .astro source in the ESTree AST.
- */
-function findFirstAstroImport(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ast: any
-): { local: string; source: string } | null {
-  for (const node of ast.body) {
-    if (
-      node.type === 'ImportDeclaration' &&
-      typeof node.source.value === 'string' &&
-      node.source.value.endsWith('.astro')
-    ) {
-      const defaultSpecifier = node.specifiers?.find(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (s: any) => s.type === 'ImportDefaultSpecifier'
-      );
+async function collectAstroStories(outDir: string): Promise<StoryEntry[]> {
+  const indexFile = resolve(outDir, 'index.json');
+  const indexRaw = await readFile(indexFile, 'utf-8');
+  const indexJson = JSON.parse(indexRaw) as StoryIndex;
 
-      if (defaultSpecifier) {
-        return {
-          local: defaultSpecifier.local.name,
-          source: node.source.value
-        };
+  return Object.values(indexJson.entries ?? {})
+    .filter((entry) => entry.type === 'story' && entry.componentPath?.endsWith('.astro'))
+    .map((entry) => {
+      if (!entry.id || !entry.importPath || !entry.exportName) {
+        throw new Error(`Encountered an invalid Storybook index entry in ${indexFile}.`);
       }
-    }
-  }
-  
-return null;
+
+      return {
+        id: entry.id,
+        importPath: entry.importPath,
+        exportName: entry.exportName
+      };
+    });
 }
 
-/**
- * Finds /@fs dev-server URLs in pre-rendered HTML, emits the referenced
- * files as Rollup assets, and replaces the URLs with placeholders that
- * are resolved to final paths in renderChunk.
- */
-function emitAndRewriteAssetUrls(
-  html: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ctx: any,
-  refIds: Map<string, string>
-): string {
-  // Match /@fs URLs in HTML attribute values.
-  // The URL may have a query string with HTML-encoded & (&#38;).
-  // Note: file paths may contain spaces, so we match until the closing quote.
-  return html.replace(/\/@fs([^"'>]+)/g, (fullMatch, rawPath: string) => {
-    // Strip query string (may contain &#38; or &)
-    const pathOnly = rawPath.split('?')[0];
+function mergeStoryArgs(
+  metaArgs: Record<string, unknown> | undefined,
+  storyArgs: Record<string, unknown> | undefined
+) {
+  return {
+    ...(metaArgs ?? {}),
+    ...(storyArgs ?? {})
+  };
+}
 
-    try {
-      const source = readFileSync(pathOnly);
-      const name = basename(pathOnly);
-      const refId = ctx.emitFile({ type: 'asset', name, source });
-      const placeholder = `__ASTRO_PRERENDER_ASSET_${refId}__`;
+function separateSlots(inputArgs: Record<string, unknown>) {
+  const args = { ...inputArgs };
+  const slotsCandidate = args.slots;
 
-      refIds.set(placeholder, refId);
-      
-return placeholder;
-    } catch {
-      return fullMatch;
+  delete args.slots;
+
+  if (!isRecord(slotsCandidate)) {
+    return {
+      args,
+      slots: {}
+    };
+  }
+
+  return {
+    args,
+    slots: slotsCandidate as Record<string, string>
+  };
+}
+
+function resolveImportPath(importPath: string, resolveFrom: string) {
+  if (importPath.startsWith('./')) {
+    return resolve(resolveFrom, importPath.slice(2));
+  }
+
+  return resolve(resolveFrom, importPath);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function collectTrackedSpecifiers(integrations: Integration[]) {
+  const specifiers = new Set<string>(['astro:scripts/page.js', 'astro:scripts/before-hydration.js']);
+
+  integrations.forEach((integration) => {
+    const entrypoint = integration.renderer.client?.entrypoint;
+
+    if (entrypoint) {
+      specifiers.add(entrypoint);
     }
   });
+
+  return specifiers;
+}
+
+function buildStaticModuleMap(
+  pluginContext: Rollup.PluginContext,
+  staticEntrypointRefs: Map<string, string>,
+  componentEntrypointRefs: Map<string, string>
+) {
+  const map: Record<string, string> = {};
+
+  staticEntrypointRefs.forEach((fileReferenceId, specifier) => {
+    const fileName = pluginContext.getFileName(fileReferenceId);
+
+    if (fileName) {
+      map[specifier] = toPublicPath(fileName);
+    }
+  });
+
+  componentEntrypointRefs.forEach((fileReferenceId, specifier) => {
+    const fileName = pluginContext.getFileName(fileReferenceId);
+
+    if (fileName) {
+      map[specifier] = toPublicPath(fileName);
+    }
+  });
+
+  return map;
+}
+
+function toStaticVirtualId(specifier: string) {
+  return `virtual:astro-static-module/${encodeURIComponent(specifier)}`;
+}
+
+function toComponentVirtualId(specifier: string) {
+  return `virtual:astro-component-module/${encodeURIComponent(specifier)}`;
+}
+
+function isClientEntrypoint(specifier: string) {
+  return specifier.startsWith('@astrojs/') && specifier.endsWith('/client.js');
+}
+
+function toPublicPath(fileName: string) {
+  return `./${fileName}`;
+}
+
+async function collectHydratableSourceModules(srcRoot: string): Promise<string[]> {
+  const modules: string[] = [];
+
+  async function walk(directory: string) {
+    let entries: Dirent[];
+
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    await Promise.all(
+      entries.map(async (entry) => {
+        const absolutePath = resolve(directory, entry.name);
+
+        if (entry.isDirectory()) {
+          await walk(absolutePath);
+
+          return;
+        }
+
+        if (!entry.isFile()) {
+          return;
+        }
+
+        const normalizedPath = absolutePath.replace(/\\/g, '/');
+
+        if (!isHydratableSourceFile(normalizedPath)) {
+          return;
+        }
+
+        if (isNonHydratableSourceFile(normalizedPath)) {
+          return;
+        }
+
+        modules.push(normalizedPath);
+      })
+    );
+  }
+
+  await walk(srcRoot);
+
+  return modules;
+}
+
+function isHydratableSourceFile(input: string) {
+  return /\.(jsx|tsx|vue|svelte|js|ts)$/.test(input);
+}
+
+function isNonHydratableSourceFile(input: string) {
+  return /\.stories\.[jt]sx?$|\.stories\.vue$|\.stories\.svelte$|\.(spec|test)\.[jt]sx?$/.test(
+    input
+  );
+}
+
+function patchCreateAstroCompat(component: unknown): AstroComponentFactory {
+  if (typeof component !== 'function') {
+    throw new Error('Expected Astro component factory to be a function.');
+  }
+
+  const originalComponent = component as AstroComponentFactory;
+  const wrapped = ((result: AstroCreateResult, props: unknown, slots: unknown) => {
+    if (result && typeof result.createAstro === 'function') {
+      const originalCreateAstro = result.createAstro;
+      const runtimeExpectsAstroGlobal = originalCreateAstro.length >= 3;
+
+      result.createAstro = (...args: unknown[]) => {
+        if (args.length === 3 && !runtimeExpectsAstroGlobal) {
+          return originalCreateAstro(args[1], args[2]);
+        }
+
+        return originalCreateAstro(...args);
+      };
+    }
+
+    return originalComponent(result, props, slots);
+  }) as AstroComponentFactory;
+
+  wrapped.isAstroComponentFactory = originalComponent.isAstroComponentFactory;
+  wrapped.moduleId = originalComponent.moduleId;
+  wrapped.propagation = originalComponent.propagation;
+
+  return wrapped;
+}
+
+async function processImageMetadata(
+  args: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const processed: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(args)) {
+    if (isImageMetadata(value)) {
+      processed[key] = convertImageMetadataToUrl(value);
+
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      processed[key] = await Promise.all(
+        value.map(async (item) => {
+          if (isImageMetadata(item)) {
+            return convertImageMetadataToUrl(item);
+          }
+
+          if (isRecord(item)) {
+            return processImageMetadata(item);
+          }
+
+          return item;
+        })
+      );
+
+      continue;
+    }
+
+    if (isRecord(value)) {
+      processed[key] = await processImageMetadata(value);
+
+      continue;
+    }
+
+    processed[key] = value;
+  }
+
+  return processed;
+}
+
+function isImageMetadata(value: unknown): value is Record<string, unknown> {
+  return (
+    isRecord(value) &&
+    typeof value.src === 'string' &&
+    ('width' in value || 'height' in value || 'format' in value)
+  );
+}
+
+function convertImageMetadataToUrl(imageMetadata: Record<string, unknown>): string {
+  const src = imageMetadata.src;
+  const fsPath = imageMetadata.fsPath;
+
+  if (typeof src === 'string') {
+    return src;
+  }
+
+  if (typeof fsPath === 'string') {
+    return fsPath;
+  }
+
+  return String(imageMetadata);
+}
+
+function createProjectAstroResolutionPlugin(resolveFrom: string): Plugin {
+  const require = createRequire(import.meta.url);
+
+  return {
+    name: 'storybook-astro:resolve-project-astro-prerender',
+    enforce: 'pre',
+    resolveId(id: string) {
+      if (id !== 'astro' && !id.startsWith('astro/')) {
+        return null;
+      }
+
+      try {
+        return require.resolve(id, {
+          paths: [resolveFrom]
+        });
+      } catch {
+        return null;
+      }
+    }
+  };
 }
