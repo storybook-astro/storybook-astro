@@ -44,6 +44,7 @@ async function readJsonBody(request: import('node:http').IncomingMessage) {
 
 function createBadRequest(message: string) {
   const error = new Error(message);
+
   (error as Error & { statusCode?: number }).statusCode = 400;
 
   return error;
@@ -229,6 +230,7 @@ export async function renderViaTestingRendererDaemon(payload: RenderPayload) {
     return null;
   }
 
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins
   const response = await fetch(daemonUrl, {
     method: 'POST',
     headers: {
