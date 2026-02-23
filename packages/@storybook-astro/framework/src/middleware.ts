@@ -39,17 +39,34 @@ export async function handlerFactory(integrations: Integration[], options?: Hand
   addRenderers(container);
   const sanitizationOptions = resolveSanitizationOptions(options?.sanitization);
   const loadModule = options?.loadModule ?? ((id: string) => import(/* @vite-ignore */ id));
+  // Cache module load + compatibility patch to avoid repeating SSR module work per render.
+  const componentCache = new Map<string, Promise<any>>();
+
+  async function loadPatchedComponent(componentId: string) {
+    if (!componentCache.has(componentId)) {
+      componentCache.set(componentId, (async () => {
+        const { default: Component } = await loadModule(componentId);
+
+        return patchCreateAstroCompat(Component);
+      })());
+    }
+
+    const cachedComponent = componentCache.get(componentId)!;
+
+    try {
+      return await cachedComponent;
+    } catch (error) {
+      // Drop failed entries so transient/module errors can recover on the next request.
+      componentCache.delete(componentId);
+      throw error;
+    }
+  }
 
   return async function handler(data: HandlerProps) {
-    const { default: Component } = await loadModule(data.component);
+    const patchedComponent = await loadPatchedComponent(data.component);
 
     // Process args to convert ImageMetadata objects to usable URLs
     const processedArgs = await processImageMetadata(data.args || {});
-
-    // Wrap the component factory to bridge Astro runtime/compiler createAstro signatures.
-    // Astro 5 runtime expects createAstro($$Astro, $$props, $$slots) while Astro 6 expects
-    // createAstro($$props, $$slots). We normalize calls based on the runtime signature.
-    const patchedComponent = patchCreateAstroCompat(Component);
 
     const sanitizedPayload = sanitizeRenderPayload(
       {

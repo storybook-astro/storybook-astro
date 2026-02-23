@@ -7,6 +7,7 @@ import { runWithWorkingDirectory } from './working-directory.ts';
 import { getComponentModuleId, isAstroComponentFactory, isStorybookAstroClientStub } from './component-utils.ts';
 import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fallback.ts';
 import type { ComposedStory } from './types.ts';
+import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
 
 let astroContainerPromise: Promise<{
   renderToString: (component: unknown, options: { props: Record<string, unknown> }) => Promise<string>;
@@ -123,6 +124,25 @@ async function renderAstroComponentToDom(
   const moduleId = getComponentModuleId(component);
 
   if (moduleId) {
+    try {
+      // Fast path: reuse a single shared SSR daemon instead of spinning SSR in each worker.
+      const html = await renderViaTestingRendererDaemon({
+        resolveFrom,
+        component: moduleId,
+        args
+      });
+
+      if (typeof html === 'string') {
+        if (typeof document !== 'undefined') {
+          document.body.innerHTML = html;
+        }
+
+        return html;
+      }
+    } catch {
+      // Fall back to in-worker rendering below when daemon render fails.
+    }
+
     try {
       const handler = await getAstroSsrHandler(resolveFrom);
       const html = await handler({

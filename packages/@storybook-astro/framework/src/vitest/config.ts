@@ -1,4 +1,5 @@
 import { defineConfig as defineVitestConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 import type { InlineConfig, PluginOption } from 'vite';
 import type { Integration } from '../integrations/base.ts';
 import { importAstroConfig } from '../importAstroConfig.ts';
@@ -12,6 +13,27 @@ export type TestingDefineConfig = Omit<InlineConfig, 'plugins'> & {
   astroConfigFile?: false | string;
 };
 
+function normalizeGlobalSetup(globalSetup: string | string[] | undefined, value: string) {
+  // Inject our setup without clobbering any user-provided global setup hooks.
+  if (!globalSetup) {
+    return [value];
+  }
+
+  if (Array.isArray(globalSetup)) {
+    if (globalSetup.includes(value)) {
+      return globalSetup;
+    }
+
+    return [...globalSetup, value];
+  }
+
+  if (globalSetup === value) {
+    return [globalSetup];
+  }
+
+  return [globalSetup, value];
+}
+
 export function defineConfig(options: TestingDefineConfig) {
   const {
     integrations = [],
@@ -24,10 +46,17 @@ export function defineConfig(options: TestingDefineConfig) {
 
   registerTestingIntegrationsForRoot(root, integrations);
 
+  const globalSetupFilePath = fileURLToPath(new URL('./global-setup.ts', import.meta.url));
+  const testConfig = {
+    ...rest.test,
+    globalSetup: normalizeGlobalSetup(rest.test?.globalSetup, globalSetupFilePath)
+  };
+
   const vitestConfig = defineVitestConfig({
     ...rest,
     root,
     mode,
+    test: testConfig,
     plugins: [
       cjsInteropPlugin(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
