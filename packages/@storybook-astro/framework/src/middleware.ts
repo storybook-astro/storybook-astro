@@ -2,53 +2,94 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
+import { resolveStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
+import { applyMswHandlers } from './msw.ts';
+import { selectStoryRules } from './rules.ts';
+import type { RenderStoryInput } from './types.ts';
 import { addRenderers, resolveClientModules } from 'virtual:astro-container-renderers';
+
+type ResolveRulesConfigModule = () => unknown | Promise<unknown>;
+
+type AstroCreateResult = {
+  createAstro?: (...args: unknown[]) => unknown;
+};
+
+type AstroComponentFactory = ((
+  result: AstroCreateResult,
+  props: unknown,
+  slots: unknown
+) => unknown) & {
+  isAstroComponentFactory?: boolean;
+  moduleId?: string;
+  propagation?: unknown;
+};
 
 export type HandlerProps = {
   component: string;
   args?: Record<string, unknown>;
   slots?: Record<string, unknown>;
+  story?: RenderStoryInput;
 };
 
 type HandlerFactoryOptions = {
+  mode?: 'development' | 'production';
   sanitization?: SanitizationOptions;
-  loadModule?: (id: string) => Promise<{ default: any }>;
+  rulesConfigFilePath?: string;
+  resolveRulesConfigModule?: ResolveRulesConfigModule;
+  loadModule?: (id: string) => Promise<{ default: unknown }>;
 };
 
 export async function handlerFactory(_integrations: Integration[], options?: HandlerFactoryOptions) {
+  const mode = options?.mode ?? 'development';
   const container = await AstroContainer.create({
     // Somewhat hacky way to force client-side Storybook's Vite to resolve modules properly
-    resolve: async (s) => {
-      if (s.startsWith('astro:scripts')) {
-        return `/@id/${s}`;
+    resolve: async (specifier) => {
+      const mockedModule = resolveStoryModuleMock(specifier);
+
+      if (mockedModule) {
+        return mockedModule;
       }
 
-      const resolution = resolveClientModules(s);
+      if (specifier.startsWith('astro:scripts')) {
+        return `/@id/${specifier}`;
+      }
+
+      const resolution = resolveClientModules(specifier);
 
       if (resolution) {
         return resolution;
       }
 
-      return s;
+      return specifier;
     }
   });
 
   addRenderers(container);
   const sanitizationOptions = resolveSanitizationOptions(options?.sanitization);
   const loadModule = options?.loadModule ?? ((id: string) => import(/* @vite-ignore */ id));
-  // Cache module load + compatibility patch to avoid repeating SSR module work per render.
-  const componentCache = new Map<string, Promise<any>>();
+  const componentCache = new Map<string, Promise<AstroComponentFactory>>();
+  let renderQueue = Promise.resolve<void>(undefined);
 
-  async function loadPatchedComponent(componentId: string) {
+  async function loadPatchedComponent(componentId: string, useCache = true) {
+    if (!useCache) {
+      const { default: component } = await loadModule(componentId);
+
+      return patchCreateAstroCompat(component);
+    }
+
     if (!componentCache.has(componentId)) {
       componentCache.set(componentId, (async () => {
-        const { default: Component } = await loadModule(componentId);
+        const { default: component } = await loadModule(componentId);
 
-        return patchCreateAstroCompat(Component);
+        return patchCreateAstroCompat(component);
       })());
     }
 
-    const cachedComponent = componentCache.get(componentId)!;
+    const cachedComponent = componentCache.get(componentId);
+
+    if (!cachedComponent) {
+      throw new Error(`Failed to load Astro component: ${componentId}`);
+    }
 
     try {
       return await cachedComponent;
@@ -60,75 +101,82 @@ export async function handlerFactory(_integrations: Integration[], options?: Han
   }
 
   return async function handler(data: HandlerProps) {
-    const patchedComponent = await loadPatchedComponent(data.component);
+    const executeRender = async () => {
+      const rulesConfigModule = options?.resolveRulesConfigModule
+        ? await options.resolveRulesConfigModule()
+        : undefined;
 
-    // Process args to convert ImageMetadata objects to usable URLs
-    const processedArgs = await processImageMetadata(data.args || {});
+      const selectedRules = await selectStoryRules({
+        configModule: rulesConfigModule,
+        configFilePath: options?.rulesConfigFilePath,
+        mode,
+        story: data.story
+      });
 
-    const sanitizedPayload = sanitizeRenderPayload(
-      {
-        args: processedArgs,
-        slots: data.slots ?? {}
-      },
-      sanitizationOptions
+      await applyMswHandlers(selectedRules.mswHandlers);
+
+      return withStoryModuleMocks(selectedRules.moduleMocks, async () => {
+        const patchedComponent = await loadPatchedComponent(
+          data.component,
+          selectedRules.moduleMocks.size === 0
+        );
+        const processedArgs = await processImageMetadata(data.args ?? {});
+        const sanitizedPayload = sanitizeRenderPayload(
+          {
+            args: processedArgs,
+            slots: data.slots ?? {}
+          },
+          sanitizationOptions
+        );
+
+        return container.renderToString(patchedComponent, {
+          props: sanitizedPayload.args,
+          slots: sanitizedPayload.slots
+        });
+      });
+    };
+
+    const resultPromise = renderQueue.then(executeRender, executeRender);
+
+    renderQueue = resultPromise.then(
+      () => undefined,
+      () => undefined
     );
 
-    const result = await container.renderToString(patchedComponent, {
-      props: sanitizedPayload.args,
-      slots: sanitizedPayload.slots
-    });
-
-    return result;
+    return resultPromise;
   };
 }
 
-/**
- * Wraps an Astro component factory to bridge createAstro calling conventions when
- * Astro 6 runtime is paired with compiler output that still passes $$Astro.
- *
- * Astro 5 runtime defines createAstro($$Astro, $$props, $$slots) [3 params].
- * Astro 6 runtime defines createAstro($$props, $$slots) [2 params].
- * Some Astro 6 compiler output still calls with 3 args, so we strip $$Astro only
- * when the runtime expects 2 params.
- *
- * The wrapper intercepts the result object and patches its createAstro method to
- * handle both calling conventions.
- */
-function patchCreateAstroCompat(Component: any): any {
-  const wrapped = (result: any, props: any, slots: any) => {
-    if (result && result.createAstro) {
-      const origCreateAstro = result.createAstro;
-      // Astro 5 runtime exposes createAstro with 3 params; Astro 6 exposes 2.
-      // Using function arity lets us adapt without hard-coding Astro version checks.
-      const runtimeExpectsAstroGlobal = origCreateAstro.length >= 3;
+function patchCreateAstroCompat(component: unknown): AstroComponentFactory {
+  if (typeof component !== 'function') {
+    throw new Error('Expected Astro component factory to be a function.');
+  }
 
-      result.createAstro = (...args: any[]) => {
+  const originalComponent = component as AstroComponentFactory;
+  const wrapped = ((result: AstroCreateResult, props: unknown, slots: unknown) => {
+    if (result && typeof result.createAstro === 'function') {
+      const originalCreateAstro = result.createAstro;
+      const runtimeExpectsAstroGlobal = originalCreateAstro.length >= 3;
+
+      result.createAstro = (...args: unknown[]) => {
         if (args.length === 3 && !runtimeExpectsAstroGlobal) {
-          // Compiler v2 -> Astro 6 runtime: strip $$Astro.
-          return origCreateAstro(args[1], args[2]);
+          return originalCreateAstro(args[1], args[2]);
         }
 
-        // Matching convention: pass through unchanged.
-        return origCreateAstro(...args);
+        return originalCreateAstro(...args);
       };
     }
 
-    return Component(result, props, slots);
-  };
+    return originalComponent(result, props, slots);
+  }) as AstroComponentFactory;
 
-  // Copy component factory metadata so the Container treats it as a valid Astro component
-  wrapped.isAstroComponentFactory = Component.isAstroComponentFactory;
-  wrapped.moduleId = Component.moduleId;
-  wrapped.propagation = Component.propagation;
+  wrapped.isAstroComponentFactory = originalComponent.isAstroComponentFactory;
+  wrapped.moduleId = originalComponent.moduleId;
+  wrapped.propagation = originalComponent.propagation;
 
   return wrapped;
 }
 
-/**
- * Recursively processes arguments to convert ImageMetadata objects to usable image URLs.
- * This allows Astro's Image component to work properly in Storybook by converting
- * optimized asset references to direct file paths.
- */
 async function processImageMetadata(
   args: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
@@ -136,48 +184,64 @@ async function processImageMetadata(
 
   for (const [key, value] of Object.entries(args)) {
     if (isImageMetadata(value)) {
-      // Convert ImageMetadata to a usable URL
       processed[key] = convertImageMetadataToUrl(value);
-    } else if (Array.isArray(value)) {
-      // Process arrays recursively
-      processed[key] = await Promise.all(
-        value.map(async (item) =>
-          typeof item === 'object' && item !== null
-            ? await processImageMetadata(item as Record<string, unknown>)
-            : item
-        )
-      );
-    } else if (typeof value === 'object' && value !== null) {
-      // Process nested objects recursively
-      processed[key] = await processImageMetadata(value as Record<string, unknown>);
-    } else {
-      processed[key] = value;
+
+      continue;
     }
+
+    if (Array.isArray(value)) {
+      processed[key] = await Promise.all(
+        value.map(async (item) => {
+          if (isImageMetadata(item)) {
+            return convertImageMetadataToUrl(item);
+          }
+
+          if (isRecord(item)) {
+            return processImageMetadata(item);
+          }
+
+          return item;
+        })
+      );
+
+      continue;
+    }
+
+    if (isRecord(value)) {
+      processed[key] = await processImageMetadata(value);
+
+      continue;
+    }
+
+    processed[key] = value;
   }
 
   return processed;
 }
 
-/**
- * Type guard to check if a value is an ImageMetadata object.
- * ImageMetadata objects typically have properties like src, width, height, format.
- */
-function isImageMetadata(value: unknown): value is Record<string, any> {
+function isImageMetadata(value: unknown): value is Record<string, unknown> {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'src' in value &&
-    typeof (value as any).src === 'string' &&
+    isRecord(value) &&
+    typeof value.src === 'string' &&
     ('width' in value || 'height' in value || 'format' in value)
   );
 }
 
-/**
- * Converts an ImageMetadata object to a usable URL for Storybook.
- * In a Storybook environment, we use the raw file path instead of optimized URLs.
- */
-function convertImageMetadataToUrl(imageMetadata: Record<string, any>): string {
-  // For Storybook, use the raw src path which should be the file path
-  // This bypasses Astro's image optimization which doesn't work in Storybook
-  return imageMetadata.src || imageMetadata.fsPath || String(imageMetadata);
+function convertImageMetadataToUrl(imageMetadata: Record<string, unknown>): string {
+  const src = imageMetadata.src;
+  const fsPath = imageMetadata.fsPath;
+
+  if (typeof src === 'string') {
+    return src;
+  }
+
+  if (typeof fsPath === 'string') {
+    return fsPath;
+  }
+
+  return String(imageMetadata);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

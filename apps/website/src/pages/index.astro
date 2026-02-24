@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import InstallCommandTabs from '@storybook-astro/components/CodeTabs/preact/CodeTabs.jsx';
+import ProjectStats from '@storybook-astro/components/ProjectStats/astro/ProjectStats.astro';
 ---
 
 <Layout title="Storybook Astro — Community Storybook Framework for Astro">
@@ -18,6 +19,10 @@ import InstallCommandTabs from '@storybook-astro/components/CodeTabs/preact/Code
     <div class="install-cmd">
       <InstallCommandTabs client:idle />
     </div>
+  </section>
+
+  <section class="metrics" aria-label="Project activity stats">
+    <ProjectStats />
   </section>
 
   <section class="features">
@@ -155,6 +160,10 @@ import InstallCommandTabs from '@storybook-astro/components/CodeTabs/preact/Code
     justify-content: center;
   }
 
+  .metrics {
+    padding: 0.35rem 0 1.5rem;
+  }
+
   /* Features */
   .features {
     display: grid;
@@ -215,6 +224,10 @@ import InstallCommandTabs from '@storybook-astro/components/CodeTabs/preact/Code
       padding: 2rem 0;
     }
 
+    .metrics {
+      padding: 0.25rem 0 1.2rem;
+    }
+
     .features {
       grid-template-columns: 1fr;
       gap: 1rem;
@@ -224,4 +237,5 @@ import InstallCommandTabs from '@storybook-astro/components/CodeTabs/preact/Code
       padding: 1.5rem 0;
     }
   }
+
 </style>

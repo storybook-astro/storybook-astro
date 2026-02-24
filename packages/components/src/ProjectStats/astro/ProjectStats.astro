@@ -1,0 +1,74 @@
+---
+import GithubStarsClient from '../../GithubStars/preact/GithubStars.jsx';
+import NpmWeeklyDownloadsClient from '../../NpmWeeklyDownloads/preact/NpmWeeklyDownloads.jsx';
+import {
+  DEFAULT_GITHUB_REPOSITORY,
+  DEFAULT_NPM_PACKAGE,
+  fetchProjectStats,
+  normalizeGithubRepository,
+  normalizePackageName,
+} from './projectStatsData.ts';
+
+interface Props {
+  repository?: string;
+  packageName?: string;
+  githubLabel?: string;
+  npmLabel?: string;
+  fallbackStars?: number;
+  itemMaxWidth?: string;
+}
+
+const {
+  repository = DEFAULT_GITHUB_REPOSITORY,
+  packageName = DEFAULT_NPM_PACKAGE,
+  githubLabel = 'GitHub stars',
+  npmLabel = 'npm weekly downloads',
+  fallbackStars = 0,
+  itemMaxWidth,
+} = Astro.props;
+
+const normalizedRepository = normalizeGithubRepository(repository);
+const normalizedPackageName = normalizePackageName(packageName);
+
+const { stars, downloads } = await fetchProjectStats({
+  repository: normalizedRepository,
+  packageName: normalizedPackageName,
+  fallbackStars,
+});
+
+---
+
+<div class="project-stats" data-testid="project-stats">
+  <GithubStarsClient
+    client:load
+    stars={stars}
+    repository={normalizedRepository}
+    label={githubLabel}
+  />
+  <NpmWeeklyDownloadsClient
+    client:load
+    packageName={normalizedPackageName}
+    label={npmLabel}
+    downloads={downloads}
+  />
+</div>
+
+<style>
+  .project-stats {
+    grid-column: 1 / 4;
+    display: grid;
+    gap: 0.45rem;
+    align-items: start;
+    justify-content: start;
+  }
+
+  .project-stats :global(astro-island):first-of-type > :global(*) {
+    grid-column-start: 2;
+  }
+
+  @media (min-width: 980px) {
+    .project-stats {
+      grid-template-columns: 1fr repeat(3, 250px) 1fr;
+    }
+  }
+</style>

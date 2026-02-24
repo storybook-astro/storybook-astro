@@ -238,7 +238,14 @@ async function renderAstroToCanvas(
   const { html } = await renderAstroComponent({
     component: element.moduleId,
     args: componentArgs,
-    slots: slots as Record<string, string>
+    slots: slots as Record<string, string>,
+    story: storyContext
+      ? {
+          id: storyContext.id,
+          title: storyContext.title,
+          name: storyContext.name
+        }
+      : undefined
   });
 
   applyAstroStyles();

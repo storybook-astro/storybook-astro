@@ -21,6 +21,11 @@ export type RenderComponentInput = {
   component: string;
   args: Record<string, unknown>;
   slots: Record<string, string>;
+  story?: {
+    id: string;
+    title?: string;
+    name?: string;
+  };
 };
 
 export type RenderResponseMessage = {

@@ -6,7 +6,12 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { createServer, mergeConfig, type Plugin, type Rollup } from 'vite';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
+import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
+import { resolveStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
+import { applyMswHandlers } from './msw.ts';
+import { resolveRulesConfigFilePath } from './rules-options.ts';
+import { selectStoryRules } from './rules.ts';
 import type { FrameworkOptions } from './types.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
@@ -23,6 +28,8 @@ type StoryIndex = {
       importPath?: string;
       exportName?: string;
       componentPath?: string;
+      title?: string;
+      name?: string;
     }
   >;
 };
@@ -31,6 +38,8 @@ type StoryEntry = {
   id: string;
   importPath: string;
   exportName: string;
+  title?: string;
+  name?: string;
 };
 
 type AstroCreateResult = {
@@ -50,6 +59,7 @@ type AstroComponentFactory = ((
 export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin {
   const integrations = options.integrations ?? [];
   const resolveFrom = options.resolveFrom ?? process.cwd();
+  const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
   const trackedSpecifiers = collectTrackedSpecifiers(integrations);
   const staticEntrypointRefs = new Map<string, string>();
   const componentEntrypointRefs = new Map<string, string>();
@@ -144,6 +154,7 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
         stories,
         integrations,
         sanitization: options.sanitization,
+        storyRulesConfigFilePath,
         staticModuleMap,
         trackedSpecifiers,
         resolveFrom
@@ -163,6 +174,7 @@ async function prerenderStories(options: {
   stories: StoryEntry[];
   integrations: Integration[];
   sanitization?: FrameworkOptions['sanitization'];
+  storyRulesConfigFilePath?: string;
   staticModuleMap: Record<string, string>;
   trackedSpecifiers: Set<string>;
   resolveFrom: string;
@@ -177,10 +189,17 @@ async function prerenderStories(options: {
     options.trackedSpecifiers,
     options.resolveFrom
   );
+  const rulesConfigModule = await loadRulesConfigModule(viteServer, options.storyRulesConfigFilePath);
 
   try {
     const container = await AstroContainer.create({
       resolve: async (specifier) => {
+        const mockedModule = resolveStoryModuleMock(specifier);
+
+        if (mockedModule) {
+          return mockedModule;
+        }
+
         const resolution = resolveClientModule(specifier);
 
         if (resolution) {
@@ -196,36 +215,59 @@ async function prerenderStories(options: {
     const output: Record<string, string> = {};
 
     for (const story of options.stories) {
-      const modulePath = resolveImportPath(story.importPath, options.resolveFrom);
-      const storyModule = await viteServer.ssrLoadModule(modulePath);
-      const meta = isRecord(storyModule.default) ? storyModule.default : {};
-      const storyExport = isRecord(storyModule[story.exportName]) ? storyModule[story.exportName] : {};
-
-      if (typeof meta.component !== 'function') {
-        throw new Error(
-          `Unable to prerender story "${story.id}". Missing default export component in ${story.importPath}.`
-        );
-      }
-
-      if (storyExport.component && storyExport.component !== meta.component) {
-        continue;
-      }
-
-      const mergedArgs = mergeStoryArgs(toRecord(meta.args), toRecord(storyExport.args));
-      const { args, slots } = separateSlots(mergedArgs);
-      const processedArgs = await processImageMetadata(args);
-      const sanitizedPayload = sanitizeRenderPayload(
-        {
-          args: processedArgs,
-          slots
-        },
-        sanitizationOptions
-      );
-
-      output[story.id] = await container.renderToString(patchCreateAstroCompat(meta.component), {
-        props: sanitizedPayload.args,
-        slots: sanitizedPayload.slots
+      const selectedRules = await selectStoryRules({
+        configModule: rulesConfigModule,
+        configFilePath: options.storyRulesConfigFilePath,
+        mode: 'production',
+        story: {
+          id: story.id,
+          title: story.title,
+          name: story.name
+        }
       });
+
+      await applyMswHandlers(selectedRules.mswHandlers);
+
+      if (selectedRules.moduleMocks.size > 0) {
+        viteServer.moduleGraph.invalidateAll();
+      }
+
+      const html = await withStoryModuleMocks(selectedRules.moduleMocks, async () => {
+        const modulePath = resolveImportPath(story.importPath, options.resolveFrom);
+        const storyModule = await viteServer.ssrLoadModule(modulePath);
+        const meta = isRecord(storyModule.default) ? storyModule.default : {};
+        const storyExport = isRecord(storyModule[story.exportName]) ? storyModule[story.exportName] : {};
+
+        if (typeof meta.component !== 'function') {
+          throw new Error(
+            `Unable to prerender story "${story.id}". Missing default export component in ${story.importPath}.`
+          );
+        }
+
+        if (storyExport.component && storyExport.component !== meta.component) {
+          return undefined;
+        }
+
+        const mergedArgs = mergeStoryArgs(toRecord(meta.args), toRecord(storyExport.args));
+        const { args, slots } = separateSlots(mergedArgs);
+        const processedArgs = await processImageMetadata(args);
+        const sanitizedPayload = sanitizeRenderPayload(
+          {
+            args: processedArgs,
+            slots
+          },
+          sanitizationOptions
+        );
+
+        return container.renderToString(patchCreateAstroCompat(meta.component), {
+          props: sanitizedPayload.args,
+          slots: sanitizedPayload.slots
+        });
+      });
+
+      if (html !== undefined) {
+        output[story.id] = html;
+      }
     }
 
     return output;
@@ -280,6 +322,27 @@ async function createStorySsrServer(
   });
 
   return createServer(config);
+}
+
+async function loadRulesConfigModule(
+  viteServer: Awaited<ReturnType<typeof createStorySsrServer>>,
+  configFilePath?: string
+) {
+  if (!configFilePath) {
+    return undefined;
+  }
+
+  try {
+    return await ssrLoadModuleWithFsFallback(viteServer, configFilePath, {
+      fixStacktrace: true
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+
+    throw new Error(
+      `Unable to load framework.options.storyRules config module at ${configFilePath}: ${reason}`
+    );
+  }
 }
 
 async function addContainerRenderers(
@@ -365,7 +428,9 @@ async function collectAstroStories(outDir: string): Promise<StoryEntry[]> {
       return {
         id: entry.id,
         importPath: entry.importPath,
-        exportName: entry.exportName
+        exportName: entry.exportName,
+        title: entry.title,
+        name: entry.name
       };
     });
 }

@@ -43,6 +43,42 @@ export default {
 
 Sanitization is enabled by default with conservative HTML defaults. To disable it, set `sanitization.enabled` to `false`.
 
+You can also apply per-story rules for API mocks and module replacements:
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      storyRules: '.storybook/story-rules.ts',
+    },
+  },
+};
+```
+
+```javascript
+// .storybook/story-rules.ts
+import { defineStoryRules } from '@storybook-astro/framework';
+import { http, HttpResponse } from '@storybook-astro/framework/msw-helpers';
+
+export default defineStoryRules({
+  rules: [
+    {
+      match: 'components-profile-card--*',
+      use: ({ msw, mock }) => {
+        msw.use(
+          http.get('/api/user', () => {
+            return HttpResponse.json({ name: 'Storybook User' });
+          })
+        );
+
+        mock('~/lib/feature-flags', './mocks/feature-flags.ts');
+      },
+    },
+  ],
+});
+```
+
 You can sanitize incoming story args and slots through framework options:
 
 ```javascript

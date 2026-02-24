@@ -3,19 +3,26 @@ export type {
   Args,
   ArgTypes,
   Parameters,
-  StrictArgs,
+  StrictArgs
 } from 'storybook/internal/types';
 
 // Export portable stories functionality
-export { 
-  composeStories, 
-  composeStory, 
+export {
+  composeStories,
+  composeStory,
   setProjectAnnotations,
   type AstroRenderer
 } from './portable-stories.ts';
 
 // Export framework types
-export type { FrameworkOptions, SanitizationOptions, StorybookConfig } from './types.ts';
+export type {
+  FrameworkOptions,
+  SanitizationOptions,
+  StoryRulesOptions,
+  StorybookConfig
+} from './types.ts';
+export type { StoryRule, StoryRulesConfig, StoryRuleUse, StoryRuleUseContext } from './rules.ts';
+export { defineStoryRules } from './rules.ts';
 
 // Re-export preset functionality for framework usage
 export { core, viteFinal } from './preset.ts';

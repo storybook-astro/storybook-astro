@@ -10,6 +10,7 @@ import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts'
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
+import { resolveRulesConfigFilePath } from './rules-options.ts';
 
 export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptions) {
   // The internal Vite server is created lazily inside configureServer (dev-only).
@@ -22,21 +23,38 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
     name: 'storybook-astro-middleware-plugin',
     async configureServer(server) {
       viteServer = await createViteServer(options.integrations, resolveFrom);
+      const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
 
       const filePath = fileURLToPath(new URL('./middleware', import.meta.url));
       const middleware = await viteServer.ssrLoadModule(filePath, {
         fixStacktrace: true
       });
-      const handler = await middleware.handlerFactory(options.integrations ?? [], {
+
+      const createHandler = () => middleware.handlerFactory(options.integrations ?? [], {
+        mode: 'development',
         sanitization: options.sanitization,
+        rulesConfigFilePath: storyRulesConfigFilePath,
+        resolveRulesConfigModule: () =>
+          loadRulesConfigModule(viteServer!, storyRulesConfigFilePath),
         loadModule: (id: string) =>
           ssrLoadModuleWithFsFallback(viteServer!, id, {
             fixStacktrace: true
           })
       });
 
+      let handlerPromise = createHandler();
+
+      const resetHandler = () => {
+        handlerPromise = createHandler();
+      };
+
+      server.watcher.on('add', resetHandler);
+      server.watcher.on('change', resetHandler);
+      server.watcher.on('unlink', resetHandler);
+
       server.ws.on('astro:render:request', async (data: RenderRequestMessage['data']) => {
         try {
+          const handler = await handlerPromise;
           const html = await handler(data);
 
           server.ws.send('astro:render:response', {
@@ -70,8 +88,8 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
       server.middlewares.use('/_image', (req, res, next) => {
         if (!viteServer) {
           next();
-          
-return;
+
+          return;
         }
         // Forward the request to the Astro vite server
         viteServer.middlewares.handle(req, res, (err) => {
@@ -87,11 +105,11 @@ return;
   // The extracted CSS plugins from Astro's internal Vite server cause Vue SFC
   // <style> blocks to be double-processed (once by these plugins, once by
   // Storybook's built-in CSS plugins), resulting in PostCSS errors.
-  // 
+  //
   // Solution: Don't extract Astro's CSS plugins. Storybook's built-in CSS
   // plugins handle both Vue styles AND Astro style sub-modules (which are
   // standard CSS imports like `Component.astro?astro&type=style&index=0&lang.css`).
-  // 
+  //
   // The Astro internal server's CSS plugins are only needed for SSR rendering
   // within that server - they don't need to be shared with Storybook's server.
   return {
@@ -161,4 +179,22 @@ function createProjectAstroResolutionPlugin(resolveFrom: string): PluginOption {
       }
     }
   } satisfies PluginOption;
+}
+
+async function loadRulesConfigModule(viteServer: ViteDevServer, configFilePath?: string) {
+  if (!configFilePath) {
+    return undefined;
+  }
+
+  try {
+    return await ssrLoadModuleWithFsFallback(viteServer, configFilePath, {
+      fixStacktrace: true
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+
+    throw new Error(
+      `Unable to load framework.options.storyRules config module at ${configFilePath}: ${reason}`
+    );
+  }
 }
