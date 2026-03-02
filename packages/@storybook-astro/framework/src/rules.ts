@@ -1,6 +1,8 @@
 import { dirname, isAbsolute, resolve } from 'node:path';
-import type { RequestHandler } from 'msw';
+import { HttpResponse, http, type RequestHandler } from 'msw';
 import type { RenderStoryInput } from './types.ts';
+
+export { http, HttpResponse };
 
 type StoryMode = 'development' | 'production';
 type StoryRuleUseResult = void | Promise<void>;
@@ -8,10 +10,14 @@ type StoryRuleUseResult = void | Promise<void>;
 export type StoryRuleUseContext = {
   mode: StoryMode;
   story: StoryRuleStory;
-  msw: {
-    use: (...handlers: RequestHandler[]) => void;
-  };
+  msw: StoryRuleMswContext;
+  http: typeof http;
+  HttpResponse: typeof HttpResponse;
   mock: (specifier: string, replacement: string) => void;
+};
+
+export type StoryRuleMswContext = {
+  use: (...handlers: RequestHandler[]) => void;
 };
 
 export type StoryRuleUse = (context: StoryRuleUseContext) => StoryRuleUseResult;
@@ -80,6 +86,8 @@ export async function selectStoryRules(
             selection.mswHandlers.push(...handlers);
           }
         },
+        http,
+        HttpResponse,
         mock: (specifier, replacement) => {
           const normalizedSpecifier = normalizeMockSpecifier(specifier);
           const normalizedReplacement = normalizeMockReplacement(replacement, input.configFilePath);

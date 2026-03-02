@@ -1,5 +1,6 @@
 ---
 import GithubStarsClient from '../../GithubStars/preact/GithubStars.jsx';
+import GithubContributorsClient from '../../GithubContributors/preact/GithubContributors.jsx';
 import NpmWeeklyDownloadsClient from '../../NpmWeeklyDownloads/preact/NpmWeeklyDownloads.jsx';
 import {
   DEFAULT_GITHUB_REPOSITORY,
@@ -13,8 +14,10 @@ interface Props {
   repository?: string;
   packageName?: string;
   githubLabel?: string;
+  contributorsLabel?: string;
   npmLabel?: string;
   fallbackStars?: number;
+  visibleContributors?: number;
   itemMaxWidth?: string;
 }
 
@@ -22,28 +25,42 @@ const {
   repository = DEFAULT_GITHUB_REPOSITORY,
   packageName = DEFAULT_NPM_PACKAGE,
   githubLabel = 'GitHub stars',
+  contributorsLabel = 'contributors',
   npmLabel = 'npm weekly downloads',
   fallbackStars = 0,
-  _itemMaxWidth,
+  visibleContributors = 4,
+  itemMaxWidth,
 } = Astro.props;
 
 const normalizedRepository = normalizeGithubRepository(repository);
 const normalizedPackageName = normalizePackageName(packageName);
 
-const { stars, downloads } = await fetchProjectStats({
+const { stars, downloads, contributors } = await fetchProjectStats({
   repository: normalizedRepository,
   packageName: normalizedPackageName,
   fallbackStars,
+  visibleContributors,
 });
+
+const style = itemMaxWidth
+  ? `--stats-item-max-width: ${itemMaxWidth};`
+  : undefined;
 
 ---
 
-<div class="project-stats" data-testid="project-stats">
+<div class="project-stats" style={style} data-testid="project-stats">
   <GithubStarsClient
     client:load
     stars={stars}
     repository={normalizedRepository}
     label={githubLabel}
+  />
+  <GithubContributorsClient
+    client:load
+    repository={normalizedRepository}
+    label={contributorsLabel}
+    contributors={contributors.contributors}
+    total={contributors.total}
   />
   <NpmWeeklyDownloadsClient
     client:load
@@ -55,20 +72,27 @@ const { stars, downloads } = await fetchProjectStats({
 
 <style>
   .project-stats {
-    grid-column: 1 / 4;
+    --stats-row-height: 4.4rem;
+    --stats-item-max-width: 250px;
     display: grid;
     gap: 0.45rem;
     align-items: start;
-    justify-content: start;
+    justify-content: center;
   }
 
-  .project-stats :global(astro-island):first-of-type > :global(*) {
-    grid-column-start: 2;
+  .project-stats > :global(astro-island) {
+    width: min(100%, var(--stats-item-max-width));
+  }
+
+  @media (max-width: 979px) {
+    .project-stats {
+      justify-content: start;
+    }
   }
 
   @media (min-width: 980px) {
     .project-stats {
-      grid-template-columns: 1fr repeat(3, 250px) 1fr;
+      grid-template-columns: repeat(3, minmax(0, var(--stats-item-max-width)));
     }
   }
 </style>

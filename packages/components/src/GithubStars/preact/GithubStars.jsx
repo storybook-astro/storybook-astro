@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import styles from '../styles/githubStars.module.css';
 
-const COUNT_ANIMATION_DURATION_MS = 1650;
+const COUNT_ANIMATION_DURATION_MS = 1000;
 
 function normalizeStars(value) {
   const parsedValue = Number(value);

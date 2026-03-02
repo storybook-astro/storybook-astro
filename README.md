@@ -57,13 +57,12 @@ export default {
 ```javascript
 // .storybook/story-rules.ts
 import { defineStoryRules } from '@storybook-astro/framework';
-import { http, HttpResponse } from '@storybook-astro/framework/msw-helpers';
 
 export default defineStoryRules({
   rules: [
     {
       match: 'components-profile-card--*',
-      use: ({ msw, mock }) => {
+      use: ({ msw, http, HttpResponse, mock }) => {
         msw.use(
           http.get('/api/user', () => {
             return HttpResponse.json({ name: 'Storybook User' });

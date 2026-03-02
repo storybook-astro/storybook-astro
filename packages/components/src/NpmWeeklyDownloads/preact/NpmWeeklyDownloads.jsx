@@ -105,6 +105,7 @@ export default function NpmWeeklyDownloads({
   const [displayTotal, setDisplayTotal] = useState(0);
   const formatter = useMemo(() => new Intl.NumberFormat('en-US'), []);
   const gradientId = useId().replaceAll(':', '');
+  const gradientUrl = `url(#${gradientId})`;
   const normalizedDownloads = useMemo(() => normalizeDownloads(downloads), [downloads]);
   const chartData = useMemo(() => createChartData(normalizedDownloads), [normalizedDownloads]);
   const safeTotal = normalizeTotal(chartData.totalDownloads);
@@ -167,7 +168,14 @@ export default function NpmWeeklyDownloads({
             aria-label={`Weekly npm downloads for ${packageName}`}
           >
             <defs>
-              <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <linearGradient
+                id={gradientId}
+                gradientUnits="userSpaceOnUse"
+                x1={CHART_PADDING.left}
+                y1="0"
+                x2={SVG_WIDTH - CHART_PADDING.right}
+                y2="0"
+              >
                 <stop offset="0%" stopColor="#7c3aed" />
                 <stop offset="52%" stopColor="#6366f1" />
                 <stop offset="100%" stopColor="#f472b6" />
@@ -175,7 +183,7 @@ export default function NpmWeeklyDownloads({
             </defs>
 
             {chartData.linePath
-              ? <path class={styles.line} d={chartData.linePath} pathLength="1" style={{ stroke: `url(#${gradientId})` }} />
+              ? <path class={styles.line} d={chartData.linePath} pathLength="1" style={{ stroke: gradientUrl }} />
               : (
                   <line
                     class={styles.emptyLine}
@@ -192,8 +200,8 @@ export default function NpmWeeklyDownloads({
                 class={styles.point}
                 cx={point.x}
                 cy={point.y}
-                r="2.2"
-                style={{ '--dot-index': String(index) }}
+                r={8}
+                style={{ '--dot-index': String(index), fill: gradientUrl, stroke: gradientUrl }}
               />
             ))}
           </svg>

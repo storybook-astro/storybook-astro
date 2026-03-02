@@ -1,7 +1,7 @@
 import GithubStars from './GithubStars.astro';
 
 export default {
-  title: 'astro/github-stars',
+  title: 'Astro/GitHubStars',
   component: GithubStars,
   args: {
     repository: 'storybook-astro/storybook-astro',

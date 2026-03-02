@@ -31,8 +31,17 @@ export type {
   StoryRulesOptions,
   StorybookConfig
 } from './types.ts';
-export type { StoryRule, StoryRulesConfig, StoryRuleUse, StoryRuleUseContext } from './rules.ts';
-export { defineStoryRules } from './rules.ts';
+export type {
+  StoryRule,
+  StoryRuleMswContext,
+  StoryRulesConfig,
+  StoryRuleSelection,
+  StoryRuleSelectionInput,
+  StoryRuleStory,
+  StoryRuleUse,
+  StoryRuleUseContext
+} from './rules.ts';
+export { defineStoryRules, http, HttpResponse } from './rules.ts';
 
 // Re-export preset functionality for framework usage
 export { core, viteFinal } from './preset.ts';

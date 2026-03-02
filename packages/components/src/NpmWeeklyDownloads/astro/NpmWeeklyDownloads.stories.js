@@ -1,7 +1,7 @@
 import NpmWeeklyDownloads from './NpmWeeklyDownloads.astro';
 
 export default {
-  title: 'astro/npm-weekly-downloads',
+  title: 'Astro/NpmWeeklyDownloads',
   component: NpmWeeklyDownloads,
   args: {
     packageName: '@storybook-astro/framework',

@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import type { RequestHandler } from 'msw';
+import { HttpResponse, http, type RequestHandler } from 'msw';
 import { describe, expect, test } from 'vitest';
 import { defineStoryRules, selectStoryRules, type StoryRulesConfig } from './rules.ts';
 
@@ -111,6 +111,38 @@ describe('story rules', () => {
     });
 
     expect(selection.mswHandlers).toEqual([firstHandler, secondHandler]);
+  });
+
+  test('exposes MSW http utilities in rule use context', async () => {
+    let resolvedHttp: typeof http | undefined;
+    let resolvedHttpResponse: typeof HttpResponse | undefined;
+
+    const selection = await selectStoryRules({
+      configModule: createRulesConfig({
+        rules: [
+          {
+            match: '*',
+            use: ({ msw, http: ruleHttp, HttpResponse: ruleHttpResponse }) => {
+              resolvedHttp = ruleHttp;
+              resolvedHttpResponse = ruleHttpResponse;
+              msw.use(
+                ruleHttp.get('/api/health', () => {
+                  return ruleHttpResponse.json({ ok: true });
+                })
+              );
+            }
+          }
+        ]
+      }),
+      mode: 'development',
+      story: {
+        id: 'components-card--default'
+      }
+    });
+
+    expect(selection.mswHandlers).toHaveLength(1);
+    expect(resolvedHttp).toBe(http);
+    expect(resolvedHttpResponse).toBe(HttpResponse);
   });
 
   test('resolves relative mock replacements from config file location', async () => {

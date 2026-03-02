@@ -1,0 +1,32 @@
+---
+import GithubContributorsClient from '../preact/GithubContributors.jsx';
+import {
+  DEFAULT_GITHUB_REPOSITORY,
+  fetchGithubContributors,
+  normalizeGithubRepository,
+} from '../../ProjectStats/astro/projectStatsData.ts';
+
+interface Props {
+  repository?: string;
+  label?: string;
+  visibleContributors?: number;
+}
+
+const {
+  repository = DEFAULT_GITHUB_REPOSITORY,
+  label = 'contributors',
+  visibleContributors = 4,
+} = Astro.props;
+
+const normalizedRepository = normalizeGithubRepository(repository);
+const contributorsData = await fetchGithubContributors(normalizedRepository, visibleContributors);
+
+---
+
+<GithubContributorsClient
+  client:load
+  repository={normalizedRepository}
+  label={label}
+  contributors={contributorsData.contributors}
+  total={contributorsData.total}
+/>
