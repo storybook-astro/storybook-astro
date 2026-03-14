@@ -24,7 +24,7 @@ const {
   githubLabel = 'GitHub stars',
   npmLabel = 'npm weekly downloads',
   fallbackStars = 0,
-  itemMaxWidth,
+  _itemMaxWidth,
 } = Astro.props;
 
 const normalizedRepository = normalizeGithubRepository(repository);
