@@ -1,1 +1,371 @@
----\nname: test-generator\ndescription: Generate comprehensive test cases for Storybook Astro components using portable stories and Vitest patterns. Use when you need tests for new components, want to improve test coverage, or need to validate component behavior across frameworks.\n---\n\n# Test Generator for Storybook Astro\n\nGenerates test cases for components using Storybook Astro's portable stories API and Vitest patterns.\n\n## Test Generation Scope\n\nThis skill creates tests for:\n\n### Astro Components\n- Server-side rendered (SSR) via Astro Container\n- Scoped CSS handling\n- Props/slots passing\n- HTML output validation\n\n### Framework Components\n- React, Vue, Svelte, Preact, Solid.js, Alpine.js\n- Interactive behavior\n- Props/event binding\n- State management\n\n### Integration Tests\n- Multiple frameworks together\n- Framework delegation behavior\n- Container rendering\n\n## Test Structure\n\n### Standard Pattern\n\nAll tests follow this template:\n\n```typescript\nimport { screen } from '@testing-library/dom';\nimport { test, expect, describe } from 'vitest';\nimport { composeStories, renderStory } from '@storybook-astro/framework/testing';\nimport * as stories from './Component.stories.jsx';\n\ndescribe('Component', () => {\n  const { Default, Variant1, Variant2 } = composeStories(stories);\n\n  test('default story renders correctly', async () => {\n    await renderStory(Default);\n    expect(screen.getByRole('...role...')).toBeInTheDocument();\n  });\n\n  test('variant story renders correctly', async () => {\n    await renderStory(Variant1);\n    // assertions\n  });\n});\n```\n\n## Generation Steps\n\n### 1. Analyze Component\n\nFor the component, determine:\n- **Type**: Astro, React, Vue, etc.\n- **Props**: What args/parameters does it accept?\n- **Slots**: Does it accept children/slots?\n- **Interactions**: Does it handle clicks, form input, etc.?\n- **States**: What variant stories exist?\n\n### 2. Create Story File (if needed)\n\nIf stories don't exist:\n\n```javascript\n// Component.stories.jsx\nimport Component from './Component.astro'; // or .jsx, .vue, etc.\n\nexport default {\n  title: 'Components/Component',\n  component: Component,\n  // Add parameters.renderer for non-Astro components\n  parameters: {\n    renderer: 'react', // For React/Vue/Svelte/etc\n  },\n};\n\nexport const Default = {\n  args: {\n    prop1: 'default',\n    prop2: 'value',\n  },\n};\n\nexport const Variant = {\n  args: {\n    prop1: 'variant',\n  },\n};\n```\n\n### 3. Generate Test Cases\n\nGenerate tests based on:\n- **Component type**: Astro components get `await renderStory()`\n- **Props**: Test with various prop combinations\n- **States**: Test each story/variant\n- **Accessibility**: Use `getByRole()` when possible\n- **Edge cases**: Empty states, error states, etc.\n\n### 4. Test Coverage\n\nAim for:\n- ✅ All props/variants tested\n- ✅ Happy path scenarios\n- ✅ Edge cases (empty, null, undefined)\n- ✅ Error states\n- ✅ Accessibility roles/labels\n- ✅ 80%+ coverage\n\n## Testing Patterns by Component Type\n\n### Astro Components\n\n```typescript\nimport { composeStories, renderStory } from '@storybook-astro/framework/testing';\n\ntest('Astro component renders', async () => {\n  await renderStory(story); // Must await\n  expect(screen.getByRole('button')).toBeInTheDocument();\n});\n```\n\n**Key points**:\n- Always `await renderStory()`\n- Tests HTML structure\n- Can verify scoped styles present\n\n### React/Preact Components\n\n```typescript\nimport { composeStories } from '@storybook-astro/framework/testing';\n\ntest('React component renders', () => {\n  const { Default } = composeStories(stories);\n  Default.run(); // No await for framework components\n  expect(screen.getByRole('button')).toBeInTheDocument();\n});\n\ntest('handles click events', () => {\n  const { Default } = composeStories(stories);\n  Default.run();\n  fireEvent.click(screen.getByRole('button'));\n  // assertions after interaction\n});\n```\n\n### Vue/Svelte/Solid Components\n\n```typescript\ntest('Vue component renders', () => {\n  const { Default } = composeStories(stories);\n  Default.run();\n  expect(screen.getByText('expected text')).toBeInTheDocument();\n});\n```\n\n### Alpine.js Components\n\n```typescript\ntest('Alpine component initializes', async () => {\n  await renderStory(story);\n  // Alpine may need a tick to initialize\n  await new Promise(r => setTimeout(r, 10));\n  expect(screen.getByText('alpine-enhanced')).toBeInTheDocument();\n});\n```\n\n## Query Patterns\n\nPrefer accessibility queries (`getByRole`, `getByLabel`, `getByText`):\n\n✅ **Good**:\n```typescript\nexpect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument();\nexpect(screen.getByLabelText('Email')).toHaveValue('user@example.com');\nexpect(screen.getByText('Success message')).toBeInTheDocument();\n```\n\n❌ **Bad**:\n```typescript\nexpect(screen.getByTestId('btn-submit')).toBeInTheDocument();\nexpect(screen.getByClassName('btn')).toBeInTheDocument();\nexpect(wrapper.find('.success')).toBeDefined();\n```\n\n## Test Organization\n\n### Single File (Simple Component)\n```\nsrc/Button/\n├── Button.astro\n├── Button.stories.jsx\n└── Button.test.ts\n```\n\n### Multi-File (Complex Component)\n```\nsrc/Form/\n├── Form.astro\n├── Form.stories.jsx\n├── Form.test.ts          # Basic rendering\n├── Form.validation.test.ts # Validation logic\n├── Form.interaction.test.ts # User interactions\n└── Form.accessibility.test.ts # A11y\n```\n\n## Test Data Patterns\n\n### Props Variants\n\n```typescript\ntest.each([\n  ['primary', 'btn-primary'],\n  ['secondary', 'btn-secondary'],\n  ['disabled', 'btn-disabled'],\n])('renders %s variant', async (variant, className) => {\n  const story = composeStory(Variant, { args: { variant } });\n  await renderStory(story);\n  expect(screen.getByRole('button')).toHaveClass(className);\n});\n```\n\n### Slot/Children Content\n\n```typescript\ntest('renders slot content', async () => {\n  const story = composeStory(WithSlot, {\n    args: {\n      default: '<span>Slot content</span>',\n    },\n  });\n  await renderStory(story);\n  expect(screen.getByText('Slot content')).toBeInTheDocument();\n});\n```\n\n## Common Test Scenarios\n\n### Rendering\n```typescript\ntest('component renders without errors', async () => {\n  await renderStory(story);\n  expect(screen.getByRole('...')).toBeInTheDocument();\n});\n```\n\n### Props Passing\n```typescript\ntest('accepts and displays custom label', async () => {\n  const story = composeStory(Default, { args: { label: 'Custom' } });\n  await renderStory(story);\n  expect(screen.getByText('Custom')).toBeInTheDocument();\n});\n```\n\n### Conditional Rendering\n```typescript\ntest('shows error state when error prop provided', async () => {\n  const story = composeStory(Error, { args: { error: 'Invalid' } });\n  await renderStory(story);\n  expect(screen.getByRole('alert')).toBeInTheDocument();\n});\n```\n\n### Event Handling\n```typescript\nimport { fireEvent } from '@testing-library/dom';\n\ntest('calls onClick handler on click', () => {\n  let clicked = false;\n  const story = composeStory(Default, {\n    args: { onClick: () => { clicked = true; } }\n  });\n  story.run();\n  fireEvent.click(screen.getByRole('button'));\n  expect(clicked).toBe(true);\n});\n```\n\n### Focus Management\n```typescript\ntest('button is focusable', () => {\n  const story = composeStories(stories).Default;\n  story.run();\n  screen.getByRole('button').focus();\n  expect(document.activeElement).toBe(screen.getByRole('button'));\n});\n```\n\n## Coverage Goals\n\n- **Statements**: 80%+\n- **Branches**: 75%+\n- **Functions**: 80%+\n- **Lines**: 80%+\n\nCheck with:\n```bash\nyarn test --coverage\n```\n\n## Framework-Specific Considerations\n\n### React/Preact\n- Hooks work normally\n- Props map via `args`\n- Event handlers receive synthetic events\n\n### Vue\n- Composition API and Options API both supported\n- Slots map to `args` in Storybook\n- Reactive state updates in tests\n\n### Svelte\n- Reactive stores work via context\n- Two-way binding testable\n- Lifecycle hooks work\n\n### Solid.js\n- Reactive primitives work normally\n- Effects run in tests\n- **Critical**: renderer called before storyFn()\n\n### Alpine.js\n- Manual initialization may be needed\n- x-directives work\n- Runtime-only (no build)\n\n## Edge Cases to Test\n\nFor each component, consider:\n\n- Empty props: `props = {}`\n- Null/undefined values\n- Very long text\n- Special characters in content\n- Multiple children/slots\n- No children provided\n- Invalid prop values\n- Disabled state\n- Loading state\n- Error state\n\n## Output Format\n\nGenerated tests should:\n1. Include proper imports\n2. Use describe() blocks for organization\n3. Include test names that describe behavior\n4. Follow test structure: setup → action → assert\n5. Include comments for non-obvious assertions\n6. Use appropriate queries\n7. Handle async properly (await where needed)\n\n## References\n\n- `.claude/references/testing-guidelines.md` - Test patterns\n- `.claude/references/framework-standards.md` - Framework differences\n- `AGENTS.md` - Architecture and debugging\n- [Testing Library Docs](https://testing-library.com/)\n- [Vitest Docs](https://vitest.dev/)\n"
+---
+name: test-generator
+description: Generate comprehensive test cases for Storybook Astro components using portable stories and Vitest patterns. Use when you need tests for new components, want to improve test coverage, or need to validate component behavior across frameworks.
+---
+
+# Test Generator for Storybook Astro
+
+Generates test cases for components using Storybook Astro's portable stories API and Vitest patterns.
+
+## Test Generation Scope
+
+This skill creates tests for:
+
+### Astro Components
+- Server-side rendered (SSR) via Astro Container
+- Scoped CSS handling
+- Props/slots passing
+- HTML output validation
+
+### Framework Components
+- React, Vue, Svelte, Preact, Solid.js, Alpine.js
+- Interactive behavior
+- Props/event binding
+- State management
+
+### Integration Tests
+- Multiple frameworks together
+- Framework delegation behavior
+- Container rendering
+
+## Test Structure
+
+### Standard Pattern
+
+All tests follow this template:
+
+```typescript
+import { screen } from '@testing-library/dom';
+import { test, expect, describe } from 'vitest';
+import { composeStories, renderStory } from '@storybook-astro/framework/testing';
+import * as stories from './Component.stories.jsx';
+
+describe('Component', () => {
+  const { Default, Variant1, Variant2 } = composeStories(stories);
+
+  test('default story renders correctly', async () => {
+    await renderStory(Default);
+    expect(screen.getByRole('...role...')).toBeInTheDocument();
+  });
+
+  test('variant story renders correctly', async () => {
+    await renderStory(Variant1);
+    // assertions
+  });
+});
+```
+
+## Generation Steps
+
+### 1. Analyze Component
+
+For the component, determine:
+- **Type**: Astro, React, Vue, etc.
+- **Props**: What args/parameters does it accept?
+- **Slots**: Does it accept children/slots?
+- **Interactions**: Does it handle clicks, form input, etc.?
+- **States**: What variant stories exist?
+
+### 2. Create Story File (if needed)
+
+If stories don't exist:
+
+```javascript
+// Component.stories.jsx
+import Component from './Component.astro'; // or .jsx, .vue, etc.
+
+export default {
+  title: 'Components/Component',
+  component: Component,
+  // Add parameters.renderer for non-Astro components
+  parameters: {
+    renderer: 'react', // For React/Vue/Svelte/etc
+  },
+};
+
+export const Default = {
+  args: {
+    prop1: 'default',
+    prop2: 'value',
+  },
+};
+
+export const Variant = {
+  args: {
+    prop1: 'variant',
+  },
+};
+```
+
+### 3. Generate Test Cases
+
+Generate tests based on:
+- **Component type**: Astro components get `await renderStory()`
+- **Props**: Test with various prop combinations
+- **States**: Test each story/variant
+- **Accessibility**: Use `getByRole()` when possible
+- **Edge cases**: Empty states, error states, etc.
+
+### 4. Test Coverage
+
+Aim for:
+- ✅ All props/variants tested
+- ✅ Happy path scenarios
+- ✅ Edge cases (empty, null, undefined)
+- ✅ Error states
+- ✅ Accessibility roles/labels
+- ✅ 80%+ coverage
+
+## Testing Patterns by Component Type
+
+### Astro Components
+
+```typescript
+import { composeStories, renderStory } from '@storybook-astro/framework/testing';
+
+test('Astro component renders', async () => {
+  await renderStory(story); // Must await
+  expect(screen.getByRole('button')).toBeInTheDocument();
+});
+```
+
+**Key points**:
+- Always `await renderStory()`
+- Tests HTML structure
+- Can verify scoped styles present
+
+### React/Preact Components
+
+```typescript
+import { composeStories } from '@storybook-astro/framework/testing';
+
+test('React component renders', () => {
+  const { Default } = composeStories(stories);
+  Default.run(); // No await for framework components
+  expect(screen.getByRole('button')).toBeInTheDocument();
+});
+
+test('handles click events', () => {
+  const { Default } = composeStories(stories);
+  Default.run();
+  fireEvent.click(screen.getByRole('button'));
+  // assertions after interaction
+});
+```
+
+### Vue/Svelte/Solid Components
+
+```typescript
+test('Vue component renders', () => {
+  const { Default } = composeStories(stories);
+  Default.run();
+  expect(screen.getByText('expected text')).toBeInTheDocument();
+});
+```
+
+### Alpine.js Components
+
+```typescript
+test('Alpine component initializes', async () => {
+  await renderStory(story);
+  // Alpine may need a tick to initialize
+  await new Promise(r => setTimeout(r, 10));
+  expect(screen.getByText('alpine-enhanced')).toBeInTheDocument();
+});
+```
+
+## Query Patterns
+
+Prefer accessibility queries (`getByRole`, `getByLabel`, `getByText`):
+
+✅ **Good**:
+```typescript
+expect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument();
+expect(screen.getByLabelText('Email')).toHaveValue('user@example.com');
+expect(screen.getByText('Success message')).toBeInTheDocument();
+```
+
+❌ **Bad**:
+```typescript
+expect(screen.getByTestId('btn-submit')).toBeInTheDocument();
+expect(screen.getByClassName('btn')).toBeInTheDocument();
+expect(wrapper.find('.success')).toBeDefined();
+```
+
+## Test Organization
+
+### Single File (Simple Component)
+```
+src/Button/
+├── Button.astro
+├── Button.stories.jsx
+└── Button.test.ts
+```
+
+### Multi-File (Complex Component)
+```
+src/Form/
+├── Form.astro
+├── Form.stories.jsx
+├── Form.test.ts          # Basic rendering
+├── Form.validation.test.ts # Validation logic
+├── Form.interaction.test.ts # User interactions
+└── Form.accessibility.test.ts # A11y
+```
+
+## Test Data Patterns
+
+### Props Variants
+
+```typescript
+test.each([
+  ['primary', 'btn-primary'],
+  ['secondary', 'btn-secondary'],
+  ['disabled', 'btn-disabled'],
+])('renders %s variant', async (variant, className) => {
+  const story = composeStory(Variant, { args: { variant } });
+  await renderStory(story);
+  expect(screen.getByRole('button')).toHaveClass(className);
+});
+```
+
+### Slot/Children Content
+
+```typescript
+test('renders slot content', async () => {
+  const story = composeStory(WithSlot, {
+    args: {
+      default: '<span>Slot content</span>',
+    },
+  });
+  await renderStory(story);
+  expect(screen.getByText('Slot content')).toBeInTheDocument();
+});
+```
+
+## Common Test Scenarios
+
+### Rendering
+```typescript
+test('component renders without errors', async () => {
+  await renderStory(story);
+  expect(screen.getByRole('...')).toBeInTheDocument();
+});
+```
+
+### Props Passing
+```typescript
+test('accepts and displays custom label', async () => {
+  const story = composeStory(Default, { args: { label: 'Custom' } });
+  await renderStory(story);
+  expect(screen.getByText('Custom')).toBeInTheDocument();
+});
+```
+
+### Conditional Rendering
+```typescript
+test('shows error state when error prop provided', async () => {
+  const story = composeStory(Error, { args: { error: 'Invalid' } });
+  await renderStory(story);
+  expect(screen.getByRole('alert')).toBeInTheDocument();
+});
+```
+
+### Event Handling
+```typescript
+import { fireEvent } from '@testing-library/dom';
+
+test('calls onClick handler on click', () => {
+  let clicked = false;
+  const story = composeStory(Default, {
+    args: { onClick: () => { clicked = true; } }
+  });
+  story.run();
+  fireEvent.click(screen.getByRole('button'));
+  expect(clicked).toBe(true);
+});
+```
+
+### Focus Management
+```typescript
+test('button is focusable', () => {
+  const story = composeStories(stories).Default;
+  story.run();
+  screen.getByRole('button').focus();
+  expect(document.activeElement).toBe(screen.getByRole('button'));
+});
+```
+
+## Coverage Goals
+
+- **Statements**: 80%+
+- **Branches**: 75%+
+- **Functions**: 80%+
+- **Lines**: 80%+
+
+Check with:
+```bash
+yarn test --coverage
+```
+
+## Framework-Specific Considerations
+
+### React/Preact
+- Hooks work normally
+- Props map via `args`
+- Event handlers receive synthetic events
+
+### Vue
+- Composition API and Options API both supported
+- Slots map to `args` in Storybook
+- Reactive state updates in tests
+
+### Svelte
+- Reactive stores work via context
+- Two-way binding testable
+- Lifecycle hooks work
+
+### Solid.js
+- Reactive primitives work normally
+- Effects run in tests
+- **Critical**: renderer called before storyFn()
+
+### Alpine.js
+- Manual initialization may be needed
+- x-directives work
+- Runtime-only (no build)
+
+## Edge Cases to Test
+
+For each component, consider:
+
+- Empty props: `props = {}`
+- Null/undefined values
+- Very long text
+- Special characters in content
+- Multiple children/slots
+- No children provided
+- Invalid prop values
+- Disabled state
+- Loading state
+- Error state
+
+## Output Format
+
+Generated tests should:
+1. Include proper imports
+2. Use describe() blocks for organization
+3. Include test names that describe behavior
+4. Follow test structure: setup → action → assert
+5. Include comments for non-obvious assertions
+6. Use appropriate queries
+7. Handle async properly (await where needed)
+
+## References
+
+- `.claude/references/testing-guidelines.md` - Test patterns
+- `.claude/references/framework-standards.md` - Framework differences
+- `AGENTS.md` - Architecture and debugging
+- [Testing Library Docs](https://testing-library.com/)
+- [Vitest Docs](https://vitest.dev/)
+"
