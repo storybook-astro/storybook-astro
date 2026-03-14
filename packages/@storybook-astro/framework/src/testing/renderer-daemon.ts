@@ -1,4 +1,5 @@
 import { createServer as createHttpServer } from 'node:http';
+import type { IncomingMessage } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import type { ViteDevServer } from 'vite';
 import { createViteServer } from '../viteStorybookAstroMiddlewarePlugin.ts';
@@ -28,7 +29,7 @@ type RunningDaemon = {
   close: () => Promise<void>;
 };
 
-async function readJsonBody(request: import('node:http').IncomingMessage) {
+async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
 
   for await (const chunk of request) {
