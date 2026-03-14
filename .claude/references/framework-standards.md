@@ -1,1 +1,462 @@
-# Framework Integration Standards\n\nThis document covers standards for integrating UI frameworks with Storybook Astro.\n\n## Supported Frameworks\n\n| Framework | Package | Status | Location |\n|-----------|---------|--------|----------|\n| React | @storybook/react-vite | Stable | `integrations/react.ts` |\n| Vue 3 | @storybook/vue3 | Stable | `integrations/vue.ts` |\n| Svelte | @storybook/svelte | Stable | `integrations/svelte.ts` |\n| Preact | @storybook/preact | Stable | `integrations/preact.ts` |\n| Solid.js | storybook-solidjs | Stable | `integrations/solid.ts` |\n| Alpine.js | Custom | Experimental | `integrations/alpine.ts` |\n\n## Integration Architecture\n\n### Base Integration Class\n\nAll integrations extend `BaseIntegration` from `packages/@storybook-astro/framework/src/integrations/base.ts`:\n\n```typescript\nexport class MyFrameworkIntegration extends BaseIntegration {\n  override getAstroRenderer() {\n    // Return Astro integration for this framework\n  }\n\n  override getVitePlugins() {\n    // Return Vite plugins needed for compilation\n  }\n\n  override getStorybookRenderer() {\n    // Return Storybook framework identifier\n  }\n\n  override resolveClient(specifier: string) {\n    // Handle special client-side module resolution if needed\n  }\n}\n```\n\n### Key Methods\n\n#### getAstroRenderer()\n\nReturns the Astro integration package for this framework.\n\n```typescript\noverride getAstroRenderer() {\n  return react(); // From @astrojs/react\n}\n```\n\nThe Astro integration configures how Astro renders components from this framework.\n\n#### getVitePlugins()\n\nReturns array of Vite plugins needed to compile components.\n\n```typescript\noverride getVitePlugins() {\n  return [\n    react({ fast: true }),\n    // Other framework-specific plugins\n  ];\n}\n```\n\nCritical: Vite must be able to compile `.jsx`, `.tsx`, or `.vue` files accordingly.\n\n#### getStorybookRenderer()\n\nReturns the Storybook renderer identifier.\n\n```typescript\noverride getStorybookRenderer() {\n  return '@storybook/react'; // Maps to Storybook's React renderer\n}\n```\n\nThis tells Storybook which framework's preview addon to load.\n\n#### resolveClient(specifier)\n\nOptional. Handles special module resolution for client-side code.\n\n```typescript\noverride resolveClient(specifier: string) {\n  if (specifier === 'custom-entrypoint') {\n    return '/path/to/entrypoint.js';\n  }\n  return null; // Delegate to default resolution\n}\n```\n\nUseful for Alpine.js and other frameworks needing special initialization.\n\n## Rendering Flow\n\n### Detection Phase\n\n**Server-side** (`middleware.ts`):\n1. Framework integration is instantiated\n2. Astro Container is created with all integrations' renderers\n3. Container can render both Astro and framework components\n\n**Client-side** (`render.tsx`):\n1. `isAstroComponentFactory` flag detects Astro components\n2. Other components are delegated to framework renderers via `parameters.renderer`\n\n### Server Rendering (Astro Components)\n\n```\nstory request\n  ↓\ndetect isAstroComponentFactory\n  ↓\nsend request to framework middleware via HMR\n  ↓\ngetAstroRenderer() returns integration\n  ↓\nAstro Container renders component to HTML\n  ↓\nreturn HTML string\n  ↓\ninject into canvas, apply styles\n```\n\n### Client Rendering (Framework Components)\n\n```\nstory request\n  ↓\ndetect parameters.renderer\n  ↓\ndelegate to framework's renderToCanvas BEFORE storyFn()\n  ↓\nframework renderer handles state/hydration\n  ↓\nframework component renders to DOM\n```\n\n**Important**: Framework renderers are called BEFORE `storyFn()` to allow frameworks like Solid.js to manage their own reactive roots.\n\n## Configuration Pattern\n\n### In .storybook/main.js\n\n```javascript\nconst config = {\n  framework: '@storybook-astro/framework',\n  stories: ['../src/**/*.stories.{jsx,tsx}'],\n  addons: ['@storybook/addon-essentials'],\n  \n  // Framework integration configuration\n  astroIntegrations: [\n    // React\n    {\n      name: '@storybook-astro/react',\n      include: '**/react/**', // Recursive glob\n    },\n    // Vue\n    {\n      name: '@storybook-astro/vue',\n      include: '**/vue/**',\n    },\n    // ... other frameworks\n  ],\n};\n```\n\n**Critical**: Use recursive glob patterns (`**/framework/**`) not single-level (`*/framework/*`). Single-level globs won't match files in nested subdirectories and will cause files to compile with wrong plugins.\n\n## Per-Framework Guidelines\n\n### React\n\n**File extensions**: `.jsx`, `.tsx`\n\n**Story example**:\n```javascript\nimport Button from './Button.jsx';\n\nexport default {\n  title: 'Components/Button',\n  component: Button,\n};\n\nexport const Primary = {\n  args: { label: 'Click me' },\n};\n```\n\n**Notes**:\n- Uses @storybook/react-vite renderer\n- Hooks work normally in Storybook\n- No special initialization needed\n\n### Vue 3\n\n**File extensions**: `.vue`\n\n**Story example**:\n```javascript\nimport Button from './Button.vue';\n\nexport default {\n  title: 'Components/Button',\n  component: Button,\n};\n\nexport const Primary = {\n  args: { label: 'Click me' },\n};\n```\n\n**Notes**:\n- Uses @storybook/vue3 renderer\n- Both Composition API and Options API supported\n- Props bind via `args`\n- Slots work via `slots` parameter\n\n### Svelte\n\n**File extensions**: `.svelte`\n\n**Story example**:\n```javascript\nimport Button from './Button.svelte';\n\nexport default {\n  title: 'Components/Button',\n  component: Button,\n};\n\nexport const Primary = {\n  args: { label: 'Click me' },\n};\n```\n\n**Notes**:\n- Uses @storybook/svelte renderer\n- Reactive stores work via `setContext`\n- Props bind via `args`\n\n### Preact\n\n**File extensions**: `.jsx`, `.tsx`\n\n**Story example**:\n```javascript\nimport Button from './Button.jsx';\n\nexport default {\n  title: 'Components/Button',\n  component: Button,\n};\n\nexport const Primary = {\n  args: { label: 'Click me' },\n};\n```\n\n**Notes**:\n- Uses @storybook/preact renderer\n- Similar to React but smaller footprint\n- Hooks available (via preact/hooks)\n\n### Solid.js\n\n**File extensions**: `.jsx`, `.tsx`\n\n**Story example**:\n```javascript\nimport Button from './Button.jsx';\n\nexport default {\n  title: 'Components/Button',\n  component: Button,\n};\n\nexport const Primary = {\n  args: { label: 'Click me' },\n};\n```\n\n**Notes**:\n- Uses storybook-solidjs renderer (NOT @storybook/solidjs)\n- **Critical**: `renderToCanvas()` delegates to Solid renderer BEFORE calling `storyFn()`. This is required for Solid to manage reactive roots properly. If this order is wrong, effects and reactive primitives break.\n- Reactive primitives (createSignal, createEffect, etc.) work normally\n\n### Alpine.js\n\n**File extensions**: `.astro` (wrapped) or `.html` (standalone)\n\n**Story example**:\n```javascript\nimport Counter from './Counter.astro';\n\nexport default {\n  title: 'Components/Counter',\n  component: Counter,\n};\n\nexport const Default = {};\n```\n\n**Notes**:\n- Alpine is started manually in `render.tsx` init function\n- HTML must contain `x-` directives\n- No build step needed (Alpine is runtime only)\n- Entrypoint: `resolveClient()` in Alpine integration returns custom initialization\n\n## Component File Organization\n\n### Single-Framework Component\n```\nsrc/components/Button/\n├── Button.jsx          # React component\n├── Button.stories.jsx  # Story\n└── Button.test.ts      # Test\n```\n\n### Multi-Framework Component (Astro wrapper)\n```\nsrc/components/Button/\n├── Button.astro        # Astro shell component\n├── Button.stories.jsx  # Wraps React/Vue/etc\n├── Button.test.ts      # Tests via portable stories\n├── react/\n│   └── Button.jsx\n├── vue/\n│   └── Button.vue\n└── styles.css          # Shared styles\n```\n\n## Integration Testing Checklist\n\nWhen adding or modifying a framework integration:\n\n- [ ] Integration file created in `src/integrations/[framework].ts`\n- [ ] Extends `BaseIntegration` with all required methods\n- [ ] `getAstroRenderer()` returns correct Astro integration\n- [ ] `getVitePlugins()` returns plugins that can compile source files\n- [ ] `getStorybookRenderer()` returns valid Storybook renderer identifier\n- [ ] Example components in sandbox apps (`apps/sandbox-astro{5,6}/src/components/`)\n- [ ] Story files demonstrate key features (props, slots, events)\n- [ ] Tests in `packages/@storybook-astro/framework/src/[framework].test.ts`\n- [ ] `.storybook/main.js` in both sandboxes updated with recursive glob for this framework\n- [ ] `yarn test` passes\n- [ ] `yarn workspace @storybook-astro/sandbox-astro6 storybook` loads without errors\n- [ ] Components render correctly in Storybook UI\n- [ ] Interactivity works (if applicable)\n- [ ] Styles apply correctly\n- [ ] HMR updates work when files change\n\n## Common Integration Pitfalls\n\n### Glob Pattern Issues\n\n**Symptom**: Framework components not found, compiled by wrong plugin\n\n**Fix**: Use recursive `**` patterns in glob:\n```javascript\n// Good\ninclude: '**/react/**'\n\n// Bad\ninclude: '*/react/*'  // Won't match src/components/react/Button/Button.jsx\n```\n\n### Missing Storybook Renderer\n\n**Symptom**: Framework components show as objects or blank\n\n**Fix**: Check `getStorybookRenderer()` returns valid identifier and that the Storybook addon for this framework is installed.\n\n### Astro Renderer Not Configured\n\n**Symptom**: Astro Container errors about missing integration\n\n**Fix**: Check `getAstroRenderer()` returns correct integration package (e.g., `react()` from `@astrojs/react`).\n\n### Vite Plugin Chain Incomplete\n\n**Symptom**: Syntax errors in component files\n\n**Fix**: Check `getVitePlugins()` returns all necessary plugins for this framework. May need framework plugin + dependencies.\n\n### Client Module Resolution Broken\n\n**Symptom**: Runtime errors about missing modules (Alpine.js issue)\n\n**Fix**: Implement `resolveClient()` to handle special module paths for client-side initialization.\n\n## Extending the Base Integration\n\nTo create a new integration:\n\n```typescript\n// packages/@storybook-astro/framework/src/integrations/newframework.ts\n\nimport { BaseIntegration, type BaseOptions } from './base.ts';\nimport newFrameworkAstro from '@astrojs/new-framework';\nimport newFrameworkVitePlugin from 'vite-plugin-new-framework';\n\nexport type Options = BaseOptions & {\n  // Framework-specific options\n  customOption?: string;\n};\n\nexport class NewFrameworkIntegration extends BaseIntegration {\n  readonly options: Options;\n\n  constructor(options?: Options) {\n    super(options);\n    this.options = options || {};\n  }\n\n  override getAstroRenderer() {\n    return newFrameworkAstro();\n  }\n\n  override getVitePlugins() {\n    return [newFrameworkVitePlugin()];\n  }\n\n  override getStorybookRenderer() {\n    return '@storybook/new-framework';\n  }\n\n  override resolveClient(specifier: string) {\n    // Optional: handle special client-side resolution\n    return null;\n  }\n}\n```\n\nThen export from `integrations/index.ts`:\n\n```typescript\nexport { NewFrameworkIntegration as newframework } from './newframework.ts';\n```\n\nAdd to `.storybook/main.js`:\n\n```javascript\nastroIntegrations: [\n  {\n    name: 'newframework',\n    include: '**/newframework/**',\n  },\n]\n```\n\n## References\n\n- [AGENTS.md](../AGENTS.md) - Architecture and debugging\n- [project-structure.md](./project-structure.md) - Monorepo navigation\n- [testing-guidelines.md](./testing-guidelines.md) - Testing patterns\n- [Astro Framework Integrations](https://docs.astro.build/en/guides/framework-components/)\n- [Storybook Framework API](https://storybook.js.org/docs/configure/integration/frameworks)\n
+# Framework Integration Standards
+
+This document covers standards for integrating UI frameworks with Storybook Astro.
+
+## Supported Frameworks
+
+| Framework | Package | Status | Location |
+|-----------|---------|--------|----------|
+| React | @storybook/react-vite | Stable | `integrations/react.ts` |
+| Vue 3 | @storybook/vue3 | Stable | `integrations/vue.ts` |
+| Svelte | @storybook/svelte | Stable | `integrations/svelte.ts` |
+| Preact | @storybook/preact | Stable | `integrations/preact.ts` |
+| Solid.js | storybook-solidjs | Stable | `integrations/solid.ts` |
+| Alpine.js | Custom | Experimental | `integrations/alpine.ts` |
+
+## Integration Architecture
+
+### Base Integration Class
+
+All integrations extend `BaseIntegration` from `packages/@storybook-astro/framework/src/integrations/base.ts`:
+
+```typescript
+export class MyFrameworkIntegration extends BaseIntegration {
+  override getAstroRenderer() {
+    // Return Astro integration for this framework
+  }
+
+  override getVitePlugins() {
+    // Return Vite plugins needed for compilation
+  }
+
+  override getStorybookRenderer() {
+    // Return Storybook framework identifier
+  }
+
+  override resolveClient(specifier: string) {
+    // Handle special client-side module resolution if needed
+  }
+}
+```
+
+### Key Methods
+
+#### getAstroRenderer()
+
+Returns the Astro integration package for this framework.
+
+```typescript
+override getAstroRenderer() {
+  return react(); // From @astrojs/react
+}
+```
+
+The Astro integration configures how Astro renders components from this framework.
+
+#### getVitePlugins()
+
+Returns array of Vite plugins needed to compile components.
+
+```typescript
+override getVitePlugins() {
+  return [
+    react({ fast: true }),
+    // Other framework-specific plugins
+  ];
+}
+```
+
+Critical: Vite must be able to compile `.jsx`, `.tsx`, or `.vue` files accordingly.
+
+#### getStorybookRenderer()
+
+Returns the Storybook renderer identifier.
+
+```typescript
+override getStorybookRenderer() {
+  return '@storybook/react'; // Maps to Storybook's React renderer
+}
+```
+
+This tells Storybook which framework's preview addon to load.
+
+#### resolveClient(specifier)
+
+Optional. Handles special module resolution for client-side code.
+
+```typescript
+override resolveClient(specifier: string) {
+  if (specifier === 'custom-entrypoint') {
+    return '/path/to/entrypoint.js';
+  }
+  return null; // Delegate to default resolution
+}
+```
+
+Useful for Alpine.js and other frameworks needing special initialization.
+
+## Rendering Flow
+
+### Detection Phase
+
+**Server-side** (`middleware.ts`):
+1. Framework integration is instantiated
+2. Astro Container is created with all integrations' renderers
+3. Container can render both Astro and framework components
+
+**Client-side** (`render.tsx`):
+1. `isAstroComponentFactory` flag detects Astro components
+2. Other components are delegated to framework renderers via `parameters.renderer`
+
+### Server Rendering (Astro Components)
+
+```
+story request
+  ↓
+detect isAstroComponentFactory
+  ↓
+send request to framework middleware via HMR
+  ↓
+getAstroRenderer() returns integration
+  ↓
+Astro Container renders component to HTML
+  ↓
+return HTML string
+  ↓
+inject into canvas, apply styles
+```
+
+### Client Rendering (Framework Components)
+
+```
+story request
+  ↓
+detect parameters.renderer
+  ↓
+delegate to framework's renderToCanvas BEFORE storyFn()
+  ↓
+framework renderer handles state/hydration
+  ↓
+framework component renders to DOM
+```
+
+**Important**: Framework renderers are called BEFORE `storyFn()` to allow frameworks like Solid.js to manage their own reactive roots.
+
+## Configuration Pattern
+
+### In .storybook/main.js
+
+```javascript
+const config = {
+  framework: '@storybook-astro/framework',
+  stories: ['../src/**/*.stories.{jsx,tsx}'],
+  addons: ['@storybook/addon-essentials'],
+  
+  // Framework integration configuration
+  astroIntegrations: [
+    // React
+    {
+      name: '@storybook-astro/react',
+      include: '**/react/**', // Recursive glob
+    },
+    // Vue
+    {
+      name: '@storybook-astro/vue',
+      include: '**/vue/**',
+    },
+    // ... other frameworks
+  ],
+};
+```
+
+**Critical**: Use recursive glob patterns (`**/framework/**`) not single-level (`*/framework/*`). Single-level globs won't match files in nested subdirectories and will cause files to compile with wrong plugins.
+
+## Per-Framework Guidelines
+
+### React
+
+**File extensions**: `.jsx`, `.tsx`
+
+**Story example**:
+```javascript
+import Button from './Button.jsx';
+
+export default {
+  title: 'Components/Button',
+  component: Button,
+};
+
+export const Primary = {
+  args: { label: 'Click me' },
+};
+```
+
+**Notes**:
+- Uses @storybook/react-vite renderer
+- Hooks work normally in Storybook
+- No special initialization needed
+
+### Vue 3
+
+**File extensions**: `.vue`
+
+**Story example**:
+```javascript
+import Button from './Button.vue';
+
+export default {
+  title: 'Components/Button',
+  component: Button,
+};
+
+export const Primary = {
+  args: { label: 'Click me' },
+};
+```
+
+**Notes**:
+- Uses @storybook/vue3 renderer
+- Both Composition API and Options API supported
+- Props bind via `args`
+- Slots work via `slots` parameter
+
+### Svelte
+
+**File extensions**: `.svelte`
+
+**Story example**:
+```javascript
+import Button from './Button.svelte';
+
+export default {
+  title: 'Components/Button',
+  component: Button,
+};
+
+export const Primary = {
+  args: { label: 'Click me' },
+};
+```
+
+**Notes**:
+- Uses @storybook/svelte renderer
+- Reactive stores work via `setContext`
+- Props bind via `args`
+
+### Preact
+
+**File extensions**: `.jsx`, `.tsx`
+
+**Story example**:
+```javascript
+import Button from './Button.jsx';
+
+export default {
+  title: 'Components/Button',
+  component: Button,
+};
+
+export const Primary = {
+  args: { label: 'Click me' },
+};
+```
+
+**Notes**:
+- Uses @storybook/preact renderer
+- Similar to React but smaller footprint
+- Hooks available (via preact/hooks)
+
+### Solid.js
+
+**File extensions**: `.jsx`, `.tsx`
+
+**Story example**:
+```javascript
+import Button from './Button.jsx';
+
+export default {
+  title: 'Components/Button',
+  component: Button,
+};
+
+export const Primary = {
+  args: { label: 'Click me' },
+};
+```
+
+**Notes**:
+- Uses storybook-solidjs renderer (NOT @storybook/solidjs)
+- **Critical**: `renderToCanvas()` delegates to Solid renderer BEFORE calling `storyFn()`. This is required for Solid to manage reactive roots properly. If this order is wrong, effects and reactive primitives break.
+- Reactive primitives (createSignal, createEffect, etc.) work normally
+
+### Alpine.js
+
+**File extensions**: `.astro` (wrapped) or `.html` (standalone)
+
+**Story example**:
+```javascript
+import Counter from './Counter.astro';
+
+export default {
+  title: 'Components/Counter',
+  component: Counter,
+};
+
+export const Default = {};
+```
+
+**Notes**:
+- Alpine is started manually in `render.tsx` init function
+- HTML must contain `x-` directives
+- No build step needed (Alpine is runtime only)
+- Entrypoint: `resolveClient()` in Alpine integration returns custom initialization
+
+## Component File Organization
+
+### Single-Framework Component
+```
+src/components/Button/
+├── Button.jsx          # React component
+├── Button.stories.jsx  # Story
+└── Button.test.ts      # Test
+```
+
+### Multi-Framework Component (Astro wrapper)
+```
+src/components/Button/
+├── Button.astro        # Astro shell component
+├── Button.stories.jsx  # Wraps React/Vue/etc
+├── Button.test.ts      # Tests via portable stories
+├── react/
+│   └── Button.jsx
+├── vue/
+│   └── Button.vue
+└── styles.css          # Shared styles
+```
+
+## Integration Testing Checklist
+
+When adding or modifying a framework integration:
+
+- [ ] Integration file created in `src/integrations/[framework].ts`
+- [ ] Extends `BaseIntegration` with all required methods
+- [ ] `getAstroRenderer()` returns correct Astro integration
+- [ ] `getVitePlugins()` returns plugins that can compile source files
+- [ ] `getStorybookRenderer()` returns valid Storybook renderer identifier
+- [ ] Example components in sandbox apps (`apps/sandbox-astro{5,6}/src/components/`)
+- [ ] Story files demonstrate key features (props, slots, events)
+- [ ] Tests in `packages/@storybook-astro/framework/src/[framework].test.ts`
+- [ ] `.storybook/main.js` in both sandboxes updated with recursive glob for this framework
+- [ ] `yarn test` passes
+- [ ] `yarn workspace @storybook-astro/sandbox-astro6 storybook` loads without errors
+- [ ] Components render correctly in Storybook UI
+- [ ] Interactivity works (if applicable)
+- [ ] Styles apply correctly
+- [ ] HMR updates work when files change
+
+## Common Integration Pitfalls
+
+### Glob Pattern Issues
+
+**Symptom**: Framework components not found, compiled by wrong plugin
+
+**Fix**: Use recursive `**` patterns in glob:
+```javascript
+// Good
+include: '**/react/**'
+
+// Bad
+include: '*/react/*'  // Won't match src/components/react/Button/Button.jsx
+```
+
+### Missing Storybook Renderer
+
+**Symptom**: Framework components show as objects or blank
+
+**Fix**: Check `getStorybookRenderer()` returns valid identifier and that the Storybook addon for this framework is installed.
+
+### Astro Renderer Not Configured
+
+**Symptom**: Astro Container errors about missing integration
+
+**Fix**: Check `getAstroRenderer()` returns correct integration package (e.g., `react()` from `@astrojs/react`).
+
+### Vite Plugin Chain Incomplete
+
+**Symptom**: Syntax errors in component files
+
+**Fix**: Check `getVitePlugins()` returns all necessary plugins for this framework. May need framework plugin + dependencies.
+
+### Client Module Resolution Broken
+
+**Symptom**: Runtime errors about missing modules (Alpine.js issue)
+
+**Fix**: Implement `resolveClient()` to handle special module paths for client-side initialization.
+
+## Extending the Base Integration
+
+To create a new integration:
+
+```typescript
+// packages/@storybook-astro/framework/src/integrations/newframework.ts
+
+import { BaseIntegration, type BaseOptions } from './base.ts';
+import newFrameworkAstro from '@astrojs/new-framework';
+import newFrameworkVitePlugin from 'vite-plugin-new-framework';
+
+export type Options = BaseOptions & {
+  // Framework-specific options
+  customOption?: string;
+};
+
+export class NewFrameworkIntegration extends BaseIntegration {
+  readonly options: Options;
+
+  constructor(options?: Options) {
+    super(options);
+    this.options = options || {};
+  }
+
+  override getAstroRenderer() {
+    return newFrameworkAstro();
+  }
+
+  override getVitePlugins() {
+    return [newFrameworkVitePlugin()];
+  }
+
+  override getStorybookRenderer() {
+    return '@storybook/new-framework';
+  }
+
+  override resolveClient(specifier: string) {
+    // Optional: handle special client-side resolution
+    return null;
+  }
+}
+```
+
+Then export from `integrations/index.ts`:
+
+```typescript
+export { NewFrameworkIntegration as newframework } from './newframework.ts';
+```
+
+Add to `.storybook/main.js`:
+
+```javascript
+astroIntegrations: [
+  {
+    name: 'newframework',
+    include: '**/newframework/**',
+  },
+]
+```
+
+## References
+
+- [AGENTS.md](../AGENTS.md) - Architecture and debugging
+- [project-structure.md](./project-structure.md) - Monorepo navigation
+- [testing-guidelines.md](./testing-guidelines.md) - Testing patterns
+- [Astro Framework Integrations](https://docs.astro.build/en/guides/framework-components/)
+- [Storybook Framework API](https://storybook.js.org/docs/configure/integration/frameworks)

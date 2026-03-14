@@ -1,1 +1,241 @@
----\nname: docs-reviewer\ndescription: Review documentation in Storybook Astro for completeness, accuracy, and alignment with project standards. Use when you want to improve documentation, need to validate docs updates, or ensure consistency across AGENTS.md and reference guides.\n---\n\n# Documentation Reviewer for Storybook Astro\n\nReviews and improves documentation to ensure accuracy, completeness, and consistency with project architecture.\n\n## Documentation Scope\n\nThis skill covers:\n\n### Core Documentation\n- **AGENTS.md** - Architecture, conventions, debugging, development tasks\n- **CONTRIBUTING.md** - Contribution workflow, branching, code standards\n- **README.md** - Project overview and getting started\n- **.claude/references/*.md** - Supporting guides\n\n### Reference Materials\n- **project-structure.md** - Monorepo layout and workspace navigation\n- **testing-guidelines.md** - Vitest, portable stories, test patterns\n- **framework-standards.md** - Framework integration standards and patterns\n\n### Code Documentation\n- JSDoc/TSDoc comments in source files\n- Inline comments for complex logic\n- Type annotations and signatures\n\n## Review Checklist\n\n### Accuracy\n- [ ] File paths are correct (uses relative paths where appropriate)\n- [ ] Command examples are runnable and current\n- [ ] Code examples compile and work correctly\n- [ ] Framework names and versions are accurate\n- [ ] Links to files are valid (no broken references)\n- [ ] API descriptions match actual implementation\n\n### Completeness\n- [ ] All major concepts are explained\n- [ ] Edge cases are documented\n- [ ] Examples cover common use cases\n- [ ] Tables of contents are present for long docs\n- [ ] Related concepts are cross-referenced\n- [ ] Troubleshooting sections address known issues\n\n### Clarity\n- [ ] Language is clear and professional\n- [ ] Technical terms are defined or linked\n- [ ] Step-by-step procedures are numbered\n- [ ] Code examples are properly formatted\n- [ ] Emphasis (bold, code, italics) used appropriately\n- [ ] Paragraphs are concise (not rambling)\n\n### Consistency\n- [ ] Terminology matches across documents\n- [ ] Code style consistent with project\n- [ ] Formatting matches other docs\n- [ ] Framework names used consistently\n- [ ] Command examples use same conventions\n- [ ] References to packages use correct names\n\n### Structure\n- [ ] Headings create clear hierarchy\n- [ ] Sections are logically ordered\n- [ ] Each section has clear purpose\n- [ ] Complex topics have subsections\n- [ ] Related content is grouped\n- [ ] No orphaned sections\n\n## Common Documentation Issues\n\n### Broken References\n\n❌ **Bad**:\n```markdown\nSee `src/components/Button.tsx` for examples.\n```\n(File doesn't exist in that location)\n\n✅ **Good**:\n```markdown\nSee `packages/@storybook-astro/components/Button/Button.tsx` for examples.\n```\n\n### Outdated Information\n\n❌ **Bad**:\n```markdown\nUse Astro 5 stable for testing.\n```\n(Should say Astro 5 and 6 are both supported)\n\n✅ **Good**:\n```markdown\nTest with both Astro 5.17.2 (stable) and Astro 6 beta using the sandbox apps.\n```\n\n### Incomplete Examples\n\n❌ **Bad**:\n```typescript\n// How to test a component\nconst { Default } = composeStories(stories);\n```\n(Missing async, import statements)\n\n✅ **Good**:\n```typescript\nimport { composeStories, renderStory } from '@storybook-astro/framework/testing';\nconst { Default } = composeStories(stories);\ntest('renders', async () => {\n  await renderStory(Default);\n  // assertions...\n});\n```\n\n### Unclear Instructions\n\n❌ **Bad**:\n```markdown\nRun the tests to make sure everything works.\n```\n\n✅ **Good**:\n```markdown\nRun the test suite from the monorepo root:\n```bash\nyarn test\n```\n\nAll 17 test suites (36 tests) should pass.\n```\n\n## Framework Documentation\n\nWhen documenting framework integrations, ensure:\n\n- Framework name is accurate (React, Vue, Svelte, Preact, Solid.js, Alpine.js)\n- Integration class pattern is shown\n- File extensions are explicit (`.jsx`, `.vue`, etc.)\n- Example components are provided\n- Test patterns are shown\n- Known limitations are mentioned\n- Critical gotchas are highlighted (e.g., Solid's renderer-before-storyFn ordering)\n\n## Testing Documentation\n\nWhen documenting testing:\n\n- Use portable stories API (`composeStories`, `renderStory`)\n- Show async/await usage clearly\n- Mention happy-dom limitations\n- Use `@testing-library/dom` for queries\n- Show Vitest imports and patterns\n- Include test organization examples\n\n## Architecture Documentation\n\nWhen documenting architecture:\n\n- Keep data flow diagrams clear\n- Show layer separation (server/client)\n- Include file organization\n- Explain why design choices were made\n- Note compatibility layers (Astro 5 vs 6)\n- Document virtual module usage\n\n## Review Output\n\n**For each document reviewed:**\n\n```\n### AGENTS.md\n\n**Status**: ✅ Current / ⚠️ Needs Updates / ❌ Outdated\n\n**Strengths**:\n- Clear explanation of architecture\n- Good examples throughout\n\n**Issues**:\n1. Line 123: File path incorrect (`src/middleware.ts` doesn't exist)\n2. Line 456: Astro 5 only example (should cover 6 too)\n3. Missing example for new feature\n\n**Suggestions**:\n- Add troubleshooting section\n- Link to testing-guidelines from testing section\n```\n\n**Summary:**\n- Documents reviewed\n- Critical issues\n- Recommended updates\n- Priority fixes\n\n## Documentation Standards\n\n### Terminology\n\nUse consistent terms:\n- \"Storybook Astro\" (not \"storybook-astro\" in prose)\n- \"portable stories\" (lowercase)\n- \"Vite plugin\" (capitalized properly)\n- Framework names as official (React, Vue 3, Svelte, Preact, Solid.js, Alpine.js)\n- \"monorepo\" (one word)\n- \"workspace\" (for Yarn workspaces)\n\n### Code Formatting\n\n- Use language identifier: ` ```typescript ` not ` ```ts `\n- Include file paths in code blocks for real files\n- Use relative paths for files in repo\n- Show imports with explicit extensions\n- Highlight important lines with comments\n\n### Link Format\n\n- Internal: `[AGENTS.md](./AGENTS.md)` (relative)\n- Files: `` `src/file.ts` `` (backticks)\n- URLs: Full links with protocol\n\n## Maintenance\n\nDocumentation should be updated when:\n\n- New framework is added → update framework-standards.md and examples\n- New feature is added → update AGENTS.md and relevant reference\n- Pattern changes → update AGENTS.md and examples\n- Astro version changes → update compatibility notes\n- Dependencies update → check for API changes\n\n## References\n\n- `AGENTS.md` - Current technical documentation\n- `CONTRIBUTING.md` - Contribution process\n- `.claude/references/` - Supporting guides\n- [CommonMark Spec](https://spec.commonmark.org/) - Markdown standard\n"
+---
+name: docs-reviewer
+description: Review documentation in Storybook Astro for completeness, accuracy, and alignment with project standards. Use when you want to improve documentation, need to validate docs updates, or ensure consistency across AGENTS.md and reference guides.
+---
+
+# Documentation Reviewer for Storybook Astro
+
+Reviews and improves documentation to ensure accuracy, completeness, and consistency with project architecture.
+
+## Documentation Scope
+
+This skill covers:
+
+### Core Documentation
+- **AGENTS.md** - Architecture, conventions, debugging, development tasks
+- **CONTRIBUTING.md** - Contribution workflow, branching, code standards
+- **README.md** - Project overview and getting started
+- **.claude/references/*.md** - Supporting guides
+
+### Reference Materials
+- **project-structure.md** - Monorepo layout and workspace navigation
+- **testing-guidelines.md** - Vitest, portable stories, test patterns
+- **framework-standards.md** - Framework integration standards and patterns
+
+### Code Documentation
+- JSDoc/TSDoc comments in source files
+- Inline comments for complex logic
+- Type annotations and signatures
+
+## Review Checklist
+
+### Accuracy
+- [ ] File paths are correct (uses relative paths where appropriate)
+- [ ] Command examples are runnable and current
+- [ ] Code examples compile and work correctly
+- [ ] Framework names and versions are accurate
+- [ ] Links to files are valid (no broken references)
+- [ ] API descriptions match actual implementation
+
+### Completeness
+- [ ] All major concepts are explained
+- [ ] Edge cases are documented
+- [ ] Examples cover common use cases
+- [ ] Tables of contents are present for long docs
+- [ ] Related concepts are cross-referenced
+- [ ] Troubleshooting sections address known issues
+
+### Clarity
+- [ ] Language is clear and professional
+- [ ] Technical terms are defined or linked
+- [ ] Step-by-step procedures are numbered
+- [ ] Code examples are properly formatted
+- [ ] Emphasis (bold, code, italics) used appropriately
+- [ ] Paragraphs are concise (not rambling)
+
+### Consistency
+- [ ] Terminology matches across documents
+- [ ] Code style consistent with project
+- [ ] Formatting matches other docs
+- [ ] Framework names used consistently
+- [ ] Command examples use same conventions
+- [ ] References to packages use correct names
+
+### Structure
+- [ ] Headings create clear hierarchy
+- [ ] Sections are logically ordered
+- [ ] Each section has clear purpose
+- [ ] Complex topics have subsections
+- [ ] Related content is grouped
+- [ ] No orphaned sections
+
+## Common Documentation Issues
+
+### Broken References
+
+❌ **Bad**:
+```markdown
+See `src/components/Button.tsx` for examples.
+```
+(File doesn't exist in that location)
+
+✅ **Good**:
+```markdown
+See `packages/@storybook-astro/components/Button/Button.tsx` for examples.
+```
+
+### Outdated Information
+
+❌ **Bad**:
+```markdown
+Use Astro 5 stable for testing.
+```
+(Should say Astro 5 and 6 are both supported)
+
+✅ **Good**:
+```markdown
+Test with both Astro 5.17.2 (stable) and Astro 6 beta using the sandbox apps.
+```
+
+### Incomplete Examples
+
+❌ **Bad**:
+```typescript
+// How to test a component
+const { Default } = composeStories(stories);
+```
+(Missing async, import statements)
+
+✅ **Good**:
+```typescript
+import { composeStories, renderStory } from '@storybook-astro/framework/testing';
+const { Default } = composeStories(stories);
+test('renders', async () => {
+  await renderStory(Default);
+  // assertions...
+});
+```
+
+### Unclear Instructions
+
+❌ **Bad**:
+```markdown
+Run the tests to make sure everything works.
+```
+
+✅ **Good**:
+```markdown
+Run the test suite from the monorepo root:
+```bash
+yarn test
+```
+
+All 17 test suites (36 tests) should pass.
+```
+
+## Framework Documentation
+
+When documenting framework integrations, ensure:
+
+- Framework name is accurate (React, Vue, Svelte, Preact, Solid.js, Alpine.js)
+- Integration class pattern is shown
+- File extensions are explicit (`.jsx`, `.vue`, etc.)
+- Example components are provided
+- Test patterns are shown
+- Known limitations are mentioned
+- Critical gotchas are highlighted (e.g., Solid's renderer-before-storyFn ordering)
+
+## Testing Documentation
+
+When documenting testing:
+
+- Use portable stories API (`composeStories`, `renderStory`)
+- Show async/await usage clearly
+- Mention happy-dom limitations
+- Use `@testing-library/dom` for queries
+- Show Vitest imports and patterns
+- Include test organization examples
+
+## Architecture Documentation
+
+When documenting architecture:
+
+- Keep data flow diagrams clear
+- Show layer separation (server/client)
+- Include file organization
+- Explain why design choices were made
+- Note compatibility layers (Astro 5 vs 6)
+- Document virtual module usage
+
+## Review Output
+
+**For each document reviewed:**
+
+```
+### AGENTS.md
+
+**Status**: ✅ Current / ⚠️ Needs Updates / ❌ Outdated
+
+**Strengths**:
+- Clear explanation of architecture
+- Good examples throughout
+
+**Issues**:
+1. Line 123: File path incorrect (`src/middleware.ts` doesn't exist)
+2. Line 456: Astro 5 only example (should cover 6 too)
+3. Missing example for new feature
+
+**Suggestions**:
+- Add troubleshooting section
+- Link to testing-guidelines from testing section
+```
+
+**Summary:**
+- Documents reviewed
+- Critical issues
+- Recommended updates
+- Priority fixes
+
+## Documentation Standards
+
+### Terminology
+
+Use consistent terms:
+- \"Storybook Astro\" (not \"storybook-astro\" in prose)
+- \"portable stories\" (lowercase)
+- \"Vite plugin\" (capitalized properly)
+- Framework names as official (React, Vue 3, Svelte, Preact, Solid.js, Alpine.js)
+- \"monorepo\" (one word)
+- \"workspace\" (for Yarn workspaces)
+
+### Code Formatting
+
+- Use language identifier: ` ```typescript ` not ` ```ts `
+- Include file paths in code blocks for real files
+- Use relative paths for files in repo
+- Show imports with explicit extensions
+- Highlight important lines with comments
+
+### Link Format
+
+- Internal: `[AGENTS.md](./AGENTS.md)` (relative)
+- Files: `` `src/file.ts` `` (backticks)
+- URLs: Full links with protocol
+
+## Maintenance
+
+Documentation should be updated when:
+
+- New framework is added → update framework-standards.md and examples
+- New feature is added → update AGENTS.md and relevant reference
+- Pattern changes → update AGENTS.md and examples
+- Astro version changes → update compatibility notes
+- Dependencies update → check for API changes
+
+## References
+
+- `AGENTS.md` - Current technical documentation
+- `CONTRIBUTING.md` - Contribution process
+- `.claude/references/` - Supporting guides
+- [CommonMark Spec](https://spec.commonmark.org/) - Markdown standard
+"
