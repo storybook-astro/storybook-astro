@@ -47,6 +47,48 @@ export default {
 };
 ```
 
+#### `resolveFrom`
+
+Optional directory path to resolve Astro and framework integrations from. Useful when your Storybook is configured in a different directory than your project root (e.g., monorepos, monorepo workspaces).
+
+Default: `process.cwd()` (current working directory)
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      resolveFrom: '/path/to/project-root',
+    },
+  },
+};
+```
+
+**Use case**: When running Storybook from a subdirectory or when Astro versions differ between projects:
+
+```javascript
+// Monorepo with separate Storybook for Astro 5 and Astro 6
+// In workspace A (Astro 5)
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      resolveFrom: '/monorepo/packages/astro5-app',
+    },
+  },
+};
+
+// In workspace B (Astro 6)
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      resolveFrom: '/monorepo/packages/astro6-app',
+    },
+  },
+};
+```
+
 #### `sanitization`
 
 Controls HTML sanitization for incoming story `args` and `slots` before Astro component rendering.

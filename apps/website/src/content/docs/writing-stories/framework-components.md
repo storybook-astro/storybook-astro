@@ -25,6 +25,27 @@ export const StartAt10 = {
 };
 ```
 
+## Using shared components
+
+You can also use framework components from the `@storybook-astro/components` shared library:
+
+```jsx
+// Using a shared React component
+import Counter from '@storybook-astro/components/Counter/react/Counter.jsx';
+
+export default {
+  title: 'Shared/React Counter',
+  component: Counter,
+  parameters: {
+    renderer: '@storybook/react',
+  },
+};
+
+export const Default = {};
+```
+
+This approach allows you to maintain components in one place and use them across multiple projects. See [Shared Component Library](/guides/components/) for more details.
+
 ## Setting `parameters.renderer`
 
 Framework component stories must set `parameters.renderer` to the appropriate Storybook renderer when using multiple frameworks:
