@@ -7,7 +7,7 @@ Before installing, ensure your project meets these requirements:
 
 - **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+ (required for Storybook 10's ESM-only support)
 - **Storybook**: 10.0.0+
-- **Astro**: 5.5.3+ or 6.0.0-beta
+- **Astro**: 5.5.3+ or 6.0.0+
 - **Vite**: 6.0.0+ (7.x supported)
 
 You can check your Node.js version with:
@@ -20,4 +20,4 @@ node --version
 `npm create storybook@latest` does not yet recognize Astro as a framework. Use the manual setup described in the [Installation](/getting-started/installation/) guide instead.
 :::
 
-See the [Astro 6 Compatibility](/how-it-works/astro6-compat/) page for details on running with Astro 6 beta.
+See the [Astro 6 Compatibility](/how-it-works/astro6-compat/) page for details on running with Astro 6.

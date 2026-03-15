@@ -1,10 +1,10 @@
-# Sandbox — Astro 6 Beta
+# Sandbox — Astro 6
 
-Test project for validating `@storybook-astro/framework` against **Astro 6** (beta). Also deployed as the [live demo](https://demo.storybook-astro.org).
+Test project for validating `@storybook-astro/framework` against **Astro 6**. Also deployed as the [live demo](https://demo.storybook-astro.org).
 
 ## Pinned Versions
 
-- **Astro**: 6.0.0-beta.11
+- **Astro**: 6.0.3
 - **Storybook**: 10.2.7
 - **Vite**: 7.x
 

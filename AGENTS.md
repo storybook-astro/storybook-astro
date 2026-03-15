@@ -9,7 +9,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 **Status**: Experimental - not production-ready
 
 **Key Technologies**:
-- Astro 6 beta (using Container API for SSR)
+- Astro 6+ (using Container API for SSR)
 - Storybook 10+
 - Vite 6+ (7.x supported)
 - TypeScript/JavaScript (ES modules only)
@@ -400,7 +400,7 @@ When asking for help from AI or humans:
 
 ## Astro 6 Compatibility Layers
 
-These are the key adaptations made for Astro 6 beta. If Astro's APIs change in future releases, these are the places to update:
+These are the key adaptations for Astro 6. If Astro's APIs change in future releases, these are the places to update:
 
 1. **`vitePluginAstroComponentMarker.ts`** — Detects the Astro 6 client-side stub pattern and replaces it. If Astro changes the stub text or reintroduces `isAstroComponentFactory`, this plugin may need updating or removal.
 2. **`patchCreateAstroCompat()` in `middleware.ts`** — Bridges the 3-arg (compiler v2) and 2-arg (compiler v3/Astro 6) `createAstro` calling conventions. Can be removed once the compiler is updated to match the runtime.
@@ -416,4 +416,4 @@ These are the key adaptations made for Astro 6 beta. If Astro's APIs change in f
 - **Documentation**: API documentation and more usage examples
 - **Production Build**: Static build support (currently dev-only)
 - **Portable Stories**: Consider delegating to framework-specific composeStories when available
-- **Astro Stable Release**: Once Astro 6 exits beta, remove or simplify compatibility layers as APIs stabilize
+- **Astro 7+**: Monitor for breaking changes in upcoming major releases and adjust compatibility layers accordingly

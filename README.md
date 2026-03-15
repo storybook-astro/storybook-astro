@@ -157,7 +157,7 @@ npm run storybook
 
 - **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+ (required for Storybook 10's ESM-only support)
 - **Storybook**: 10.0.0+
-- **Astro**: 5.5.3+ or 6.0.0-beta (see [Astro 6 Beta Compatibility](#astro-6-beta-compatibility))
+- **Astro**: 5.5.3+ or 6.0.0+ (see [Astro 6 Compatibility](#astro-6-compatibility))
 - **Vite**: 6.0.0+ (7.x supported)
 
 ## What This Package Does
