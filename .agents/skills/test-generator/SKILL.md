@@ -363,8 +363,8 @@ Generated tests should:
 
 ## References
 
-- `.claude/references/testing-guidelines.md` - Test patterns
-- `.claude/references/framework-standards.md` - Framework differences
+- `.agents/references/testing-guidelines.md` - Test patterns
+- `.agents/references/framework-standards.md` - Framework differences
 - `AGENTS.md` - Architecture and debugging
 - [Testing Library Docs](https://testing-library.com/)
 - [Vitest Docs](https://vitest.dev/)

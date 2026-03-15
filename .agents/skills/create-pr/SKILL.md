@@ -1,7 +1,6 @@
 ---
 name: create-pr
-description: Create GitHub pull requests with properly formatted titles and descriptions for the Storybook Astro project. Use when making PRs, submitting changes for review, or when the user says /pr or asks to create a pull request.
-allowed-tools: Bash(git:*), Bash(gh:*), Read, Grep
+description: Create GitHub pull requests with properly formatted titles and descriptions for the Storybook Astro project. Use when making PRs, submitting changes for review, or when the user says /pr or asks to create a pull request. Trigger phrases: 'create pr', 'create a pr', 'submit a pr', 'make a pull request', 'update pr'."
 ---
 
 # Create Pull Request for Storybook Astro
