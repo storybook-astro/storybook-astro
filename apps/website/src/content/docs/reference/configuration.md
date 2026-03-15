@@ -134,6 +134,58 @@ export default {
 };
 ```
 
+#### `storyRules`
+
+Path to a story rules configuration file that defines per-story API mocks and module replacements.
+
+Useful for mocking external APIs or replacing modules in specific stories:
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      storyRules: '.storybook/story-rules.ts',
+    },
+  },
+};
+```
+
+**Story rules file** (`.storybook/story-rules.ts`):
+
+```typescript
+import { defineStoryRules } from '@storybook-astro/framework';
+import { http, HttpResponse } from '@storybook-astro/framework/msw-helpers';
+
+export default defineStoryRules({
+  rules: [
+    {
+      // Match stories by pattern (e.g., 'components-profile-card--*')
+      match: 'components-profile-card--*',
+      use: ({ msw, mock }) => {
+        // Mock API endpoints with Mock Service Worker
+        msw.use(
+          http.get('/api/user', () => {
+            return HttpResponse.json({ name: 'Storybook User' });
+          })
+        );
+
+        // Replace modules for specific stories
+        mock('~/lib/feature-flags', './mocks/feature-flags.ts');
+      },
+    },
+  ],
+});
+```
+
+**Available helpers in the `use` callback:**
+
+- **`msw`** — Mock Service Worker instance for mocking HTTP requests
+- **`mock`** — Module replacement function to swap imports
+- **`story`** — Story metadata (name, keys, etc.)
+
+See [Mock Service Worker](https://mswjs.io/) for full API details.
+
 ### Integration options
 
 Each integration factory function accepts an options object:
