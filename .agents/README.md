@@ -5,7 +5,7 @@ Comprehensive AI-assisted development tools for the Storybook Astro monorepo, ac
 ## Structure
 
 ```
-.claude/
+.agents/
 ├── README.md (this file)
 ├── references/            # Project-specific documentation
 │   ├── project-structure.md

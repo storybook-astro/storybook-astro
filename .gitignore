@@ -25,7 +25,7 @@ pnpm-debug.log*
 .idea/
 
 # local AI enhancement settings
-.claude/settings.local.json
+.agents/settings.local.json
 
 *storybook.log
 
