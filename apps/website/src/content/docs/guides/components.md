@@ -95,7 +95,7 @@ export default {
   title: 'Components/Code Installation',
   component: CodeTabs,
   args: {
-    framework: 'react', // npm, yarn, pnpm, bun
+    framework: 'react', // react, solid, preact, svelte, vue, alpine
   },
 };
 
@@ -103,8 +103,8 @@ export const Default = {
   args: { framework: 'react' },
 };
 
-export const Yarn = {
-  args: { framework: 'yarn' },
+export const Solid = {
+  args: { framework: 'solid' },
 };
 ```
 
@@ -122,12 +122,10 @@ export default {
   parameters: { renderer: 'react' },
 };
 
-export const Default = {
-  args: { framework: 'react' },
-};
+export const Default = {};
 ```
 
-## Benefits of shared components
+## Benefits
 
 1. **Single source of truth** — Fix bugs once, benefit everywhere
 2. **Testing coverage** — Test components across Astro 5, Astro 6, and multiple frameworks
