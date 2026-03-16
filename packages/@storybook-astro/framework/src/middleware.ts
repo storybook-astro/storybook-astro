@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
@@ -66,7 +67,13 @@ export async function handlerFactory(_integrations: Integration[], options?: Han
 
   addRenderers(container);
   const sanitizationOptions = resolveSanitizationOptions(options?.sanitization);
-  const loadModule = options?.loadModule ?? ((id: string) => import(/* @vite-ignore */ id));
+  const loadModule =
+    options?.loadModule ??
+    ((id: string) => {
+      const normalizedId = /^[a-zA-Z]:[/\\]/.test(id) ? pathToFileURL(id).href : id;
+
+      return import(/* @vite-ignore */ normalizedId);
+    });
   const componentCache = new Map<string, Promise<AstroComponentFactory>>();
   let renderQueue = Promise.resolve<void>(undefined);
 
