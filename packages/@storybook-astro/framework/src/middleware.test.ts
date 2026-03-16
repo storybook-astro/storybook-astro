@@ -11,31 +11,37 @@ describe('middleware', () => {
 
     test('detects Windows absolute paths with forward slashes', () => {
       const pathToTest = 'C:/Users/project/Component.astro';
+
       expect(windowsPathRegex.test(pathToTest)).toBe(true);
     });
 
     test('detects Windows absolute paths with backslashes', () => {
       const pathToTest = 'C:\\Users\\project\\Component.astro';
+
       expect(windowsPathRegex.test(pathToTest)).toBe(true);
     });
 
     test('ignores Unix absolute paths', () => {
       const unixPath = '/Users/project/Component.astro';
+
       expect(windowsPathRegex.test(unixPath)).toBe(false);
     });
 
     test('ignores relative paths', () => {
       const relativePath = './Component.astro';
+
       expect(windowsPathRegex.test(relativePath)).toBe(false);
     });
 
     test('ignores module specifiers', () => {
       const specifier = '@storybook-astro/renderer';
+
       expect(windowsPathRegex.test(specifier)).toBe(false);
     });
 
     test('ignores file URLs', () => {
       const fileUrl = 'file:///C:/Users/project/Component.astro';
+
       expect(windowsPathRegex.test(fileUrl)).toBe(false);
     });
   });
