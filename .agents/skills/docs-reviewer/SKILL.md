@@ -94,7 +94,7 @@ Use Astro 5 stable for testing.
 
 ✅ **Good**:
 ```markdown
-Test with both Astro 5.17.2 (stable) and Astro 6 beta using the sandbox apps.
+Test with both Astro 5.17.2 (stable) and Astro 6 using the sandbox apps.
 ```
 
 ### Incomplete Examples
