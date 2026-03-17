@@ -138,6 +138,18 @@ export async function startTestingRendererDaemon(): Promise<RunningDaemon> {
   }
 
   const server = createHttpServer(async (request, response) => {
+    // Allow cross-origin requests from browser-like test environments (e.g. happy-dom).
+    response.setHeader('Access-Control-Allow-Origin', '*');
+    response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.setHeader('Access-Control-Allow-Headers', 'content-type');
+
+    if (request.method === 'OPTIONS') {
+      response.statusCode = 204;
+      response.end();
+
+      return;
+    }
+
     if (request.method !== 'POST' || request.url !== RENDER_PATH) {
       response.statusCode = 404;
       response.end();
