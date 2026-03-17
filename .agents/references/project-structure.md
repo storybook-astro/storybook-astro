@@ -29,7 +29,7 @@ storybook-astro/
 │   └── components/               # Component library (internal)
 │       └── src/components/       # Example components for testing
 ├── apps/                         # Private development apps
-│   ├── sandbox-astro6/           # Astro 6 beta sandbox
+│   ├── sandbox-astro6/           # Astro 6 sandbox
 │   │   ├── .storybook/main.js    # Framework config with integrations
 │   │   ├── src/stories/
 │   │   └── src/components/
@@ -134,7 +134,7 @@ Used internally for plugin communication:
 ## Astro Compatibility
 
 ### Astro 6 vs Astro 5
-- **Astro 6 beta** (primary): Uses `AstroContainer.create()` API for SSR, Vite-based component client stubs
+- **Astro 6** (primary): Uses `AstroContainer.create()` API for SSR, Vite-based component client stubs
 - **Astro 5 stable** (tested): Compatible, may have different internal APIs
 
 ### Compatibility Layers in Code
@@ -194,4 +194,4 @@ Framework's Vite configuration in `preset.ts` handles:
 - **TypeScript**: 5.8.3+
 - **Vite**: 6.x or 7.x
 - **Storybook**: 10.2.7+
-- **Astro**: 6 beta (primary) and 5.17.2 (stable support)
+- **Astro**: 6 (primary) and 5.17.2 (stable support)
