@@ -9,12 +9,12 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/preact": "^4.0.8",
-    "@astrojs/starlight": "^0.37.6",
+    "@astrojs/preact": "^5.0.1",
+    "@astrojs/starlight": "^0.38.1",
     "@fontsource/inter": "^5.2.8",
     "@storybook-astro/components": "workspace:*",
     "@storybook-astro/framework": "workspace:*",
-    "astro": "^5.5.3",
+    "astro": "^6.0.5",
     "preact": "^10.28.1"
   }
 }
