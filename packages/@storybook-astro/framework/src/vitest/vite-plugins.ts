@@ -49,9 +49,10 @@ export function vitestPatchForSolidJs(): AstroIntegration {
         // Use bracket notation to avoid type assignment issues
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (solidPlugin as any).configEnvironment = async (name: unknown, resolvedConfig: unknown, opts: unknown): Promise<void> => {
-          await (originalConfigEnvironment as Function)(name, resolvedConfig, opts);
+          await (originalConfigEnvironment as (name: unknown, config: unknown, opts: unknown) => Promise<void>)(name, resolvedConfig, opts);
 
           const config = resolvedConfig as ResolveConfig;
+
           config.resolve ??= {};
           const alias = config.resolve.alias;
           const replacement = 'solid-js/web/dist/web.js';
