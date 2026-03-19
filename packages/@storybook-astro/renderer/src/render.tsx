@@ -229,6 +229,7 @@ async function renderAstroToCanvas(
   storyContext?: StoryContext<AstroRenderer>
 ): Promise<void> {
   const hot = getViteHot();
+
   if (!hot) {
     const prerenderedHtml = await resolvePrerenderedStoryHtml(
       storyContext?.id,
@@ -355,6 +356,7 @@ async function renderAstroComponent(
 ): Promise<RenderResponseMessage['data']> {
   // In static builds, import.meta.hot is undefined — no dev server to handle SSR.
   const hot = getViteHot();
+
   if (!hot) {
     return {
       id: 'static-build',
@@ -420,6 +422,7 @@ function initializeAlpineJS(): void {
 function setupViteHMRListeners(): void {
   // Listen for Vite updates to refresh Astro styles
   const hot = getViteHot();
+
   hot?.on?.('vite:afterUpdate', (payload: unknown) => {
     const typedPayload = payload as { updates?: Array<{ path: string }> };
     const hasAstroStyleUpdates = (typedPayload.updates ?? []).some((update) => 
