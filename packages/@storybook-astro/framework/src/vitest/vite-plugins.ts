@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path';
 import type { AstroIntegration } from 'astro';
 import type { Plugin } from 'vite';
 
-type ConfigEnvironmentFn = (name: string, resolvedConfig: Record<string, unknown>, opts: unknown) => void | Promise<void>;
 type ResolveConfig = { resolve?: { alias?: Record<string, string> | Array<{ find: string | RegExp; replacement: string }> } };
 
 function findPackageDir(pkgName: string): string | null {
@@ -47,11 +46,14 @@ export function vitestPatchForSolidJs(): AstroIntegration {
           return;
         }
 
-        solidPlugin.configEnvironment = (async (name: string, resolvedConfig: ResolveConfig, opts: unknown): Promise<void> => {
-          await (originalConfigEnvironment as ConfigEnvironmentFn)(name, resolvedConfig, opts);
+        // Use bracket notation to avoid type assignment issues
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (solidPlugin as any).configEnvironment = async (name: unknown, resolvedConfig: unknown, opts: unknown): Promise<void> => {
+          await (originalConfigEnvironment as Function)(name, resolvedConfig, opts);
 
-          resolvedConfig.resolve ??= {};
-          const alias = resolvedConfig.resolve.alias;
+          const config = resolvedConfig as ResolveConfig;
+          config.resolve ??= {};
+          const alias = config.resolve.alias;
           const replacement = 'solid-js/web/dist/web.js';
 
           if (Array.isArray(alias)) {
@@ -70,11 +72,11 @@ export function vitestPatchForSolidJs(): AstroIntegration {
             return;
           }
 
-          resolvedConfig.resolve!.alias = {
+          config.resolve!.alias = {
             ...(alias ?? {}),
             'solid-js/web': replacement
           };
-        }) as ConfigEnvironmentFn;
+        };
       }
     }
   };

@@ -9,8 +9,8 @@ import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fall
 import type { ComposedStory } from './types.ts';
 import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
 
-type AstroContainerType = { renderToString: (component: unknown, options: { props: Record<string, unknown> }) => Promise<string> };
-let astroContainerPromise: Promise<AstroContainerType> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let astroContainerPromise: Promise<any> | null = null;
 
 const astroSsrViteServerPromises = new Map<string, Promise<ViteDevServer>>();
 
