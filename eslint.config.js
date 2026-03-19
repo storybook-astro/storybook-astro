@@ -216,7 +216,7 @@ export default [
   {
     ignores: [
       '.yarn/',
-      '.astro',
+      '**/.astro',
       '**/coverage/',
       '**/@types/',
       '.vscode/',

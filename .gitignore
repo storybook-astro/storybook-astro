@@ -24,6 +24,9 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 
+# local AI enhancement settings
+.agents/settings.local.json
+
 *storybook.log
 
 .yarn/*

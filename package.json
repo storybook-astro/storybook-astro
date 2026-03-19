@@ -7,6 +7,8 @@
     "node": ">=20.16.0 || >=22.19.0 || >=24.0.0"
   },
   "scripts": {
+    "dev": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{website,sandbox-astro5,sandbox-astro6}' run dev",
+    "website": "yarn workspace @storybook-astro/website dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "yarn vitest run",
@@ -41,6 +43,7 @@
   },
   "workspaces": [
     "packages/@storybook-astro/*",
+    "packages/components",
     "apps/*"
   ],
   "packageManager": "yarn@4.12.0",

@@ -11,9 +11,21 @@ type FallbackRenderer = {
 };
 
 type RendererRegistry = Record<string, FallbackRenderer>;
+type ViteHot = {
+  send?: (event: string, data: unknown) => void;
+  on?: (event: string, cb: (payload: unknown) => void) => void;
+};
+
+function getViteHot(): ViteHot | undefined {
+  const meta = import.meta as ImportMeta & { hot?: ViteHot };
+
+  return meta.hot;
+}
 
 // Cache for pending Astro component render requests
 const messages = new Map<string, RenderPromise>();
+const PRERENDERED_STORIES_FILE = 'astro-prerendered-stories.json';
+let prerenderedStoriesPromise: Promise<Record<string, string>> | undefined;
 
 /**
  * Renders a Storybook story component with appropriate handling for different component types.
@@ -208,8 +220,7 @@ function isAstroComponent(element: unknown): element is AstroComponentFactory {
 /**
  * Renders an Astro component to the canvas using server-side rendering.
  *
- * In static builds, checks for build-time pre-rendered HTML (injected by
- * vitePluginAstroBuildPrerender) before falling back to the HMR path.
+ * In static builds, uses pre-rendered HTML from astro-prerendered-stories.json.
  */
 async function renderAstroToCanvas(
   element: AstroComponentFactory,
@@ -217,14 +228,19 @@ async function renderAstroToCanvas(
   canvasElement: HTMLElement,
   storyContext?: StoryContext<AstroRenderer>
 ): Promise<void> {
-  // In static builds, use build-time pre-rendered HTML if available
-  const prerenderedHtml = storyContext?.parameters?.__astroPrerendered;
+  const hot = getViteHot();
+  if (!hot) {
+    const prerenderedHtml = await resolvePrerenderedStoryHtml(
+      storyContext?.id,
+      storyContext?.parameters?.__astroPrerendered
+    );
 
-  if (prerenderedHtml && !import.meta.hot) {
-    canvasElement.innerHTML = prerenderedHtml;
-    activateScriptTags(canvasElement);
+    if (prerenderedHtml) {
+      canvasElement.innerHTML = prerenderedHtml;
+      activateScriptTags(canvasElement);
 
-    return;
+      return;
+    }
   }
 
   if (!element.moduleId) {
@@ -235,7 +251,14 @@ async function renderAstroToCanvas(
   const { html } = await renderAstroComponent({
     component: element.moduleId,
     args: componentArgs,
-    slots: slots as Record<string, string>
+    slots: slots as Record<string, string>,
+    story: storyContext
+      ? {
+          id: storyContext.id,
+          title: storyContext.title,
+          name: storyContext.name
+        }
+      : undefined
   });
 
   applyAstroStyles();
@@ -321,10 +344,7 @@ function activateScriptTags(container: HTMLElement): void {
 
 /**
  * Renders an Astro component using server-side rendering via Vite HMR communication.
- * 
- * In static builds (no dev server), returns an informational fallback message since
- * Astro components require server-side rendering via the Container API.
- * 
+ *
  * @param data - Component render request data
  * @param timeoutMs - Maximum time to wait for rendering (default: 5000ms)
  * @returns Promise that resolves with the rendered HTML
@@ -334,7 +354,8 @@ async function renderAstroComponent(
   timeoutMs = 5000
 ): Promise<RenderResponseMessage['data']> {
   // In static builds, import.meta.hot is undefined — no dev server to handle SSR.
-  if (!import.meta.hot) {
+  const hot = getViteHot();
+  if (!hot) {
     return {
       id: 'static-build',
       html:
@@ -363,7 +384,7 @@ async function renderAstroComponent(
   });
 
   // Send render request via Vite HMR
-  import.meta.hot?.send('astro:render:request', { ...data, id });
+  hot.send?.('astro:render:request', { ...data, id });
 
   return promise;
 }
@@ -398,8 +419,10 @@ function initializeAlpineJS(): void {
  */
 function setupViteHMRListeners(): void {
   // Listen for Vite updates to refresh Astro styles
-  import.meta.hot?.on('vite:afterUpdate', (payload) => {
-    const hasAstroStyleUpdates = payload.updates.some((update) => 
+  const hot = getViteHot();
+  hot?.on?.('vite:afterUpdate', (payload: unknown) => {
+    const typedPayload = payload as { updates?: Array<{ path: string }> };
+    const hasAstroStyleUpdates = (typedPayload.updates ?? []).some((update) => 
       isAstroStyleUpdate(update.path)
     );
     
@@ -409,7 +432,8 @@ function setupViteHMRListeners(): void {
   });
 
   // Listen for Astro component render responses
-  import.meta.hot?.on('astro:render:response', (data: RenderResponseMessage['data']) => {
+  hot?.on?.('astro:render:response', (payload: unknown) => {
+    const data = payload as RenderResponseMessage['data'];
     const pendingRequest = messages.get(data.id);
     
     if (pendingRequest) {
@@ -432,4 +456,47 @@ function setupViteHMRListeners(): void {
 function isAstroStyleUpdate(path: string): boolean {
   // Match Astro style files: *.astro?astro&type=style&index=0&lang.css
   return /\.astro\?astro&type=style&index=\d+&lang\.(css|scss|sass|less|stylus)$/.test(path);
+}
+
+async function resolvePrerenderedStoryHtml(storyId: string | undefined, fallbackHtml: unknown) {
+  if (typeof fallbackHtml === 'string') {
+    return fallbackHtml;
+  }
+
+  if (!storyId) {
+    throw new Error('Astro static renderer expected a story id, but none was provided.');
+  }
+
+  const prerenderedStories = await loadPrerenderedStories();
+  const html = prerenderedStories[storyId];
+
+  if (html === undefined) {
+    throw new Error(
+      `No prerendered HTML was found for story "${storyId}". Rebuild Storybook static output.`
+    );
+  }
+
+  return html;
+}
+
+async function loadPrerenderedStories() {
+  if (!prerenderedStoriesPromise) {
+    const jsonPath = resolvePrerenderedStoriesUrl();
+
+    prerenderedStoriesPromise = fetch(jsonPath).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load ${PRERENDERED_STORIES_FILE}. Received ${response.status} ${response.statusText}.`
+        );
+      }
+
+      return (await response.json()) as Record<string, string>;
+    });
+  }
+
+  return prerenderedStoriesPromise;
+}
+
+function resolvePrerenderedStoriesUrl() {
+  return new URL(PRERENDERED_STORIES_FILE, window.location.href).toString();
 }

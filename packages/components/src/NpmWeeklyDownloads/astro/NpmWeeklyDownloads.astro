@@ -1,0 +1,24 @@
+---
+import NpmWeeklyDownloadsClient from '../preact/NpmWeeklyDownloads.jsx';
+import {
+  DEFAULT_NPM_PACKAGE,
+  fetchNpmWeeklyDownloads,
+  normalizePackageName,
+} from '../../ProjectStats/astro/projectStatsData.ts';
+
+interface Props {
+  packageName?: string;
+  label?: string;
+}
+
+const {
+  packageName = DEFAULT_NPM_PACKAGE,
+  label = 'npm weekly downloads',
+} = Astro.props;
+
+const normalizedPackageName = normalizePackageName(packageName);
+const downloads = await fetchNpmWeeklyDownloads(normalizedPackageName);
+
+---
+
+<NpmWeeklyDownloadsClient client:load packageName={normalizedPackageName} label={label} downloads={downloads} />

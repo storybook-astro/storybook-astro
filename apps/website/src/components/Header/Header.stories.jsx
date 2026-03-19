@@ -1,4 +1,4 @@
-import Header from './Header.astro';
+import Header from '@storybook-astro/components/Header/astro/Header.astro';
 
 export default {
   title: 'Astro/Header',

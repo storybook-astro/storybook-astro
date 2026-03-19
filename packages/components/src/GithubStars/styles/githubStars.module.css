@@ -1,0 +1,86 @@
+.card {
+  width: fit-content;
+  max-width: 100%;
+  height: var(--stats-row-height, 4.4rem);
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.2rem 0;
+  align-content: start;
+  text-decoration: none;
+  color: #f0f6fc;
+  background: transparent;
+  border: 0;
+}
+
+.card:hover {
+  text-decoration: none;
+  color: #f0f6fc;
+}
+
+.label {
+  font-size: 0.64rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #8b949e;
+  font-weight: 600;
+}
+
+.valueRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.starShell {
+  width: 1rem;
+  height: 1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+}
+
+.star {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: #f2c14f;
+  animation: starPulse 2.4s ease-in-out infinite;
+}
+
+.value {
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.repository {
+  font-size: 0.74rem;
+  color: #8b949e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes starPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.07);
+  }
+}
+
+@media (max-width: 560px) {
+  .repository {
+    font-size: 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star {
+    animation: none;
+  }
+}

@@ -99,7 +99,7 @@ This is a monorepo managed with Yarn 4 workspaces:
 
 **Apps** (private, not published):
 - **`apps/website`** — Marketing website at storybook-astro.org
-- **`apps/sandbox-astro6`** — Test project using Astro 6 beta (also deployed as demo)
+- **`apps/sandbox-astro6`** — Test project using Astro 6 (also deployed as demo)
 - **`apps/sandbox-astro5`** — Test project using Astro 5.17.2 (stable)
 
 See `AGENTS.md` for detailed architecture documentation and AI-assisted development guidance.

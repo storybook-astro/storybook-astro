@@ -1,4 +1,4 @@
-import Footer from './Footer.astro';
+import Footer from '@storybook-astro/components/Footer/astro/Footer.astro';
 
 export default {
   title: 'Astro/Footer',

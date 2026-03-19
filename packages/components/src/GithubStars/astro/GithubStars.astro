@@ -1,0 +1,26 @@
+---
+import GithubStarsClient from '../preact/GithubStars.jsx';
+import {
+  DEFAULT_GITHUB_REPOSITORY,
+  fetchGithubStars,
+  normalizeGithubRepository,
+} from '../../ProjectStats/astro/projectStatsData.ts';
+
+interface Props {
+  repository?: string;
+  label?: string;
+  fallbackStars?: number;
+}
+
+const {
+  repository = DEFAULT_GITHUB_REPOSITORY,
+  label = 'GitHub stars',
+  fallbackStars = 0,
+} = Astro.props;
+
+const normalizedRepository = normalizeGithubRepository(repository);
+const stars = await fetchGithubStars(normalizedRepository, fallbackStars);
+
+---
+
+<GithubStarsClient client:load stars={stars} repository={normalizedRepository} label={label} />
