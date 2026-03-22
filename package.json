@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{website,sandbox-astro5,sandbox-astro6}' run dev",
+    "website": "yarn workspace @storybook-astro/website dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "yarn vitest run",
