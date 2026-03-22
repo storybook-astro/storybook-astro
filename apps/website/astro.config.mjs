@@ -50,6 +50,7 @@ export default defineConfig({
             { label: 'Images', slug: 'guides/images' },
             { label: 'Testing Stories', slug: 'guides/testing' },
             { label: 'Sanitization', slug: 'guides/sanitization' },
+            { label: 'Roadmap', slug: 'guides/roadmap' },
           ],
         },
         {

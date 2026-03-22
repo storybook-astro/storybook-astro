@@ -419,9 +419,13 @@ Astro 6 introduced several breaking changes to how components are transformed an
 
 **Solution**: `renderToCanvas()` now delegates to framework-specific renderers *before* calling `storyFn()`. This lets each framework (React, Solid, Vue, etc.) manage its own reactive root without interference.
 
-## Roadmap: Astro Framework Feature Support
+## Roadmap
 
-This section tracks Astro's built-in framework features and their compatibility status with Storybook Astro. Many Astro features rely on special module resolution (e.g., `astro:*` imports) that may require additional configuration to work within Storybook's environment.
+For planned features, improvements, and known limitations, see the [Roadmap guide](https://storybook-astro.org/guides/roadmap/) on the website for a consolidated view of Storybook Astro's development direction.
+
+## Currently Supported Features
+
+This section tracks Astro's built-in framework features and their compatibility status with Storybook Astro.
 
 ### ✅ Supported Features
 
@@ -435,34 +439,7 @@ This section tracks Astro's built-in framework features and their compatibility 
 ### ⚠️ Partial Support
 
 - **`astro:assets` (Image Optimization)** - Works in components but requires fallback approach for Storybook stories due to module resolution issues. Components can accept both `ImageMetadata` and string URLs to maintain compatibility.
-- **Astro Fonts** - Font virtual modules are stubbed with no-op exports. Components render correctly but without Astro's font optimization.
-
-### ❌ Not Yet Supported
-
-- **View Transitions** - Astro's built-in View Transitions API (`<ViewTransitions />` component)
-- **Content Collections** - `astro:content` module for type-safe content management
-- **Middleware** - Astro's middleware system for request/response handling
-- **API Routes** - Server endpoints (`/pages/api/*` routes)
-- **Server Islands** - Dynamic content islands with server-side rendering
-- **Actions** - Type-safe backend functions callable from frontend (`astro:actions`)
-- **Environment Variables** - `astro:env` module for managing environment variables
-- **Glob Imports** - `Astro.glob()` for batch file imports
-- **Database Integration** - Astro DB and database utilities
-- **Internationalization (i18n)** - Built-in i18n routing and helpers
-- **Prefetch** - Automatic page prefetching utilities
-- **Dev Toolbar** - Development toolbar integrations
-- **Markdown/MDX Features** - Advanced markdown processing features beyond basic rendering
-
-### 🔮 Future Considerations
-
-- **Dynamic Astro Controls in Static Builds** - Currently, Astro component stories are pre-rendered with their default args at build time. A future enhancement could add a companion server or service worker to enable live re-rendering with different args.
-- **Adapters** - Integration with Astro's deployment adapters (Netlify, Vercel, etc.)
-- **Error Handling** - Better error boundaries and recovery mechanisms
-- **Performance Optimizations** - Caching strategies and render optimization for large component libraries
-
-### Contributing to Feature Support
-
-If you're interested in helping add support for any of these features, please see the `AGENTS.md` file for development guidance and check the [GitHub issues](https://github.com/storybookjs/storybook/issues/18356) for ongoing discussions.
+- **Astro Fonts** - Font virtual modules are stubbed with no-op exports. See the roadmap for planned Astro 6 Font Provider API integration.
 
 ## Contributing
 
