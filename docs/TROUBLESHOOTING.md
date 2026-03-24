@@ -53,6 +53,30 @@ npm install -D --legacy-peer-deps storybook @storybook/builder-vite @storybook-a
 
 ## Runtime Issues
 
+### Storybook 10.3.3 fails to start with "Cannot read properties of undefined (reading 'name')"  
+
+**Error message:**
+```
+TypeError: Cannot read properties of undefined (reading 'name')
+at TransformPluginContext.transform (vite-plugin-astro/index.js:161:30)
+```
+
+**Cause:**
+
+This is a compatibility issue between Storybook 10.3.3 and how the Astro Vite plugin is initialized. The Astro plugin expects a `this.environment` property in the Vite plugin context, but Storybook's plugin initialization doesn't properly set this up in all configurations.
+
+**Workaround:**
+
+Downgrade to Storybook 10.2.x:
+
+```bash
+npm install -D storybook@^10.2.0
+```
+
+The issue is being investigated. Check [GitHub issues](https://github.com/storybook-astro/storybook-astro/issues) for updates.
+
+---
+
 ### Storybook won't start / "Astro components cannot be used in the browser"
 
 **Error:**

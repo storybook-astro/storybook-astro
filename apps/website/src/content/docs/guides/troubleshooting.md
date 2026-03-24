@@ -58,6 +58,30 @@ The Astro team will eventually update `@astrojs/solid-js` to use newer `solid-de
 
 ## Runtime Issues
 
+### Storybook 10.3.3 fails to start with "Cannot read properties of undefined"
+
+**Error message:**
+```
+TypeError: Cannot read properties of undefined (reading 'name')
+at TransformPluginContext.transform (vite-plugin-astro/index.js:161:30)
+```
+
+**Cause:**
+
+This is a compatibility issue between Storybook 10.3.3 and the Astro Vite plugin initialization. The Astro plugin expects `this.environment` in the Vite plugin context, but Storybook 10.3.3 doesn't properly initialize this in all configurations.
+
+**Workaround:**
+
+Downgrade to Storybook 10.2.x until this is resolved:
+
+```bash
+npm install -D storybook@^10.2.0
+```
+
+Check [GitHub issues](https://github.com/storybook-astro/storybook-astro/issues) for updates on this compatibility issue.
+
+---
+
 ### "Astro components cannot be used in the browser"
 
 **Error message:**
