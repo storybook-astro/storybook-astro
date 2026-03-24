@@ -15,7 +15,7 @@ export type RenderStoryInput = {
 };
 
 export type FrameworkOptions = {
-  integrations: Integration[];
+  integrations?: Integration[];
   sanitization?: SanitizationOptions;
   storyRules?: StoryRulesOptions;
   resolveFrom?: string;
@@ -24,7 +24,7 @@ export type FrameworkOptions = {
 type StorybookConfigFramework = {
   framework: {
     name: FrameworkName;
-    options: FrameworkOptions;
+    options?: FrameworkOptions;
   };
 };
 
