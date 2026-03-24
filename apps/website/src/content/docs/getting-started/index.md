@@ -19,8 +19,5 @@ Storybook Astro is the community-supported Storybook framework for Astro. It let
 - [GitHub Repository](https://github.com/storybook-astro/storybook-astro) — Source code, issues, and discussions
 - [npm Package](https://www.npmjs.com/package/@storybook-astro/framework)
 
-:::caution
-This project is in beta. APIs may change between releases.
-:::
 
 Ready to get started? Check the [Requirements](/getting-started/requirements/) and then follow the [Installation](/getting-started/installation/) guide.

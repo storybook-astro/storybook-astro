@@ -2,8 +2,6 @@
 
 The community-supported Storybook framework for Astro. Build, test, and document your Astro components in Storybook's interactive environment.
 
-> **Beta**: This project is in active development. APIs may change between releases. Feedback and contributions are welcome!
-
 **Website**: [storybook-astro.org](https://storybook-astro.org) · **npm**: [@storybook-astro/framework](https://www.npmjs.com/package/@storybook-astro/framework) · **GitHub**: [storybook-astro](https://github.com/storybook-astro/storybook-astro)
 
 ## Quick Start
@@ -157,7 +155,7 @@ npm run storybook
 
 - **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+ (required for Storybook 10's ESM-only support)
 - **Storybook**: 10.0.0+
-- **Astro**: 5.5.3+ or 6.0.0+ (see [Astro 6 Compatibility](#astro-6-compatibility))
+- **Astro**: 5.5.3+ or 6.0.0+ (see [Astro 6 Compatibility](#astro-6-compatibility) for implementation details)
 - **Vite**: 6.0.0+ (7.x supported)
 
 ## What This Package Does
@@ -385,9 +383,9 @@ storybook-astro/
 - Performance may need optimization for large component libraries
 - Hot module replacement for styles requires manual trigger in some cases
 
-## Astro 6 Beta Compatibility
+## Astro 6 Compatibility
 
-Astro 6 introduced several breaking changes to how components are transformed and rendered. This section documents the differences and the compatibility layers that bridge them.
+Storybook Astro includes compatibility layers to handle differences between Astro versions and the Container API. These layers ensure consistent behavior across Astro 5.5+, 6.0+, and future versions.
 
 ### 1. Component Detection (`vitePluginAstroComponentMarker`)
 
