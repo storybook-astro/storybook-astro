@@ -3,8 +3,15 @@ export type {
   Args,
   ArgTypes,
   Parameters,
+  ProjectAnnotations,
   StrictArgs
 } from 'storybook/internal/types';
+
+import type { ProjectAnnotations } from 'storybook/internal/types';
+import type { AstroRenderer } from './portable-stories.ts';
+
+/** Preview configuration type for `.storybook/preview.ts` in Astro projects. */
+export type Preview = ProjectAnnotations<AstroRenderer>;
 
 // Export portable stories functionality
 export {
