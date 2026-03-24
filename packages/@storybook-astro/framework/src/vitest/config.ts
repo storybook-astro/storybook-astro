@@ -7,10 +7,12 @@ import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarke
 import { registerTestingIntegrationsForRoot } from '../testing/integration-config.ts';
 import { cjsInteropPlugin, vitestPatchForSolidJs } from './vite-plugins.ts';
 
-export type TestingDefineConfig = Omit<InlineConfig, 'plugins'> & {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type TestingDefineConfig = Omit<InlineConfig, 'plugins' | 'test'> & {
   integrations?: Integration[];
   plugins?: PluginOption[];
   astroConfigFile?: false | string;
+  test?: any;
 };
 
 function normalizeGlobalSetup(globalSetup: string | string[] | undefined, value: string) {
@@ -52,6 +54,7 @@ export function defineConfig(options: TestingDefineConfig) {
     globalSetup: normalizeGlobalSetup(rest.test?.globalSetup, globalSetupFilePath)
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vitestConfig = defineVitestConfig({
     ...rest,
     root,
@@ -63,7 +66,7 @@ export function defineConfig(options: TestingDefineConfig) {
       vitePluginAstroComponentMarker() as any,
       ...plugins
     ]
-  });
+  } as any);
 
   const astroConfigFactoryPromise = Promise
     .all([
