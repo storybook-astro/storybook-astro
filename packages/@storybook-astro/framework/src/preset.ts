@@ -71,6 +71,15 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
   if (!finalConfig.optimizeDeps.exclude.includes('@astrojs/vue')) {
     finalConfig.optimizeDeps.exclude.push('@astrojs/vue');
   }
+  // Exclude the renderer from Vite's esbuild pre-bundler so that
+  // import.meta.hot is preserved in the preview iframe. When installed
+  // via npm (not workspace:*), Vite would otherwise pre-bundle the
+  // renderer with esbuild, which strips import.meta.hot and causes the
+  // renderer to fall back to fetching astro-prerendered-stories.json
+  // (a 404 in dev mode) rather than using the Vite HMR channel.
+  if (!finalConfig.optimizeDeps.exclude.includes('@storybook-astro/renderer')) {
+    finalConfig.optimizeDeps.exclude.push('@storybook-astro/renderer');
+  }
   // Mark Vue virtual modules as external so esbuild doesn't try to resolve them
   if (!finalConfig.optimizeDeps.esbuildOptions) {
     finalConfig.optimizeDeps.esbuildOptions = {};
