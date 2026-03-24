@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-03-24
+
+### Added
+- Vite 5.4.0+ support — framework package now compatible with Astro 5 projects using Vite 5.x
+
+### Fixed
+- Astro 5 projects with Vite 5.4.21+ can now install `@storybook-astro/framework` without peer dependency conflicts
+
 ## [1.0.1] - 2026-03-24
 
 ### Fixed
