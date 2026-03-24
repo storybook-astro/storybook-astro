@@ -18,7 +18,7 @@ The project follows [Semantic Versioning](https://semver.org/):
 - **Minor** (`0.x.0`) — New features, backward-compatible
 - **Patch** (`0.0.x`) — Bug fixes, backward-compatible
 
-During beta, versions use the format `0.x.y-beta.z` (e.g. `0.1.0-beta.1`). Pre-release versions are published to npm with the `beta` dist-tag.
+The project follows standard semantic versioning with no pre-release suffix.
 
 Only the packages in `packages/@storybook-astro/*` are versioned and published. The website, sandbox apps, stories, and root project config are not versioned separately.
 

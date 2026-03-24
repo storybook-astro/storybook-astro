@@ -47,6 +47,48 @@ export default {
 };
 ```
 
+#### `resolveFrom`
+
+Optional directory path to resolve Astro and framework integrations from. Useful when your Storybook is configured in a different directory than your project root (e.g., monorepos, monorepo workspaces).
+
+Default: `process.cwd()` (current working directory)
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      resolveFrom: '/path/to/project-root',
+    },
+  },
+};
+```
+
+**Use case**: When running Storybook from a subdirectory or when Astro versions differ between projects:
+
+```javascript
+// Monorepo with separate Storybook for Astro 5 and Astro 6
+// In workspace A (Astro 5)
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      resolveFrom: '/monorepo/packages/astro5-app',
+    },
+  },
+};
+
+// In workspace B (Astro 6)
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      resolveFrom: '/monorepo/packages/astro6-app',
+    },
+  },
+};
+```
+
 #### `sanitization`
 
 Controls HTML sanitization for incoming story `args` and `slots` before Astro component rendering.
@@ -91,6 +133,58 @@ export default {
   },
 };
 ```
+
+#### `storyRules`
+
+Path to a story rules configuration file that defines per-story API mocks and module replacements.
+
+Useful for mocking external APIs or replacing modules in specific stories:
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      storyRules: '.storybook/story-rules.ts',
+    },
+  },
+};
+```
+
+**Story rules file** (`.storybook/story-rules.ts`):
+
+```typescript
+import { defineStoryRules } from '@storybook-astro/framework';
+import { http, HttpResponse } from '@storybook-astro/framework/msw-helpers';
+
+export default defineStoryRules({
+  rules: [
+    {
+      // Match stories by pattern (e.g., 'components-profile-card--*')
+      match: 'components-profile-card--*',
+      use: ({ msw, mock }) => {
+        // Mock API endpoints with Mock Service Worker
+        msw.use(
+          http.get('/api/user', () => {
+            return HttpResponse.json({ name: 'Storybook User' });
+          })
+        );
+
+        // Replace modules for specific stories
+        mock('~/lib/feature-flags', './mocks/feature-flags.ts');
+      },
+    },
+  ],
+});
+```
+
+**Available helpers in the `use` callback:**
+
+- **`msw`** — Mock Service Worker instance for mocking HTTP requests
+- **`mock`** — Module replacement function to swap imports
+- **`story`** — Story metadata (name, keys, etc.)
+
+See [Mock Service Worker](https://mswjs.io/) for full API details.
 
 ### Integration options
 
