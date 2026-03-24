@@ -34,6 +34,19 @@ Provide first-class support for Astro 6's new Font Provider API, allowing develo
 - Ensure font files are emitted correctly during `storybook build`
 - Support both remote and local font providers
 
+### Auto-detect CSS Frameworks from Astro Config
+
+Automatically detect and configure CSS utility frameworks (UnoCSS, Tailwind CSS, etc.) registered as Astro integrations, so their Vite plugins are available in Storybook without manual `viteFinal` configuration.
+
+**Status**: Planned  
+**Complexity**: Medium  
+**Details**: Currently, CSS frameworks configured as Astro integrations (e.g. `unocss/astro`, `@astrojs/tailwind`) are not automatically wired into Storybook's Vite pipeline. Users must manually add the framework's Vite plugin via `viteFinal` in `.storybook/main.js` and import virtual modules in the preview. See the [Styling guide](/guides/styling/) for the current manual setup.
+
+**Improvements needed**:
+- Detect CSS-related Vite plugins from the resolved Astro config during `mergeWithAstroConfig`
+- Automatically register detected plugins in Storybook's Vite pipeline
+- Handle virtual module imports (e.g. `virtual:uno.css`) in the preview
+
 ## Medium Priority
 
 ### Enhanced Testing & Portable Stories
