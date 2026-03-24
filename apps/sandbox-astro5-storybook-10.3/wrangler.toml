@@ -1,0 +1,5 @@
+name = "storybook-astro-demo-astro5"
+compatibility_date = "2026-02-15"
+
+[assets]
+directory = "./storybook-static"
