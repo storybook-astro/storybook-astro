@@ -11,6 +11,10 @@ Add Storybook to an existing Astro project.
 npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 ```
 
+:::note[Installation Issues?]
+If you encounter an `npm ERESOLVE` error, see the [Troubleshooting Guide](../../guides/troubleshooting/) for solutions including Vite 5 compatibility issues.
+:::
+
 ## Optional: framework integration packages
 
 To use non-Astro framework components (React, Vue, Svelte, etc.) in your stories, also install the corresponding Astro integrations and Storybook renderers:
