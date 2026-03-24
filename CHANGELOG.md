@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-03-24
+
+### Fixed
+- `storybook dev` now works correctly with fresh npm installs — previously produced a `Failed to load astro-prerendered-stories.json. Received 404 Not Found` error or a blank "Astro Component / requires server-side rendering" placeholder
+- Added `@storybook-astro/renderer` to Vite `optimizeDeps.exclude` in the framework preset, preventing esbuild pre-bundling from stripping `import.meta.hot` out of the renderer chunk
+- Changed `getViteHot()` in the renderer to access `import.meta.hot` directly rather than via an intermediate variable — Vite's `importAnalysis` plugin detects hot usage by static analysis on the literal `import.meta.hot` string; the previous indirect pattern compiled by tsup was invisible to this analysis
+- `renderAstroToCanvas` now catches a prerendered stories fetch failure gracefully and falls through to HMR rendering with a clear console warning, instead of crashing with a confusing network error (defensive fallback)
+
 ## [1.0.0] - 2026-03-24
 
 ### Added
