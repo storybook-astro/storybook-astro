@@ -7,10 +7,15 @@ import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarke
 import { registerTestingIntegrationsForRoot } from '../testing/integration-config.ts';
 import { cjsInteropPlugin, vitestPatchForSolidJs } from './vite-plugins.ts';
 
-export type TestingDefineConfig = Omit<InlineConfig, 'plugins'> & {
+// Type definition omits 'test' to allow Vitest-specific config options
+// Vite 8 type definitions conflict with Vitest config when used in monorepo
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Vitest config requires any type for test option
+export type TestingDefineConfig = Omit<InlineConfig, 'plugins' | 'test'> & {
   integrations?: Integration[];
   plugins?: PluginOption[];
   astroConfigFile?: false | string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  test?: any;
 };
 
 function normalizeGlobalSetup(globalSetup: string | string[] | undefined, value: string) {
@@ -52,6 +57,9 @@ export function defineConfig(options: TestingDefineConfig) {
     globalSetup: normalizeGlobalSetup(rest.test?.globalSetup, globalSetupFilePath)
   };
 
+  // Cast to any to work around Vite 8 type conflicts in monorepo environments
+  // where multiple Vite versions exist in node_modules
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Type conflict with Vite 8 in monorepo
   const vitestConfig = defineVitestConfig({
     ...rest,
     root,
@@ -63,7 +71,8 @@ export function defineConfig(options: TestingDefineConfig) {
       vitePluginAstroComponentMarker() as any,
       ...plugins
     ]
-  });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
 
   const astroConfigFactoryPromise = Promise
     .all([
