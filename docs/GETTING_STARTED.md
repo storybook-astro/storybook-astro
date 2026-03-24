@@ -7,7 +7,7 @@ Get up and running with Storybook Astro — the community-supported Storybook fr
 - **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+ (required for Storybook 10's ESM-only support)
 - **Storybook**: 10.0.0+
 - **Astro**: 5.5.3+ or 6.0.0+ (see the [README](https://github.com/storybook-astro/storybook-astro#astro-6-compatibility) for Astro 6 compatibility details)
-- **Vite**: 6.0.0+ (7.x supported)
+- **Vite**: 5.4.0+, 6.0.0+, 7.x, or 8.x
 
 ## Quick Start
 
@@ -18,6 +18,8 @@ Add Storybook to an existing Astro project:
 ```bash
 npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 ```
+
+> **Installation issues?** If you encounter an `npm ERESOLVE` error, see the [Troubleshooting guide](./TROUBLESHOOTING.md#npm-eresolve-could-not-resolve-peer-dependencies-with-vite-5).
 
 To use non-Astro framework components (React, Vue, Svelte, etc.) in your stories, also install the corresponding Astro integrations and Storybook renderers:
 
