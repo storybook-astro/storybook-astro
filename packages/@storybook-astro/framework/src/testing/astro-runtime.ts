@@ -9,9 +9,8 @@ import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fall
 import type { ComposedStory } from './types.ts';
 import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
 
-let astroContainerPromise: Promise<{
-  renderToString: (component: unknown, options: { props: Record<string, unknown> }) => Promise<string>;
-}> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let astroContainerPromise: Promise<any> | null = null;
 
 const astroSsrViteServerPromises = new Map<string, Promise<ViteDevServer>>();
 
@@ -90,7 +89,7 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
     const normalizedModuleId = moduleId.split('?')[0].split('#')[0];
 
     try {
-      const mod = await import(/* @vite-ignore */ normalizedModuleId);
+      const mod = await import(/* @vite-ignore */ normalizedModuleId) as Record<string, unknown>;
 
       if (isAstroComponentFactory(mod.default)) {
         resolvedComponent = mod.default;
@@ -102,7 +101,7 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
     if (isStorybookAstroClientStub(resolvedComponent)) {
       try {
         const viteServer = await getAstroSsrViteServer(resolveFrom);
-        const mod = await ssrLoadModuleWithFsFallback(viteServer, normalizedModuleId);
+        const mod = (await ssrLoadModuleWithFsFallback(viteServer, normalizedModuleId)) as Record<string, unknown>;
 
         if (isAstroComponentFactory(mod.default)) {
           resolvedComponent = mod.default;
@@ -162,6 +161,11 @@ async function renderAstroComponentToDom(
 
   const resolvedComponent = await resolveAstroComponent(component, resolveFrom);
   const container = await getAstroContainer();
+  
+  if (!container) {
+    throw new Error('Failed to initialize Astro container for rendering');
+  }
+  
   const html = await container.renderToString(resolvedComponent, {
     props: args
   });

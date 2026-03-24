@@ -136,10 +136,13 @@ export async function handlerFactory(_integrations: Integration[], options?: Han
           sanitizationOptions
         );
 
-        return container.renderToString(patchedComponent, {
-          props: sanitizedPayload.args,
-          slots: sanitizedPayload.slots
-        });
+        return container.renderToString(
+          patchedComponent as Parameters<typeof container.renderToString>[0],
+          {
+            props: sanitizedPayload.args,
+            slots: sanitizedPayload.slots
+          }
+        );
       });
     };
 

@@ -1,4 +1,3 @@
-// eslint-disable-next-line n/no-extraneous-import
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
@@ -11,7 +10,7 @@ export default defineConfig({
     'src/middleware.ts',
   ],
   format: ['esm'],
-  dts: false,
+  dts: true,
   sourcemap: true,
   clean: true,
   external: [

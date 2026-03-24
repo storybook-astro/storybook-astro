@@ -11,6 +11,16 @@ type FallbackRenderer = {
 };
 
 type RendererRegistry = Record<string, FallbackRenderer>;
+type ViteHot = {
+  send?: (event: string, data: unknown) => void;
+  on?: (event: string, cb: (payload: unknown) => void) => void;
+};
+
+function getViteHot(): ViteHot | undefined {
+  const meta = import.meta as ImportMeta & { hot?: ViteHot };
+
+  return meta.hot;
+}
 
 // Cache for pending Astro component render requests
 const messages = new Map<string, RenderPromise>();
@@ -218,16 +228,20 @@ async function renderAstroToCanvas(
   canvasElement: HTMLElement,
   storyContext?: StoryContext<AstroRenderer>
 ): Promise<void> {
-  if (!import.meta.hot) {
+  const hot = getViteHot();
+
+  if (!hot) {
     const prerenderedHtml = await resolvePrerenderedStoryHtml(
       storyContext?.id,
       storyContext?.parameters?.__astroPrerendered
     );
 
-    canvasElement.innerHTML = prerenderedHtml;
-    activateScriptTags(canvasElement);
+    if (prerenderedHtml) {
+      canvasElement.innerHTML = prerenderedHtml;
+      activateScriptTags(canvasElement);
 
-    return;
+      return;
+    }
   }
 
   if (!element.moduleId) {
@@ -340,10 +354,24 @@ async function renderAstroComponent(
   data: RenderComponentInput, 
   timeoutMs = 5000
 ): Promise<RenderResponseMessage['data']> {
-  if (!import.meta.hot) {
-    throw new Error(
-      'Astro render requests require Vite HMR. In static builds, use pre-rendered story HTML.'
-    );
+  // In static builds, import.meta.hot is undefined — no dev server to handle SSR.
+  const hot = getViteHot();
+
+  if (!hot) {
+    return {
+      id: 'static-build',
+      html:
+        '<div style="padding: 20px; border: 2px dashed #8b8b8b; border-radius: 8px; ' +
+        'text-align: center; color: #6b6b6b; font-family: system-ui, sans-serif; ' +
+        'background: #f8f8f8">' +
+        '<p style="margin: 0 0 8px; font-size: 16px; font-weight: 600">' +
+        'Astro Component</p>' +
+        '<p style="margin: 0; font-size: 13px">' +
+        'Astro components require server-side rendering and cannot be displayed ' +
+        'in a static build. Run <code style="background: #e8e8e8; padding: 2px 6px; ' +
+        'border-radius: 3px">storybook dev</code> for interactive rendering.</p>' +
+        '</div>'
+    };
   }
 
   const id = crypto.randomUUID();
@@ -358,7 +386,7 @@ async function renderAstroComponent(
   });
 
   // Send render request via Vite HMR
-  import.meta.hot?.send('astro:render:request', { ...data, id });
+  hot.send?.('astro:render:request', { ...data, id });
 
   return promise;
 }
@@ -393,8 +421,11 @@ function initializeAlpineJS(): void {
  */
 function setupViteHMRListeners(): void {
   // Listen for Vite updates to refresh Astro styles
-  import.meta.hot?.on('vite:afterUpdate', (payload) => {
-    const hasAstroStyleUpdates = payload.updates.some((update) => 
+  const hot = getViteHot();
+
+  hot?.on?.('vite:afterUpdate', (payload: unknown) => {
+    const typedPayload = payload as { updates?: Array<{ path: string }> };
+    const hasAstroStyleUpdates = (typedPayload.updates ?? []).some((update) => 
       isAstroStyleUpdate(update.path)
     );
     
@@ -404,7 +435,8 @@ function setupViteHMRListeners(): void {
   });
 
   // Listen for Astro component render responses
-  import.meta.hot?.on('astro:render:response', (data: RenderResponseMessage['data']) => {
+  hot?.on?.('astro:render:response', (payload: unknown) => {
+    const data = payload as RenderResponseMessage['data'];
     const pendingRequest = messages.get(data.id);
     
     if (pendingRequest) {
