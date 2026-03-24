@@ -47,6 +47,7 @@ export default defineConfig({
         {
           label: 'Guides',
           items: [
+            { label: 'Styling', slug: 'guides/styling' },
             { label: 'Images', slug: 'guides/images' },
             { label: 'Testing Stories', slug: 'guides/testing' },
             { label: 'Sanitization', slug: 'guides/sanitization' },

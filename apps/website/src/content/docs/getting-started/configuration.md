@@ -70,6 +70,8 @@ const preview = {
 export default preview;
 ```
 
+If your project uses global CSS, a CSS utility framework (UnoCSS, Tailwind CSS), or custom fonts, see the [Styling guide](/guides/styling/) for how to make them available in Storybook.
+
 ## 3. Add scripts to `package.json`
 
 ```json
