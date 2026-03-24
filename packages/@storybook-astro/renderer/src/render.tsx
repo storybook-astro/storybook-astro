@@ -17,9 +17,12 @@ type ViteHot = {
 };
 
 function getViteHot(): ViteHot | undefined {
-  const meta = import.meta as ImportMeta & { hot?: ViteHot };
-
-  return meta.hot;
+  // Direct property access is required: Vite's importAnalysis plugin detects
+  // import.meta.hot via static analysis to inject the HMR context for this
+  // module. Accessing it through an intermediate variable
+  // (const meta = import.meta; meta.hot) bypasses Vite's detection, leaving
+  // import.meta.hot undefined even when the module is served directly by Vite.
+  return (import.meta as ImportMeta & { hot?: ViteHot }).hot;
 }
 
 // Cache for pending Astro component render requests
@@ -220,7 +223,13 @@ function isAstroComponent(element: unknown): element is AstroComponentFactory {
 /**
  * Renders an Astro component to the canvas using server-side rendering.
  *
- * In static builds, uses pre-rendered HTML from astro-prerendered-stories.json.
+ * Rendering strategy:
+ * 1. If Vite HMR is available (dev mode): renders via HMR middleware.
+ * 2. If HMR is absent and prerendered HTML exists (static build): renders from JSON.
+ * 3. If HMR is absent but prerendered HTML is missing (npm install in dev, not yet
+ *    built): logs a warning and attempts HMR anyway — the optimizeDeps.exclude fix
+ *    in preset.ts should prevent this path, but this handles any edge case where
+ *    import.meta.hot is transiently unavailable.
  */
 async function renderAstroToCanvas(
   element: AstroComponentFactory,
@@ -231,10 +240,26 @@ async function renderAstroToCanvas(
   const hot = getViteHot();
 
   if (!hot) {
-    const prerenderedHtml = await resolvePrerenderedStoryHtml(
-      storyContext?.id,
-      storyContext?.parameters?.__astroPrerendered
-    );
+    // Attempt to load prerendered HTML (the expected path for static builds).
+    // If the file is missing (404 in dev mode), catch and fall through to the
+    // HMR path rather than surfacing a confusing network error to the user.
+    let prerenderedHtml: string | undefined;
+
+    try {
+      prerenderedHtml = await resolvePrerenderedStoryHtml(
+        storyContext?.id,
+        storyContext?.parameters?.__astroPrerendered
+      );
+    } catch {
+      // Prerendered stories not available — likely running storybook dev without
+      // a prior storybook build. Fall through and let renderAstroComponent handle
+      // it (it will attempt HMR or show a clear static-build message).
+      console.warn(
+        '[storybook-astro] Could not load astro-prerendered-stories.json. ' +
+        'If you are running `storybook dev`, this may indicate a Vite dependency ' +
+        'optimization issue. Attempting HMR rendering instead.'
+      );
+    }
 
     if (prerenderedHtml) {
       canvasElement.innerHTML = prerenderedHtml;
