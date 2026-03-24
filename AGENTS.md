@@ -9,7 +9,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 **Status**: Experimental - not production-ready
 
 **Key Technologies**:
-- Astro 6 beta (using Container API for SSR)
+- Astro 6+ (using Container API for SSR)
 - Storybook 10+
 - Vite 6+ (7.x supported)
 - TypeScript/JavaScript (ES modules only)
@@ -220,34 +220,33 @@ const { Default, Highlighted } = composeStories(stories);
 ```
 
 **Test Utilities**:
-All test utilities are available from `@storybook-astro/framework/testing` (`packages/@storybook-astro/framework/src/testing.ts`):
+Testing runtime APIs are available from `@storybook-astro/framework/testing` (`packages/@storybook-astro/framework/src/testing.ts`):
 
-- `testStoryComposition(name, story)` - Verifies story can be imported and composed
-- `testStoryRenders(name, story)` - Validates story renders successfully in Storybook context
-- `cjsInteropPlugin()` - Vite plugin that wraps CJS modules for Vite 6's ESM module runner
+- `composeStories(storiesImport, projectAnnotations?)` - Compose all stories from import
+- `composeStory(story, componentAnnotations, projectAnnotations?, exportsName?)` - Compose single story
+- `setProjectAnnotations(annotations)` - Set global config for tests
+- `renderStory(story)` - Render composed story via Astro SSR in tests
 
-**Vitest Config Plugins**:
-The `vitest.config.ts` loads two custom plugins:
-- `cjsInteropPlugin()` — Auto-detects CJS modules in `node_modules` and wraps them with ESM-compatible shims (`module`, `exports`, `require`, `__dirname`, `__filename`). Required because Vite 6's ESM runner cannot evaluate raw CJS.
-- `vitePluginAstroComponentMarker()` — Same plugin used in Storybook, ensures `.astro` files have `isAstroComponentFactory` set in the test environment.
+Vitest-specific config helpers are available from `@storybook-astro/framework/vitest` (`packages/@storybook-astro/framework/src/vitest/index.ts`):
 
-**Solid Testing Limitation**:
-Solid components render correctly in Storybook's browser but have an SSR/client compilation mismatch in Vitest. The Vitest config uses a non-recursive glob (`**/solid/*.tsx`) so `vite-plugin-solid` does not compile nested component files. Without this, Vitest's happy-dom environment compiles Solid in client mode (calling `template()`), but the runtime resolves to `server.js` where `template` is aliased to `notSup()`. Composition tests pass; actual Solid rendering is validated in the browser.
+- `defineConfig(options)` - Vitest config helper with Astro integration wiring
+
+`defineConfig` wires required test internals automatically.
 
 **Test Structure**:
 All component tests follow a uniform pattern:
 ```typescript
-import { composeStories } from '@storybook-astro/framework';
-import { testStoryRenders, testStoryComposition } from '@storybook-astro/framework/testing';
+import { screen } from '@testing-library/dom';
+import { test, expect } from 'vitest';
+import { composeStories, renderStory } from '@storybook-astro/framework/testing';
 import * as stories from './Component.stories.jsx';
 
 const { Default } = composeStories(stories);
 
-// Test basic composition
-testStoryComposition('Default', Default);
-
-// Test rendering capability
-testStoryRenders('Component Default', Default);
+test('Component Default renders via SSR', async () => {
+  await renderStory(Default);
+  expect(screen.getByText('Expected text')).toBeInTheDocument();
+});
 ```
 
 ### Developing Portable Stories
@@ -367,10 +366,6 @@ export const MyStory = {
 **Symptom**: Alpine.js components are not interactive
 **Fix**: Check that Alpine is started in the init function of `render.tsx` and that entrypoint file exists
 
-### CJS Modules Failing in Tests
-**Symptom**: `SyntaxError: Cannot use import statement` or `module is not defined` in Vitest
-**Fix**: The `cjsInteropPlugin()` from `@storybook-astro/framework/testing` wraps CJS modules for Vite 6's ESM runner. If a new CJS dependency causes failures, check that the plugin's detection heuristics (`module.exports`/`exports.` patterns) match the module's format.
-
 ## Development Workflow
 
 1. **Start Storybook**: `yarn storybook`
@@ -405,13 +400,12 @@ When asking for help from AI or humans:
 
 ## Astro 6 Compatibility Layers
 
-These are the key adaptations made for Astro 6 beta. If Astro's APIs change in future releases, these are the places to update:
+These are the key adaptations for Astro 6. If Astro's APIs change in future releases, these are the places to update:
 
 1. **`vitePluginAstroComponentMarker.ts`** — Detects the Astro 6 client-side stub pattern and replaces it. If Astro changes the stub text or reintroduces `isAstroComponentFactory`, this plugin may need updating or removal.
 2. **`patchCreateAstroCompat()` in `middleware.ts`** — Bridges the 3-arg (compiler v2) and 2-arg (compiler v3/Astro 6) `createAstro` calling conventions. Can be removed once the compiler is updated to match the runtime.
 3. **`vitePluginAstroFontsFallback.ts`** — Stubs font virtual modules. Can be removed if Astro's font plugin properly handles the Storybook SSR context.
-4. **`cjsInteropPlugin()` in `@storybook-astro/framework/testing`** — Wraps CJS modules for Vite 6+'s ESM runner. May be simplified as dependencies migrate to ESM.
-5. **Framework delegation order in `render.tsx`** — `renderToCanvas()` delegates to framework renderers BEFORE calling `storyFn()`. This ordering was changed for Astro 6's updated framework integrations; reverting it would break Solid and potentially other reactive frameworks.
+4. **Framework delegation order in `render.tsx`** — `renderToCanvas()` delegates to framework renderers BEFORE calling `storyFn()`. Reordering this can break reactive framework rendering.
 
 ## Future Considerations
 
@@ -422,5 +416,4 @@ These are the key adaptations made for Astro 6 beta. If Astro's APIs change in f
 - **Documentation**: API documentation and more usage examples
 - **Production Build**: Static build support (currently dev-only)
 - **Portable Stories**: Consider delegating to framework-specific composeStories when available
-- **Astro Stable Release**: Once Astro 6 exits beta, remove or simplify compatibility layers as APIs stabilize
-- **Solid Test Rendering**: The SSR/client compilation mismatch prevents Solid from rendering in Vitest; explore `document` shims or compilation mode overrides to enable full test rendering
+- **Astro 7+**: Monitor for breaking changes in upcoming major releases and adjust compatibility layers accordingly

@@ -4,6 +4,7 @@ import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFall
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
+import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 
 export const core = {
@@ -11,7 +12,7 @@ export const core = {
   renderer: '@storybook-astro/renderer'
 };
 
-export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { presets }) => {
+export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { configType, presets }) => {
   const options = await presets.apply<FrameworkOptions>('frameworkOptions');
   const { vitePlugin: storybookAstroMiddlewarePlugin, viteConfig } =
     await vitePluginStorybookAstroMiddleware(options);
@@ -21,6 +22,11 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
   }
 
   const integrations = options.integrations ?? [];
+  const resolveFrom = options.resolveFrom ?? process.cwd();
+  const mode = configType === 'DEVELOPMENT' ? 'development' : 'production';
+  const command = configType === 'DEVELOPMENT' ? 'serve' : 'build';
+
+  resolveSanitizationOptions(options.sanitization);
 
   config.plugins.push(
     storybookAstroMiddlewarePlugin,
@@ -28,7 +34,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vitePluginAstroComponentMarker() as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vitePluginAstroBuildPrerender(integrations) as any,
+    vitePluginAstroBuildPrerender(options) as any,
     vitePluginAstroVueFallback(),
     ...viteConfig.plugins
   );
@@ -51,7 +57,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { pres
     aliases['react-dom'] = 'react-dom';
   }
 
-  const finalConfig = await mergeWithAstroConfig(config, integrations);
+  const finalConfig = await mergeWithAstroConfig(config, integrations, resolveFrom, mode, command);
 
   // Exclude @astrojs/vue from dependency optimization because it imports
   // virtual modules that esbuild cannot resolve (virtual:@astrojs/vue/app).

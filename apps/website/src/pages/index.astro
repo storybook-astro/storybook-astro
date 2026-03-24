@@ -1,5 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import InstallCommandTabs from '@storybook-astro/components/CodeTabs/preact/CodeTabs.jsx';
+import ProjectStats from '@storybook-astro/components/ProjectStats/astro/ProjectStats.astro';
 ---
 
 <Layout title="Storybook Astro — Community Storybook Framework for Astro">
@@ -7,28 +9,35 @@ import Layout from '../layouts/Layout.astro';
     <span class="badge">Beta · Astro 5 &amp; 6 + Storybook 10</span>
     <h1>Build, test & document<br /><span class="gradient-text">Astro components</span></h1>
     <p class="subtitle">
-      The community-supported Storybook framework for Astro. Render components server-side
-      via the Container API, with support for React, Vue, Svelte, Solid, Preact, and Alpine.js.
+      The community-supported Storybook framework for Astro.<br>
+      Render Astro components server-side, and preview client-side UI components in the same Storybook.
     </p>
     <div class="ctas">
       <a href="https://demo.storybook-astro.org" class="btn btn-primary">Live Demo</a>
       <a href="/getting-started/" class="btn btn-secondary">Get Started</a>
     </div>
     <div class="install-cmd">
-      <code>npm install --save-dev storybook @storybook/builder-vite @storybook-astro/framework</code>
+      <InstallCommandTabs client:idle />
     </div>
+  </section>
+
+  <section class="metrics" aria-label="Project activity stats">
+    <ProjectStats />
   </section>
 
   <section class="features">
     <div class="feature">
       <div class="feature-icon">⚡</div>
       <h3>Server-Side Rendering</h3>
-      <p>Astro components render via the Container API with full middleware support—just like production.</p>
+      <p>Astro components render server-side in Storybook with production-like behavior.</p>
     </div>
     <div class="feature">
       <div class="feature-icon">🧩</div>
-      <h3>Multi-Framework</h3>
-      <p>React, Vue, Svelte, Solid, Preact, and Alpine.js—all running side-by-side in one Storybook.</p>
+      <h3>Astro + UI Frameworks</h3>
+      <p>
+        Render Astro components and client-side UI components together in one Storybook,
+        including React, Vue, Svelte, Solid, Preact, and Alpine.js.
+      </p>
     </div>
     <div class="feature">
       <div class="feature-icon">🧪</div>
@@ -145,18 +154,14 @@ import Layout from '../layouts/Layout.astro';
   }
 
   .install-cmd {
-    display: inline-block;
+    width: 100%;
     margin-top: 0.5rem;
+    display: flex;
+    justify-content: center;
   }
 
-  .install-cmd code {
-    background: #161b22;
-    border: 1px solid #30363d;
-    padding: 0.6rem 1.5rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    color: #8b949e;
-    user-select: all;
+  .metrics {
+    padding: 0.35rem 0 1.5rem;
   }
 
   /* Features */
@@ -219,6 +224,10 @@ import Layout from '../layouts/Layout.astro';
       padding: 2rem 0;
     }
 
+    .metrics {
+      padding: 0.25rem 0 1.2rem;
+    }
+
     .features {
       grid-template-columns: 1fr;
       gap: 1rem;
@@ -228,4 +237,5 @@ import Layout from '../layouts/Layout.astro';
       padding: 1.5rem 0;
     }
   }
+
 </style>

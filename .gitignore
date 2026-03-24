@@ -1,5 +1,6 @@
-# build output
+# build and test output
 dist/
+coverage/
 
 # generated types
 .astro/
@@ -22,6 +23,9 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# local AI enhancement settings
+.agents/settings.local.json
 
 *storybook.log
 

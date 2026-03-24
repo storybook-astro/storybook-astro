@@ -2,12 +2,12 @@
 
 The community-supported [Storybook](https://storybook.js.org/) framework for [Astro](https://astro.build/).
 
-> **Beta** · Astro 5 & 6 + Storybook 10
+> Astro 5 & 6 + Storybook 10
 
 ## Install
 
 ```bash
-npm install --save-dev storybook @storybook/builder-vite @storybook-astro/framework
+npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 ```
 
 ## Setup
@@ -25,7 +25,7 @@ export default {
 
 ## Requirements
 
-Node.js 20.16+, Storybook 10, Astro 5.5.3+ or 6.0.0-beta, Vite 6+
+Node.js 20.16+, Storybook 10, Astro 5.5.3+ or 6.0.0+, Vite 6+
 
 ## Links
 

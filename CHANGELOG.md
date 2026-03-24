@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-24
+
+### Added
+- Stable 1.0.0 release with production-ready Storybook Astro framework
+- Full support for Astro 5 (5.5.3+) and Astro 6
+- Multi-framework support: React, Vue, Svelte, Solid, Preact, Alpine.js
+- Server-side rendering with middleware pipeline
+- Portable stories (composeStories) for vitest integration
+- Comprehensive testing utilities and framework integration helpers
+
+### Changed
+- Framework now production-ready after extensive beta testing and monorepo restructuring
+- Improved documentation and Getting Started guide
+- Enhanced website with component demos across all frameworks
+
 ## [0.1.0-beta.13] - 2026-02-18
 
 ### Changed

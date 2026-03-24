@@ -8,7 +8,7 @@ Add Storybook to an existing Astro project.
 ## Install core packages
 
 ```bash
-npm install --save-dev storybook @storybook/builder-vite @storybook-astro/framework
+npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 ```
 
 ## Optional: framework integration packages

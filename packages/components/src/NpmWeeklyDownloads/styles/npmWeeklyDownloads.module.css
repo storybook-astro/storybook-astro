@@ -1,0 +1,111 @@
+.card {
+  width: 100%;
+  height: var(--stats-row-height, 4.4rem);
+  padding: 0.2rem 0;
+  background: transparent;
+  border: 0;
+  display: grid;
+  gap: 0.2rem;
+  align-content: start;
+  overflow: hidden;
+}
+
+.label {
+  font-size: 0.64rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #8b949e;
+  font-weight: 600;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 0;
+  min-width: 0;
+}
+
+.value {
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #f0f6fc;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.chartShell {
+  min-width: 0;
+  height: 1.35rem;
+  border-bottom: 1px solid rgba(88, 106, 134, 0.35);
+  padding-bottom: 0.06rem;
+  display: flex;
+  align-items: flex-end;
+}
+
+.package {
+  font-size: 0.74rem;
+  color: #8b949e;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.line {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: lineDraw 1s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+.emptyLine {
+  stroke: rgba(125, 145, 170, 0.45);
+  stroke-width: 2.4;
+  stroke-dasharray: 5 5;
+}
+
+.point {
+  fill: #0d1117;
+  stroke: #d18be8;
+  stroke-width: 12;
+  opacity: 0;
+  animation: pointFade 0.18s ease forwards;
+  animation-delay: calc(0.64s + (var(--dot-index) * 45ms));
+}
+
+@keyframes lineDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pointFade {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+
+  .point {
+    animation: none;
+    opacity: 1;
+  }
+}

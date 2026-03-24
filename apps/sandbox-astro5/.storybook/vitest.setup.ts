@@ -1,3 +1,4 @@
+import '../lib/vitest-setup';
 import { setProjectAnnotations } from '@storybook-astro/framework';
 import * as projectAnnotations from './preview';
 

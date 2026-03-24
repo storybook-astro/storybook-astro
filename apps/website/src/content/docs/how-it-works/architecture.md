@@ -13,7 +13,7 @@ The core framework implementation that integrates Astro with Storybook's build s
 
 - **Vite Plugin Integration** — Configures Vite to handle `.astro` components during the Storybook build
 - **Middleware Handler** — Sets up an Astro Container that renders components server-side on demand
-- **Framework Integrations** — Manages multiple UI framework renderers (React, Vue, Svelte, Preact, Solid, Alpine.js)
+- **Framework Integrations** — Manages UI framework renderers so Astro and framework components can be rendered in the same Storybook
 - **Module Resolution** — Handles special module resolution for Astro's runtime
 
 **Key files:**

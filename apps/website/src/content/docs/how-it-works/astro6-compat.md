@@ -1,9 +1,9 @@
 ---
-title: Astro 6 Compatibility
-description: The compatibility layers that enable Storybook Astro to work with Astro 6 beta.
+title: Astro Compatibility
+description: The compatibility layers that enable Storybook Astro to work with Astro 6.
 ---
 
-Astro 6 introduced several breaking changes to how components are transformed and rendered. Storybook Astro includes six compatibility layers to bridge these differences.
+Storybook Astro includes compatibility layers to handle differences between Astro versions and maintain consistent component rendering across the ecosystem.
 
 ## 1. Component detection — `vitePluginAstroComponentMarker`
 
@@ -43,7 +43,7 @@ Astro 6 introduced several breaking changes to how components are transformed an
 
 ## Future outlook
 
-These compatibility layers can be simplified or removed as Astro 6 stabilizes:
+These compatibility layers can be simplified or removed as Astro evolves:
 
 - **Component marker** — Can be removed if Astro reintroduces `isAstroComponentFactory` in client-side transforms
 - **Props patching** — Can be removed once the compiler is updated to match the runtime calling convention

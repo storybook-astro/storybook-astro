@@ -1,149 +1,257 @@
+import { pathToFileURL } from 'node:url';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { Integration } from './integrations/index.ts';
-import { addRenderers } from 'virtual:astro-container-renderers';
+import type { SanitizationOptions } from './lib/sanitization.ts';
+import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
+import { resolveStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
+import { applyMswHandlers } from './msw.ts';
+import { selectStoryRules } from './rules.ts';
+import type { RenderStoryInput } from './types.ts';
+import { addRenderers, resolveClientModules } from 'virtual:astro-container-renderers';
+
+type ResolveRulesConfigModule = () => unknown | Promise<unknown>;
+
+type AstroCreateResult = {
+  createAstro?: (...args: unknown[]) => unknown;
+};
+
+type AstroComponentFactory = ((
+  result: AstroCreateResult,
+  props: unknown,
+  slots: unknown
+) => unknown) & {
+  isAstroComponentFactory?: boolean;
+  moduleId?: string;
+  propagation?: unknown;
+};
 
 export type HandlerProps = {
   component: string;
   args?: Record<string, unknown>;
   slots?: Record<string, unknown>;
+  story?: RenderStoryInput;
 };
 
-export async function handlerFactory(integrations: Integration[]) {
-  const safeIntegrations = integrations ?? [];
+type HandlerFactoryOptions = {
+  mode?: 'development' | 'production';
+  sanitization?: SanitizationOptions;
+  rulesConfigFilePath?: string;
+  resolveRulesConfigModule?: ResolveRulesConfigModule;
+  loadModule?: (id: string) => Promise<{ default: unknown }>;
+};
+
+export async function handlerFactory(_integrations: Integration[], options?: HandlerFactoryOptions) {
+  const mode = options?.mode ?? 'development';
   const container = await AstroContainer.create({
     // Somewhat hacky way to force client-side Storybook's Vite to resolve modules properly
-    resolve: async (s) => {
-      if (s.startsWith('astro:scripts')) {
-        return `/@id/${s}`;
+    resolve: async (specifier) => {
+      const mockedModule = resolveStoryModuleMock(specifier);
+
+      if (mockedModule) {
+        return mockedModule;
       }
 
-      for (const integration of safeIntegrations) {
-        const resolution = integration.resolveClient(s);
-
-        if (resolution) {
-          return resolution;
-        }
+      if (specifier.startsWith('astro:scripts')) {
+        return `/@id/${specifier}`;
       }
 
-      return s;
+      const resolution = resolveClientModules(specifier);
+
+      if (resolution) {
+        return resolution;
+      }
+
+      return specifier;
     }
   });
 
   addRenderers(container);
+  const sanitizationOptions = resolveSanitizationOptions(options?.sanitization);
+  const loadModule =
+    options?.loadModule ??
+    ((id: string) => {
+      const normalizedId = /^[a-zA-Z]:[/\\]/.test(id) ? pathToFileURL(id).href : id;
+
+      return import(/* @vite-ignore */ normalizedId);
+    });
+  const componentCache = new Map<string, Promise<AstroComponentFactory>>();
+  let renderQueue = Promise.resolve<void>(undefined);
+
+  async function loadPatchedComponent(componentId: string, useCache = true) {
+    if (!useCache) {
+      const { default: component } = await loadModule(componentId);
+
+      return patchCreateAstroCompat(component);
+    }
+
+    if (!componentCache.has(componentId)) {
+      componentCache.set(componentId, (async () => {
+        const { default: component } = await loadModule(componentId);
+
+        return patchCreateAstroCompat(component);
+      })());
+    }
+
+    const cachedComponent = componentCache.get(componentId);
+
+    if (!cachedComponent) {
+      throw new Error(`Failed to load Astro component: ${componentId}`);
+    }
+
+    try {
+      return await cachedComponent;
+    } catch (error) {
+      // Drop failed entries so transient/module errors can recover on the next request.
+      componentCache.delete(componentId);
+      throw error;
+    }
+  }
 
   return async function handler(data: HandlerProps) {
-    const { default: Component } = await import(/* @vite-ignore */ data.component);
+    const executeRender = async () => {
+      const rulesConfigModule = options?.resolveRulesConfigModule
+        ? await options.resolveRulesConfigModule()
+        : undefined;
 
-    // Process args to convert ImageMetadata objects to usable URLs
-    const processedArgs = await processImageMetadata(data.args || {});
+      const selectedRules = await selectStoryRules({
+        configModule: rulesConfigModule,
+        configFilePath: options?.rulesConfigFilePath,
+        mode,
+        story: data.story
+      });
 
-    // Wrap the component factory to fix the createAstro calling convention mismatch.
-    // Astro compiler v2 produces: result.createAstro($$Astro, $$props, $$slots) [3 args]
-    // Astro 6 runtime expects: result.createAstro($$props, $$slots) [2 args]
-    // When v2-compiled components run against the v6 runtime, $$Astro gets captured as
-    // "props" and actual props end up as "slots". This wrapper detects the 3-arg call
-    // and strips the leading $$Astro argument.
-    const patchedComponent = patchCreateAstroCompat(Component);
+      await applyMswHandlers(selectedRules.mswHandlers);
 
-    const result = await container.renderToString(patchedComponent, {
-      props: processedArgs,
-      slots: data.slots ?? {}
-    });
+      return withStoryModuleMocks(selectedRules.moduleMocks, async () => {
+        const patchedComponent = await loadPatchedComponent(
+          data.component,
+          selectedRules.moduleMocks.size === 0
+        );
+        const processedArgs = await processImageMetadata(data.args ?? {});
+        const sanitizedPayload = sanitizeRenderPayload(
+          {
+            args: processedArgs,
+            slots: data.slots ?? {}
+          },
+          sanitizationOptions
+        );
 
-    return result;
+        return container.renderToString(
+          patchedComponent as Parameters<typeof container.renderToString>[0],
+          {
+            props: sanitizedPayload.args,
+            slots: sanitizedPayload.slots
+          }
+        );
+      });
+    };
+
+    const resultPromise = renderQueue.then(executeRender, executeRender);
+
+    renderQueue = resultPromise.then(
+      () => undefined,
+      () => undefined
+    );
+
+    return resultPromise;
   };
 }
 
-/**
- * Wraps an Astro component factory to fix the createAstro calling convention mismatch
- * between Astro compiler v2 and the Astro 6 runtime.
- *
- * The compiled component calls result.createAstro($$Astro, $$props, $$slots) [3 args],
- * but the Astro 6 runtime's createResult defines createAstro(props, slots) [2 params].
- * This causes $$Astro to be captured as "props" and actual props to be lost.
- *
- * The wrapper intercepts the result object and patches its createAstro method to
- * handle both calling conventions.
- */
-function patchCreateAstroCompat(Component: any): any {
-  const wrapped = (result: any, props: any, slots: any) => {
-    if (result && result.createAstro) {
-      const origCreateAstro = result.createAstro;
+function patchCreateAstroCompat(component: unknown): AstroComponentFactory {
+  if (typeof component !== 'function') {
+    throw new Error('Expected Astro component factory to be a function.');
+  }
 
-      result.createAstro = (...args: any[]) => {
-        if (args.length === 3) {
-          // Compiler v2 convention: ($$Astro, $$props, $$slots) → skip $$Astro
-          return origCreateAstro(args[1], args[2]);
+  const originalComponent = component as AstroComponentFactory;
+  const wrapped = ((result: AstroCreateResult, props: unknown, slots: unknown) => {
+    if (result && typeof result.createAstro === 'function') {
+      const originalCreateAstro = result.createAstro;
+      const runtimeExpectsAstroGlobal = originalCreateAstro.length >= 3;
+
+      result.createAstro = (...args: unknown[]) => {
+        if (args.length === 3 && !runtimeExpectsAstroGlobal) {
+          return originalCreateAstro(args[1], args[2]);
         }
 
-        // Compiler v3 convention: ($$props, $$slots) → pass through
-        return origCreateAstro(...args);
+        return originalCreateAstro(...args);
       };
     }
 
-    return Component(result, props, slots);
-  };
+    return originalComponent(result, props, slots);
+  }) as AstroComponentFactory;
 
-  // Copy component factory metadata so the Container treats it as a valid Astro component
-  wrapped.isAstroComponentFactory = Component.isAstroComponentFactory;
-  wrapped.moduleId = Component.moduleId;
-  wrapped.propagation = Component.propagation;
+  wrapped.isAstroComponentFactory = originalComponent.isAstroComponentFactory;
+  wrapped.moduleId = originalComponent.moduleId;
+  wrapped.propagation = originalComponent.propagation;
 
   return wrapped;
 }
 
-/**
- * Recursively processes arguments to convert ImageMetadata objects to usable image URLs.
- * This allows Astro's Image component to work properly in Storybook by converting
- * optimized asset references to direct file paths.
- */
-async function processImageMetadata(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function processImageMetadata(
+  args: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const processed: Record<string, unknown> = {};
-  
+
   for (const [key, value] of Object.entries(args)) {
     if (isImageMetadata(value)) {
-      // Convert ImageMetadata to a usable URL
       processed[key] = convertImageMetadataToUrl(value);
-    } else if (Array.isArray(value)) {
-      // Process arrays recursively
-      processed[key] = await Promise.all(
-        value.map(async (item) => 
-          typeof item === 'object' && item !== null 
-            ? await processImageMetadata(item as Record<string, unknown>)
-            : item
-        )
-      );
-    } else if (typeof value === 'object' && value !== null) {
-      // Process nested objects recursively
-      processed[key] = await processImageMetadata(value as Record<string, unknown>);
-    } else {
-      processed[key] = value;
+
+      continue;
     }
+
+    if (Array.isArray(value)) {
+      processed[key] = await Promise.all(
+        value.map(async (item) => {
+          if (isImageMetadata(item)) {
+            return convertImageMetadataToUrl(item);
+          }
+
+          if (isRecord(item)) {
+            return processImageMetadata(item);
+          }
+
+          return item;
+        })
+      );
+
+      continue;
+    }
+
+    if (isRecord(value)) {
+      processed[key] = await processImageMetadata(value);
+
+      continue;
+    }
+
+    processed[key] = value;
   }
-  
+
   return processed;
 }
 
-/**
- * Type guard to check if a value is an ImageMetadata object.
- * ImageMetadata objects typically have properties like src, width, height, format.
- */
-function isImageMetadata(value: unknown): value is Record<string, any> {
+function isImageMetadata(value: unknown): value is Record<string, unknown> {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'src' in value &&
-    typeof (value as any).src === 'string' &&
+    isRecord(value) &&
+    typeof value.src === 'string' &&
     ('width' in value || 'height' in value || 'format' in value)
   );
 }
 
-/**
- * Converts an ImageMetadata object to a usable URL for Storybook.
- * In a Storybook environment, we use the raw file path instead of optimized URLs.
- */
-function convertImageMetadataToUrl(imageMetadata: Record<string, any>): string {
-  // For Storybook, use the raw src path which should be the file path
-  // This bypasses Astro's image optimization which doesn't work in Storybook
-  return imageMetadata.src || imageMetadata.fsPath || String(imageMetadata);
+function convertImageMetadataToUrl(imageMetadata: Record<string, unknown>): string {
+  const src = imageMetadata.src;
+  const fsPath = imageMetadata.fsPath;
+
+  if (typeof src === 'string') {
+    return src;
+  }
+
+  if (typeof fsPath === 'string') {
+    return fsPath;
+  }
+
+  return String(imageMetadata);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

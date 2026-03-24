@@ -1,0 +1,26 @@
+---
+import ReactCodeTabs from '../react/CodeTabs.jsx';
+import SolidCodeTabs from '../solid/CodeTabs.tsx';
+import PreactCodeTabs from '../preact/CodeTabs.jsx';
+import SvelteCodeTabs from '../svelte/CodeTabs.svelte';
+import VueCodeTabs from '../vue/CodeTabs.vue';
+import AlpineCodeTabs from '../alpine/CodeTabs.astro';
+
+type Framework = 'react' | 'solid' | 'preact' | 'svelte' | 'vue' | 'alpine';
+
+interface Props {
+  framework?: Framework;
+}
+
+const { framework = 'react' } = Astro.props;
+
+---
+
+<div data-testid="astro-code-tabs" data-framework={framework}>
+  {framework === 'react' && <ReactCodeTabs client:load />}
+  {framework === 'solid' && <SolidCodeTabs client:load />}
+  {framework === 'preact' && <PreactCodeTabs client:load />}
+  {framework === 'svelte' && <SvelteCodeTabs client:load />}
+  {framework === 'vue' && <VueCodeTabs client:load />}
+  {framework === 'alpine' && <AlpineCodeTabs />}
+</div>

@@ -13,7 +13,8 @@
     "isolatedModules": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "jsx": "react-jsx"
   },
   "exclude": ["node_modules", "dist"]
 }

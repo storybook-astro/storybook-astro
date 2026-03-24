@@ -1,5 +1,6 @@
 import type { Integration } from './base.ts';
 import type { PreactPluginOptions } from '@preact/preset-vite';
+import { importModule } from './moduleResolver.ts';
 
 export type Options = Pick<PreactPluginOptions, 'include' | 'exclude'> & {
   compat?: boolean;
@@ -33,8 +34,10 @@ export class PreactIntegration implements Integration {
     }
   }
 
-  async loadIntegration() {
-    const framework = await import('@astrojs/preact');
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{
+      default: (options: Options) => Awaited<ReturnType<Integration['loadIntegration']>>;
+    }>('@astrojs/preact', resolveFrom);
 
     return framework.default(this.options);
   }

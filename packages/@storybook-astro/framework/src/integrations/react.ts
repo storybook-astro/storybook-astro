@@ -1,5 +1,6 @@
 import type { Integration } from './base.ts';
 import type { Options as ViteReactPluginOptions } from '@vitejs/plugin-react';
+import { importModule } from './moduleResolver.ts';
 
 export type Options = Pick<ViteReactPluginOptions, 'include' | 'exclude'>;
 
@@ -30,8 +31,10 @@ export class ReactIntegration implements Integration {
     }
   }
 
-  async loadIntegration() {
-    const framework = await import('@astrojs/react');
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{
+      default: (options: Options) => Awaited<ReturnType<Integration['loadIntegration']>>;
+    }>('@astrojs/react', resolveFrom);
 
     return framework.default(this.options);
   }

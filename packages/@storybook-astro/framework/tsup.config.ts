@@ -1,4 +1,3 @@
-// eslint-disable-next-line n/no-extraneous-import
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
@@ -6,11 +5,12 @@ export default defineConfig({
     'src/index.ts',
     'src/preset.ts',
     'src/testing.ts',
+    'src/vitest/index.ts',
     'src/integrations/index.ts',
     'src/middleware.ts',
   ],
   format: ['esm'],
-  dts: false,
+  dts: true,
   sourcemap: true,
   clean: true,
   external: [
@@ -31,6 +31,9 @@ export default defineConfig({
     '@storybook/preact',
     '@storybook-astro/renderer',
     'storybook-solidjs',
+    'msw',
+    'msw/node',
+    'sanitize-html',
     'virtual:astro-container-renderers',
   ],
 });
