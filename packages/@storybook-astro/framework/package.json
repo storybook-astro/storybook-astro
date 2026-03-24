@@ -50,6 +50,10 @@
         "types": "./src/vitest/index.ts",
         "import": "./dist/vitest/index.js"
       },
+      "./msw-helpers": {
+        "types": "./src/msw-helpers.ts",
+        "import": "./dist/msw-helpers.js"
+      },
       "./preset": {
         "types": "./preset.ts",
         "import": "./dist/preset.js"

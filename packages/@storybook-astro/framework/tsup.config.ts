@@ -8,6 +8,7 @@ export default defineConfig({
     'src/vitest/index.ts',
     'src/integrations/index.ts',
     'src/middleware.ts',
+    'src/msw-helpers.ts',
   ],
   format: ['esm'],
   dts: true,

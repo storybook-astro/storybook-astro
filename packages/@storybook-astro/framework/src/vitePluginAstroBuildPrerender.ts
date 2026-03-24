@@ -14,6 +14,7 @@ import { resolveRulesConfigFilePath } from './rules-options.ts';
 import { selectStoryRules } from './rules.ts';
 import type { FrameworkOptions } from './types.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 
@@ -305,6 +306,7 @@ async function createStorySsrServer(
       vitePluginAstroFontsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
+      vitePluginAstroIntegrationOptsFallback(),
       {
         name: 'storybook-astro:static-prerender-ssr-stubs',
         resolveId(id: string) {
