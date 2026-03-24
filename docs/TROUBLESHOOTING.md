@@ -51,6 +51,37 @@ npm install -D --legacy-peer-deps storybook @storybook/builder-vite @storybook-a
 
 ---
 
+### Vite Version Mismatch: "Cannot read properties of undefined (reading 'name')"
+
+**Error message:**
+```
+TypeError: Cannot read properties of undefined (reading 'name')
+at TransformPluginContext.transform (vite-plugin-astro/index.js:161:30)
+```
+
+**Cause:**
+
+This error occurs when **Vite 5.x is installed** in a project that uses **Astro 5.17.2+**. Modern Astro 5 releases require Vite 6.4.1+, not 5.x. The Astro Vite plugin expects features introduced in Vite 6 (like `this.environment`), which don't exist in Vite 5.
+
+**Solution:**
+
+Ensure your project uses **Vite 6.4.1 or later**:
+
+```bash
+npm install -D vite@^6.4.1
+```
+
+If you accidentally have Vite 5.x installed, clean install to resolve to Vite 6+:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+The framework now requires `vite@^6.4.1 || ^7.0.0 || ^8.0.0` to ensure compatibility with Astro 5+.
+
+---
+
 ## Runtime Issues
 
 ### Storybook won't start / "Astro components cannot be used in the browser"

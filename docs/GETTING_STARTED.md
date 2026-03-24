@@ -7,7 +7,7 @@ Get up and running with Storybook Astro — the community-supported Storybook fr
 - **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+ (required for Storybook 10's ESM-only support)
 - **Storybook**: 10.0.0+
 - **Astro**: 5.5.3+ or 6.0.0+ (see the [README](https://github.com/storybook-astro/storybook-astro#astro-6-compatibility) for Astro 6 compatibility details)
-- **Vite**: 5.4.0+, 6.0.0+, 7.x, or 8.x
+- **Vite**: 6.4.1+ (required by Astro 5+), 7.x, or 8.x
 
 ## Quick Start
 

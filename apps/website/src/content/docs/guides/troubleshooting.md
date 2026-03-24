@@ -58,6 +58,37 @@ The Astro team will eventually update `@astrojs/solid-js` to use newer `solid-de
 
 ## Runtime Issues
 
+### Vite Version Mismatch: "Cannot read properties of undefined"
+
+**Error message:**
+```
+TypeError: Cannot read properties of undefined (reading 'name')
+at TransformPluginContext.transform (vite-plugin-astro/index.js:161:30)
+```
+
+**Cause:**
+
+This error occurs when Vite 5.x is installed in a project using Astro 5.17.2+. Modern Astro 5 requires Vite 6.4.1+, not 5.x. The Astro Vite plugin expects features introduced in Vite 6 (like `this.environment`).
+
+**Solution:**
+
+Install Vite 6.4.1 or later:
+
+```bash
+npm install -D vite@^6.4.1
+```
+
+If Vite 5.x is already installed, do a clean install:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+The framework now requires `vite@^6.4.1 || ^7.0.0 || ^8.0.0` for compatibility with Astro 5+.
+
+---
+
 ### "Astro components cannot be used in the browser"
 
 **Error message:**
