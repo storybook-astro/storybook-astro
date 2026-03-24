@@ -97,7 +97,7 @@
     "astro": "^5.5.3 || ^6.0.0",
     "storybook": "^10.0.0",
     "storybook-solidjs": "^1.0.0-beta.7",
-    "vite": "^6.2.5 || ^7.0.0 || ^8.0.0"
+    "vite": "^5.4.0 || ^6.2.5 || ^7.0.0 || ^8.0.0"
   },
   "peerDependenciesMeta": {
     "@astrojs/alpinejs": {
@@ -147,6 +147,6 @@
     "@storybook-astro/renderer": "workspace:*",
     "msw": "^2.12.10",
     "sanitize-html": "^2.17.0",
-    "vite": "^6.2.5 || ^7.0.0 || ^8.0.0"
+    "vite": "^5.4.0 || ^6.2.5 || ^7.0.0 || ^8.0.0"
   }
 }
