@@ -33,3 +33,5 @@ export { defineStoryRules } from './rules.ts';
 
 // Re-export preset functionality for framework usage
 export { core, viteFinal } from './preset.ts';
+
+export { __definePreview as definePreview } from '@storybook-astro/renderer';
