@@ -4,5 +4,5 @@
   "compilerOptions": {
     "types": ["@testing-library/jest-dom"]
   },
-  "include": ["./src/**/*"]
+  "include": ["./src/**/*", "./env.d.ts"]
 }

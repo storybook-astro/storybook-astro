@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useEffect, useId, useMemo, useState } from 'preact/hooks';
 import styles from '../styles/npmWeeklyDownloads.module.css';
 
@@ -11,7 +12,31 @@ const CHART_PADDING = {
 };
 const COUNT_ANIMATION_DURATION_MS = 1500;
 
-function normalizeDownloads(dataPoints) {
+type NpmDownloadPoint = {
+  day: string;
+  downloads: number;
+};
+
+type ChartPoint = NpmDownloadPoint & {
+  x: number;
+  y: number;
+};
+
+type ChartData = {
+  points: ChartPoint[];
+  linePath: string;
+  maxDownloads: number;
+  totalDownloads: number;
+  baselineY: number;
+};
+
+type NpmWeeklyDownloadsProps = {
+  packageName?: string;
+  label?: string;
+  downloads?: unknown;
+};
+
+function normalizeDownloads(dataPoints: unknown): NpmDownloadPoint[] {
   if (!Array.isArray(dataPoints)) {
     return [];
   }
@@ -32,12 +57,12 @@ function normalizeDownloads(dataPoints) {
       return {
         day,
         downloads: Math.round(downloads),
-      };
+      } satisfies NpmDownloadPoint;
     })
-    .filter((point) => point !== null);
+    .filter((point): point is NpmDownloadPoint => point !== null);
 }
 
-function normalizeTotal(value) {
+function normalizeTotal(value: unknown): number {
   const parsedValue = Number(value);
 
   if (!Number.isFinite(parsedValue) || parsedValue < 0) {
@@ -47,15 +72,15 @@ function normalizeTotal(value) {
   return Math.round(parsedValue);
 }
 
-function prefersReducedMotion() {
+function prefersReducedMotion(): boolean {
   return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
-function easeOutQuart(progress) {
+function easeOutQuart(progress: number): number {
   return 1 - (1 - progress) ** 4;
 }
 
-function createChartData(dataPoints) {
+function createChartData(dataPoints: NpmDownloadPoint[]): ChartData {
   if (dataPoints.length === 0) {
     return {
       points: [],
@@ -81,7 +106,7 @@ function createChartData(dataPoints) {
       ...point,
       x,
       y,
-    };
+    } satisfies ChartPoint;
   });
 
   const linePath = points
@@ -94,6 +119,12 @@ function createChartData(dataPoints) {
     maxDownloads,
     totalDownloads: dataPoints.reduce((sum, point) => sum + point.downloads, 0),
     baselineY,
+  } satisfies ChartData;
+}
+
+function createPointStyle(index: number): CSSProperties {
+  return {
+    animationDelay: `${640 + (index * 45)}ms`
   };
 }
 
@@ -101,8 +132,8 @@ export default function NpmWeeklyDownloads({
   packageName = '@storybook-astro/framework',
   label = 'npm weekly downloads',
   downloads = [],
-}) {
-  const [displayTotal, setDisplayTotal] = useState(0);
+}: NpmWeeklyDownloadsProps) {
+  const [displayTotal, setDisplayTotal] = useState<number>(0);
   const formatter = useMemo(() => new Intl.NumberFormat('en-US'), []);
   const gradientId = useId().replaceAll(':', '');
   const gradientUrl = `url(#${gradientId})`;
@@ -119,12 +150,12 @@ export default function NpmWeeklyDownloads({
       return;
     }
 
-    let animationFrameId;
-    let startedAt;
+    let animationFrameId: number | undefined;
+    let startedAt: number | undefined;
 
     setDisplayTotal(0);
 
-    const animate = (timestamp) => {
+    const animate = (timestamp: number) => {
       if (startedAt === undefined) {
         startedAt = timestamp;
       }
@@ -150,19 +181,19 @@ export default function NpmWeeklyDownloads({
   }, [chartData.totalDownloads]);
 
   return (
-    <section class={styles.card} data-testid="npm-weekly-downloads">
-      <span class={styles.label}>{label}</span>
-      <div class={styles.row}>
+    <section className={styles.card} data-testid="npm-weekly-downloads">
+      <span className={styles.label}>{label}</span>
+      <div className={styles.row}>
         <strong
-          class={styles.value}
+          className={styles.value}
           aria-label={`${formatter.format(safeTotal)} weekly npm downloads for ${packageName}`}
           aria-live="polite"
         >
           {formatter.format(displayTotal)}
         </strong>
-        <div class={styles.chartShell}>
+        <div className={styles.chartShell}>
           <svg
-            class={styles.chart}
+            className={styles.chart}
             viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
             role="img"
             aria-label={`Weekly npm downloads for ${packageName}`}
@@ -182,14 +213,21 @@ export default function NpmWeeklyDownloads({
               </linearGradient>
             </defs>
 
-            {chartData.linePath
-              ? <path class={styles.line} d={chartData.linePath} pathLength="1" style={{ stroke: gradientUrl }} />
-              : (
-                  <line
-                    class={styles.emptyLine}
-                    x1={CHART_PADDING.left}
-                    y1={chartData.baselineY}
-                    x2={SVG_WIDTH - CHART_PADDING.right}
+             {chartData.linePath
+               ? (
+                   <path
+                     className={styles.line}
+                     d={chartData.linePath}
+                     pathLength="1"
+                     stroke={gradientUrl}
+                   />
+                 )
+               : (
+                   <line
+                     className={styles.emptyLine}
+                     x1={CHART_PADDING.left}
+                     y1={chartData.baselineY}
+                     x2={SVG_WIDTH - CHART_PADDING.right}
                     y2={chartData.baselineY}
                   />
                 )}
@@ -197,17 +235,19 @@ export default function NpmWeeklyDownloads({
             {chartData.points.map((point, index) => (
               <circle
                 key={`${point.day}-${point.downloads}`}
-                class={styles.point}
+                className={styles.point}
                 cx={point.x}
                 cy={point.y}
                 r={8}
-                style={{ '--dot-index': String(index), fill: gradientUrl, stroke: gradientUrl }}
+                fill={gradientUrl}
+                stroke={gradientUrl}
+                style={createPointStyle(index)}
               />
             ))}
           </svg>
         </div>
       </div>
-      <span class={styles.package}>{packageName}</span>
+      <span className={styles.package}>{packageName}</span>
     </section>
   );
 }

@@ -71,7 +71,7 @@ export default defineStoryRules({
       match: 'astro/githubstars/*',
       use: ({ story }) => {
         const pathKey = resolveStoryPathKey(story.keys, 'astro/githubstars/');
-        const stars = githubStarsByPath[pathKey] ?? githubStarsByPath['/default'];
+        const stars = resolveStoryValue(githubStarsByPath, pathKey);
         const server = getMswServer();
 
         server.use(
@@ -100,7 +100,7 @@ export default defineStoryRules({
       match: 'astro/npmweeklydownloads/*',
       use: ({ story }) => {
         const pathKey = resolveStoryPathKey(story.keys, 'astro/npmweeklydownloads/');
-        const weeklyDownloads = npmDownloadsByPath[pathKey] ?? npmDownloadsByPath['/default'];
+        const weeklyDownloads = resolveStoryValue(npmDownloadsByPath, pathKey);
         const server = getMswServer();
 
         server.use(
@@ -135,7 +135,7 @@ export default defineStoryRules({
       match: 'astro/githubcontributors/*',
       use: ({ story }) => {
         const pathKey = resolveStoryPathKey(story.keys, 'astro/githubcontributors/');
-        const scenario = githubContributorsByPath[pathKey] ?? githubContributorsByPath['/default'];
+        const scenario = resolveStoryValue(githubContributorsByPath, pathKey);
         const server = getMswServer();
 
         server.use(
@@ -191,6 +191,14 @@ function resolveStoryPathKey(storyKeys: string[], storyPrefix: string): string {
   }
 
   return `/${suffix}`;
+}
+
+function resolveStoryValue<T>(valuesByPath: Record<string, T>, pathKey: string): T {
+  if (Object.prototype.hasOwnProperty.call(valuesByPath, pathKey)) {
+    return valuesByPath[pathKey];
+  }
+
+  return valuesByPath['/default'];
 }
 
 function toDayOffset(baseDay: string, offset: number): string {

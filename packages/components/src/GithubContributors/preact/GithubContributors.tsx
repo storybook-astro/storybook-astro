@@ -1,7 +1,22 @@
+import type { CSSProperties } from 'react';
 import { useMemo } from 'preact/hooks';
 import styles from '../styles/githubContributors.module.css';
 
-function normalizeContributors(value) {
+type GithubContributor = {
+  id: number;
+  login: string;
+  avatarUrl: string;
+  profileUrl: string;
+};
+
+type GithubContributorsProps = {
+  repository?: string;
+  label?: string;
+  contributors?: unknown;
+  total?: unknown;
+};
+
+function normalizeContributors(value: unknown): GithubContributor[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -26,12 +41,12 @@ function normalizeContributors(value) {
         login,
         avatarUrl,
         profileUrl,
-      };
+      } satisfies GithubContributor;
     })
-    .filter((entry) => entry !== null);
+    .filter((entry): entry is GithubContributor => entry !== null);
 }
 
-function normalizeTotal(value) {
+function normalizeTotal(value: unknown): number {
   const parsedValue = Number(value);
 
   if (!Number.isFinite(parsedValue) || parsedValue < 0) {
@@ -41,12 +56,18 @@ function normalizeTotal(value) {
   return Math.round(parsedValue);
 }
 
+function createAvatarStyle(index: number): CSSProperties {
+  return {
+    animationDelay: `${index * 50}ms`
+  };
+}
+
 export default function GithubContributors({
   repository = 'storybook-astro/storybook-astro',
   label = 'contributors',
   contributors = [],
   total = 0,
-}) {
+}: GithubContributorsProps) {
   const formatter = useMemo(() => new Intl.NumberFormat('en-US'), []);
   const visibleContributors = normalizeContributors(contributors).slice(0, 4);
   const safeTotal = Math.max(normalizeTotal(total), visibleContributors.length);
@@ -55,42 +76,61 @@ export default function GithubContributors({
 
   return (
     <section
-      class={styles.card}
+      className={styles.card}
       data-testid="github-contributors"
     >
-      <span class={styles.label}>{label}</span>
-      <div class={styles.row}>
-        <span class={styles.total} aria-label={`${formatter.format(safeTotal)} contributors`}>
+      <span className={styles.label}>{label}</span>
+      <div className={styles.row}>
+        <span className={styles.total} aria-label={`${formatter.format(safeTotal)} contributors`}>
           {formatter.format(safeTotal)}
         </span>
 
-        <div class={styles.avatars}>
+        <div className={styles.avatars}>
           {visibleContributors.map((contributor, index) => (
-            <span key={contributor.id} class={styles.avatarShell} style={{ '--avatar-index': String(index) }}>
+            <span
+              key={contributor.id}
+              className={styles.avatarShell}
+              style={createAvatarStyle(index)}
+            >
               {contributor.profileUrl
                 ? (
                     <a
-                      class={styles.avatarLink}
+                      className={styles.avatarLink}
                       href={contributor.profileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`${contributor.login} on GitHub`}
                     >
-                      <img class={styles.avatar} src={contributor.avatarUrl} alt={contributor.login} loading="lazy" />
+                      <img
+                        className={styles.avatar}
+                        src={contributor.avatarUrl}
+                        alt={contributor.login}
+                        loading="lazy"
+                      />
                     </a>
                   )
-                : <img class={styles.avatar} src={contributor.avatarUrl} alt={contributor.login} loading="lazy" />}
+                : (
+                    <img
+                      className={styles.avatar}
+                      src={contributor.avatarUrl}
+                      alt={contributor.login}
+                      loading="lazy"
+                    />
+                  )}
             </span>
           ))}
 
           {remainingContributors > 0 && (
-            <span class={styles.remaining} aria-label={`${formatter.format(remainingContributors)} more contributors`}>
+            <span
+              className={styles.remaining}
+              aria-label={`${formatter.format(remainingContributors)} more contributors`}
+            >
               +{formatter.format(remainingContributors)}
             </span>
           )}
         </div>
       </div>
-      <a class={styles.repository} href={contributorsUrl} target="_blank" rel="noopener noreferrer">
+      <a className={styles.repository} href={contributorsUrl} target="_blank" rel="noopener noreferrer">
         {repository}
       </a>
     </section>

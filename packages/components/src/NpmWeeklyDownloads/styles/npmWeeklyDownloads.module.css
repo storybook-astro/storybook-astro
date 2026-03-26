@@ -80,7 +80,6 @@
   stroke-width: 12;
   opacity: 0;
   animation: pointFade 0.18s ease forwards;
-  animation-delay: calc(0.64s + (var(--dot-index) * 45ms));
 }
 
 @keyframes lineDraw {

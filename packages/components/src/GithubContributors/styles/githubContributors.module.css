@@ -34,7 +34,6 @@
   margin-left: -0.34rem;
   opacity: 0;
   animation: avatarIn 0.22s ease forwards;
-  animation-delay: calc(var(--avatar-index) * 50ms);
 }
 
 .avatarShell:first-child {

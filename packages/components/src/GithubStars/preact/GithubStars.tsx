@@ -3,7 +3,13 @@ import styles from '../styles/githubStars.module.css';
 
 const COUNT_ANIMATION_DURATION_MS = 1000;
 
-function normalizeStars(value) {
+type GithubStarsProps = {
+  stars?: unknown;
+  repository?: string;
+  label?: string;
+};
+
+function normalizeStars(value: unknown): number {
   const parsedValue = Number(value);
 
   if (!Number.isFinite(parsedValue) || parsedValue < 0) {
@@ -13,11 +19,11 @@ function normalizeStars(value) {
   return Math.round(parsedValue);
 }
 
-function prefersReducedMotion() {
+function prefersReducedMotion(): boolean {
   return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
-function easeOutQuart(progress) {
+function easeOutQuart(progress: number): number {
   return 1 - (1 - progress) ** 4;
 }
 
@@ -25,8 +31,8 @@ export default function GithubStars({
   stars = 0,
   repository = 'storybook-astro/storybook-astro',
   label = 'GitHub stars',
-}) {
-  const [displayStars, setDisplayStars] = useState(0);
+}: GithubStarsProps) {
+  const [displayStars, setDisplayStars] = useState<number>(0);
   const safeStars = normalizeStars(stars);
   const formatter = useMemo(() => new Intl.NumberFormat('en-US'), []);
 
@@ -39,12 +45,12 @@ export default function GithubStars({
       return;
     }
 
-    let animationFrameId;
-    let startedAt;
+    let animationFrameId: number | undefined;
+    let startedAt: number | undefined;
 
     setDisplayStars(0);
 
-    const animate = (timestamp) => {
+    const animate = (timestamp: number) => {
       if (startedAt === undefined) {
         startedAt = timestamp;
       }
@@ -71,24 +77,28 @@ export default function GithubStars({
 
   return (
     <a
-      class={styles.card}
+      className={styles.card}
       href={`https://github.com/${repository}`}
       target="_blank"
       rel="noopener noreferrer"
       data-testid="github-stars"
     >
-      <span class={styles.label}>{label}</span>
-      <div class={styles.valueRow}>
-        <span class={styles.starShell} aria-hidden="true">
-          <svg class={styles.star} viewBox="0 0 24 24">
+      <span className={styles.label}>{label}</span>
+      <div className={styles.valueRow}>
+        <span className={styles.starShell} aria-hidden="true">
+          <svg className={styles.star} viewBox="0 0 24 24">
             <path d="M12 2.25L14.89 8.2L21.45 9.17L16.73 13.83L17.85 20.4L12 17.28L6.15 20.4L7.27 13.83L2.55 9.17L9.11 8.2L12 2.25Z" />
           </svg>
         </span>
-        <span class={styles.value} aria-label={`${formatter.format(safeStars)} GitHub stars`} aria-live="polite">
+        <span
+          className={styles.value}
+          aria-label={`${formatter.format(safeStars)} GitHub stars`}
+          aria-live="polite"
+        >
           {formatter.format(displayStars)}
         </span>
       </div>
-      <span class={styles.repository}>{repository}</span>
+      <span className={styles.repository}>{repository}</span>
     </a>
   );
 }
