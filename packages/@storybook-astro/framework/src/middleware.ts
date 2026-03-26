@@ -37,6 +37,7 @@ type HandlerFactoryOptions = {
   rulesConfigFilePath?: string;
   resolveRulesConfigModule?: ResolveRulesConfigModule;
   loadModule?: (id: string) => Promise<{ default: unknown }>;
+  invalidateModuleGraph?: () => void;
 };
 
 export async function handlerFactory(_integrations: Integration[], options?: HandlerFactoryOptions) {
@@ -120,6 +121,10 @@ export async function handlerFactory(_integrations: Integration[], options?: Han
         configFilePath: options?.rulesConfigFilePath,
         story: data.story
       });
+
+      if (selectedRules.moduleMocks.size > 0) {
+        options?.invalidateModuleGraph?.();
+      }
 
       return withStoryRuleCleanups(selectedRules.cleanups, async () => {
         return withStoryModuleMocks(selectedRules.moduleMocks, async () => {

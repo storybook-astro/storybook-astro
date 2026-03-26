@@ -7,6 +7,9 @@
     "src",
     "package.json"
   ],
+  "dependencies": {
+    "@octokit/rest": "^22.0.0"
+  },
   "scripts": {
     "test": "vitest"
   },

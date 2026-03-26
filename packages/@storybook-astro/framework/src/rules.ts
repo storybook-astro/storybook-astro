@@ -1,12 +1,26 @@
 import { dirname, isAbsolute, resolve } from 'node:path';
+import {
+  createInlineStoryModuleMock,
+  createPathStoryModuleMock,
+  type StoryModuleMockEntry,
+  type StoryModuleMockFactoryResult
+} from './module-mocks.ts';
 import type { RenderStoryInput } from './types.ts';
 
 export type StoryRuleCleanup = () => void | Promise<void>;
 type StoryRuleUseResult = void | StoryRuleCleanup | Promise<void | StoryRuleCleanup>;
 
+export type StoryRuleMockFactory =
+  () => StoryModuleMockFactoryResult | Promise<StoryModuleMockFactoryResult>;
+
+export type StoryRuleMock = {
+  (specifier: string, replacement: string): void;
+  (specifier: string, factory: StoryRuleMockFactory): void;
+};
+
 export type StoryRuleUseContext = {
   story: StoryRuleStory;
-  mock: (specifier: string, replacement: string) => void;
+  mock: StoryRuleMock;
 };
 
 export type StoryRuleUse = (context: StoryRuleUseContext) => StoryRuleUseResult;
@@ -34,12 +48,12 @@ export type StoryRuleSelectionInput = {
 };
 
 export type StoryRuleSelection = {
-  moduleMocks: Map<string, string>;
+  moduleMocks: Map<string, StoryModuleMockEntry>;
   cleanups: StoryRuleCleanup[];
 };
 
 type MutableStoryRuleSelection = {
-  moduleMocks: Map<string, string>;
+  moduleMocks: Map<string, StoryModuleMockEntry>;
   cleanups: StoryRuleCleanup[];
 };
 
@@ -62,19 +76,44 @@ export async function selectStoryRules(
     const uses = Array.isArray(rule.use) ? rule.use : [rule.use];
 
     for (const use of uses) {
+      const pendingModuleMocks: Promise<void>[] = [];
+
       if (typeof use !== 'function') {
         throw new Error('Each story rule "use" entry must be a function.');
       }
 
       const cleanup = await use({
         story,
-        mock: (specifier, replacement) => {
+        mock: ((specifier, replacementOrFactory) => {
           const normalizedSpecifier = normalizeMockSpecifier(specifier);
-          const normalizedReplacement = normalizeMockReplacement(replacement, input.configFilePath);
 
-          selection.moduleMocks.set(normalizedSpecifier, normalizedReplacement);
-        }
+          if (typeof replacementOrFactory === 'function') {
+            pendingModuleMocks.push(
+              Promise.resolve(replacementOrFactory()).then((exportsObject) => {
+                selection.moduleMocks.set(
+                  normalizedSpecifier,
+                  createInlineStoryModuleMock(normalizeMockFactoryResult(exportsObject))
+                );
+
+                return undefined;
+              })
+            );
+
+            return;
+          }
+
+          const normalizedReplacement = normalizeMockReplacement(
+            replacementOrFactory,
+            input.configFilePath
+          );
+
+          selection.moduleMocks.set(normalizedSpecifier, createPathStoryModuleMock(normalizedReplacement));
+        }) as StoryRuleMock
       });
+
+      if (pendingModuleMocks.length > 0) {
+        await Promise.all(pendingModuleMocks);
+      }
 
       if (cleanup !== undefined) {
         if (typeof cleanup !== 'function') {
@@ -329,6 +368,14 @@ function normalizeMockReplacement(value: unknown, configFilePath?: string): stri
   }
 
   return normalizedValue;
+}
+
+function normalizeMockFactoryResult(value: unknown): StoryModuleMockFactoryResult {
+  if (!isRecord(value)) {
+    throw new Error('Story rule mock factory must return an object of module exports.');
+  }
+
+  return value;
 }
 
 function slugify(input: string): string {

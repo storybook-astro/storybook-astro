@@ -44,6 +44,8 @@ export type {
 } from './types.ts';
 export type {
   StoryRuleCleanup,
+  StoryRuleMock,
+  StoryRuleMockFactory,
   StoryRule,
   StoryRulesConfig,
   StoryRuleSelection,

@@ -17,6 +17,7 @@ import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts'
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
+import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 
 const PRERENDERED_STORIES_FILE = 'astro-prerendered-stories.json';
 
@@ -362,6 +363,7 @@ async function createStorySsrServer(
       vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
+      vitePluginStoryModuleMocks(),
       {
         name: 'storybook-astro:static-prerender-ssr-stubs',
         resolveId(id: string) {
