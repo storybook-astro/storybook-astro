@@ -7,6 +7,7 @@ import type { Integration } from './integrations/index.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
@@ -144,6 +145,7 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
       projectAstroResolutionPlugin,
       // Fallbacks must come first to intercept before Astro's plugins
       vitePluginAstroFontsFallback(),
+      vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
       ...(config.plugins?.filter(Boolean) ?? []),

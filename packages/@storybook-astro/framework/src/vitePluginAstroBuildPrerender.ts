@@ -14,6 +14,7 @@ import { resolveRulesConfigFilePath } from './rules-options.ts';
 import { selectStoryRules } from './rules.ts';
 import type { FrameworkOptions } from './types.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 
@@ -303,6 +304,7 @@ async function createStorySsrServer(
     plugins: [
       createProjectAstroResolutionPlugin(resolveFrom),
       vitePluginAstroFontsFallback(),
+      vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
       {
