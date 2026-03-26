@@ -1,4 +1,6 @@
 import { defineStoryRules } from '@storybook-astro/framework';
+import { HttpResponse, http } from 'msw';
+import { getMswServer } from './msw-server.ts';
 
 const githubRepoPattern = /^https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+$/;
 const githubContributorsPattern = /^https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/contributors(?:\?.*)?$/;
@@ -67,11 +69,12 @@ export default defineStoryRules({
   rules: [
     {
       match: 'astro/githubstars/*',
-      use: ({ story, msw, http, HttpResponse }) => {
+      use: ({ story }) => {
         const pathKey = resolveStoryPathKey(story.keys, 'astro/githubstars/');
         const stars = githubStarsByPath[pathKey] ?? githubStarsByPath['/default'];
+        const server = getMswServer();
 
-        msw.use(
+        server.use(
           http.get(githubRepoPattern, () => {
             if (stars === null) {
               return HttpResponse.json(
@@ -87,15 +90,20 @@ export default defineStoryRules({
             });
           })
         );
+
+        return () => {
+          server.resetHandlers();
+        };
       },
     },
     {
       match: 'astro/npmweeklydownloads/*',
-      use: ({ story, msw, http, HttpResponse }) => {
+      use: ({ story }) => {
         const pathKey = resolveStoryPathKey(story.keys, 'astro/npmweeklydownloads/');
         const weeklyDownloads = npmDownloadsByPath[pathKey] ?? npmDownloadsByPath['/default'];
+        const server = getMswServer();
 
-        msw.use(
+        server.use(
           http.get(npmDownloadsPattern, () => {
             if (weeklyDownloads === null) {
               return HttpResponse.json(
@@ -117,15 +125,20 @@ export default defineStoryRules({
             });
           })
         );
+
+        return () => {
+          server.resetHandlers();
+        };
       },
     },
     {
       match: 'astro/githubcontributors/*',
-      use: ({ story, msw, http, HttpResponse }) => {
+      use: ({ story }) => {
         const pathKey = resolveStoryPathKey(story.keys, 'astro/githubcontributors/');
         const scenario = githubContributorsByPath[pathKey] ?? githubContributorsByPath['/default'];
+        const server = getMswServer();
 
-        msw.use(
+        server.use(
           http.get(githubContributorsPattern, ({ request }) => {
             if (scenario === null) {
               return HttpResponse.json(
@@ -155,6 +168,10 @@ export default defineStoryRules({
             );
           })
         );
+
+        return () => {
+          server.resetHandlers();
+        };
       },
     },
   ],

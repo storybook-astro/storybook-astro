@@ -48,7 +48,6 @@ export default app;
 
 async function createRenderHandler() {
   return handlerFactory([], {
-    mode: 'production',
     sanitization: sanitization ?? undefined,
     rulesConfigFilePath: storybookAstroStoryRulesConfigFilePath,
     resolveRulesConfigModule: () => storyRulesConfigModule,

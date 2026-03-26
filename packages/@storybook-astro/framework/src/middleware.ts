@@ -4,8 +4,7 @@ import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { resolveStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
-import { applyMswHandlers } from './msw.ts';
-import { selectStoryRules } from './rules.ts';
+import { selectStoryRules, withStoryRuleCleanups } from './rules.ts';
 import type { RenderStoryInput } from './types.ts';
 import { addRenderers, resolveClientModules } from 'virtual:astro-container-renderers';
 
@@ -33,7 +32,6 @@ export type HandlerProps = {
 };
 
 type HandlerFactoryOptions = {
-  mode?: 'development' | 'production';
   sanitization?: SanitizationOptions;
   rulesConfigFilePath?: string;
   resolveRulesConfigModule?: ResolveRulesConfigModule;
@@ -41,7 +39,6 @@ type HandlerFactoryOptions = {
 };
 
 export async function handlerFactory(_integrations: Integration[], options?: HandlerFactoryOptions) {
-  const mode = options?.mode ?? 'development';
   const container = await AstroContainer.create({
     // Somewhat hacky way to force client-side Storybook's Vite to resolve modules properly
     resolve: async (specifier) => {
@@ -116,33 +113,32 @@ export async function handlerFactory(_integrations: Integration[], options?: Han
       const selectedRules = await selectStoryRules({
         configModule: rulesConfigModule,
         configFilePath: options?.rulesConfigFilePath,
-        mode,
         story: data.story
       });
 
-      await applyMswHandlers(selectedRules.mswHandlers);
+      return withStoryRuleCleanups(selectedRules.cleanups, async () => {
+        return withStoryModuleMocks(selectedRules.moduleMocks, async () => {
+          const patchedComponent = await loadPatchedComponent(
+            data.component,
+            selectedRules.moduleMocks.size === 0
+          );
+          const processedArgs = await processImageMetadata(data.args ?? {});
+          const sanitizedPayload = sanitizeRenderPayload(
+            {
+              args: processedArgs,
+              slots: data.slots ?? {}
+            },
+            sanitizationOptions
+          );
 
-      return withStoryModuleMocks(selectedRules.moduleMocks, async () => {
-        const patchedComponent = await loadPatchedComponent(
-          data.component,
-          selectedRules.moduleMocks.size === 0
-        );
-        const processedArgs = await processImageMetadata(data.args ?? {});
-        const sanitizedPayload = sanitizeRenderPayload(
-          {
-            args: processedArgs,
-            slots: data.slots ?? {}
-          },
-          sanitizationOptions
-        );
-
-        return container.renderToString(
-          patchedComponent as Parameters<typeof container.renderToString>[0],
-          {
-            props: sanitizedPayload.args,
-            slots: sanitizedPayload.slots
-          }
-        );
+          return container.renderToString(
+            patchedComponent as Parameters<typeof container.renderToString>[0],
+            {
+              props: sanitizedPayload.args,
+              slots: sanitizedPayload.slots
+            }
+          );
+        });
       });
     };
 

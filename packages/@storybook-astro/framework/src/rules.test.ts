@@ -1,7 +1,11 @@
 import { resolve } from 'node:path';
-import { HttpResponse, http, type RequestHandler } from 'msw';
 import { describe, expect, test } from 'vitest';
-import { defineStoryRules, selectStoryRules, type StoryRulesConfig } from './rules.ts';
+import {
+  defineStoryRules,
+  selectStoryRules,
+  withStoryRuleCleanups,
+  type StoryRulesConfig
+} from './rules.ts';
 
 function createRulesConfig(config: StoryRulesConfig) {
   return {
@@ -13,14 +17,13 @@ describe('story rules', () => {
   test('returns an empty selection when no rules are configured', async () => {
     const selection = await selectStoryRules({
       configModule: undefined,
-      mode: 'development',
       story: {
         id: 'components-card--default'
       }
     });
 
     expect(selection.moduleMocks.size).toBe(0);
-    expect(selection.mswHandlers).toEqual([]);
+    expect(selection.cleanups).toEqual([]);
   });
 
   test('matches rules against story id and applies module mocks', async () => {
@@ -35,14 +38,13 @@ describe('story rules', () => {
           }
         ]
       }),
-      mode: 'development',
       story: {
         id: 'components-card--default'
       }
     });
 
     expect(selection.moduleMocks.get('~/lib/api')).toBe('~/lib/api.mock');
-    expect(selection.mswHandlers).toHaveLength(0);
+    expect(selection.cleanups).toHaveLength(0);
   });
 
   test('matches rules against title and story name paths', async () => {
@@ -57,7 +59,6 @@ describe('story rules', () => {
           }
         ]
       }),
-      mode: 'development',
       story: {
         id: 'guides-getting-started--default-state',
         title: 'Guides/Getting Started',
@@ -80,7 +81,6 @@ describe('story rules', () => {
           }
         ]
       }),
-      mode: 'development',
       story: {
         id: '/story/components-card--default'
       }
@@ -89,60 +89,102 @@ describe('story rules', () => {
     expect(selection.moduleMocks.get('~/store')).toBe('~/store.mock');
   });
 
-  test('collects MSW handlers from matching rules', async () => {
-    const firstHandler = {} as RequestHandler;
-    const secondHandler = {} as RequestHandler;
+  test('collects cleanup functions from matching rules', async () => {
+    const cleanup = () => undefined;
 
     const selection = await selectStoryRules({
       configModule: createRulesConfig({
         rules: [
           {
             match: '*',
-            use: ({ msw }) => {
-              msw.use(firstHandler, secondHandler);
+            use: () => {
+              return cleanup;
             }
           }
         ]
       }),
-      mode: 'production',
       story: {
         id: 'components-card--default'
       }
     });
 
-    expect(selection.mswHandlers).toEqual([firstHandler, secondHandler]);
+    expect(selection.cleanups).toEqual([cleanup]);
   });
 
-  test('exposes MSW http utilities in rule use context', async () => {
-    let resolvedHttp: typeof http | undefined;
-    let resolvedHttpResponse: typeof HttpResponse | undefined;
+  test('runs cleanups after successful execution in reverse order', async () => {
+    const sequence: string[] = [];
 
-    const selection = await selectStoryRules({
-      configModule: createRulesConfig({
-        rules: [
-          {
-            match: '*',
-            use: ({ msw, http: ruleHttp, HttpResponse: ruleHttpResponse }) => {
-              resolvedHttp = ruleHttp;
-              resolvedHttpResponse = ruleHttpResponse;
-              msw.use(
-                ruleHttp.get('/api/health', () => {
-                  return ruleHttpResponse.json({ ok: true });
-                })
-              );
-            }
-          }
-        ]
-      }),
-      mode: 'development',
-      story: {
-        id: 'components-card--default'
+    await withStoryRuleCleanups(
+      [
+        () => {
+          sequence.push('cleanup:first');
+        },
+        async () => {
+          sequence.push('cleanup:second');
+        }
+      ],
+      async () => {
+        sequence.push('render');
       }
-    });
+    );
 
-    expect(selection.mswHandlers).toHaveLength(1);
-    expect(resolvedHttp).toBe(http);
-    expect(resolvedHttpResponse).toBe(HttpResponse);
+    expect(sequence).toEqual(['render', 'cleanup:second', 'cleanup:first']);
+  });
+
+  test('runs cleanups when execution throws', async () => {
+    const sequence: string[] = [];
+
+    await expect(
+      withStoryRuleCleanups(
+        [
+          () => {
+            sequence.push('cleanup');
+          }
+        ],
+        async () => {
+          sequence.push('render');
+          throw new Error('render failed');
+        }
+      )
+    ).rejects.toThrow('render failed');
+
+    expect(sequence).toEqual(['render', 'cleanup']);
+  });
+
+  test('throws when use returns a non-function value', async () => {
+    await expect(
+      selectStoryRules({
+        configModule: createRulesConfig({
+          rules: [
+            {
+              match: '*',
+              use: () => 'nope' as never
+            }
+          ]
+        }),
+        story: {
+          id: 'components-card--default'
+        }
+      })
+    ).rejects.toThrow('Story rule "use" must return either nothing or a cleanup function.');
+  });
+
+  test('aggregates cleanup failures', async () => {
+    await expect(
+      withStoryRuleCleanups(
+        [
+          () => {
+            throw new Error('first cleanup failed');
+          },
+          () => {
+            throw new Error('second cleanup failed');
+          }
+        ],
+        async () => undefined
+      )
+    ).rejects.toMatchObject({
+      message: 'Story rule cleanup failed.'
+    });
   });
 
   test('resolves relative mock replacements from config file location', async () => {
@@ -160,7 +202,6 @@ describe('story rules', () => {
         ]
       }),
       configFilePath,
-      mode: 'development',
       story: {
         id: 'components-card--default'
       }
@@ -182,7 +223,6 @@ describe('story rules', () => {
             }
           ]
         }),
-        mode: 'development',
         story: {
           id: 'components-card--default'
         }
@@ -203,7 +243,6 @@ describe('story rules', () => {
             }
           ]
         }),
-        mode: 'development',
         story: {
           id: 'components-card--default'
         }

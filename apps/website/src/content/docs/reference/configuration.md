@@ -154,17 +154,32 @@ export default {
 **Story rules file** (`.storybook/story-rules.ts`):
 
 ```typescript
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
 import { defineStoryRules } from '@storybook-astro/framework';
-import { http, HttpResponse } from '@storybook-astro/framework/msw-helpers';
+
+const server = setupServer();
+let isListening = false;
+
+function getMswServer() {
+  if (!isListening) {
+    server.listen({ onUnhandledRequest: 'bypass' });
+    isListening = true;
+  }
+
+  return server;
+}
 
 export default defineStoryRules({
   rules: [
     {
       // Match stories by pattern (e.g., 'components-profile-card--*')
       match: 'components-profile-card--*',
-      use: ({ msw, mock }) => {
+      use: ({ mock }) => {
+        const server = getMswServer();
+
         // Mock API endpoints with Mock Service Worker
-        msw.use(
+        server.use(
           http.get('/api/user', () => {
             return HttpResponse.json({ name: 'Storybook User' });
           })
@@ -172,6 +187,10 @@ export default defineStoryRules({
 
         // Replace modules for specific stories
         mock('~/lib/feature-flags', './mocks/feature-flags.ts');
+
+        return () => {
+          server.resetHandlers();
+        };
       },
     },
   ],
@@ -180,11 +199,10 @@ export default defineStoryRules({
 
 **Available helpers in the `use` callback:**
 
-- **`msw`** — Mock Service Worker instance for mocking HTTP requests
 - **`mock`** — Module replacement function to swap imports
 - **`story`** — Story metadata (name, keys, etc.)
 
-See [Mock Service Worker](https://mswjs.io/) for full API details.
+`use()` can also return a cleanup function. That lets you install and tear down user-owned runtime hooks such as MSW, fetch patches, or test doubles around each story render.
 
 ### Integration options
 

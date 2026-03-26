@@ -41,7 +41,7 @@ export default {
 
 Sanitization is enabled by default with conservative HTML defaults. To disable it, set `sanitization.enabled` to `false`.
 
-You can also apply per-story rules for API mocks and module replacements:
+You can also apply per-story rules for runtime setup and module replacements. If you want HTTP mocking with MSW, install `msw` in your own project and wire it up inside the rules file:
 
 ```javascript
 export default {
@@ -56,20 +56,40 @@ export default {
 
 ```javascript
 // .storybook/story-rules.ts
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
 import { defineStoryRules } from '@storybook-astro/framework';
+
+const server = setupServer();
+let isListening = false;
+
+function getMswServer() {
+  if (!isListening) {
+    server.listen({ onUnhandledRequest: 'bypass' });
+    isListening = true;
+  }
+
+  return server;
+}
 
 export default defineStoryRules({
   rules: [
     {
       match: 'components-profile-card--*',
-      use: ({ msw, http, HttpResponse, mock }) => {
-        msw.use(
+      use: ({ mock }) => {
+        const server = getMswServer();
+
+        server.use(
           http.get('/api/user', () => {
             return HttpResponse.json({ name: 'Storybook User' });
           })
         );
 
         mock('~/lib/feature-flags', './mocks/feature-flags.ts');
+
+        return () => {
+          server.resetHandlers();
+        };
       },
     },
   ],

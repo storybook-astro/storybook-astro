@@ -9,9 +9,8 @@ import type { Integration } from './integrations/index.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { resolveStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
-import { applyMswHandlers } from './msw.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
-import { selectStoryRules } from './rules.ts';
+import { selectStoryRules, withStoryRuleCleanups } from './rules.ts';
 import type { FrameworkOptions } from './types.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
@@ -219,7 +218,6 @@ async function prerenderStories(options: {
       const selectedRules = await selectStoryRules({
         configModule: rulesConfigModule,
         configFilePath: options.storyRulesConfigFilePath,
-        mode: 'production',
         story: {
           id: story.id,
           title: story.title,
@@ -227,42 +225,44 @@ async function prerenderStories(options: {
         }
       });
 
-      await applyMswHandlers(selectedRules.mswHandlers);
-
       if (selectedRules.moduleMocks.size > 0) {
         viteServer.moduleGraph.invalidateAll();
       }
 
-      const html = await withStoryModuleMocks(selectedRules.moduleMocks, async () => {
-        const modulePath = resolveImportPath(story.importPath, options.resolveFrom);
-        const storyModule = await viteServer.ssrLoadModule(modulePath);
-        const meta = isRecord(storyModule.default) ? storyModule.default : {};
-        const storyExport = isRecord(storyModule[story.exportName]) ? storyModule[story.exportName] : {};
+      const html = await withStoryRuleCleanups(selectedRules.cleanups, async () => {
+        return withStoryModuleMocks(selectedRules.moduleMocks, async () => {
+          const modulePath = resolveImportPath(story.importPath, options.resolveFrom);
+          const storyModule = await viteServer.ssrLoadModule(modulePath);
+          const meta = isRecord(storyModule.default) ? storyModule.default : {};
+          const storyExport = isRecord(storyModule[story.exportName])
+            ? storyModule[story.exportName]
+            : {};
 
-        if (typeof meta.component !== 'function') {
-          throw new Error(
-            `Unable to prerender story "${story.id}". Missing default export component in ${story.importPath}.`
+          if (typeof meta.component !== 'function') {
+            throw new Error(
+              `Unable to prerender story "${story.id}". Missing default export component in ${story.importPath}.`
+            );
+          }
+
+          if (storyExport.component && storyExport.component !== meta.component) {
+            return undefined;
+          }
+
+          const mergedArgs = mergeStoryArgs(toRecord(meta.args), toRecord(storyExport.args));
+          const { args, slots } = separateSlots(mergedArgs);
+          const processedArgs = await processImageMetadata(args);
+          const sanitizedPayload = sanitizeRenderPayload(
+            {
+              args: processedArgs,
+              slots
+            },
+            sanitizationOptions
           );
-        }
 
-        if (storyExport.component && storyExport.component !== meta.component) {
-          return undefined;
-        }
-
-        const mergedArgs = mergeStoryArgs(toRecord(meta.args), toRecord(storyExport.args));
-        const { args, slots } = separateSlots(mergedArgs);
-        const processedArgs = await processImageMetadata(args);
-        const sanitizedPayload = sanitizeRenderPayload(
-          {
-            args: processedArgs,
-            slots
-          },
-          sanitizationOptions
-        );
-
-        return container.renderToString(patchCreateAstroCompat(meta.component), {
-          props: sanitizedPayload.args,
-          slots: sanitizedPayload.slots
+          return container.renderToString(patchCreateAstroCompat(meta.component), {
+            props: sanitizedPayload.args,
+            slots: sanitizedPayload.slots
+          });
         });
       });
 

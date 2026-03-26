@@ -32,7 +32,6 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
       });
 
       const createHandler = () => middleware.handlerFactory(options.integrations ?? [], {
-        mode: 'development',
         sanitization: options.sanitization,
         rulesConfigFilePath: storyRulesConfigFilePath,
         resolveRulesConfigModule: () =>

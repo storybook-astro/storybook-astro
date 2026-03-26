@@ -32,8 +32,8 @@ export type {
   StorybookConfig
 } from './types.ts';
 export type {
+  StoryRuleCleanup,
   StoryRule,
-  StoryRuleMswContext,
   StoryRulesConfig,
   StoryRuleSelection,
   StoryRuleSelectionInput,
@@ -41,7 +41,7 @@ export type {
   StoryRuleUse,
   StoryRuleUseContext
 } from './rules.ts';
-export { defineStoryRules, http, HttpResponse } from './rules.ts';
+export { defineStoryRules } from './rules.ts';
 
 // Re-export preset functionality for framework usage
 export { core, viteFinal } from './preset.ts';
