@@ -1,4 +1,4 @@
-import type { PluginOption } from 'vite';
+import type { Plugin } from 'vite';
 
 type CreateVirtualModulePluginOptions = {
   pluginName: string;
@@ -6,7 +6,7 @@ type CreateVirtualModulePluginOptions = {
   load: (id: string) => string | Promise<string> | undefined;
 };
 
-export function createVirtualModulePlugin(options: CreateVirtualModulePluginOptions): PluginOption {
+export function createVirtualModulePlugin(options: CreateVirtualModulePluginOptions): Plugin {
   const resolvedVirtualModuleId = `\0${options.virtualModuleId}`;
 
   return {
@@ -21,5 +21,5 @@ export function createVirtualModulePlugin(options: CreateVirtualModulePluginOpti
         return options.load(id);
       }
     }
-  } satisfies PluginOption;
+  } satisfies Plugin;
 }

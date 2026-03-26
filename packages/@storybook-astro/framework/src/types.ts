@@ -7,6 +7,13 @@ import type { StoryRulesOptions } from './rules-options.ts';
 type FrameworkName = CompatibleString<'@storybook-astro/framework'>;
 
 export type { Integration, SanitizationOptions, StoryRulesOptions };
+export type RenderMode = 'server' | 'static';
+
+export type ServerBuildOptions = {
+  serverUrl?: string;
+  authToken?: string;
+  authHeader?: string;
+};
 
 export type RenderStoryInput = {
   id: string;
@@ -14,12 +21,25 @@ export type RenderStoryInput = {
   name?: string;
 };
 
-export type FrameworkOptions = {
+type BaseFrameworkOptions = {
   integrations?: Integration[];
   sanitization?: SanitizationOptions;
-  storyRules?: StoryRulesOptions;
   resolveFrom?: string;
 };
+
+type ServerFrameworkOptions = BaseFrameworkOptions & {
+  renderMode?: 'server';
+  storyRules?: StoryRulesOptions;
+  server?: ServerBuildOptions;
+};
+
+type StaticFrameworkOptions = BaseFrameworkOptions & {
+  renderMode: 'static';
+  storyRules?: StoryRulesOptions;
+  server?: never;
+};
+
+export type FrameworkOptions = ServerFrameworkOptions | StaticFrameworkOptions;
 
 type StorybookConfigFramework = {
   framework: {

@@ -77,6 +77,33 @@ export default defineStoryRules({
 });
 ```
 
+Production builds support two Astro render modes:
+
+- `server` (default): builds `storybook-static` and a standalone Astro render server in `storybook-server`
+- `static`: pre-renders Astro stories into `astro-prerendered-stories.json` and serves without a render server
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      renderMode: 'server',
+      server: {
+        serverUrl: 'https://storybook-render.example.com',
+        authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
+        authHeader: 'authorization',
+      },
+    },
+  },
+};
+```
+
+For token-based auth in server mode, you can also use runtime env/global values:
+
+- `STORYBOOK_ASTRO_SERVER_URL`
+- `STORYBOOK_ASTRO_SERVER_TOKEN`
+- `STORYBOOK_ASTRO_SERVER_AUTH_HEADER`
+
 You can sanitize incoming story args and slots through framework options:
 
 ```javascript

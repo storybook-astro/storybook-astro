@@ -24,6 +24,9 @@ export {
 // Export framework types
 export type {
   FrameworkOptions,
+  RenderMode,
+  RenderStoryInput,
+  ServerBuildOptions,
   SanitizationOptions,
   StoryRulesOptions,
   StorybookConfig

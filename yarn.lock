@@ -3506,6 +3506,7 @@ __metadata:
     "@vitest/coverage-v8": "npm:4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:^5.6.1 || ^6.0.0"
+    hono: "npm:^4.11.12"
     msw: "npm:^2.12.10"
     sanitize-html: "npm:^2.17.0"
     storybook-solidjs: "npm:^1.0.0-beta.7"
@@ -8183,6 +8184,13 @@ __metadata:
   version: 4.0.3
   resolution: "headers-polyfill@npm:4.0.3"
   checksum: 10c0/53e85b2c6385f8d411945fb890c5369f1469ce8aa32a6e8d28196df38568148de640c81cf88cbc7c67767103dd9acba48f4f891982da63178fc6e34560022afe
+  languageName: node
+  linkType: hard
+
+"hono@npm:^4.11.12":
+  version: 4.12.3
+  resolution: "hono@npm:4.12.3"
+  checksum: 10c0/df812884acf2f410809ecf14a6c66ff5ea3bb6eaaf75392fa265849186857518d71be18caf2a29ab2ced457d533ba00d285fa72051c08fb0f1bedf887254a4f7
   languageName: node
   linkType: hard
 

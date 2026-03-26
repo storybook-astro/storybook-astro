@@ -145,6 +145,7 @@
   },
   "dependencies": {
     "@storybook-astro/renderer": "workspace:*",
+    "hono": "^4.11.12",
     "msw": "^2.12.10",
     "sanitize-html": "^2.17.0",
     "vite": "^6.4.1 || ^7.0.0 || ^8.0.0"

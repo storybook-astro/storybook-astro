@@ -1,8 +1,10 @@
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
+import { viteStorybookAstroRendererPlugin } from './viteStorybookAstroRendererPlugin.ts';
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
+import { vitePluginAstroBuildServer } from './vitePluginAstroBuildServer.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
@@ -14,8 +16,6 @@ export const core = {
 
 export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { configType, presets }) => {
   const options = await presets.apply<FrameworkOptions>('frameworkOptions');
-  const { vitePlugin: storybookAstroMiddlewarePlugin, viteConfig } =
-    await vitePluginStorybookAstroMiddleware(options);
 
   if (!config.plugins) {
     config.plugins = [];
@@ -23,21 +23,50 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
 
   const integrations = options.integrations ?? [];
   const resolveFrom = options.resolveFrom ?? process.cwd();
+  const renderMode = options.renderMode ?? 'server';
   const mode = configType === 'DEVELOPMENT' ? 'development' : 'production';
   const command = configType === 'DEVELOPMENT' ? 'serve' : 'build';
 
   resolveSanitizationOptions(options.sanitization);
 
+  config.envPrefix = mergeEnvPrefixes(config.envPrefix, 'STORYBOOK_');
+
+  const { vitePlugin: storybookAstroMiddlewarePlugin, viteConfig } =
+    await vitePluginStorybookAstroMiddleware(options);
+
   config.plugins.push(
-    storybookAstroMiddlewarePlugin,
     viteStorybookRendererFallbackPlugin(integrations),
+    viteStorybookAstroRendererPlugin({
+      mode,
+      renderMode,
+      server: options.server
+    }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vitePluginAstroComponentMarker() as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vitePluginAstroBuildPrerender(options) as any,
     vitePluginAstroVueFallback(),
-    ...viteConfig.plugins
   );
+
+  if (configType === 'DEVELOPMENT') {
+    config.plugins.push(storybookAstroMiddlewarePlugin, ...viteConfig.plugins);
+  } else if (renderMode === 'static') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    config.plugins.push(vitePluginAstroBuildPrerender(options) as any);
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    config.plugins.push(vitePluginAstroBuildServer(options) as any);
+  }
+
+  if (configType !== 'DEVELOPMENT') {
+    config.build = {
+      ...(config.build ?? {}),
+      manifest: true
+    };
+
+    config.build.rollupOptions = {
+      ...(config.build.rollupOptions ?? {}),
+      preserveEntrySignatures: 'strict'
+    };
+  }
 
   // Add React/ReactDOM aliases for storybook-solidjs compatibility
   if (!config.resolve) {
@@ -97,3 +126,12 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
 
   return finalConfig;
 };
+
+function mergeEnvPrefixes(
+  existing: string | string[] | undefined,
+  additionalPrefix: string
+): string[] {
+  const prefixes = Array.isArray(existing) ? existing : existing ? [existing] : [];
+
+  return Array.from(new Set([...prefixes, additionalPrefix]));
+}
