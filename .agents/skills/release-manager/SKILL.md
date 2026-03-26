@@ -31,7 +31,7 @@ Only packages under `packages/@storybook-astro/*` are versioned:
 - `@storybook-astro/framework`
 - `@storybook-astro/renderer`
 
-The website, sandbox apps, and component library are NOT versioned separately.
+The website, integration examples, and component library are NOT versioned separately.
 
 ### Branches
 
@@ -287,10 +287,10 @@ rm -rf dist && yarn build:packages
 
 **Solution**: Fix issues on `develop` branch and re-test before bumping versions and tagging.
 
-Tests run against both Astro 5 and Astro 6 sandboxes:
+Tests run against both Astro 5 and Astro 6 integration examples:
 ```bash
-yarn workspace @storybook-astro/sandbox-astro5 test
-yarn workspace @storybook-astro/sandbox-astro6 test
+yarn workspace @storybook-astro/integration-astro5 test
+yarn workspace @storybook-astro/integration-astro6 test
 ```
 
 ### Wrong Tag Location

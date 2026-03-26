@@ -27,7 +27,7 @@ Both errors stem from the same root cause: `import.meta.hot` being unavailable i
 
 **The demo site worked** — `demo.storybook-astro.org` is a static build deployed to Cloudflare Pages (`storybook-static/`). `storybook build` generates `astro-prerendered-stories.json` correctly. No dev server involved.
 
-**Monorepo sandboxes worked** — `apps/sandbox-astro5` and `apps/sandbox-astro6` use `@storybook-astro/framework: workspace:*`, which loads TypeScript source directly through Vite. This entirely bypasses the compiled `dist/` files and esbuild pre-bundling.
+**Monorepo integration examples worked** — `integration/astro5` and `integration/astro6` use `@storybook-astro/framework: workspace:*`, which loads TypeScript source directly through Vite. This entirely bypasses the compiled `dist/` files and esbuild pre-bundling.
 
 ## Architecture Background
 

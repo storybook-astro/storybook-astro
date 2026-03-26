@@ -108,7 +108,8 @@ Or explicitly request:
 ### Monorepo Structure
 Storybook Astro is a Yarn 4+ Berry monorepo with:
 - 2 published npm packages (framework, renderer)
-- 3 private apps (sandbox-astro6, sandbox-astro5, website)
+- 1 private app (website)
+- 2 private integration examples (integration-astro6, integration-astro5)
 - 1 component library
 - ES modules throughout
 
@@ -142,9 +143,9 @@ Six frameworks are fully integrated:
 
 1. Create `packages/@storybook-astro/framework/src/integrations/[framework].ts`
 2. Extend `BaseIntegration` (see skill-creator or code-reviewer)
-3. Add example components to both sandboxes
+3. Add example components to both integration examples
 4. Write tests (use test-generator skill)
-5. Update `.storybook/main.js` in both sandboxes
+5. Update `.storybook/main.js` in both integration examples
 6. Create PR (use create-pr skill)
 7. Get code review (use code-reviewer skill)
 
@@ -194,8 +195,8 @@ yarn lint:fix
 # Build
 yarn build:packages
 
-# Storybook (pick a sandbox)
-yarn workspace @storybook-astro/sandbox-astro6 storybook
+# Storybook (pick an integration example)
+yarn workspace @storybook-astro/integration-astro6 storybook
 ```
 
 ## When to Use Each Skill

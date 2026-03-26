@@ -3,7 +3,7 @@ title: Shared Component Library
 description: Build reusable components once, test everywhere with the shared component library.
 ---
 
-The `@storybook-astro/components` package provides a shared library of Astro components and framework-specific implementations. This allows you to build components once and use them in Storybook, the website, test sandboxes, and your own projects.
+The `@storybook-astro/components` package provides a shared library of Astro components and framework-specific implementations. This allows you to build components once and use them in Storybook, the website, integration examples, and your own projects.
 
 ## What's included
 
@@ -15,10 +15,10 @@ The shared library includes:
 
 ## Using shared components in stories
 
-Instead of duplicating components in each sandbox, import from `@storybook-astro/components`:
+Instead of duplicating components in each integration example, import from `@storybook-astro/components`:
 
 ```typescript
-// Before: Duplicated in each sandbox
+// Before: Duplicated in each integration example
 import Card from './Card.astro';
 
 // After: Shared component
@@ -130,7 +130,7 @@ export const Default = {};
 1. **Single source of truth** — Fix bugs once, benefit everywhere
 2. **Testing coverage** — Test components across Astro 5, Astro 6, and multiple frameworks
 3. **Documentation** — Components serve as examples for your docs
-4. **Consistency** — Same components in Storybook, website, and test sandboxes
+4. **Consistency** — Same components in Storybook, website, and integration examples
 5. **Reduced duplication** — Stop copying components between projects
 
 ## Using in your own projects

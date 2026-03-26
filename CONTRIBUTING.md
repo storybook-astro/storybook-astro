@@ -25,9 +25,9 @@ Thank you for your interest in contributing! This project is community-driven an
    ```bash
    yarn install
    ```
-4. Start Storybook (from a sandbox app):
+4. Start Storybook (from an integration example):
    ```bash
-   yarn workspace @storybook-astro/sandbox-astro6 storybook
+   yarn workspace @storybook-astro/integration-astro6 storybook
    ```
 5. Run tests:
    ```bash
@@ -97,10 +97,10 @@ This is a monorepo managed with Yarn 4 workspaces:
 - **`packages/@storybook-astro/framework`** — Server-side framework integration (Vite plugins, Astro Container, middleware)
 - **`packages/@storybook-astro/renderer`** — Client-side rendering logic (canvas rendering, HMR, style management)
 
-**Apps** (private, not published):
+**Apps and integration examples** (private, not published):
 - **`apps/website`** — Marketing website at storybook-astro.org
-- **`apps/sandbox-astro6`** — Test project using Astro 6 (also deployed as demo)
-- **`apps/sandbox-astro5`** — Test project using Astro 5.17.2 (stable)
+- **`integration/astro6`** — Integration example using Astro 6 (also deployed as demo)
+- **`integration/astro5`** — Integration example using Astro 5.17.2 (stable)
 
 See `AGENTS.md` for detailed architecture documentation and AI-assisted development guidance.
 
@@ -118,10 +118,10 @@ All 17 test suites (36 tests) should pass, covering Astro, React, Vue, Svelte, P
 
 ```bash
 # Test with Astro 6
-yarn workspace @storybook-astro/sandbox-astro6 storybook
+yarn workspace @storybook-astro/integration-astro6 storybook
 
 # Test with Astro 5
-yarn workspace @storybook-astro/sandbox-astro5 storybook
+yarn workspace @storybook-astro/integration-astro5 storybook
 ```
 
 Check the browser console for errors and verify your changes work across different component types and Astro versions.
@@ -131,7 +131,7 @@ Check the browser console for errors and verify your changes work across differe
 1. Create an integration file in `packages/@storybook-astro/framework/src/integrations/`
 2. Implement the `Integration` interface from `base.ts`
 3. Export a factory function in `integrations/index.ts`
-4. Add example components and stories in the sandbox apps
+4. Add example components and stories in the integration examples
 5. Add tests
 
 See `AGENTS.md` for a detailed template and walkthrough.

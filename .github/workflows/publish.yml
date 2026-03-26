@@ -31,10 +31,10 @@ jobs:
         run: yarn lint
 
       - name: Run tests (Astro 6)
-        run: yarn workspace @storybook-astro/sandbox-astro6 test
+        run: yarn workspace @storybook-astro/integration-astro6 test
 
       - name: Run tests (Astro 5)
-        run: yarn workspace @storybook-astro/sandbox-astro5 test
+        run: yarn workspace @storybook-astro/integration-astro5 test
 
       - name: Build packages
         run: |

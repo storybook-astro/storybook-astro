@@ -8,7 +8,7 @@ The repository contains two categories of content:
 
 - **Packages** — `@storybook-astro/framework` and `@storybook-astro/renderer` in `packages/@storybook-astro/*`. These are published to npm and follow semantic versioning with a formal release process.
 - **Website** — The Astro site at `apps/website/`. Deployed to [storybook-astro.org](https://storybook-astro.org) via CloudFlare. Website changes do **not** require a package release.
-- **Sandbox Apps** — Test projects at `apps/sandbox-astro5/` and `apps/sandbox-astro6/` for validating the framework against different Astro versions. Changes to sandbox apps do not require a package release.
+- **Integration Examples** — Test projects at `integration/astro5/` and `integration/astro6/` for validating the framework against different Astro versions. Changes to integration examples do not require a package release.
 
 ## Versioning
 
@@ -20,7 +20,7 @@ The project follows [Semantic Versioning](https://semver.org/):
 
 The project follows standard semantic versioning with no pre-release suffix.
 
-Only the packages in `packages/@storybook-astro/*` are versioned and published. The website, sandbox apps, stories, and root project config are not versioned separately.
+Only the packages in `packages/@storybook-astro/*` are versioned and published. The website, integration examples, stories, and root project config are not versioned separately.
 
 ## Branches
 
@@ -51,7 +51,7 @@ Changes to anything under `packages/@storybook-astro/*` follow the full Gitflow 
    git push origin v0.1.0-beta.N
    ```
 6. The `v*` tag triggers the **Publish to npm** GitHub Actions workflow (`.github/workflows/publish.yml`), which:
-   - Runs `yarn lint` and tests for both Astro 5 and Astro 6 sandboxes
+   - Runs `yarn lint` and tests for both Astro 5 and Astro 6 integration examples
    - Clean-builds both packages (`rm -rf dist && yarn build:packages`)
    - Publishes renderer first, then framework, with the `beta` dist-tag
    - Promotes both packages to the `latest` dist-tag

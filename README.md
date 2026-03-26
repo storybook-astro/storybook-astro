@@ -285,14 +285,14 @@ node --version
    yarn install
    ```
 
-3. Run Storybook (from a sandbox app):
+3. Run Storybook (from an integration example):
    ```bash
-   yarn workspace @storybook-astro/sandbox-astro6 storybook
+   yarn workspace @storybook-astro/integration-astro6 storybook
    ```
 
 4. Build a static Storybook:
    ```bash
-   yarn workspace @storybook-astro/sandbox-astro6 build-storybook
+   yarn workspace @storybook-astro/integration-astro6 build-storybook
    ```
 
 5. Run tests:
