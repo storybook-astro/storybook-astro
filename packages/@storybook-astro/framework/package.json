@@ -51,6 +51,10 @@
         "types": "./src/vitest/index.ts",
         "import": "./dist/vitest/index.js"
       },
+      "./node": {
+        "types": "./src/node/index.ts",
+        "import": "./dist/node/index.js"
+      },
       "./preset": {
         "types": "./preset.ts",
         "import": "./dist/preset.js"
