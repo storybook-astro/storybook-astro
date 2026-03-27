@@ -1,4 +1,3 @@
-/// <reference path="./virtual.d.ts" />
 import { pathToFileURL } from 'node:url';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { Integration } from './integrations/index.ts';
