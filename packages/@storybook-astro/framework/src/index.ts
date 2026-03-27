@@ -7,7 +7,6 @@ export type {
   StrictArgs
 } from 'storybook/internal/types';
 
-// @ts-expect-error - Storybook internal modules have complex module resolution
 import { definePreview as definePreviewBase, type PreviewAddon, type InferTypes, type Preview as CsfPreview } from 'storybook/internal/csf';
 import type { ProjectAnnotations } from 'storybook/internal/types';
 import type { AstroRenderer } from './portable-stories.ts';
