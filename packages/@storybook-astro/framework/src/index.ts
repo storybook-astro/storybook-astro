@@ -7,6 +7,7 @@ export type {
   StrictArgs
 } from 'storybook/internal/types';
 
+import { definePreview as definePreviewBase, type PreviewAddon, type InferTypes, type Preview as CsfPreview } from 'storybook/internal/csf';
 import type { ProjectAnnotations } from 'storybook/internal/types';
 import type { AstroRenderer } from './portable-stories.ts';
 
@@ -45,3 +46,10 @@ export { defineStoryRules } from './rules.ts';
 
 // Re-export preset functionality for framework usage
 export { core, viteFinal } from './preset.ts';
+
+// Preview configuration helper
+export function definePreview<Addons extends PreviewAddon<never>[] = []>(
+  input: ProjectAnnotations<AstroRenderer> & { addons?: Addons }
+): CsfPreview<AstroRenderer & InferTypes<Addons>> {
+  return definePreviewBase<AstroRenderer, Addons>(input);
+}

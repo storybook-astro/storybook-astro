@@ -1,4 +1,4 @@
-import type { CompatibleString, Options } from 'storybook/internal/types';
+import type { CompatibleString, Options, StorybookConfig as StorybookConfigBase } from 'storybook/internal/types';
 import type { InlineConfig } from 'vite';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
@@ -48,10 +48,10 @@ type StorybookConfigFramework = {
   };
 };
 
-export type StorybookConfig = StorybookConfigFramework;
-
 type ViteFinal = (config: InlineConfig, options: Options) => InlineConfig | Promise<InlineConfig>;
 
 export type StorybookConfigVite = {
   viteFinal?: ViteFinal;
 };
+
+export type StorybookConfig = Omit<StorybookConfigBase, 'framework'> & StorybookConfigFramework & StorybookConfigVite;

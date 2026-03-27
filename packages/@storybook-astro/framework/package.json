@@ -28,6 +28,7 @@
     "./integrations": "./src/integrations/index.ts",
     "./testing": "./src/testing.ts",
     "./vitest": "./src/vitest/index.ts",
+    "./node": "./src/node/index.ts",
     "./preset": "./preset.ts",
     "./package.json": "./package.json",
     "./*": "./src/*"
@@ -49,6 +50,10 @@
       "./vitest": {
         "types": "./src/vitest/index.ts",
         "import": "./dist/vitest/index.js"
+      },
+      "./node": {
+        "types": "./src/node/index.ts",
+        "import": "./dist/node/index.js"
       },
       "./preset": {
         "types": "./preset.ts",
