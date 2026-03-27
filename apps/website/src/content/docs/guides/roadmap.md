@@ -47,6 +47,21 @@ Automatically detect and configure CSS utility frameworks (UnoCSS, Tailwind CSS,
 - Automatically register detected plugins in Storybook's Vite pipeline
 - Handle virtual module imports (e.g. `virtual:uno.css`) in the preview
 
+### Decorator Support
+
+Enable Storybook's standard [decorator](https://storybook.js.org/docs/writing-stories/decorators) API for both Astro component stories and framework component stories (React, Vue, etc.).
+
+**Status**: Planned
+**Complexity**: Medium
+**Tracking**: [Issue #40 — Unable to use decorators](https://github.com/storybook-astro/storybook-astro/issues/40)
+**Details**: See the [decorator support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) for full analysis and implementation strategy.
+
+**What this enables**:
+- Global decorators in `.storybook/preview.js` (layout wrappers, theme providers)
+- Component-level and story-level decorators
+- HTML string decorators for Astro component stories
+- Framework-native decorators (JSX, etc.) for React/Vue/Svelte component stories
+
 ## Medium Priority
 
 ### Enhanced Testing & Portable Stories
