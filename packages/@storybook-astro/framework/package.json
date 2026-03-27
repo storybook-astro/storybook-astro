@@ -28,6 +28,7 @@
     "./integrations": "./src/integrations/index.ts",
     "./testing": "./src/testing.ts",
     "./vitest": "./src/vitest/index.ts",
+    "./node": "./src/node/index.ts",
     "./preset": "./preset.ts",
     "./package.json": "./package.json",
     "./*": "./src/*"
