@@ -10,7 +10,18 @@ export default defineConfig({
     'src/middleware.ts',
   ],
   format: ['esm'],
-  dts: true,
+  dts: {
+    // middleware.ts is loaded dynamically via viteServer.ssrLoadModule at runtime
+    // and imports virtual modules that can't be resolved during DTS compilation.
+    // It has no public API consumers, so DTS is not needed for it.
+    entry: [
+      'src/index.ts',
+      'src/preset.ts',
+      'src/testing.ts',
+      'src/vitest/index.ts',
+      'src/integrations/index.ts',
+    ],
+  },
   sourcemap: true,
   clean: true,
   external: [
