@@ -26,6 +26,18 @@ WORK_ROOT="$(mktemp -d /tmp/sb-smoke-XXXXXX)"
 FRAMEWORK_TGZ=""
 RENDERER_TGZ=""
 
+# ── Helpers ────────────────────────────────────────────────────────────────────
+# timeout(1) is GNU coreutils — not available on macOS without brew install coreutils.
+# Run with a timeout on Linux CI; fall back to a plain run locally.
+run_with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout &>/dev/null; then
+    timeout "$secs" "$@"
+  else
+    "$@"
+  fi
+}
+
 # ── Colours ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
 log()  { echo -e "${CYAN}→${RESET} $*"; }
@@ -99,7 +111,7 @@ run_fresh() {
   npm install --legacy-peer-deps --no-package-lock --silent
 
   log "Running storybook build..."
-  timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
+  run_with_timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
     || { fail "storybook build failed or timed out"; exit 1; }
 
   log "Running component tests..."
@@ -140,7 +152,7 @@ run_upgrade() {
   npm install --legacy-peer-deps --no-package-lock --silent
 
   log "Verifying @latest works..."
-  timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
+  run_with_timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
     || { fail "storybook build failed on @latest — upgrade test cannot proceed"; exit 1; }
   ./node_modules/.bin/vitest run
 
@@ -161,7 +173,7 @@ run_upgrade() {
   npm install --legacy-peer-deps --no-package-lock --silent
 
   log "Verifying upgrade works..."
-  timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
+  run_with_timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
     || { fail "storybook build failed after upgrade"; exit 1; }
   ./node_modules/.bin/vitest run
 
