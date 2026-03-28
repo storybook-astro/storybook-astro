@@ -112,13 +112,10 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
   if (!finalConfig.optimizeDeps.exclude.includes('@storybook-astro/renderer')) {
     finalConfig.optimizeDeps.exclude.push('@storybook-astro/renderer');
   }
-  // Mark integration virtual modules as external so esbuild doesn't try to resolve them
-  if (!finalConfig.optimizeDeps.esbuildOptions) {
-    finalConfig.optimizeDeps.esbuildOptions = {};
-  }
-  if (!finalConfig.optimizeDeps.esbuildOptions.external) {
-    finalConfig.optimizeDeps.esbuildOptions.external = [];
-  }
+  // Mark integration virtual modules as external so the dep bundler doesn't
+  // try to resolve them (they are Vite virtual modules with no real package).
+  // Set both esbuildOptions (Vite ≤7) and rolldownOptions (Vite 8+, Rolldown)
+  // so the correct key is populated regardless of Vite version.
   const integrationVirtualModules = [
     'virtual:@astrojs/vue/app',
     'virtual:astro:vue-app',
@@ -126,11 +123,28 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
     'astro:preact:opts'
   ];
 
+  // Vite ≤7 (esbuild-based optimizer)
+  if (!finalConfig.optimizeDeps.esbuildOptions) {
+    finalConfig.optimizeDeps.esbuildOptions = {};
+  }
+  if (!finalConfig.optimizeDeps.esbuildOptions.external) {
+    finalConfig.optimizeDeps.esbuildOptions.external = [];
+  }
   for (const mod of integrationVirtualModules) {
     if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
       finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
     }
   }
+
+  // Vite 8+ (Rolldown-based optimizer) — same semantics, different key
+  // Use a loose cast because rolldownOptions is absent from Vite <8 types.
+  const optimizeDepsMut = finalConfig.optimizeDeps as Record<string, unknown>;
+  const rolldownOpts = (optimizeDepsMut.rolldownOptions ?? {}) as { external?: string[] };
+
+  rolldownOpts.external = Array.from(
+    new Set([...(rolldownOpts.external ?? []), ...integrationVirtualModules])
+  );
+  optimizeDepsMut.rolldownOptions = rolldownOpts;
 
   return finalConfig;
 };

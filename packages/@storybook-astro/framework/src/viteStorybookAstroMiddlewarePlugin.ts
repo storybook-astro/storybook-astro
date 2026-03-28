@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { createServer, type PluginOption, type ViteDevServer } from 'vite';
+import { createServer, createLogger, type PluginOption, type ViteDevServer } from 'vite';
 import type { RenderRequestMessage, RenderResponseMessage } from '@storybook-astro/renderer/types';
 import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
@@ -122,6 +122,31 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   };
 }
 
+/**
+ * Creates a Vite logger that silences known benign warnings emitted by Astro's
+ * Vite plugin in the SSR server context:
+ * - "Missing pages directory" — Storybook and test contexts have no src/pages.
+ * - "points to missing source files" — Sourcemap gaps in the `entities` package.
+ */
+function createSsrServerLogger() {
+  const logger = createLogger();
+  const originalWarn = logger.warn.bind(logger);
+
+  logger.warn = (msg, options) => {
+    if (
+      msg.includes('Missing pages directory') ||
+      msg.includes('points to missing source files') ||
+      msg.includes('Failed to load source map for')
+    ) {
+      return;
+    }
+
+    originalWarn(msg, options);
+  };
+
+  return logger;
+}
+
 export async function createViteServer(integrations: Integration[], resolveFrom = process.cwd()) {
   const { getViteConfig } = await importAstroConfig(resolveFrom);
   const safeIntegrations = integrations ?? [];
@@ -140,6 +165,7 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
   const viteServer = await createServer({
     configFile: false,
     ...config,
+    customLogger: createSsrServerLogger(),
     plugins: [
       projectAstroResolutionPlugin,
       // Fallbacks must come first to intercept before Astro's plugins
