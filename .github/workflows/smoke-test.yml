@@ -1,0 +1,54 @@
+name: Smoke Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      astro_version:
+        description: 'Astro version to test'
+        required: false
+        default: 'both'
+        type: choice
+        options: [both, '5', '6']
+      scenario:
+        description: 'Test scenario'
+        required: false
+        default: 'fresh'
+        type: choice
+        options: [fresh, upgrade, both]
+
+jobs:
+  smoke-test:
+    name: Smoke (${{ matrix.scenario }} / Astro ${{ matrix.astro }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        astro: ['5', '6']
+        scenario: [fresh]
+        # upgrade is excluded from the default matrix — it requires packages
+        # to already be published on npm. Run manually via workflow_dispatch
+        # after a beta publish.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install workspace dependencies
+        run: yarn install
+
+      - name: Run smoke test
+        run: bash scripts/smoke-test.sh ${{ matrix.astro }} ${{ matrix.scenario }}
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
