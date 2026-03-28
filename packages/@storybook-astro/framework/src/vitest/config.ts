@@ -1,4 +1,5 @@
 import { defineConfig as defineVitestConfig } from 'vitest/config';
+import { createLogger } from 'vite';
 import { fileURLToPath } from 'node:url';
 import type { InlineConfig, PluginOption } from 'vite';
 import type { Integration } from '../integrations/base.ts';
@@ -6,6 +7,32 @@ import { importAstroConfig } from '../importAstroConfig.ts';
 import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarker.ts';
 import { registerTestingIntegrationsForRoot } from '../testing/integration-config.ts';
 import { cjsInteropPlugin, vitestPatchForSolidJs } from './vite-plugins.ts';
+
+/**
+ * Creates a Vite logger that suppresses known benign warnings in the test context:
+ * - "Missing pages directory" — Astro warns when no src/pages exists, but component
+ *   tests don't use pages so this is always safe to ignore.
+ * - "points to missing source files" — Sourcemap warnings from the `entities` package
+ *   which ships without source files. Not actionable.
+ */
+function createTestLogger() {
+  const logger = createLogger();
+  const originalWarn = logger.warn.bind(logger);
+
+  logger.warn = (msg, options) => {
+    if (
+      msg.includes('Missing pages directory') ||
+      msg.includes('points to missing source files') ||
+      msg.includes('Failed to load source map for')
+    ) {
+      return;
+    }
+
+    originalWarn(msg, options);
+  };
+
+  return logger;
+}
 
 // Type definition omits 'test' to allow Vitest-specific config options
 // Vite 8 type definitions conflict with Vitest config when used in monorepo
@@ -87,9 +114,16 @@ export function defineConfig(options: TestingDefineConfig) {
       })
     );
 
+  const testLogger = createTestLogger();
+
   return async ({ mode: viteMode, command }: { mode: string; command: 'build' | 'serve' }) => {
     const astroConfigFactory = await astroConfigFactoryPromise;
+    const config = await astroConfigFactory({ mode: viteMode, command });
 
-    return astroConfigFactory({ mode: viteMode, command });
+    // Inject the logger — this overrides any logger Astro may have set,
+    // which is intentional since we only filter benign test-context noise.
+    config.customLogger = testLogger;
+
+    return config;
   };
 }
