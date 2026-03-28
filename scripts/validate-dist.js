@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Validates that every `import` path listed in publishConfig.exports
  * exists on disk in the dist/ directory.
@@ -11,8 +10,8 @@ import { existsSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(__dirname, '..');
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(scriptDir, '..');
 
 const packages = [
   resolve(repoRoot, 'packages/@storybook-astro/renderer'),
@@ -28,7 +27,9 @@ for (const pkgDir of packages) {
   const name = pkgJson.name;
 
   for (const [exportKey, exportValue] of Object.entries(publishExports)) {
-    if (exportKey === './package.json') continue;
+    if (exportKey === './package.json') {
+      continue;
+    }
 
     // Collect all the file paths from this export entry.
     // Values can be a string or { types, import } object.
@@ -41,10 +42,16 @@ for (const pkgDir of packages) {
             .filter(Boolean);
 
     for (const filePath of paths) {
-      if (filePath.startsWith('./src/')) continue; // src/ is fine for dev-only resolution
-      if (filePath === './package.json') continue;
+      if (filePath.startsWith('./src/')) {
+        continue; // src/ is fine for dev-only resolution
+      }
+
+      if (filePath === './package.json') {
+        continue;
+      }
 
       const absPath = resolve(pkgDir, filePath);
+
       checked++;
 
       if (!existsSync(absPath)) {
@@ -56,9 +63,12 @@ for (const pkgDir of packages) {
 
 if (errors.length > 0) {
   console.error(`\nDist validation failed — ${errors.length} missing file(s):\n`);
-  for (const e of errors) console.error(e);
-  console.error('\nRun `yarn build:packages` and check your tsup config.\n');
-  process.exit(1);
+
+  for (const e of errors) {
+    console.error(e);
+  }
+
+  throw new Error('Run `yarn build:packages` and check your tsup config.');
 }
 
-console.log(`✓ dist validation passed (${checked} paths checked across ${packages.length} packages)`);
+console.warn(`✓ dist validation passed (${checked} paths checked across ${packages.length} packages)`);
