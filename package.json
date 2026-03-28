@@ -12,7 +12,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "yarn vitest run",
-    "build:packages": "yarn workspaces foreach -A --include '@storybook-astro/{framework,renderer}' run build"
+    "build:packages": "yarn workspaces foreach -A --include '@storybook-astro/{framework,renderer}' run build",
+    "smoke": "bash scripts/smoke-test.sh",
+    "validate:dist": "node scripts/validate-dist.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

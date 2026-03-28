@@ -296,7 +296,7 @@ npm dist-tag add @storybook-astro/renderer@<version> latest
 npm dist-tag add @storybook-astro/framework@<version> latest
 ```
 
-See [`docs/VERSIONING.md`](./docs/VERSIONING.md) for the full release process.
+See [`docs/RELEASING.md`](./docs/RELEASING.md) for the full release process.
 
 ## Key Concepts
 
@@ -383,11 +383,12 @@ export const MyStory = {
 
 ## Versioning and Branching
 
-See [`docs/VERSIONING.md`](./docs/VERSIONING.md) for the full versioning and branching strategy, including:
-- Semantic versioning and beta release conventions
+See [`docs/RELEASING.md`](./docs/RELEASING.md) for the full release process, including:
+- Semantic versioning conventions
 - Gitflow branching model (`main`, `develop`, `feature/*`, `fix/*`, `release/*`)
-- Distinction between **package releases** (go through `develop` → `release/*` → `main`) and **website-only changes** (merge directly to `main`)
+- Distinction between **package releases** (go through `develop` → `main`) and **website-only changes** (merge directly to `main`)
 - Hotfix and mixed-change workflows
+- Pre-publish smoke test (`yarn smoke`) and dist validation (`yarn validate:dist`)
 
 ## Getting Help
 

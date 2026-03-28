@@ -129,6 +129,7 @@ git push origin v0.1.0-beta.14
 The `.github/workflows/publish.yml` workflow automatically:
 - Runs `yarn lint` and tests (both Astro 5 and 6)
 - Builds both packages (`rm -rf dist && yarn build:packages`)
+- **Runs smoke tests** — installs packed tarballs into clean Astro 5 and 6 projects outside the workspace, runs `storybook build` and vitest to validate the compiled dist before any publish step
 - Publishes renderer first, then framework with `beta` dist-tag
 - Promotes both to `latest` dist-tag
 
@@ -275,6 +276,25 @@ If a PR includes both package and website changes, follow the **standard release
 rm -rf dist && yarn build:packages
 ```
 
+Run `yarn validate:dist` after building to confirm all `publishConfig.exports` paths exist in `dist/` before proceeding.
+
+### Smoke Test Failures
+
+**Problem**: `yarn smoke` or the publish workflow smoke step fails
+
+**What it means**: The compiled, packed package cannot be installed or used in a real project. This is a blocking issue — do not publish.
+
+**Debug steps**:
+1. The working directory is preserved at `/tmp/sb-smoke-*` on failure — inspect it
+2. Check `storybook build` output for Vite/import errors (often a missing `external` in tsup)
+3. Check vitest output for runtime rendering errors
+4. Run `yarn validate:dist` separately to isolate missing dist files
+
+```bash
+# Run smoke test manually against a single version
+yarn smoke 6 fresh
+```
+
 ### Workspace Protocol Not Resolved
 
 **Problem**: Framework package has `workspace:*` reference that doesn't resolve
@@ -317,20 +337,27 @@ Use this before releasing:
 - [ ] CHANGELOG.md updated with new version section and entries
 - [ ] `yarn lint` passes
 - [ ] `yarn test` passes (both Astro 5 and 6)
+- [ ] `yarn build:packages` succeeds (clean build — `rm -rf dist` first)
+- [ ] `yarn validate:dist` passes (all publishConfig.exports paths exist in dist)
+- [ ] `yarn smoke` passes (tarball install + storybook build + tests on Astro 5 and 6)
 - [ ] Changes committed and pushed to `develop`
 - [ ] `develop` merged into `main` and pushed
 - [ ] Tag created on `main`: `git tag vX.Y.Z-beta.N`
 - [ ] Tag pushed to remote: `git push origin vX.Y.Z-beta.N`
-- [ ] Publish workflow completes successfully
+- [ ] Publish workflow completes successfully (includes automated smoke test)
 - [ ] `npm view @storybook-astro/framework versions --json` shows new version
 - [ ] `npm dist-tag ls @storybook-astro/framework` shows `latest` pointing to new version
 
 ## References
 
-- `docs/VERSIONING.md` - Full versioning strategy and branching
+- `docs/RELEASING.md` - Full release walkthrough (standard, hotfix, website-only)
 - `CHANGELOG.md` - Release history and change entries
 - `packages/@storybook-astro/framework/package.json` - Framework package config
 - `packages/@storybook-astro/renderer/package.json` - Renderer package config
 - `.github/workflows/publish.yml` - Automated publish workflow
+- `.github/workflows/smoke-test.yml` - Smoke test CI workflow (runs on PRs to main)
+- `scripts/smoke-test.sh` - Smoke test orchestration script (`yarn smoke`)
+- `scripts/validate-dist.js` - Dist validation script (`yarn validate:dist`)
+- `smoke/templates/` - Minimal Astro project templates used by smoke tests
 - [Semantic Versioning](https://semver.org/)
 - [Keep a Changelog](https://keepachangelog.com/)

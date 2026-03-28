@@ -12,6 +12,8 @@ import { storybookAstroSanitizationConfigVirtualModulePlugin } from './vite/stor
 import { storybookAstroServerAuthConfigVirtualModulePlugin } from './vite/storybookAstroServerAuthConfigVirtualModulePlugin.ts';
 
 const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '.');
+// packageRoot works regardless of whether this file is running from src/ or dist/
+const packageRoot = resolve(moduleRoot, '..');
 
 export function vitePluginAstroBuildServer(options: FrameworkOptions) {
   const integrations = options.integrations ?? [];
@@ -136,7 +138,7 @@ async function buildAstroServer(options: {
   resolveFrom: string;
 }) {
   const buildConfig = {
-    root: resolve(moduleRoot, './server'),
+    root: resolve(packageRoot, 'src/server'),
     ssr: {
       noExternal: /(@astrojs\/.+|react|react-dom)/
     },
@@ -147,7 +149,7 @@ async function buildAstroServer(options: {
       sourcemap: true,
       manifest: false,
       rollupOptions: {
-        input: resolve(moduleRoot, './server/index.ts'),
+        input: resolve(packageRoot, 'src/server/index.ts'),
         treeshake: true
       }
     },

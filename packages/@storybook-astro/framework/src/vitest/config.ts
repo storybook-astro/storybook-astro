@@ -1,5 +1,6 @@
 import { defineConfig as defineVitestConfig } from 'vitest/config';
 import { createLogger } from 'vite';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { InlineConfig, PluginOption } from 'vite';
 import type { Integration } from '../integrations/base.ts';
@@ -78,7 +79,13 @@ export function defineConfig(options: TestingDefineConfig) {
 
   registerTestingIntegrationsForRoot(root, integrations);
 
-  const globalSetupFilePath = fileURLToPath(new URL('./global-setup.ts', import.meta.url));
+  // In the workspace, import.meta.url points to src/vitest/config.ts so global-setup.ts exists.
+  // In a compiled tarball install, import.meta.url points to dist/vitest/config.js so we fall
+  // back to global-setup.js which is the tsup-compiled output.
+  const globalSetupTsPath = fileURLToPath(new URL('./global-setup.ts', import.meta.url));
+  const globalSetupFilePath = existsSync(globalSetupTsPath)
+    ? globalSetupTsPath
+    : fileURLToPath(new URL('./global-setup.js', import.meta.url));
   const testConfig = {
     ...rest.test,
     globalSetup: normalizeGlobalSetup(rest.test?.globalSetup, globalSetupFilePath)

@@ -9,6 +9,7 @@ export default defineConfig({
     'src/integrations/index.ts',
     'src/node/index.ts',
     'src/middleware.ts',
+    'src/vitest/global-setup.ts',
   ],
   format: ['esm'],
   dts: {
