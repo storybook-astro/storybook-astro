@@ -111,7 +111,7 @@ run_fresh() {
   npm install --legacy-peer-deps --no-package-lock --silent
 
   log "Running storybook build..."
-  run_with_timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
+  run_with_timeout 180 ./node_modules/.bin/storybook build --quiet \
     || { fail "storybook build failed or timed out"; exit 1; }
 
   log "Running component tests..."
@@ -152,7 +152,7 @@ run_upgrade() {
   npm install --legacy-peer-deps --no-package-lock --silent
 
   log "Verifying @latest works..."
-  run_with_timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
+  run_with_timeout 180 ./node_modules/.bin/storybook build --quiet \
     || { fail "storybook build failed on @latest — upgrade test cannot proceed"; exit 1; }
   ./node_modules/.bin/vitest run
 
@@ -173,7 +173,7 @@ run_upgrade() {
   npm install --legacy-peer-deps --no-package-lock --silent
 
   log "Verifying upgrade works..."
-  run_with_timeout 180 ./node_modules/.bin/storybook build --no-telemetry --quiet \
+  run_with_timeout 180 ./node_modules/.bin/storybook build --quiet \
     || { fail "storybook build failed after upgrade"; exit 1; }
   ./node_modules/.bin/vitest run
 
