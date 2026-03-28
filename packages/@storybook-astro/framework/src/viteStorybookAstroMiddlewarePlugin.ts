@@ -148,7 +148,7 @@ function createSsrServerLogger() {
 }
 
 export async function createViteServer(integrations: Integration[], resolveFrom = process.cwd()) {
-  const { getViteConfig } = await importAstroConfig(resolveFrom);
+  const { getViteConfig, passthroughImageService } = await importAstroConfig(resolveFrom);
   const safeIntegrations = integrations ?? [];
   const projectAstroResolutionPlugin = createProjectAstroResolutionPlugin(resolveFrom);
 
@@ -158,7 +158,11 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
       configFile: false,
       integrations: await Promise.all(
         safeIntegrations.map((integration) => integration.loadIntegration(resolveFrom))
-      )
+      ),
+      // Use the passthrough image service so nested components that use <Image>
+      // from astro:assets render as plain <img> tags without triggering image
+      // optimization (which fails in the Storybook SSR context).
+      image: { service: passthroughImageService() }
     }
   )({ mode: 'development', command: 'serve' });
 

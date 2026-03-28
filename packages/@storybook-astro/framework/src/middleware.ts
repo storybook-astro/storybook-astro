@@ -190,7 +190,11 @@ async function processImageMetadata(
 
   for (const [key, value] of Object.entries(args)) {
     if (isImageMetadata(value)) {
-      processed[key] = convertImageMetadataToUrl(value);
+      // Keep ImageMetadata as a plain object — Astro's image service checks
+      // isESMImportedImage (typeof src === 'object') and skips the /@fs/ string
+      // validation that throws LocalImageUsedWrongly. Converting to a URL string
+      // causes that error when the string starts with /@fs/.
+      processed[key] = value;
 
       continue;
     }
@@ -199,7 +203,7 @@ async function processImageMetadata(
       processed[key] = await Promise.all(
         value.map(async (item) => {
           if (isImageMetadata(item)) {
-            return convertImageMetadataToUrl(item);
+            return item;
           }
 
           if (isRecord(item)) {

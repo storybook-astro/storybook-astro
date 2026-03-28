@@ -2,124 +2,158 @@
 
 ## Problem Statement
 
-Currently, Storybook Astro cannot render stories where an Astro component references another Astro component (e.g., a Button component rendered inside a Link component). When users try to pass Astro components as props, the render pipeline treats them as plain functions rather than renderable components, resulting in server-side rendering failures or incorrect output.
+Two distinct nesting patterns need to be supported:
 
-The user example shows this pattern:
+### Pattern A: Template nesting (e.g. `BlogSummaryCard.astro`)
+A component's own template uses other Astro components. These are rendered transitively by the Container API — no explicit story-level composition is required. The user writes a story that passes props to `BlogSummaryCard`, and the framework must correctly SSR the entire component tree:
+
+```
+BlogSummaryCard → SummaryCard (local .astro)
+                → Button, Pill (@eliancodes/brutal-ui)
+SummaryCard     → Card (@eliancodes/brutal-ui)
+                → Image (astro:assets)
+```
+
+This is the most common real-world case and should "just work" — the Container API handles transitive SSR. The actual pain points are specific failure modes in the Storybook environment (see below).
+
+### Pattern B: Props-based nesting
+A story or render function explicitly passes an Astro component as a prop or slot:
 
 ```javascript
 render: (args) => {
   const icon = args.Icon ? <Icon icon={args.Icon} size={args.size} /> : null;
-  return (
-    <Link Icon={icon} {...args}>
-      {args.default}
-    </Link>
-  );
+  return <Link Icon={icon} {...args}>{args.default}</Link>;
 }
 ```
 
-## Current State
+This is the harder case: components passed as args cross the client→server boundary as function references, not rendered HTML. The server has no way to reconstruct or render them.
 
-The framework processes args through `middleware.ts` where:
+---
 
-1. Args are sanitized and processed (image metadata conversion, etc.)
-2. Props and slots are separated (slots extracted, rest become component props)
-3. Components are rendered via Astro Container's `renderToString` method
-4. Astro components passed as props are not currently detected or specially handled
+## Pattern A: Failure Points and Fixes
 
-The `render.tsx` renderer detects Astro components via `isAstroComponentFactory` flag, but this check only happens at the top level (in the `render()` function). Nested Astro components in props are not transformed into a renderable format.
+The Container API handles transitive `.astro` rendering automatically. These are the specific places it breaks down:
 
-## Proposed Solution
+### 1. `astro:assets` Image in SSR context
 
-Implement a multi-layered approach to support component composition:
+`SummaryCard.astro` passes its `imgSrc: ImageMetadata` prop to Astro's `<Image>` component. However, by the time `SummaryCard` receives `imgSrc`, `middleware.ts`'s `processImageMetadata` has already converted the `ImageMetadata` object to a plain URL string. Astro's `Image` component expects a full `ImageMetadata` object (with `width`, `height`, `format`, etc.) and may throw or produce broken output when given a string.
 
-### 1. Arg Transformation (middleware.ts)
+**Fix**: Pass a partial `ImageMetadata`-shaped object rather than a bare string, so `Image` can render a valid `<img>` tag without crashing. Specifically, `convertImageMetadataToUrl` should return an object like `{ src: url, width: undefined, height: undefined }` that satisfies the minimum shape the `Image` component needs, or we configure Astro to use a passthrough image service in the Storybook context so `Image` renders as a plain `<img>`.
 
-Add a pre-processing step that identifies Astro components in args and converts them to a serializable format that can be:
+The cleanest solution is to add a passthrough image service to the Astro config used in the middleware and build SSR server — Astro already ships `astro/assets/services/sharp` and `astro/assets/services/noop`. Using `passthroughImageService()` from `astro/config` prevents image processing errors when stories supply URL strings or incomplete metadata.
 
-- Detected by the renderer
-- Reconstructed into a valid component reference on the server
-- Rendered via Astro Container without causing type errors
+### 2. Third-party `.astro` components from node_modules
 
-This involves:
+`vitePluginAstroComponentMarker` detects the Astro 6 client-side stub pattern in `.astro` files and patches them to set `isAstroComponentFactory = true`. By default Vite excludes `node_modules` from plugin transforms.
 
-- Creating an `AstroComponentReference` type to represent nested components
-- Scanning args recursively for `isAstroComponentFactory` functions
-- Storing moduleId and position information for each nested component
-- Maintaining a mapping of serialized references for server-side reconstruction
+**Check required**: Verify whether `@eliancodes/brutal-ui` ships pre-compiled `.astro` components or already-processed JS. If it ships raw `.astro` files, the component marker plugin may need to include node_modules (via `enforce: 'pre'` and relaxing the file filter). If it ships compiled JS that sets `isAstroComponentFactory` already, no change is needed.
 
-### 2. Server-Side Reconstruction (middleware.ts)
+For the server side (SSR), third-party Astro components are loaded via `import()` and go through Vite SSR processing — this should work without changes as long as the Astro Vite plugin is active.
 
-When rendering, reconstruct Astro component references from the serialized data:
+### 3. Content collection prop shape
 
-- Load the referenced component module
-- Validate that it's a valid Astro component
-- Pass the reconstructed component back to the Astro Container for rendering
+`BlogSummaryCard` types its prop as `CollectionEntry<'blog'>`. At runtime, this is just a plain object — the Container API has no awareness of the content collections schema. Stories must supply a correctly-shaped mock object:
 
-### 3. Slot and JSX Handling (render.tsx)
+```javascript
+// BlogSummaryCard.stories.jsx
+export default {
+  component: BlogSummaryCard,
+  args: {
+    post: {
+      id: 'my-post',
+      data: {
+        title: 'My Post',
+        description: '...',
+        imgUrl: myImage, // ImageMetadata import
+        tags: ['astro', 'storybook'],
+        draft: false,
+      }
+    }
+  }
+};
+```
 
-Handle the different ways components can be passed:
+No framework changes are needed here — this is a documentation and pattern concern. Content collection *API calls* (e.g. `getEntry()`, `getCollection()`) inside a component template will fail; those components are not compatible with the Container API without mocking.
 
-- As props (e.g., `Icon={icon}`)
-- As JSX elements in render functions (requires converting JSX to HTML strings)
-- As part of composed components
+### 4. Static build coverage
 
-### 4. Testing & Portable Stories Support (portable-stories.ts, testing/)
+The SSR Vite server in `prerenderStories` (`vitePluginAstroBuildPrerender.ts`) already includes fallback plugins for fonts, routes, Vue, and integration options. It needs parity with dev mode for any virtual module that nested components depend on (e.g. `astro:assets`, `astro:content`).
 
-Ensure the testing API supports composed components by:
+**Check required**: Confirm the SSR server correctly resolves `astro:assets` virtual imports for deeply nested components. The `vitePluginAstroFontsFallback` pattern could be extended with a `vitePluginAstroAssetsFallback` that stubs the image service for the build SSR context.
 
-- Adding component composition detection in the test render function
-- Providing utilities to handle Astro component references in test scenarios
-- Documenting usage patterns for testing composed components
+---
 
-## Complexity Assessment
+## Pattern B: Props-based nesting
 
-Medium-High complexity due to:
+This is the harder problem. Astro components passed as story args cross the network boundary as `moduleId` strings. On the server side, they must be loaded and rendered.
 
-- Changes needed across multiple files (middleware, renderer, testing)
-- Serialization/deserialization of component references
-- Compatibility with existing arg handling (image metadata, sanitization)
-- Both dev-mode (HMR) and build-time rendering support
-- Testing and portable stories integration
+### Current Limitation
+
+When a story passes an Astro component as a prop (e.g. `<Link Icon={icon}>`), the middleware receives the parent component's `moduleId` but has no knowledge of the nested `icon` — it arrives as a JSX element object, not an Astro component reference. The serialized JSON payload from the client to the server cannot carry live component factories.
+
+### Proposed Solution
+
+The key insight is that **only `moduleId` values** need to cross the boundary — not the component itself. The client detects Astro components in args, replaces them with a serialized reference `{ __astroComponent: true, moduleId: "...", props: {}, slots: {} }`, and the server reconstructs and renders them before passing to the parent.
+
+**Client side** (`render.tsx`):
+- Before sending the render request, walk `args` recursively
+- Replace any value where `value.isAstroComponentFactory === true` with `{ __astroComponent: true, moduleId: value.moduleId, props: {}, slots: {} }`
+
+**Server side** (`middleware.ts`):
+- After loading the parent component, walk `args` recursively for `__astroComponent` markers
+- For each found: load the child component via `loadPatchedComponent(ref.moduleId)`, render it to an HTML string via `container.renderToString(child, { props: ref.props, slots: ref.slots })`
+- Replace the marker with the rendered HTML string
+- Pass the HTML string as the prop to the parent — the parent `.astro` template renders it via `<Fragment set:html={prop} />`
+
+**Limitation**: This requires the parent component to handle an HTML string prop intentionally. A parent that expects a component factory (e.g. renders it itself with `<Component />`) will not work directly. This pattern works best when the component is treated as slot-like content.
+
+An alternative that avoids this limitation: render the child component to HTML on the client side (via another render request), then pass the HTML as a slot or prop. This adds a round trip but is more compatible.
+
+---
+
+## Implementation Plan
+
+### Phase 1: Pattern A — Image service and virtual module parity (Simple, High Impact)
+
+1. Configure `passthroughImageService()` in the Astro config used by the middleware Vite server and the build SSR server. This eliminates image processing errors for deeply nested components that use `astro:assets`.
+2. Verify third-party `.astro` component handling — check if `vitePluginAstroComponentMarker` needs to cover node_modules.
+3. Ensure the static build's SSR Vite server (`createStorySsrServer`) has the same virtual module fallbacks as dev mode.
+4. Document the content collection mock pattern for stories.
+
+**Files to modify**:
+- `src/vitePluginAstroBuildPrerender.ts` — add image service fallback plugin to `createStorySsrServer`
+- `src/middleware.ts` — ensure the AstroContainer is configured with a passthrough image service (or via Astro config)
+- `src/vitePluginAstroComponentMarker.ts` — verify/extend node_modules coverage if needed
+- `docs/` — add story patterns for complex nested components
+
+### Phase 2: Pattern B — Props-based nesting (Complex, Lower urgency)
+
+1. Add `serializeAstroComponentArgs` helper to `render.tsx` — walks args and replaces Astro component factories with `{ __astroComponent, moduleId, props, slots }` markers
+2. Add `reconstructAstroComponentArgs` to `middleware.ts` — walks args, detects markers, renders each to HTML string
+3. Update the render request handler to call `reconstructAstroComponentArgs` before passing props to `container.renderToString`
+4. Document limitations (parent must accept HTML string, not component factory)
+
+**Files to modify**:
+- `packages/@storybook-astro/renderer/src/render.tsx`
+- `packages/@storybook-astro/framework/src/middleware.ts`
+- `packages/@storybook-astro/framework/src/vitePluginAstroBuildPrerender.ts` (build path)
+
+---
 
 ## Risk Areas
 
-- Circular component references (detecting and preventing infinite loops)
-- Performance impact of recursive arg scanning on large arg objects
-- Module loading and caching with nested components
-- Ensuring Astro Container properly handles dynamically loaded components
-- Maintaining HMR hot reloading with component references
+- **Image service config scope**: Setting a passthrough service globally may affect non-story Astro processing; scope it to the Storybook Vite config only.
+- **Circular component references (Pattern B)**: Detect and break cycles — a component passed as its own prop would cause infinite recursion. Cap recursion depth.
+- **Performance (Pattern B)**: Each nested component render is an extra SSR round-trip. For deeply nested patterns this compounds quickly — consider parallel resolution.
+- **Slot vs prop distinction**: HTML strings passed as props require the parent template to use `set:html`. If the parent uses a named slot, the HTML needs to be passed as a slot instead.
 
-## Implementation Strategy
-
-### Phase 1: Core Dev Mode
-
-- Implement arg transformation in middleware.ts
-- Add component detection and serialization
-- Test with basic nested component scenarios
-
-### Phase 2: Renderer Integration
-
-- Update render.tsx to handle component references
-- Add support for JSX-like component composition
-- Ensure proper error handling and fallbacks
-
-### Phase 3: Static Builds
-
-- Extend vitePluginAstroBuildPrerender.ts for nested components
-- Handle module loading in build context
-- Validate pre-rendered output
-
-### Phase 4: Testing & Polish
-
-- Add portable stories support
-- Create test utilities and helpers
-- Document patterns and limitations
+---
 
 ## Success Criteria
 
-- Users can pass Astro components as props in story args
-- Nested components render correctly in both dev and static builds
-- Circular references are detected and prevented
-- Existing functionality (props, slots, images) remains unaffected
-- Performance impact is minimal for typical component libraries
-- Documentation clearly explains the pattern with examples
+- `BlogSummaryCard.astro` (and similar deeply nested real-world components) render correctly in both dev mode and `storybook build`
+- Stories can pass plain mock objects matching the expected prop shapes (e.g. `CollectionEntry`-shaped data)
+- `astro:assets` Image components within nested `.astro` templates do not throw errors
+- Third-party `.astro` components (e.g. from `@eliancodes/brutal-ui`) render correctly
+- Pattern B (props-based nesting) works for the common case of passing pre-rendered Astro output as an HTML string prop
+- No regression in existing functionality (props, slots, images, framework components)

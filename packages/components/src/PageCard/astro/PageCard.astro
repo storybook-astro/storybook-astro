@@ -1,0 +1,45 @@
+---
+/**
+ * PageCard — a composite component that nests Card.astro and renders an image
+ * using astro:assets <Image>. Used in integration tests to verify that:
+ *
+ * 1. Template nesting (using another .astro component) renders correctly via
+ *    the Astro Container API.
+ * 2. astro:assets <Image> works when imageSrc is a URL string (i.e. after
+ *    processImageMetadata converts an ImageMetadata arg to a URL string).
+ *    This requires the SSR server to be configured with passthroughImageService.
+ */
+import { Image } from 'astro:assets';
+import Card from '../../Card/astro/Card.astro';
+
+interface Props {
+  title: string;
+  content?: string;
+  imageSrc: any;
+  imageAlt?: string;
+}
+
+const { title, content = '', imageSrc, imageAlt = 'Page card image' } = Astro.props;
+---
+
+<article class="page-card">
+  <div class="page-card__image-wrapper">
+    <Image src={imageSrc} alt={imageAlt} />
+  </div>
+  <Card title={title} content={content} />
+</article>
+
+<style>
+  .page-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 480px;
+  }
+
+  .page-card__image-wrapper :global(img) {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+</style>
