@@ -57,7 +57,7 @@ const alpineData = `{ tabs: ${tabsData}, activeId: '${defaultId}', copyStatus: '
       x-text="copyStatus === 'copied' ? 'Copied' : 'Copy'"
     ></button>
   </div>
-  <pre class="install-tabs__panel" x-on:click="copyCommand()">
+  <pre class="install-tabs__panel">
     <code x-ref="code" x-text="getActiveTab().command"></code>
   </pre>
   <span class="install-tabs__sr" aria-live="polite" x-text="statusMessage()"></span>
@@ -150,7 +150,6 @@ const alpineData = `{ tabs: ${tabsData}, activeId: '${defaultId}', copyStatus: '
     overflow-x: auto;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     white-space: nowrap;
-    cursor: copy;
     user-select: all;
   }
 
