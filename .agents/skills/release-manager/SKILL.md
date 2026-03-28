@@ -350,7 +350,7 @@ Use this before releasing:
 
 ## References
 
-- `docs/VERSIONING.md` - Full versioning strategy and branching
+- `docs/RELEASING.md` - Full release walkthrough (standard, hotfix, website-only)
 - `CHANGELOG.md` - Release history and change entries
 - `packages/@storybook-astro/framework/package.json` - Framework package config
 - `packages/@storybook-astro/renderer/package.json` - Renderer package config
