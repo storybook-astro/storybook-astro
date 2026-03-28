@@ -18,6 +18,8 @@
 
 set -euo pipefail
 
+export STORYBOOK_DISABLE_TELEMETRY=1
+
 ASTRO_VERSION="${1:-both}"
 SCENARIO="${2:-fresh}"
 
