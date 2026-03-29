@@ -1,4 +1,5 @@
 ---
+name: release-manager
 description: Manage semantic versioning, changelogs, and package publishing for Storybook Astro
 ---
 
