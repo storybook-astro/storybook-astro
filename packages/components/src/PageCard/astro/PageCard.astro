@@ -25,9 +25,9 @@ const { title, content = '', imageSrc, imageAlt = 'Page card image' } = Astro.pr
 
 <article class="page-card">
   <div class="page-card__image-wrapper">
-    <Image src={imageSrc} alt={imageAlt} />
+    <Image src={imageSrc as ImageMetadata} alt={imageAlt} />
   </div>
-  <Card title={title} content={content} />
+  <Card {title} {content} />
 </article>
 
 <style>
