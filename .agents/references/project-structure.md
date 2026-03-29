@@ -28,15 +28,16 @@ storybook-astro/
 │   │       └── package.json
 │   └── components/               # Component library (internal)
 │       └── src/components/       # Example components for testing
-├── apps/                         # Private development apps
-│   ├── sandbox-astro6/           # Astro 6 sandbox
+├── apps/                         # Private website app
+│   └── website/                  # Marketing website
+│       └── astro.config.mjs
+├── integration/                  # Private integration examples
+│   ├── astro6/                   # Astro 6 integration example
 │   │   ├── .storybook/main.js    # Framework config with integrations
 │   │   ├── src/stories/
 │   │   └── src/components/
-│   ├── sandbox-astro5/           # Astro 5 stable sandbox
+│   ├── astro5/                   # Astro 5 stable integration example
 │   │   └── [same structure]
-│   └── website/                  # Marketing website
-│       └── astro.config.mjs
 ├── docs/                         # Documentation
 ├── AGENTS.md                     # AI development guide
 ├── CONTRIBUTING.md               # Contribution guidelines
@@ -67,9 +68,9 @@ yarn workspace @storybook-astro/framework build
 yarn workspace @storybook-astro/renderer test
 yarn workspace @storybook-astro/renderer build
 
-# Sandbox apps
-yarn workspace @storybook-astro/sandbox-astro6 storybook
-yarn workspace @storybook-astro/sandbox-astro5 storybook
+# Integration examples
+yarn workspace @storybook-astro/integration-astro6 storybook
+yarn workspace @storybook-astro/integration-astro5 storybook
 
 # Website
 yarn workspace @storybook-astro/website dev
@@ -155,9 +156,9 @@ Always reference:
 **Adding a new framework integration:**
 1. Create `packages/@storybook-astro/framework/src/integrations/[framework].ts`
 2. Extend `BaseIntegration` from `base.ts`
-3. Add example components to `apps/sandbox-astro6/src/components/`
+3. Add example components to `integration/astro6/src/components/`
 4. Add tests in `packages/@storybook-astro/framework/src/[framework].test.ts`
-5. Update `.storybook/main.js` in both sandboxes
+5. Update `.storybook/main.js` in both integration examples
 
 **Publishing packages:**
 ```bash

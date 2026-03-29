@@ -1,0 +1,24 @@
+---
+const { label = 'Click me', variant = 'primary', disabled = false } = Astro.props;
+---
+
+<button class={`btn btn--${variant}`} disabled={disabled}>
+  {label}
+</button>
+
+<style>
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1.25rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: opacity 0.2s;
+  }
+  .btn--primary { background: #4f46e5; color: white; }
+  .btn--secondary { background: #e5e7eb; color: #111827; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>

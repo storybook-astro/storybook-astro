@@ -45,8 +45,8 @@ Use these scopes to identify affected areas:
 
 - `framework` - Framework package changes
 - `renderer` - Renderer package changes
-- `astro6` - Astro 6 sandbox app
-- `astro5` - Astro 5 sandbox app
+- `astro6` - Astro 6 integration example
+- `astro5` - Astro 5 integration example
 - `website` - Marketing website
 - `react` - React framework integration
 - `vue` - Vue framework integration
@@ -128,7 +128,7 @@ gh pr create \\
 Adds support for lazy-loading Astro components via dynamic imports.
 
 ### How to Test
-1. Run \\`yarn workspace @storybook-astro/sandbox-astro6 storybook\\`
+1. Run \\`yarn workspace @storybook-astro/integration-astro6 storybook\\`
 2. Load a lazy-loaded component
 3. Verify it renders correctly
 
@@ -159,7 +159,7 @@ Brief description of what this PR does and why.
 ## How to Test
 1. Step-by-step testing instructions
 2. Include specific Yarn commands
-3. Which sandbox(s) to use (astro6, astro5)
+3. Which integration example(s) to use (astro6, astro5)
 
 ## Changes
 - Bullet list of key changes
@@ -169,7 +169,7 @@ Brief description of what this PR does and why.
 - [ ] Tests pass: `yarn test`
 - [ ] Linting passes: `yarn lint`
 - [ ] Documentation updated (AGENTS.md, README, etc.)
-- [ ] For framework changes: Updated `.storybook/main.js` in both sandboxes
+- [ ] For framework changes: Updated `.storybook/main.js` in both integration examples
 - [ ] For new features: Added test cases
 ```
 

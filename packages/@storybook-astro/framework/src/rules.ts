@@ -1,16 +1,11 @@
 import { dirname, isAbsolute, resolve } from 'node:path';
-import type { RequestHandler } from 'msw';
 import type { RenderStoryInput } from './types.ts';
 
-type StoryMode = 'development' | 'production';
-type StoryRuleUseResult = void | Promise<void>;
+export type StoryRuleCleanup = () => void | Promise<void>;
+type StoryRuleUseResult = void | StoryRuleCleanup | Promise<void | StoryRuleCleanup>;
 
 export type StoryRuleUseContext = {
-  mode: StoryMode;
   story: StoryRuleStory;
-  msw: {
-    use: (...handlers: RequestHandler[]) => void;
-  };
   mock: (specifier: string, replacement: string) => void;
 };
 
@@ -35,18 +30,17 @@ export type StoryRuleStory = {
 export type StoryRuleSelectionInput = {
   configModule: unknown;
   configFilePath?: string;
-  mode: StoryMode;
   story?: RenderStoryInput;
 };
 
 export type StoryRuleSelection = {
   moduleMocks: Map<string, string>;
-  mswHandlers: RequestHandler[];
+  cleanups: StoryRuleCleanup[];
 };
 
 type MutableStoryRuleSelection = {
   moduleMocks: Map<string, string>;
-  mswHandlers: RequestHandler[];
+  cleanups: StoryRuleCleanup[];
 };
 
 export function defineStoryRules(config: StoryRulesConfig): StoryRulesConfig {
@@ -72,14 +66,8 @@ export async function selectStoryRules(
         throw new Error('Each story rule "use" entry must be a function.');
       }
 
-      await use({
-        mode: input.mode,
+      const cleanup = await use({
         story,
-        msw: {
-          use: (...handlers) => {
-            selection.mswHandlers.push(...handlers);
-          }
-        },
         mock: (specifier, replacement) => {
           const normalizedSpecifier = normalizeMockSpecifier(specifier);
           const normalizedReplacement = normalizeMockReplacement(replacement, input.configFilePath);
@@ -87,10 +75,71 @@ export async function selectStoryRules(
           selection.moduleMocks.set(normalizedSpecifier, normalizedReplacement);
         }
       });
+
+      if (cleanup !== undefined) {
+        if (typeof cleanup !== 'function') {
+          throw new Error('Story rule "use" must return either nothing or a cleanup function.');
+        }
+
+        selection.cleanups.push(cleanup);
+      }
     }
   }
 
   return selection;
+}
+
+export async function withStoryRuleCleanups<T>(
+  cleanups: StoryRuleCleanup[],
+  callback: () => Promise<T>
+): Promise<T> {
+  let result: T | undefined;
+  let callbackError: unknown;
+
+  try {
+    result = await callback();
+  } catch (error) {
+    callbackError = error;
+  }
+
+  try {
+    await runStoryRuleCleanups(cleanups);
+  } catch (cleanupError) {
+    if (callbackError) {
+      throw new AggregateError(
+        [callbackError, cleanupError],
+        'Story rule execution and cleanup both failed.'
+      );
+    }
+
+    throw cleanupError;
+  }
+
+  if (callbackError) {
+    throw callbackError;
+  }
+
+  return result as T;
+}
+
+export async function runStoryRuleCleanups(cleanups: StoryRuleCleanup[]): Promise<void> {
+  const errors: unknown[] = [];
+
+  for (let index = cleanups.length - 1; index >= 0; index -= 1) {
+    try {
+      await cleanups[index]();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  if (errors.length === 1) {
+    throw errors[0];
+  }
+
+  if (errors.length > 1) {
+    throw new AggregateError(errors, 'Story rule cleanup failed.');
+  }
 }
 
 function normalizeRulesConfig(configModule: unknown): StoryRulesConfig {
@@ -293,7 +342,7 @@ function slugify(input: string): string {
 function createEmptySelection(): MutableStoryRuleSelection {
   return {
     moduleMocks: new Map(),
-    mswHandlers: []
+    cleanups: []
   };
 }
 

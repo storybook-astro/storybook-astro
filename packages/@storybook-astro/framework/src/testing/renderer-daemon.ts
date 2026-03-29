@@ -1,5 +1,6 @@
 import { createServer as createHttpServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { ViteDevServer } from 'vite';
 import { createViteServer } from '../viteStorybookAstroMiddlewarePlugin.ts';
@@ -118,7 +119,15 @@ export async function startTestingRendererDaemon(): Promise<RunningDaemon> {
       renderHandlerPromises.set(resolveFrom, (async () => {
         const integrations = resolveTestingIntegrationsForRoot(resolveFrom);
         const viteServer = await getViteServer(resolveFrom);
-        const middlewareModulePath = fileURLToPath(new URL('../middleware', import.meta.url));
+        // In the workspace this file is src/testing/renderer-daemon.ts so
+        // '../middleware.ts' resolves to src/middleware.ts (Vite handles .ts).
+        // When compiled by tsup, this code lands in a dist/chunk-*.js file so
+        // '../middleware.ts' would resolve to framework/middleware.ts which does
+        // not exist; fall back to './middleware.js' (sibling in dist/).
+        const middlewareSrcPath = fileURLToPath(new URL('../middleware.ts', import.meta.url));
+        const middlewareModulePath = existsSync(middlewareSrcPath)
+          ? middlewareSrcPath
+          : fileURLToPath(new URL('./middleware.js', import.meta.url));
         const middleware = await runWithWorkingDirectory(resolveFrom, () =>
           viteServer.ssrLoadModule(middlewareModulePath, {
             fixStacktrace: true

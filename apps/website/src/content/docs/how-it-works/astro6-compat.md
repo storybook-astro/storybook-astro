@@ -35,7 +35,13 @@ Storybook Astro includes compatibility layers to handle differences between Astr
 
 **Solution:** `renderToCanvas()` now delegates to framework-specific renderers *before* calling `storyFn()`. This lets each framework manage its own reactive root without interference.
 
-## 6. CJS module interop — `cjsInteropPlugin`
+## 6. Image service injection — `middleware.ts`
+
+**Problem:** Astro's `getConfiguredImageService()` calls `import("virtual:image-service")` to load the configured service. In Vite 7's module runner (used by Astro 6), this dynamic import fails with `InvalidImageService`. In Vite 6 (Astro 5), even when it succeeds, the noop service still routes through `/_image?href=...` URLs that the Storybook dev server does not serve reliably.
+
+**Solution:** `handlerFactory()` in `middleware.ts` pre-populates `globalThis.astroAsset.imageService` with a custom inline service before creating the Astro Container. `getConfiguredImageService()` checks `globalThis.astroAsset.imageService` first and returns it directly, bypassing the dynamic import entirely. The inline service's `getURL()` returns the `/@fs/...` Vite URL from the `ImageMetadata` object, which Vite can serve as a static asset in the browser.
+
+## 7. CJS module interop — `cjsInteropPlugin`
 
 **Problem:** Vite 6's ESM module runner cannot evaluate raw CommonJS modules (e.g. `cssesc`, `cookie`, `react`). Several Astro 6 runtime dependencies are still CJS.
 
@@ -48,4 +54,5 @@ These compatibility layers can be simplified or removed as Astro evolves:
 - **Component marker** — Can be removed if Astro reintroduces `isAstroComponentFactory` in client-side transforms
 - **Props patching** — Can be removed once the compiler is updated to match the runtime calling convention
 - **Font fallback** — Can be removed if Astro's font plugin handles the Storybook SSR context
+- **Image service injection** — Can be removed if Astro exposes an image service configuration API for the Container, or if `virtual:image-service` resolves correctly in all Vite contexts
 - **CJS interop** — May be simplified as dependencies migrate to ESM

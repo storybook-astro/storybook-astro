@@ -3,6 +3,18 @@ export type NpmDownloadPoint = {
   downloads: number;
 };
 
+export type GithubContributor = {
+  id: number;
+  login: string;
+  avatarUrl: string;
+  profileUrl: string;
+};
+
+export type GithubContributorsStat = {
+  total: number;
+  contributors: GithubContributor[];
+};
+
 export const DEFAULT_GITHUB_REPOSITORY = 'storybook-astro/storybook-astro';
 export const DEFAULT_NPM_PACKAGE = '@storybook-astro/framework';
 
@@ -10,27 +22,23 @@ export async function fetchProjectStats(options: {
   repository: string;
   packageName: string;
   fallbackStars?: number;
+  visibleContributors?: number;
 }) {
-  const [stars, downloads] = await Promise.all([
+  const [stars, downloads, contributors] = await Promise.all([
     fetchGithubStars(options.repository, options.fallbackStars ?? 0),
     fetchNpmWeeklyDownloads(options.packageName),
+    fetchGithubContributors(options.repository, options.visibleContributors ?? 4),
   ]);
 
   return {
     stars,
     downloads,
+    contributors,
   };
 }
 
 export async function fetchGithubStars(repository: string, fallbackStars = 0): Promise<number> {
-  const token = import.meta.env.GITHUB_TOKEN;
-  const headers: Record<string, string> = {
-    Accept: 'application/vnd.github+json',
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  const headers = createGithubHeaders();
 
   try {
     const response = await fetch(`https://api.github.com/repos/${repository}`, {
@@ -46,6 +54,37 @@ export async function fetchGithubStars(repository: string, fallbackStars = 0): P
     return normalizeCount(payload?.stargazers_count);
   } catch {
     return normalizeCount(fallbackStars);
+  }
+}
+
+export async function fetchGithubContributors(
+  repository: string,
+  visibleContributors = 4
+): Promise<GithubContributorsStat> {
+  const headers = createGithubHeaders();
+  const safeVisibleContributors = normalizeVisibleContributors(visibleContributors);
+  const topContributorsUrl = `https://api.github.com/repos/${repository}/contributors?per_page=${safeVisibleContributors}`;
+  const countUrl = `https://api.github.com/repos/${repository}/contributors?per_page=1`;
+
+  try {
+    const [topContributorsResponse, countResponse] = await Promise.all([
+      fetch(topContributorsUrl, { headers }),
+      fetch(countUrl, { headers }),
+    ]);
+
+    const contributors = await normalizeContributorEntries(topContributorsResponse);
+    const totalFromCountResponse = await resolveContributorsCount(countResponse);
+    const total = Math.max(totalFromCountResponse, contributors.length);
+
+    return {
+      total,
+      contributors,
+    };
+  } catch {
+    return {
+      total: 0,
+      contributors: [],
+    };
   }
 }
 
@@ -115,6 +154,101 @@ export function normalizePackageName(value: unknown): string {
   }
 
   return normalizedValue;
+}
+
+function createGithubHeaders(): Record<string, string> {
+  const token = import.meta.env.GITHUB_TOKEN;
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return headers;
+}
+
+function normalizeVisibleContributors(value: unknown): number {
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue)) {
+    return 4;
+  }
+
+  return Math.min(Math.max(Math.round(parsedValue), 1), 8);
+}
+
+async function normalizeContributorEntries(response: Response): Promise<GithubContributor[]> {
+  if (!response.ok) {
+    return [];
+  }
+
+  let payload;
+
+  try {
+    payload = await response.json();
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+
+      const id = Number(entry.id);
+      const login = typeof entry.login === 'string' ? entry.login : '';
+      const avatarUrl = typeof entry.avatar_url === 'string' ? entry.avatar_url : '';
+      const profileUrl = typeof entry.html_url === 'string' ? entry.html_url : '';
+
+      if (!Number.isFinite(id) || !login || !avatarUrl || !profileUrl) {
+        return null;
+      }
+
+      return {
+        id,
+        login,
+        avatarUrl,
+        profileUrl,
+      };
+    })
+    .filter((entry): entry is GithubContributor => entry !== null);
+}
+
+async function resolveContributorsCount(response: Response): Promise<number> {
+  if (!response.ok) {
+    return 0;
+  }
+
+  const linkHeader = response.headers.get('link');
+
+  if (linkHeader) {
+    const lastPageMatch = linkHeader.match(/[?&]page=(\d+)>;\s*rel="last"/);
+
+    if (lastPageMatch) {
+      return normalizeCount(Number(lastPageMatch[1]));
+    }
+  }
+
+  let payload;
+
+  try {
+    payload = await response.json();
+  } catch {
+    return 0;
+  }
+
+  if (!Array.isArray(payload)) {
+    return 0;
+  }
+
+  return payload.length > 0 ? 1 : 0;
 }
 
 function normalizeCount(value: unknown): number {

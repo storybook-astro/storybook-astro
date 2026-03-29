@@ -1,12 +1,14 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { createServer, type PluginOption, type ViteDevServer } from 'vite';
+import type { ServerResponse } from 'node:http';
+import { createServer, createLogger, type Connect, type PluginOption, type ViteDevServer } from 'vite';
 import type { RenderRequestMessage, RenderResponseMessage } from '@storybook-astro/renderer/types';
 import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
@@ -22,7 +24,7 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   const vitePlugin = {
     name: 'storybook-astro-middleware-plugin',
     async configureServer(server) {
-      viteServer = await createViteServer(options.integrations, resolveFrom);
+      viteServer = await createViteServer(options.integrations ?? [], resolveFrom);
       const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
 
       const filePath = fileURLToPath(new URL('./middleware', import.meta.url));
@@ -31,7 +33,6 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
       });
 
       const createHandler = () => middleware.handlerFactory(options.integrations ?? [], {
-        mode: 'development',
         sanitization: options.sanitization,
         rulesConfigFilePath: storyRulesConfigFilePath,
         resolveRulesConfigModule: () =>
@@ -84,15 +85,15 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   // Create asset serving plugin (only active in dev when viteServer exists)
   const assetServingPlugin = {
     name: 'storybook-astro-assets',
-    configureServer(server) {
-      server.middlewares.use('/_image', (req, res, next) => {
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use('/_image', (req: Connect.IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
         if (!viteServer) {
           next();
 
           return;
         }
         // Forward the request to the Astro vite server
-        viteServer.middlewares.handle(req, res, (err) => {
+        viteServer.middlewares.handle(req, res, (err?: unknown) => {
           if (err) {
             console.error('Asset serving error:', err);
             next();
@@ -122,8 +123,33 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   };
 }
 
+/**
+ * Creates a Vite logger that silences known benign warnings emitted by Astro's
+ * Vite plugin in the SSR server context:
+ * - "Missing pages directory" — Storybook and test contexts have no src/pages.
+ * - "points to missing source files" — Sourcemap gaps in the `entities` package.
+ */
+function createSsrServerLogger() {
+  const logger = createLogger();
+  const originalWarn = logger.warn.bind(logger);
+
+  logger.warn = (msg, options) => {
+    if (
+      msg.includes('Missing pages directory') ||
+      msg.includes('points to missing source files') ||
+      msg.includes('Failed to load source map for')
+    ) {
+      return;
+    }
+
+    originalWarn(msg, options);
+  };
+
+  return logger;
+}
+
 export async function createViteServer(integrations: Integration[], resolveFrom = process.cwd()) {
-  const { getViteConfig } = await importAstroConfig(resolveFrom);
+  const { getViteConfig, passthroughImageService } = await importAstroConfig(resolveFrom);
   const safeIntegrations = integrations ?? [];
   const projectAstroResolutionPlugin = createProjectAstroResolutionPlugin(resolveFrom);
 
@@ -133,17 +159,23 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
       configFile: false,
       integrations: await Promise.all(
         safeIntegrations.map((integration) => integration.loadIntegration(resolveFrom))
-      )
+      ),
+      // Use the passthrough image service so nested components that use <Image>
+      // from astro:assets render as plain <img> tags without triggering image
+      // optimization (which fails in the Storybook SSR context).
+      image: { service: passthroughImageService() }
     }
   )({ mode: 'development', command: 'serve' });
 
   const viteServer = await createServer({
     configFile: false,
     ...config,
+    customLogger: createSsrServerLogger(),
     plugins: [
       projectAstroResolutionPlugin,
       // Fallbacks must come first to intercept before Astro's plugins
       vitePluginAstroFontsFallback(),
+      vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
       ...(config.plugins?.filter(Boolean) ?? []),

@@ -3,89 +3,81 @@ title: Images
 description: Using Astro's Image component and astro:assets in Storybook stories.
 ---
 
-Astro's built-in `<Image>` component from `astro:assets` provides image optimization. It works within Astro components rendered in Storybook, but with some limitations.
+Astro's built-in `<Image>` component from `astro:assets` works in Storybook stories without any special workarounds.
 
-## Current status
+## Using `<Image>` in components
 
-Image support is **partial**. The `<Image>` component works inside Astro components rendered via the Container API, but Storybook's module resolution doesn't fully support all `astro:assets` features.
-
-## Recommended pattern: dual source support
-
-The best approach is to design your components to accept both `ImageMetadata` objects (from Astro imports) and plain string URLs. This makes them work in both Astro's normal build pipeline and in Storybook:
+Components that use `<Image>` work in Storybook as-is. Import and use `<Image>` the same way you would in a regular Astro project:
 
 ```astro
 ---
 // ImageText.astro
+import type { ImageMetadata } from 'astro';
 import { Image } from 'astro:assets';
 
 interface Props {
-  imageSrc: any;
+  imageSrc: ImageMetadata;
   imageAlt?: string;
-  reversed?: boolean;
 }
 
-const { imageSrc, imageAlt = 'Image', reversed = false } = Astro.props;
-const isStringUrl = typeof imageSrc === 'string';
+const { imageSrc, imageAlt = 'Image' } = Astro.props;
 ---
 
-<div class="image-text" class:list={{ reversed }}>
-  <div class="image-container">
-    {isStringUrl ? (
-      <img src={imageSrc} alt={imageAlt} />
-    ) : (
-      <Image src={imageSrc} alt={imageAlt} />
-    )}
-  </div>
-  <div class="text-container">
-    <slot />
-  </div>
+<div>
+  <Image src={imageSrc} alt={imageAlt} />
 </div>
 ```
 
 ## Writing stories with images
 
-In story files, import image assets directly. The Vite build pipeline will resolve them to the correct paths:
+Import image assets directly in story files. Vite resolves them to `ImageMetadata` objects, which Storybook Astro passes through to the Container API unchanged:
 
 ```jsx
 // ImageText.stories.jsx
 import ImageText from './ImageText.astro';
-import storybookAstro from '../../../assets/storybook-astro.png';
+import myImage from '../assets/my-image.png';
 
 export default {
-  title: 'Astro/ImageText',
   component: ImageText,
-  argTypes: {
-    imageSrc: {
-      description: 'Image source — an imported asset (ImageMetadata) or a URL string.',
-      table: { type: { summary: 'ImageMetadata | string' } },
-    },
-    imageAlt: {
-      description: 'Alt text for the image.',
-      control: 'text',
-    },
-    reversed: {
-      description: 'Places the image on the right side.',
-      control: 'boolean',
-    },
-  },
 };
 
 export const Default = {
   args: {
-    imageSrc: storybookAstro,
-    imageAlt: 'Astro Storybook Earth',
-    slots: {
-      default: `
-        <h2>Welcome to Storybook Astro</h2>
-        <p>This integration brings together the best of both worlds.</p>
-      `,
-    },
+    imageSrc: myImage,
+    imageAlt: 'My image',
   },
 };
 ```
 
+## How it works
+
+Storybook Astro injects a passthrough image service before rendering components. This service returns direct Vite asset URLs (`/@fs/...`) for imported `ImageMetadata` objects, bypassing Astro's image optimization pipeline in dev mode. The `ImageMetadata` object is passed unchanged to `<Image>`, so Astro's internal checks pass without errors.
+
+In static builds (`storybook build`), images are emitted as Rollup assets and referenced by their content-hashed filenames.
+
+## Accepting both `ImageMetadata` and URL strings
+
+If you want your component to accept both `ImageMetadata` (for Astro imports) and plain URL strings (e.g. for external images), use a union type:
+
+```astro
+---
+import type { ImageMetadata } from 'astro';
+import { Image } from 'astro:assets';
+
+interface Props {
+  imageSrc: ImageMetadata | string;
+  imageAlt?: string;
+}
+
+const { imageSrc, imageAlt = 'Image' } = Astro.props;
+---
+
+<Image src={imageSrc as ImageMetadata} alt={imageAlt} />
+```
+
+This is useful for components that need to work with both local assets and remote URLs.
+
 ## Limitations
 
-- **Module resolution**: `astro:assets` relies on virtual module resolution that may not fully work in Storybook's SSR context. The dual-source pattern above works around this.
-- **Image optimization**: In dev mode, images imported via `astro:assets` receive Astro's optimization pipeline. In static Storybook builds, the pre-render step emits images as Rollup assets with content-hashed filenames.
 - **Font optimization**: Astro's font virtual modules (`virtual:astro:assets/fonts/*`) are stubbed with no-op exports in Storybook. Components render correctly but without Astro's font optimization. See [Astro 6 Compatibility](/how-it-works/astro6-compat/) for details.
+- **Image optimization in dev mode**: Images are served as direct Vite asset URLs rather than going through Astro's image optimization pipeline. This means resizing, format conversion, and quality settings in `<Image>` props are not applied during Storybook dev mode.

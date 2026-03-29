@@ -1,0 +1,26 @@
+{
+  "name": "smoke-test-astro6",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "build-storybook": "storybook build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@storybook-astro/framework": "file:__FRAMEWORK_TGZ__",
+    "astro": "6.0.3"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "happy-dom": "^17.4.4",
+    "@storybook/builder-vite": "10.2.7",
+    "storybook": "10.2.7",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "@storybook-astro/renderer": "file:__RENDERER_TGZ__"
+  }
+}

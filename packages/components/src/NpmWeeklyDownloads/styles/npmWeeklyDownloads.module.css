@@ -77,12 +77,9 @@
 }
 
 .point {
-  fill: #0d1117;
-  stroke: #d18be8;
   stroke-width: 12;
   opacity: 0;
   animation: pointFade 0.18s ease forwards;
-  animation-delay: calc(0.64s + (var(--dot-index) * 45ms));
 }
 
 @keyframes lineDraw {

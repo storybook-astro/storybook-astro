@@ -149,9 +149,6 @@
   </div>
   <pre
     class="install-tabs__panel"
-    onclick={() => {
-      void handleCopy();
-    }}
   ><code bind:this={codeElementRef}>{getActiveTab(activeId).command}</code></pre>
   <span class="install-tabs__sr" aria-live="polite">{statusMessage()}</span>
 </div>
@@ -243,7 +240,6 @@
     overflow-x: auto;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     white-space: nowrap;
-    cursor: copy;
     user-select: all;
   }
 

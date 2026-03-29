@@ -1,4 +1,6 @@
 import { defineConfig as defineVitestConfig } from 'vitest/config';
+import { createLogger } from 'vite';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { InlineConfig, PluginOption } from 'vite';
 import type { Integration } from '../integrations/base.ts';
@@ -7,9 +9,35 @@ import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarke
 import { registerTestingIntegrationsForRoot } from '../testing/integration-config.ts';
 import { cjsInteropPlugin, vitestPatchForSolidJs } from './vite-plugins.ts';
 
+/**
+ * Creates a Vite logger that suppresses known benign warnings in the test context:
+ * - "Missing pages directory" — Astro warns when no src/pages exists, but component
+ *   tests don't use pages so this is always safe to ignore.
+ * - "points to missing source files" — Sourcemap warnings from the `entities` package
+ *   which ships without source files. Not actionable.
+ */
+function createTestLogger() {
+  const logger = createLogger();
+  const originalWarn = logger.warn.bind(logger);
+
+  logger.warn = (msg, options) => {
+    if (
+      msg.includes('Missing pages directory') ||
+      msg.includes('points to missing source files') ||
+      msg.includes('Failed to load source map for')
+    ) {
+      return;
+    }
+
+    originalWarn(msg, options);
+  };
+
+  return logger;
+}
+
 // Type definition omits 'test' to allow Vitest-specific config options
 // Vite 8 type definitions conflict with Vitest config when used in monorepo
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Vitest config requires any type for test option
+ 
 export type TestingDefineConfig = Omit<InlineConfig, 'plugins' | 'test'> & {
   integrations?: Integration[];
   plugins?: PluginOption[];
@@ -51,7 +79,13 @@ export function defineConfig(options: TestingDefineConfig) {
 
   registerTestingIntegrationsForRoot(root, integrations);
 
-  const globalSetupFilePath = fileURLToPath(new URL('./global-setup.ts', import.meta.url));
+  // In the workspace, import.meta.url points to src/vitest/config.ts so global-setup.ts exists.
+  // In a compiled tarball install, import.meta.url points to dist/vitest/config.js so we fall
+  // back to global-setup.js which is the tsup-compiled output.
+  const globalSetupTsPath = fileURLToPath(new URL('./global-setup.ts', import.meta.url));
+  const globalSetupFilePath = existsSync(globalSetupTsPath)
+    ? globalSetupTsPath
+    : fileURLToPath(new URL('./global-setup.js', import.meta.url));
   const testConfig = {
     ...rest.test,
     globalSetup: normalizeGlobalSetup(rest.test?.globalSetup, globalSetupFilePath)
@@ -59,7 +93,7 @@ export function defineConfig(options: TestingDefineConfig) {
 
   // Cast to any to work around Vite 8 type conflicts in monorepo environments
   // where multiple Vite versions exist in node_modules
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Type conflict with Vite 8 in monorepo
+   
   const vitestConfig = defineVitestConfig({
     ...rest,
     root,
@@ -87,9 +121,16 @@ export function defineConfig(options: TestingDefineConfig) {
       })
     );
 
+  const testLogger = createTestLogger();
+
   return async ({ mode: viteMode, command }: { mode: string; command: 'build' | 'serve' }) => {
     const astroConfigFactory = await astroConfigFactoryPromise;
+    const config = await astroConfigFactory({ mode: viteMode, command });
 
-    return astroConfigFactory({ mode: viteMode, command });
+    // Inject the logger — this overrides any logger Astro may have set,
+    // which is intentional since we only filter benign test-context noise.
+    config.customLogger = testLogger;
+
+    return config;
   };
 }

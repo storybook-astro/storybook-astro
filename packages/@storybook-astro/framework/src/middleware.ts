@@ -4,8 +4,7 @@ import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { resolveStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
-import { applyMswHandlers } from './msw.ts';
-import { selectStoryRules } from './rules.ts';
+import { selectStoryRules, withStoryRuleCleanups } from './rules.ts';
 import type { RenderStoryInput } from './types.ts';
 import { addRenderers, resolveClientModules } from 'virtual:astro-container-renderers';
 
@@ -33,7 +32,6 @@ export type HandlerProps = {
 };
 
 type HandlerFactoryOptions = {
-  mode?: 'development' | 'production';
   sanitization?: SanitizationOptions;
   rulesConfigFilePath?: string;
   resolveRulesConfigModule?: ResolveRulesConfigModule;
@@ -41,7 +39,52 @@ type HandlerFactoryOptions = {
 };
 
 export async function handlerFactory(_integrations: Integration[], options?: HandlerFactoryOptions) {
-  const mode = options?.mode ?? 'development';
+  // Inject a passthrough image service before any component renders.
+  //
+  // AstroContainer has no image service configuration API, and the default
+  // getConfiguredImageService() tries to dynamically import "virtual:image-service"
+  // which fails in astro6/Vite 7's module runner. Even when it succeeds (astro5),
+  // the noop service still routes through /_image?href=... URLs that the Storybook
+  // dev server cannot serve.
+  //
+  // Pre-populating globalThis.astroAsset.imageService bypasses the dynamic import
+  // entirely. Our service returns the direct /@fs/... Vite URL from the ImageMetadata
+  // object, which Vite can serve as a static asset in the browser.
+  if (!globalThis.astroAsset) {
+    (globalThis as Record<string, unknown>).astroAsset = {};
+  }
+  (globalThis.astroAsset as Record<string, unknown>).imageService = {
+    propertiesToHash: ['src'],
+    validateOptions(options: Record<string, unknown>) {
+      return options;
+    },
+    getURL(options: { src: unknown }) {
+      const src = options.src;
+
+      if (src != null && typeof src === 'object' && 'src' in src && typeof (src as Record<string, unknown>).src === 'string') {
+        // ImageMetadata object — return the /@fs/... Vite URL directly
+        return (src as Record<string, unknown>).src as string;
+      }
+
+      return typeof src === 'string' ? src : '';
+    },
+    getHTMLAttributes(options: Record<string, unknown>) {
+      const { src, width, height, format, quality, densities, widths, formats, layout, priority, fit, position, background, ...attrs } = options;
+      const srcObj = src != null && typeof src === 'object' ? src as Record<string, unknown> : null;
+
+      return {
+        ...attrs,
+        width: width ?? srcObj?.width,
+        height: height ?? srcObj?.height,
+        loading: (attrs.loading as string | undefined) ?? 'lazy',
+        decoding: (attrs.decoding as string | undefined) ?? 'async',
+      };
+    },
+    getSrcSet() {
+      return [];
+    }
+  };
+
   const container = await AstroContainer.create({
     // Somewhat hacky way to force client-side Storybook's Vite to resolve modules properly
     resolve: async (specifier) => {
@@ -116,33 +159,32 @@ export async function handlerFactory(_integrations: Integration[], options?: Han
       const selectedRules = await selectStoryRules({
         configModule: rulesConfigModule,
         configFilePath: options?.rulesConfigFilePath,
-        mode,
         story: data.story
       });
 
-      await applyMswHandlers(selectedRules.mswHandlers);
+      return withStoryRuleCleanups(selectedRules.cleanups, async () => {
+        return withStoryModuleMocks(selectedRules.moduleMocks, async () => {
+          const patchedComponent = await loadPatchedComponent(
+            data.component,
+            selectedRules.moduleMocks.size === 0
+          );
+          const processedArgs = await processImageMetadata(data.args ?? {});
+          const sanitizedPayload = sanitizeRenderPayload(
+            {
+              args: processedArgs,
+              slots: data.slots ?? {}
+            },
+            sanitizationOptions
+          );
 
-      return withStoryModuleMocks(selectedRules.moduleMocks, async () => {
-        const patchedComponent = await loadPatchedComponent(
-          data.component,
-          selectedRules.moduleMocks.size === 0
-        );
-        const processedArgs = await processImageMetadata(data.args ?? {});
-        const sanitizedPayload = sanitizeRenderPayload(
-          {
-            args: processedArgs,
-            slots: data.slots ?? {}
-          },
-          sanitizationOptions
-        );
-
-        return container.renderToString(
-          patchedComponent as Parameters<typeof container.renderToString>[0],
-          {
-            props: sanitizedPayload.args,
-            slots: sanitizedPayload.slots
-          }
-        );
+          return container.renderToString(
+            patchedComponent as Parameters<typeof container.renderToString>[0],
+            {
+              props: sanitizedPayload.args,
+              slots: sanitizedPayload.slots
+            }
+          );
+        });
       });
     };
 
@@ -194,7 +236,11 @@ async function processImageMetadata(
 
   for (const [key, value] of Object.entries(args)) {
     if (isImageMetadata(value)) {
-      processed[key] = convertImageMetadataToUrl(value);
+      // Keep ImageMetadata as a plain object — Astro's image service checks
+      // isESMImportedImage (typeof src === 'object') and skips the /@fs/ string
+      // validation that throws LocalImageUsedWrongly. Converting to a URL string
+      // causes that error when the string starts with /@fs/.
+      processed[key] = value;
 
       continue;
     }
@@ -203,7 +249,7 @@ async function processImageMetadata(
       processed[key] = await Promise.all(
         value.map(async (item) => {
           if (isImageMetadata(item)) {
-            return convertImageMetadataToUrl(item);
+            return item;
           }
 
           if (isRecord(item)) {
@@ -237,20 +283,6 @@ function isImageMetadata(value: unknown): value is Record<string, unknown> {
   );
 }
 
-function convertImageMetadataToUrl(imageMetadata: Record<string, unknown>): string {
-  const src = imageMetadata.src;
-  const fsPath = imageMetadata.fsPath;
-
-  if (typeof src === 'string') {
-    return src;
-  }
-
-  if (typeof fsPath === 'string') {
-    return fsPath;
-  }
-
-  return String(imageMetadata);
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

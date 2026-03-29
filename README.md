@@ -41,7 +41,7 @@ export default {
 
 Sanitization is enabled by default with conservative HTML defaults. To disable it, set `sanitization.enabled` to `false`.
 
-You can also apply per-story rules for API mocks and module replacements:
+You can also apply per-story rules for runtime setup and module replacements. If you want HTTP mocking with MSW, install `msw` in your own project and wire it up inside the rules file:
 
 ```javascript
 export default {
@@ -56,26 +56,72 @@ export default {
 
 ```javascript
 // .storybook/story-rules.ts
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
 import { defineStoryRules } from '@storybook-astro/framework';
-import { http, HttpResponse } from '@storybook-astro/framework/msw-helpers';
+
+const server = setupServer();
+let isListening = false;
+
+function getMswServer() {
+  if (!isListening) {
+    server.listen({ onUnhandledRequest: 'bypass' });
+    isListening = true;
+  }
+
+  return server;
+}
 
 export default defineStoryRules({
   rules: [
     {
       match: 'components-profile-card--*',
-      use: ({ msw, mock }) => {
-        msw.use(
+      use: ({ mock }) => {
+        const server = getMswServer();
+
+        server.use(
           http.get('/api/user', () => {
             return HttpResponse.json({ name: 'Storybook User' });
           })
         );
 
         mock('~/lib/feature-flags', './mocks/feature-flags.ts');
+
+        return () => {
+          server.resetHandlers();
+        };
       },
     },
   ],
 });
 ```
+
+Production builds support two Astro render modes:
+
+- `server` (default): builds `storybook-static` and a standalone Astro render server in `storybook-server`
+- `static`: pre-renders Astro stories into `astro-prerendered-stories.json` and serves without a render server
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      renderMode: 'server',
+      server: {
+        serverUrl: 'https://storybook-render.example.com',
+        authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
+        authHeader: 'authorization',
+      },
+    },
+  },
+};
+```
+
+For token-based auth in server mode, you can also use runtime env/global values:
+
+- `STORYBOOK_ASTRO_SERVER_URL`
+- `STORYBOOK_ASTRO_SERVER_TOKEN`
+- `STORYBOOK_ASTRO_SERVER_AUTH_HEADER`
 
 You can sanitize incoming story args and slots through framework options:
 
@@ -259,14 +305,14 @@ node --version
    yarn install
    ```
 
-3. Run Storybook (from a sandbox app):
+3. Run Storybook (from an integration example):
    ```bash
-   yarn workspace @storybook-astro/sandbox-astro6 storybook
+   yarn workspace @storybook-astro/integration-astro6 storybook
    ```
 
 4. Build a static Storybook:
    ```bash
-   yarn workspace @storybook-astro/sandbox-astro6 build-storybook
+   yarn workspace @storybook-astro/integration-astro6 build-storybook
    ```
 
 5. Run tests:

@@ -12,11 +12,11 @@ import ts from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import globals from 'globals';
 import vue from 'eslint-plugin-vue';
-// Svelte config lives in sandbox apps — use a minimal fallback for root ESLint
+// Svelte config lives in integration examples — use a minimal fallback for root ESLint
 let svelteConfig;
 
 try {
-  svelteConfig = (await import('./apps/sandbox-astro6/svelte.config.js')).default;
+  svelteConfig = (await import('./integration/astro6/svelte.config.js')).default;
 } catch {
   svelteConfig = {};
 }
@@ -27,13 +27,16 @@ const ALL_EXTENSIONS = 'js,ts,jsx,tsx,cjs,mjs,mts,astro,svelte,vue';
 const NODE_JS_FILES = [
   `./packages/@storybook-astro/framework/**/*.{${ALL_EXTENSIONS}}`,
   `./apps/*/.storybook/**/*.{${ALL_EXTENSIONS}}`,
+  `./integration/*/.storybook/**/*.{${ALL_EXTENSIONS}}`,
+  `./scripts/**/*.{js,ts,mjs}`,
   'eslint.config.mjs',
   'prettier.config.mjs'
 ];
 const JSX_EXTENSIONS = 'js,ts,jsx,tsx,cjs,mjs,mts';
 const JSX_FILES = [
   `./packages/@storybook-astro/renderer/**/*.{${JSX_EXTENSIONS}}`,
-  `./apps/*/src/**/*.{${JSX_EXTENSIONS}}`
+  `./apps/*/src/**/*.{${JSX_EXTENSIONS}}`,
+  `./integration/*/src/**/*.{${JSX_EXTENSIONS}}`
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -223,7 +226,8 @@ export default [
       '.idea/',
       '**/storybook-static/',
       '**/dist/',
-      '**/node_modules/'
+      '**/node_modules/',
+      'smoke/' // template files for tarball smoke tests — linted in their own context
     ]
   },
   ...storybook.configs["flat/recommended"]

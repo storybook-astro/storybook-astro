@@ -160,6 +160,20 @@ export function sanitizeRenderPayload(
   };
 }
 
+export function serializeSanitizationOptions(options?: SanitizationOptions): string {
+  if (!options) {
+    return 'undefined';
+  }
+
+  assertNoFunctions(options.sanitizeHtml, 'framework.options.sanitization.sanitizeHtml');
+
+  const state = {
+    seen: new WeakSet<object>()
+  };
+
+  return serializeValue(options, 'framework.options.sanitization', state);
+}
+
 function mergeSanitizeHtmlOptions(userOptions?: IOptions): IOptions {
   const merged: IOptions = {
     ...DEFAULT_SANITIZE_HTML_OPTIONS,
@@ -285,6 +299,96 @@ function matchesPathPattern(path: string, pattern: string): boolean {
   const patternSegments = pattern.split('.');
 
   return matchSegments(pathSegments, patternSegments);
+}
+
+function serializeValue(value: unknown, path: string, state: { seen: WeakSet<object> }): string {
+  if (value === null) {
+    return 'null';
+  }
+
+  if (value === undefined) {
+    return 'undefined';
+  }
+
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+
+  if (value instanceof RegExp) {
+    return value.toString();
+  }
+
+  if (Array.isArray(value)) {
+    const serializedItems = value.map((item, index) =>
+      serializeValue(item, `${path}[${index}]`, state)
+    );
+
+    return `[${serializedItems.join(', ')}]`;
+  }
+
+  if (isRecord(value)) {
+    if (state.seen.has(value)) {
+      throw new Error(`${path} contains a circular reference.`);
+    }
+
+    state.seen.add(value);
+
+    const serializedEntries = Object.entries(value)
+      .filter(([, nestedValue]) => nestedValue !== undefined)
+      .map(([key, nestedValue]) => {
+        const serializedNestedValue = serializeValue(nestedValue, `${path}.${key}`, state);
+
+        return `${JSON.stringify(key)}: ${serializedNestedValue}`;
+      });
+
+    return `{ ${serializedEntries.join(', ')} }`;
+  }
+
+  throw new Error(
+    `${path} contains an unsupported value of type ${typeof value}. ` +
+      'Only plain objects, arrays, primitives, and regular expressions are supported.'
+  );
+}
+
+function assertNoFunctions(value: unknown, path: string): void {
+  const state = {
+    seen: new WeakSet<object>()
+  };
+
+  assertNoFunctionsRecursive(value, path, state);
+}
+
+function assertNoFunctionsRecursive(
+  value: unknown,
+  path: string,
+  state: { seen: WeakSet<object> }
+): void {
+  if (typeof value === 'function') {
+    throw new Error(
+      `${path} cannot contain functions. ` +
+        'Function-valued sanitization hooks are not supported in framework options.'
+    );
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      assertNoFunctionsRecursive(item, `${path}[${index}]`, state);
+    });
+
+    return;
+  }
+
+  if (isRecord(value)) {
+    if (state.seen.has(value)) {
+      return;
+    }
+
+    state.seen.add(value);
+
+    Object.entries(value).forEach(([key, nestedValue]) => {
+      assertNoFunctionsRecursive(nestedValue, `${path}.${key}`, state);
+    });
+  }
 }
 
 function matchSegments(pathSegments: string[], patternSegments: string[]): boolean {

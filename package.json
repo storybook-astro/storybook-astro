@@ -7,12 +7,14 @@
     "node": ">=20.16.0 || >=22.19.0 || >=24.0.0"
   },
   "scripts": {
-    "dev": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{website,sandbox-astro5,sandbox-astro6}' run dev",
+    "dev": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{website,integration-astro5,integration-astro6}' run dev",
     "website": "yarn workspace @storybook-astro/website dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "yarn vitest run",
-    "build:packages": "yarn workspaces foreach -A --include '@storybook-astro/{framework,renderer}' run build"
+    "build:packages": "yarn workspaces foreach -A --include '@storybook-astro/{framework,renderer}' run build",
+    "smoke": "bash scripts/smoke-test.sh",
+    "validate:dist": "node scripts/validate-dist.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -44,7 +46,8 @@
   "workspaces": [
     "packages/@storybook-astro/*",
     "packages/components",
-    "apps/*"
+    "apps/*",
+    "integration/*"
   ],
   "packageManager": "yarn@4.12.0",
   "resolutions": {

@@ -7,10 +7,24 @@ export default defineConfig({
     'src/testing.ts',
     'src/vitest/index.ts',
     'src/integrations/index.ts',
+    'src/node/index.ts',
     'src/middleware.ts',
+    'src/vitest/global-setup.ts',
   ],
   format: ['esm'],
-  dts: true,
+  dts: {
+    // middleware.ts is loaded dynamically via viteServer.ssrLoadModule at runtime
+    // and imports virtual modules that can't be resolved during DTS compilation.
+    // It has no public API consumers, so DTS is not needed for it.
+    entry: [
+      'src/index.ts',
+      'src/preset.ts',
+      'src/testing.ts',
+      'src/vitest/index.ts',
+      'src/integrations/index.ts',
+      'src/node/index.ts',
+    ],
+  },
   sourcemap: true,
   clean: true,
   external: [
@@ -31,8 +45,6 @@ export default defineConfig({
     '@storybook/preact',
     '@storybook-astro/renderer',
     'storybook-solidjs',
-    'msw',
-    'msw/node',
     'sanitize-html',
     'virtual:astro-container-renderers',
   ],

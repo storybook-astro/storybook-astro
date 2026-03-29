@@ -343,12 +343,12 @@ When adding or modifying a framework integration:
 - [ ] `getAstroRenderer()` returns correct Astro integration
 - [ ] `getVitePlugins()` returns plugins that can compile source files
 - [ ] `getStorybookRenderer()` returns valid Storybook renderer identifier
-- [ ] Example components in sandbox apps (`apps/sandbox-astro{5,6}/src/components/`)
+- [ ] Example components in integration examples (`integration/astro{5,6}/src/components/`)
 - [ ] Story files demonstrate key features (props, slots, events)
 - [ ] Tests in `packages/@storybook-astro/framework/src/[framework].test.ts`
-- [ ] `.storybook/main.js` in both sandboxes updated with recursive glob for this framework
+- [ ] `.storybook/main.js` in both integration examples updated with recursive glob for this framework
 - [ ] `yarn test` passes
-- [ ] `yarn workspace @storybook-astro/sandbox-astro6 storybook` loads without errors
+- [ ] `yarn workspace @storybook-astro/integration-astro6 storybook` loads without errors
 - [ ] Components render correctly in Storybook UI
 - [ ] Interactivity works (if applicable)
 - [ ] Styles apply correctly
