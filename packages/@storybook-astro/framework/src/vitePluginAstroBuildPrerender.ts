@@ -259,10 +259,13 @@ async function prerenderStories(options: {
             sanitizationOptions
           );
 
-          return container.renderToString(patchCreateAstroCompat(meta.component), {
-            props: sanitizedPayload.args,
-            slots: sanitizedPayload.slots
-          });
+          return container.renderToString(
+            patchCreateAstroCompat(meta.component) as Parameters<typeof container.renderToString>[0],
+            {
+              props: sanitizedPayload.args,
+              slots: sanitizedPayload.slots
+            }
+          );
         });
       });
 
@@ -370,7 +373,7 @@ async function addContainerRenderers(
           renderer: {
             ...renderer,
             name: serverRenderer.name
-          }
+          } as Parameters<typeof container.addServerRenderer>[0]['renderer']
         });
       } else {
         container.addServerRenderer({
