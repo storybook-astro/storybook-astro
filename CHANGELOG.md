@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-29
+
+### Added
+- Nested Astro component rendering support — components can now include other Astro components as children
+- Image support via astro:assets Image component — integrated passthrough image service into the renderer
+- definePreview and defineMain helpers for improved type safety and DX in preview.js and main.js files
+- Pre-release smoke test infrastructure — validates compiled packages work in real Astro 5 and 6 projects before publishing
+- Astro integration virtual module stubs (@astrojs/react:opts, astro:preact:opts, etc.)
+
+### Fixed
+- TypeScript declarations now properly generated with tsconfig.json in both packages
+- Resolved implicit any and Integration[] | undefined type errors in middleware plugin
+- Virtual module ambient declarations now globally visible across the framework
+- Middleware path correctly resolved from compiled dist chunks
+- Global setup correctly compiled and resolved from dist/
+- Server entry resolved correctly from package root for tarball installations
+- Framework package now includes @storybook/builder-vite in smoke test dependencies
+- Removed invalid --no-telemetry flag from storybook build
+- Fixed portable timeout wrapper in smoke test orchestration
+
+### Changed
+- Release Manager skill updated with release branch cutting workflow
+- Documentation updated for nested component support and assets handling
+
 ## [1.0.3] - 2026-03-24
 
 ### Fixed
