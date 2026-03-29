@@ -283,20 +283,6 @@ function isImageMetadata(value: unknown): value is Record<string, unknown> {
   );
 }
 
-function convertImageMetadataToUrl(imageMetadata: Record<string, unknown>): string {
-  const src = imageMetadata.src;
-  const fsPath = imageMetadata.fsPath;
-
-  if (typeof src === 'string') {
-    return src;
-  }
-
-  if (typeof fsPath === 'string') {
-    return fsPath;
-  }
-
-  return String(imageMetadata);
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

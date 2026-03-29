@@ -5,21 +5,22 @@
  *
  * 1. Template nesting (using another .astro component) renders correctly via
  *    the Astro Container API.
- * 2. astro:assets <Image> works when imageSrc is a URL string (i.e. after
- *    processImageMetadata converts an ImageMetadata arg to a URL string).
- *    This requires the SSR server to be configured with passthroughImageService.
+ * 2. astro:assets <Image> works with an ImageMetadata prop, rendered via the
+ *    inline passthrough image service injected by the Storybook middleware.
  */
+import type { ImageMetadata } from 'astro';
 import { Image } from 'astro:assets';
 import Card from '../../Card/astro/Card.astro';
 
 interface Props {
   title: string;
   content?: string;
-  imageSrc: any;
+  imageSrc: ImageMetadata | string;
   imageAlt?: string;
 }
 
 const { title, content = '', imageSrc, imageAlt = 'Page card image' } = Astro.props;
+
 ---
 
 <article class="page-card">
