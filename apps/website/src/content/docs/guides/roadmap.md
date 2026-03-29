@@ -11,13 +11,14 @@ This document outlines the planned features and improvements for Storybook Astro
 
 Enable composing Astro components by passing them as props to other Astro components in stories. This allows patterns like wrapping a Button inside a Link, or passing Icon components to other components.
 
-**Status**: In Design  
-**Scope**: Medium-High complexity  
-**Details**: See the [nested component support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/NESTED_COMPONENT_SUPPORT.md) for full design and implementation strategy.
+**Phase 1 — Template nesting and image rendering**: Shipped. Components whose templates use other Astro components (transitively) render correctly, including those that use `<Image>` from `astro:assets`. No story-side changes are required.
 
-**What this enables**:
+**Phase 2 — Props-based nesting**: In Design. Passing an Astro component factory as a story arg (e.g. `<Link Icon={MyIcon} />`) is not yet supported. See the [nested component support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/NESTED_COMPONENT_SUPPORT.md) for the proposed implementation strategy.
+
+**Scope**: Medium-High complexity (Phase 2)
+
+**What Phase 2 enables**:
 - Passing Astro components as props in story args
-- Rendering nested Astro compositions correctly in both dev and static builds
 - Support in portable stories (testing API)
 
 ### Improve Astro 6 Font Provider API Integration
