@@ -1,5 +1,3 @@
-import type { SanitizationOptions } from './lib/sanitization.ts';
-
 declare module 'virtual:astro-container-renderers' {
   import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 
@@ -25,6 +23,8 @@ declare module 'virtual:storybook-astro-renderer' {
 }
 
 declare module 'virtual:storybook-astro-sanitization-config' {
+  import type { SanitizationOptions } from './lib/sanitization.ts';
+
   const sanitization: SanitizationOptions | undefined;
 
   export default sanitization;
