@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { createServer, createLogger, type PluginOption, type ViteDevServer } from 'vite';
+import type { ServerResponse } from 'node:http';
+import { createServer, createLogger, type Connect, type PluginOption, type ViteDevServer } from 'vite';
 import type { RenderRequestMessage, RenderResponseMessage } from '@storybook-astro/renderer/types';
 import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
@@ -23,7 +24,7 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   const vitePlugin = {
     name: 'storybook-astro-middleware-plugin',
     async configureServer(server) {
-      viteServer = await createViteServer(options.integrations, resolveFrom);
+      viteServer = await createViteServer(options.integrations ?? [], resolveFrom);
       const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
 
       const filePath = fileURLToPath(new URL('./middleware', import.meta.url));
@@ -84,15 +85,15 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   // Create asset serving plugin (only active in dev when viteServer exists)
   const assetServingPlugin = {
     name: 'storybook-astro-assets',
-    configureServer(server) {
-      server.middlewares.use('/_image', (req, res, next) => {
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use('/_image', (req: Connect.IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
         if (!viteServer) {
           next();
 
           return;
         }
         // Forward the request to the Astro vite server
-        viteServer.middlewares.handle(req, res, (err) => {
+        viteServer.middlewares.handle(req, res, (err?: unknown) => {
           if (err) {
             console.error('Asset serving error:', err);
             next();
