@@ -13,10 +13,10 @@ This page tracks Astro's built-in framework features and their compatibility sta
 - **Astro + UI Framework Components** — Astro components and client-side UI components render together in one Storybook (React, Vue, Svelte, Preact, Solid, Alpine.js)
 - **Client Directives** — `client:load`, `client:only`, etc. for framework components
 - **Static Builds** — `storybook build` with build-time pre-rendering of Astro component stories
+- **`astro:assets` (Image Optimization)** — Components that use `<Image>` from `astro:assets` render correctly in Storybook. Import image assets in story files as `ImageMetadata` and pass them as props — no workarounds required. See [Images](/guides/images/).
 
 ## Partial support
 
-- **`astro:assets` (Image Optimization)** — Works in components but requires a fallback approach for Storybook stories due to module resolution issues. Components can accept both `ImageMetadata` and string URLs to maintain compatibility. See [Images](/guides/images/).
 - **Astro Fonts** — Font virtual modules are stubbed with no-op exports. Components render correctly but without Astro's font optimization.
 
 ## Not yet supported

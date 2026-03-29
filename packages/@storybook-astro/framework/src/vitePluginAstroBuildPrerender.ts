@@ -259,10 +259,13 @@ async function prerenderStories(options: {
             sanitizationOptions
           );
 
-          return container.renderToString(patchCreateAstroCompat(meta.component), {
-            props: sanitizedPayload.args,
-            slots: sanitizedPayload.slots
-          });
+          return container.renderToString(
+            patchCreateAstroCompat(meta.component) as Parameters<typeof container.renderToString>[0],
+            {
+              props: sanitizedPayload.args,
+              slots: sanitizedPayload.slots
+            }
+          );
         });
       });
 
@@ -282,14 +285,18 @@ async function createStorySsrServer(
   trackedSpecifiers: Set<string>,
   resolveFrom: string
 ) {
-  const { getViteConfig } = await importAstroConfig(resolveFrom);
+  const { getViteConfig, passthroughImageService } = await importAstroConfig(resolveFrom);
   const astroConfig = await getViteConfig(
     { root: resolveFrom },
     {
       configFile: false,
       integrations: await Promise.all(
         integrations.map((integration) => integration.loadIntegration(resolveFrom))
-      )
+      ),
+      // Use the passthrough image service so nested components that use <Image>
+      // from astro:assets render as plain <img> tags without triggering image
+      // optimization (which fails in the Storybook SSR context).
+      image: { service: passthroughImageService() }
     }
   )({
     mode: 'production',
@@ -366,7 +373,7 @@ async function addContainerRenderers(
           renderer: {
             ...renderer,
             name: serverRenderer.name
-          }
+          } as Parameters<typeof container.addServerRenderer>[0]['renderer']
         });
       } else {
         container.addServerRenderer({
@@ -635,7 +642,11 @@ async function processImageMetadata(
 
   for (const [key, value] of Object.entries(args)) {
     if (isImageMetadata(value)) {
-      processed[key] = convertImageMetadataToUrl(value);
+      // Keep ImageMetadata as a plain object — Astro's image service checks
+      // isESMImportedImage (typeof src === 'object') and skips the /@fs/ string
+      // validation that throws LocalImageUsedWrongly. Converting to a URL string
+      // causes that error when the string starts with /@fs/.
+      processed[key] = value;
 
       continue;
     }
@@ -644,7 +655,7 @@ async function processImageMetadata(
       processed[key] = await Promise.all(
         value.map(async (item) => {
           if (isImageMetadata(item)) {
-            return convertImageMetadataToUrl(item);
+            return item;
           }
 
           if (isRecord(item)) {
@@ -678,20 +689,6 @@ function isImageMetadata(value: unknown): value is Record<string, unknown> {
   );
 }
 
-function convertImageMetadataToUrl(imageMetadata: Record<string, unknown>): string {
-  const src = imageMetadata.src;
-  const fsPath = imageMetadata.fsPath;
-
-  if (typeof src === 'string') {
-    return src;
-  }
-
-  if (typeof fsPath === 'string') {
-    return fsPath;
-  }
-
-  return String(imageMetadata);
-}
 
 function createProjectAstroResolutionPlugin(resolveFrom: string): Plugin {
   const require = createRequire(import.meta.url);

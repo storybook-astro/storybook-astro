@@ -1,4 +1,10 @@
 ---
+interface Props {
+  title?: string;
+  content?: string;
+  highlight?: boolean;
+}
+
 const { title = 'Default title', content = 'Default content', highlight = false } = Astro.props;
 
 ---

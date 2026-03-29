@@ -1,125 +1,51 @@
 # Support Astro Components Referencing Other Astro Components
 
-## Problem Statement
+## Background
 
-Currently, Storybook Astro cannot render stories where an Astro component references another Astro component (e.g., a Button component rendered inside a Link component). When users try to pass Astro components as props, the render pipeline treats them as plain functions rather than renderable components, resulting in server-side rendering failures or incorrect output.
+Two distinct nesting patterns were identified:
 
-The user example shows this pattern:
+**Pattern A: Template nesting** — A component's own template uses other Astro components. The Container API handles transitive SSR automatically. Phase 1 work (image service + virtual module parity) resolved the specific failure points in the Storybook environment. **This is complete.**
 
-```javascript
-render: (args) => {
-  const icon = args.Icon ? <Icon icon={args.Icon} size={args.size} /> : null;
-  return (
-    <Link Icon={icon} {...args}>
-      {args.default}
-    </Link>
-  );
-}
-```
+**Pattern B: Props-based nesting** — A story or render function explicitly passes an Astro component as a prop or slot. This is the remaining work.
 
-## Current State
+---
 
-The framework processes args through `middleware.ts` where:
+## Pattern B: Props-based nesting
 
-1. Args are sanitized and processed (image metadata conversion, etc.)
-2. Props and slots are separated (slots extracted, rest become component props)
-3. Components are rendered via Astro Container's `renderToString` method
-4. Astro components passed as props are not currently detected or specially handled
+When a story passes an Astro component as a prop (e.g. `<Link Icon={icon}>`), the middleware receives the parent component's `moduleId` but has no knowledge of the nested component — it arrives as a JSX element object, not an Astro component reference. The serialized JSON payload from the client to the server cannot carry live component factories.
 
-The `render.tsx` renderer detects Astro components via `isAstroComponentFactory` flag, but this check only happens at the top level (in the `render()` function). Nested Astro components in props are not transformed into a renderable format.
+### Proposed Solution
 
-## Proposed Solution
+The key insight is that **only `moduleId` values** need to cross the boundary — not the component itself. The client detects Astro components in args, replaces them with a serialized reference `{ __astroComponent: true, moduleId: "...", props: {}, slots: {} }`, and the server reconstructs and renders them before passing to the parent.
 
-Implement a multi-layered approach to support component composition:
+**Client side** (`render.tsx`):
+- Before sending the render request, walk `args` recursively
+- Replace any value where `value.isAstroComponentFactory === true` with `{ __astroComponent: true, moduleId: value.moduleId, props: {}, slots: {} }`
 
-### 1. Arg Transformation (middleware.ts)
+**Server side** (`middleware.ts`):
+- After loading the parent component, walk `args` recursively for `__astroComponent` markers
+- For each found: load the child component via `loadPatchedComponent(ref.moduleId)`, render it to an HTML string via `container.renderToString(child, { props: ref.props, slots: ref.slots })`
+- Replace the marker with the rendered HTML string
+- Pass the HTML string as the prop to the parent — the parent `.astro` template renders it via `<Fragment set:html={prop} />`
 
-Add a pre-processing step that identifies Astro components in args and converts them to a serializable format that can be:
+**Limitation**: This requires the parent component to handle an HTML string prop intentionally. A parent that expects a component factory (e.g. renders it itself with `<Component />`) will not work directly.
 
-- Detected by the renderer
-- Reconstructed into a valid component reference on the server
-- Rendered via Astro Container without causing type errors
+An alternative that avoids this limitation: render the child component to HTML on the client side (via another render request), then pass the HTML as a slot or prop. This adds a round trip but is more compatible.
 
-This involves:
+### Implementation Plan
 
-- Creating an `AstroComponentReference` type to represent nested components
-- Scanning args recursively for `isAstroComponentFactory` functions
-- Storing moduleId and position information for each nested component
-- Maintaining a mapping of serialized references for server-side reconstruction
+1. Add `serializeAstroComponentArgs` helper to `render.tsx` — walks args and replaces Astro component factories with `{ __astroComponent, moduleId, props, slots }` markers
+2. Add `reconstructAstroComponentArgs` to `middleware.ts` — walks args, detects markers, renders each to HTML string
+3. Update the render request handler to call `reconstructAstroComponentArgs` before passing props to `container.renderToString`
+4. Document limitations (parent must accept HTML string, not component factory)
 
-### 2. Server-Side Reconstruction (middleware.ts)
+**Files to modify**:
+- `packages/@storybook-astro/renderer/src/render.tsx`
+- `packages/@storybook-astro/framework/src/middleware.ts`
+- `packages/@storybook-astro/framework/src/vitePluginAstroBuildPrerender.ts` (build path)
 
-When rendering, reconstruct Astro component references from the serialized data:
+### Risk Areas
 
-- Load the referenced component module
-- Validate that it's a valid Astro component
-- Pass the reconstructed component back to the Astro Container for rendering
-
-### 3. Slot and JSX Handling (render.tsx)
-
-Handle the different ways components can be passed:
-
-- As props (e.g., `Icon={icon}`)
-- As JSX elements in render functions (requires converting JSX to HTML strings)
-- As part of composed components
-
-### 4. Testing & Portable Stories Support (portable-stories.ts, testing/)
-
-Ensure the testing API supports composed components by:
-
-- Adding component composition detection in the test render function
-- Providing utilities to handle Astro component references in test scenarios
-- Documenting usage patterns for testing composed components
-
-## Complexity Assessment
-
-Medium-High complexity due to:
-
-- Changes needed across multiple files (middleware, renderer, testing)
-- Serialization/deserialization of component references
-- Compatibility with existing arg handling (image metadata, sanitization)
-- Both dev-mode (HMR) and build-time rendering support
-- Testing and portable stories integration
-
-## Risk Areas
-
-- Circular component references (detecting and preventing infinite loops)
-- Performance impact of recursive arg scanning on large arg objects
-- Module loading and caching with nested components
-- Ensuring Astro Container properly handles dynamically loaded components
-- Maintaining HMR hot reloading with component references
-
-## Implementation Strategy
-
-### Phase 1: Core Dev Mode
-
-- Implement arg transformation in middleware.ts
-- Add component detection and serialization
-- Test with basic nested component scenarios
-
-### Phase 2: Renderer Integration
-
-- Update render.tsx to handle component references
-- Add support for JSX-like component composition
-- Ensure proper error handling and fallbacks
-
-### Phase 3: Static Builds
-
-- Extend vitePluginAstroBuildPrerender.ts for nested components
-- Handle module loading in build context
-- Validate pre-rendered output
-
-### Phase 4: Testing & Polish
-
-- Add portable stories support
-- Create test utilities and helpers
-- Document patterns and limitations
-
-## Success Criteria
-
-- Users can pass Astro components as props in story args
-- Nested components render correctly in both dev and static builds
-- Circular references are detected and prevented
-- Existing functionality (props, slots, images) remains unaffected
-- Performance impact is minimal for typical component libraries
-- Documentation clearly explains the pattern with examples
+- **Circular component references**: Detect and break cycles — a component passed as its own prop would cause infinite recursion. Cap recursion depth.
+- **Performance**: Each nested component render is an extra SSR round-trip. For deeply nested patterns this compounds quickly — consider parallel resolution.
+- **Slot vs prop distinction**: HTML strings passed as props require the parent template to use `set:html`. If the parent uses a named slot, the HTML needs to be passed as a slot instead.
