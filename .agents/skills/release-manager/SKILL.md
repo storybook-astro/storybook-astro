@@ -56,7 +56,19 @@ git checkout develop
 git pull origin develop
 ```
 
-**2. Bump versions**
+**2. Cut release branch**
+
+Create a release branch from `develop` for this specific version:
+
+```bash
+# Create and switch to release branch (e.g., release/0.1.0-beta.14)
+git checkout -b release/0.1.0-beta.14
+git push origin release/0.1.0-beta.14
+```
+
+> **Convention**: Release branches follow the pattern `release/X.Y.Z-beta.N` and allow for last-minute fixes without blocking `develop`.
+
+**3. Bump versions**
 
 Update BOTH package files:
 - `packages/@storybook-astro/renderer/package.json`
@@ -70,7 +82,7 @@ Use the same version for both (they're always released together):
 }
 ```
 
-**3. Update CHANGELOG.md**
+**4. Update CHANGELOG.md**
 
 Add a new section at the top with the version and date:
 
@@ -97,24 +109,24 @@ Sections:
 - `Removed` — Removed features
 - `Security` — Security fixes
 
-**4. Commit and push to `develop`**
+**5. Commit and push to release branch**
 
 ```bash
 git add packages/*/package.json CHANGELOG.md
 git commit -m "chore: release v0.1.0-beta.14"
-git push origin develop
+git push origin release/0.1.0-beta.14
 ```
 
-**5. Merge `develop` into `main`**
+**6. Merge release branch into `main`**
 
 ```bash
 git checkout main
 git pull origin main
-git merge --no-ff develop
+git merge --no-ff release/0.1.0-beta.14
 git push origin main
 ```
 
-**6. Tag on `main` and push**
+**7. Tag on `main` and push**
 
 Tags trigger the publish workflow:
 
@@ -125,7 +137,7 @@ git push origin v0.1.0-beta.14
 
 > **Convention**: Only tag on `main`. Tagging on `develop` or other branches would publish from an unreleased state.
 
-**7. Verify publish succeeded**
+**8. Verify publish succeeded**
 
 The `.github/workflows/publish.yml` workflow automatically:
 - Runs `yarn lint` and tests (both Astro 5 and 6)
@@ -145,7 +157,7 @@ npm view @storybook-astro/framework versions --json
 npm view @storybook-astro/renderer versions --json
 ```
 
-**8. Merge `main` back to `develop` (optional)**
+**9. Merge `main` back to `develop` (optional)**
 
 If there are conflicts or just to keep branches in sync:
 
@@ -334,6 +346,7 @@ git push origin v0.1.0-beta.14
 Use this before releasing:
 
 - [ ] All features/fixes on `develop` branch
+- [ ] Release branch created: `git checkout -b release/X.Y.Z-beta.N`
 - [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version
 - [ ] CHANGELOG.md updated with new version section and entries
 - [ ] `yarn lint` passes
@@ -341,8 +354,8 @@ Use this before releasing:
 - [ ] `yarn build:packages` succeeds (clean build — `rm -rf dist` first)
 - [ ] `yarn validate:dist` passes (all publishConfig.exports paths exist in dist)
 - [ ] `yarn smoke` passes (tarball install + storybook build + tests on Astro 5 and 6)
-- [ ] Changes committed and pushed to `develop`
-- [ ] `develop` merged into `main` and pushed
+- [ ] Changes committed and pushed to release branch
+- [ ] Release branch merged into `main` and pushed
 - [ ] Tag created on `main`: `git tag vX.Y.Z-beta.N`
 - [ ] Tag pushed to remote: `git push origin vX.Y.Z-beta.N`
 - [ ] Publish workflow completes successfully (includes automated smoke test)
