@@ -341,6 +341,34 @@ git tag v0.1.0-beta.14
 git push origin v0.1.0-beta.14
 ```
 
+### Version Changes Not in Commit
+
+**Problem**: Workflow publishes with old version (e.g., 1.0.3 instead of 1.1.0), causing npm 403 error: "You cannot publish over the previously published versions"
+
+**What it means**: The version bump changes in `package.json` files were not committed to git before pushing the release tag. The workflow checks out the committed code, not your working directory changes.
+
+**Solution**:
+1. Verify versions are updated in your working directory:
+   ```bash
+   cat packages/@storybook-astro/renderer/package.json | grep version
+   cat packages/@storybook-astro/framework/package.json | grep version
+   ```
+2. Commit the changes:
+   ```bash
+   git add packages/*/package.json CHANGELOG.md
+   git commit -a -m "chore: update versions to X.Y.Z"
+   git push origin main
+   ```
+3. Delete and recreate the tag on the new commit:
+   ```bash
+   git tag -d vX.Y.Z
+   git tag vX.Y.Z
+   git push origin vX.Y.Z --force
+   ```
+4. The workflow will automatically re-trigger and use the correct versions
+
+**Prevention**: Always verify versions are committed with `git show HEAD:packages/@storybook-astro/renderer/package.json | grep version` before tagging.
+
 ## Checklist
 
 Use this before releasing:
