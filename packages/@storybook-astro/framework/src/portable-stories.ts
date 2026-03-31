@@ -89,12 +89,12 @@ const render = (args: Args, context?: any) => {
  *
  * @param projectAnnotations - E.g. (import projectAnnotations from '../.storybook/preview')
  */
-export function setProjectAnnotations(
+export function setProjectAnnotations<R extends AstroRenderer = AstroRenderer>(
   projectAnnotations:
-    | NamedOrDefaultProjectAnnotations<AstroRenderer>
-    | NamedOrDefaultProjectAnnotations<AstroRenderer>[]
-): NormalizedProjectAnnotations<AstroRenderer> {
-  return originalSetProjectAnnotations<AstroRenderer>(projectAnnotations);
+    | NamedOrDefaultProjectAnnotations<R>
+    | NamedOrDefaultProjectAnnotations<R>[]
+): NormalizedProjectAnnotations<R> {
+  return originalSetProjectAnnotations<R>(projectAnnotations);
 }
 
 /**
@@ -123,10 +123,10 @@ export function setProjectAnnotations(
  * @param projectAnnotations - E.g. (import * as projectAnnotations from '../.storybook/preview') this can be applied automatically if you use `setProjectAnnotations` in your setup files.
  * @param exportsName - In case your story does not contain a name and you want it to have a name.
  */
-export function composeStory<TArgs extends Args = Args>(
-  story: StoryAnnotationsOrFn<AstroRenderer, TArgs>,
-  componentAnnotations: ComponentAnnotations<AstroRenderer, TArgs>,
-  projectAnnotations?: ProjectAnnotations<AstroRenderer>,
+export function composeStory<TArgs extends Args = Args, R extends AstroRenderer = AstroRenderer>(
+  story: StoryAnnotationsOrFn<R, TArgs>,
+  componentAnnotations: ComponentAnnotations<R, TArgs>,
+  projectAnnotations?: ProjectAnnotations<R>,
   exportsName?: string
 ) {
   // Merge project annotations with Astro renderer
@@ -139,7 +139,7 @@ export function composeStory<TArgs extends Args = Args>(
   
   return originalComposeStory<AstroRenderer, TArgs>(
     story as any,
-    componentAnnotations,
+    componentAnnotations as any,
     mergedProjectAnnotations as any,
     exportsName as any
   );
@@ -169,9 +169,9 @@ export function composeStory<TArgs extends Args = Args>(
  * @param storiesImport - E.g. (import * as stories from './Button.stories')
  * @param projectAnnotations - E.g. (import * as globalConfig from '../.storybook/preview') this can be applied automatically if you use `setProjectAnnotations` in your setup files.
  */
-export function composeStories<TModule extends Record<string, any>>(
+export function composeStories<TModule extends Record<string, any>, R extends AstroRenderer = AstroRenderer>(
   storiesImport: TModule,
-  projectAnnotations?: ProjectAnnotations<AstroRenderer>
+  projectAnnotations?: ProjectAnnotations<R>
 ): { [K in keyof Omit<TModule, 'default'>]: any } {
   // Merge project annotations with Astro renderer
   const mergedProjectAnnotations: any = projectAnnotations ? {
