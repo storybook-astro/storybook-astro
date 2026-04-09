@@ -146,18 +146,45 @@ The `.github/workflows/publish.yml` workflow automatically:
 - Publishes renderer first, then framework with `beta` dist-tag
 - Promotes both to `latest` dist-tag
 
-Check status:
+Check workflow status:
 
 ```bash
 # Check workflow run
 gh run list --repo storybook-astro/storybook-astro --workflow publish.yml --limit 1
-
-# Verify npm packages
-npm view @storybook-astro/framework versions --json
-npm view @storybook-astro/renderer versions --json
 ```
 
-**9. Merge `main` back to `develop` (optional)**
+The workflow should show a **✓** (success) status. If it shows an **X** (failed), check the logs with:
+
+```bash
+gh run view <RUN_ID> --repo storybook-astro/storybook-astro
+```
+
+**9. Confirm packages on npm**
+
+This is the final verification step. Confirm both packages are published with the correct version and latest dist-tag:
+
+```bash
+# Check that new version exists in version list
+npm view @storybook-astro/framework versions --json | grep X.Y.Z
+npm view @storybook-astro/renderer versions --json | grep X.Y.Z
+
+# Confirm latest dist-tag points to new version
+npm dist-tag ls @storybook-astro/framework
+npm dist-tag ls @storybook-astro/renderer
+
+# Check package info
+npm view @storybook-astro/framework@latest
+npm view @storybook-astro/renderer@latest
+```
+
+Expected output:
+- Both version lists include `X.Y.Z`
+- Both `latest` dist-tags point to `X.Y.Z`
+- Package info shows the correct version with correct description
+
+If versions are missing or dist-tags are incorrect, refer to the **Manual Publish Fallback** section.
+
+**10. Merge `main` back to `develop` (optional)**
 
 If there are conflicts or just to keep branches in sync:
 
@@ -340,6 +367,34 @@ git checkout main
 git tag v0.1.0-beta.14
 git push origin v0.1.0-beta.14
 ```
+
+### Version Changes Not in Commit
+
+**Problem**: Workflow publishes with old version (e.g., 1.0.3 instead of 1.1.0), causing npm 403 error: "You cannot publish over the previously published versions"
+
+**What it means**: The version bump changes in `package.json` files were not committed to git before pushing the release tag. The workflow checks out the committed code, not your working directory changes.
+
+**Solution**:
+1. Verify versions are updated in your working directory:
+   ```bash
+   cat packages/@storybook-astro/renderer/package.json | grep version
+   cat packages/@storybook-astro/framework/package.json | grep version
+   ```
+2. Commit the changes:
+   ```bash
+   git add packages/*/package.json CHANGELOG.md
+   git commit -a -m "chore: update versions to X.Y.Z"
+   git push origin main
+   ```
+3. Delete and recreate the tag on the new commit:
+   ```bash
+   git tag -d vX.Y.Z
+   git tag vX.Y.Z
+   git push origin vX.Y.Z --force
+   ```
+4. The workflow will automatically re-trigger and use the correct versions
+
+**Prevention**: Always verify versions are committed with `git show HEAD:packages/@storybook-astro/renderer/package.json | grep version` before tagging.
 
 ## Checklist
 
