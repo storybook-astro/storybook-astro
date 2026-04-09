@@ -1,0 +1,21 @@
+---
+// Google Analytics script component
+const GA_ID = 'G-E3P2DKLYY4';
+
+---
+
+<!-- Google tag (gtag.js) -->
+<script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
+<script define:vars={{ GA_ID }}>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(...args) {
+    dataLayer.push(args);
+  }
+  gtag('js', new Date());
+  gtag('config', GA_ID);
+
+  // Support for Astro View Transitions (if enabled)
+  document.addEventListener('astro:page-load', () => {
+    gtag('config', GA_ID);
+  });
+</script>
