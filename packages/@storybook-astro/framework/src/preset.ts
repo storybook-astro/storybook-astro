@@ -12,7 +12,14 @@ import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 
 export const core = {
   builder: '@storybook/builder-vite',
-  renderer: '@storybook-astro/renderer'
+  // Use import.meta.resolve so Storybook receives an absolute file:// URL
+  // to the renderer preset rather than a bare package specifier.  When
+  // package managers like pnpm use strict node_modules isolation, bare
+  // specifiers are resolved from the *project root*, where the renderer
+  // (a dep of this framework, not the user's project) is not hoisted.
+  // The absolute URL is resolved from *this* file's location where the
+  // renderer is always accessible as a direct dependency.
+  renderer: import.meta.resolve('@storybook-astro/renderer')
 };
 
 export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { configType, presets }) => {
