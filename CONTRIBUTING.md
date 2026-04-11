@@ -25,9 +25,19 @@ Thank you for your interest in contributing! This project is community-driven an
    ```bash
    yarn install
    ```
-4. Start Storybook (from an integration example):
+4. Start both Storybook instances and the website simultaneously:
    ```bash
+   yarn dev
+   ```
+   This runs the Astro 6 demo on port **6006**, the Astro 5 demo on port **6007**, and the marketing website in parallel.
+
+   Or start a single Storybook instance:
+   ```bash
+   # Astro 6 (port 6006)
    yarn workspace @storybook-astro/integration-astro6 storybook
+
+   # Astro 5 (port 6007)
+   yarn workspace @storybook-astro/integration-astro5 storybook
    ```
 5. Run tests:
    ```bash
