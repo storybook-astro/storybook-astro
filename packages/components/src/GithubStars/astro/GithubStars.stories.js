@@ -24,7 +24,7 @@ export default {
       description: 'Small label displayed above the animated number.',
       control: { type: 'text' },
     },
-  },
+  }
 };
 
 export const Default = {

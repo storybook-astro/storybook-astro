@@ -1,17 +1,30 @@
+/// <reference path="../virtual.d.ts" />
+
 import { timingSafeEqual } from 'node:crypto';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { HandlerProps } from '../middleware.ts';
-import { handlerFactory } from '../middleware.ts';
-import astroFiles from 'virtual:astro-files';
+import { createAstroRenderHandler, type HandlerProps } from '../astroRenderHandler.ts';
 import sanitization from 'virtual:storybook-astro-sanitization-config';
-import storyRulesConfigModule, {
-  storybookAstroStoryRulesConfigFilePath
-} from 'virtual:storybook-astro-story-rules-config';
 import {
   storybookAstroServerAuthHeader,
   storybookAstroServerAuthToken
 } from 'virtual:storybook-astro-server-auth-config';
+import {
+  storybookAstroServerRuntimeComponentPathMap,
+  storybookAstroServerRuntimeIntegrations,
+  storybookAstroServerRuntimeSnapshotDirName,
+  storybookAstroServerRuntimeStaticModuleMap,
+  storybookAstroServerRuntimeStoryRulesConfigRelativePath,
+  storybookAstroServerRuntimeTrackedSpecifiers
+} from 'virtual:storybook-astro-server-runtime-config';
+import {
+  createClientModuleResolver,
+  createProductionAstroContainer,
+  createStorySsrViteServer,
+  loadRulesConfigModule
+} from '../storySsrVite.ts';
 
 const app = new Hono();
 const renderHandlerPromise = createRenderHandler();
@@ -47,24 +60,52 @@ app.post('/render', async (context) => {
 export default app;
 
 async function createRenderHandler() {
-  return handlerFactory([], {
-    sanitization: sanitization ?? undefined,
-    rulesConfigFilePath: storybookAstroStoryRulesConfigFilePath,
-    resolveRulesConfigModule: () => storyRulesConfigModule,
-    loadModule: async (componentId) => {
-      const component = astroFiles[componentId as keyof typeof astroFiles];
+  const snapshotRoot = resolve(dirname(fileURLToPath(import.meta.url)), storybookAstroServerRuntimeSnapshotDirName);
+  const storyRulesConfigFilePath = storybookAstroServerRuntimeStoryRulesConfigRelativePath
+    ? resolve(snapshotRoot, storybookAstroServerRuntimeStoryRulesConfigRelativePath)
+    : undefined;
+  const viteServer = await createStorySsrViteServer({
+    integrations: storybookAstroServerRuntimeIntegrations,
+    trackedSpecifiers: new Set(storybookAstroServerRuntimeTrackedSpecifiers),
+    resolveFrom: snapshotRoot
+  });
+  const resolveClientModule = createClientModuleResolver(
+    storybookAstroServerRuntimeIntegrations,
+    storybookAstroServerRuntimeStaticModuleMap
+  );
+  const container = await createProductionAstroContainer({
+    integrations: storybookAstroServerRuntimeIntegrations,
+    resolveClientModule,
+    viteServer
+  });
 
-      if (!component) {
-        throw new Error(
-          `Unable to resolve Astro component "${componentId}" in the server build output.`
-        );
-      }
+  return createAstroRenderHandler({
+    container,
+    sanitization: sanitization ?? undefined,
+    rulesConfigFilePath: storyRulesConfigFilePath,
+    resolveRulesConfigModule: () => loadRulesConfigModule(viteServer, storyRulesConfigFilePath),
+    loadModule: async (componentId) => {
+      const resolvedComponentId = resolveServerComponentPath(snapshotRoot, componentId);
+      const loadedModule = await viteServer.ssrLoadModule(resolvedComponentId);
 
       return {
-        default: component
+        default: loadedModule.default
       };
+    },
+    invalidateModuleGraph: () => {
+      viteServer.moduleGraph.invalidateAll();
     }
   });
+}
+
+function resolveServerComponentPath(snapshotRoot: string, componentId: string) {
+  const mappedPath = storybookAstroServerRuntimeComponentPathMap[componentId];
+
+  if (mappedPath) {
+    return resolve(snapshotRoot, mappedPath);
+  }
+
+  return componentId;
 }
 
 function isRequestAuthorized(headerValue: string | undefined) {

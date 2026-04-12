@@ -42,4 +42,15 @@ declare module 'virtual:storybook-astro-server-auth-config' {
   export const storybookAstroServerAuthHeader: string;
 }
 
+declare module 'virtual:storybook-astro-server-runtime-config' {
+  import type { Integration } from './integrations/index.ts';
+
+  export const storybookAstroServerRuntimeSnapshotDirName: string;
+  export const storybookAstroServerRuntimeStoryRulesConfigRelativePath: string | undefined;
+  export const storybookAstroServerRuntimeComponentPathMap: Record<string, string>;
+  export const storybookAstroServerRuntimeStaticModuleMap: Record<string, string>;
+  export const storybookAstroServerRuntimeTrackedSpecifiers: string[];
+  export const storybookAstroServerRuntimeIntegrations: Integration[];
+}
+
 declare module 'virtual:storybook-renderer-fallback' {}
