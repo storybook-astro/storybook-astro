@@ -27,6 +27,7 @@ export const ToggleOpen = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const header = canvas.getByRole('button', { name: /Section 1/ });
+
     await expect(header).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(header);
     await expect(header).toHaveAttribute('aria-expanded', 'true');
@@ -46,6 +47,7 @@ export const ToggleMultiple = {
     const canvas = within(canvasElement);
     const first = canvas.getByRole('button', { name: /First Item/ });
     const second = canvas.getByRole('button', { name: /Second Item/ });
+
     await userEvent.click(first);
     await userEvent.click(second);
     await expect(first).toHaveAttribute('aria-expanded', 'true');
