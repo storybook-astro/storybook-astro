@@ -1,4 +1,4 @@
-import { userEvent, within, expect } from '@storybook/test';
+import { userEvent, within, expect } from 'storybook/test';
 import Counter from '@storybook-astro/components/Counter/astro/Counter.astro';
 
 export default {

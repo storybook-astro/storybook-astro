@@ -1,4 +1,4 @@
-import { userEvent, within, expect } from '@storybook/test';
+import { userEvent, within, expect } from 'storybook/test';
 import Accordion from '@storybook-astro/components/Accordion/astro/Accordion.astro';
 
 export default {
