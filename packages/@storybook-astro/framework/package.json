@@ -24,12 +24,30 @@
     "README.md"
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./integrations": "./src/integrations/index.ts",
-    "./testing": "./src/testing.ts",
-    "./vitest": "./src/vitest/index.ts",
-    "./node": "./src/node/index.ts",
-    "./preset": "./preset.ts",
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./integrations": {
+      "types": "./src/integrations/index.ts",
+      "default": "./dist/integrations/index.js"
+    },
+    "./testing": {
+      "types": "./src/testing.ts",
+      "default": "./dist/testing.js"
+    },
+    "./vitest": {
+      "types": "./src/vitest/index.ts",
+      "default": "./dist/vitest/index.js"
+    },
+    "./node": {
+      "types": "./src/node/index.ts",
+      "default": "./dist/node/index.js"
+    },
+    "./preset": {
+      "types": "./preset.ts",
+      "default": "./dist/preset.js"
+    },
     "./package.json": "./package.json",
     "./*": "./src/*"
   },
