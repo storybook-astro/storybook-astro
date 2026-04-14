@@ -41,14 +41,45 @@ jobs:
       - name: Run tests
         run: yarn test
 
-      - name: Build Storybook (Astro 6)
-        continue-on-error: true
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build-storybook || test $? -eq 124
+      - name: Build Storybook (Astro 6 static)
+        run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build-storybook
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
-      - name: Build Storybook (Astro 5)
-        continue-on-error: true
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build-storybook || test $? -eq 124
+      - name: Build Storybook (Astro 5 static)
+        run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build-storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Build Storybook (Astro 6 server)
+        run: timeout 180 yarn workspace @storybook-astro/integration-astro6-server build-storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Build Storybook (Astro 5 server)
+        run: timeout 180 yarn workspace @storybook-astro/integration-astro5-server build-storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Interaction tests (Astro 6 static)
+        run: yarn workspace @storybook-astro/integration-astro6 test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Interaction tests (Astro 5 static)
+        run: yarn workspace @storybook-astro/integration-astro5 test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Interaction tests (Astro 6 server)
+        run: yarn workspace @storybook-astro/integration-astro6-server test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Interaction tests (Astro 5 server)
+        run: yarn workspace @storybook-astro/integration-astro5-server test:browser
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1

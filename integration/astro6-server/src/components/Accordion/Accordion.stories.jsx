@@ -4,37 +4,13 @@ import Accordion from '@storybook-astro/components/Accordion/astro/Accordion.ast
 export default {
   title: 'Astro/Accordion',
   component: Accordion,
-  parameters: {
-    docs: {
-      description: {
-        component: 'A collapsible section list with vanilla JS toggle behavior. Renders server-side with no framework runtime — interactivity uses an inline `<script>` tag.',
-      },
-    },
-  },
   argTypes: {
-    items: {
-      description: 'Sections to render. Each item has a `title` (header text) and `content` (body text).',
-      control: 'object',
-      table: {
-        type: { summary: '{ title: string, content: string }[]' },
-        defaultValue: { summary: '[]' },
-      },
-    },
-    allowMultiple: {
-      description: 'When true, multiple sections can be open at the same time. When false, opening one section closes the others.',
-      control: 'boolean',
-      table: {
-        type: { summary: 'boolean' },
-        defaultValue: { summary: 'false' },
-      },
-    },
+    items: { control: 'object' },
+    allowMultiple: { control: 'boolean' },
   },
 };
 
 export const Default = {
-  parameters: {
-    docs: { description: { story: 'Three sections in single-open mode. Click a header to expand it.' } },
-  },
   args: {
     items: [
       { title: 'Section 1', content: 'Content for section 1' },
@@ -44,24 +20,7 @@ export const Default = {
   },
 };
 
-export const AllowMultiple = {
-  parameters: {
-    docs: { description: { story: 'Multiple sections can be open simultaneously.' } },
-  },
-  args: {
-    allowMultiple: true,
-    items: [
-      { title: 'First Item', content: 'You can open multiple items at once!' },
-      { title: 'Second Item', content: 'Try clicking on multiple headers.' },
-      { title: 'Third Item', content: 'All can be open simultaneously.' },
-    ],
-  },
-};
-
 export const ToggleOpen = {
-  parameters: {
-    docs: { description: { story: 'Interaction test: click a header and verify section expands.' } },
-  },
   args: {
     items: [{ title: 'Section 1', content: 'Content for section 1' }],
   },
@@ -76,9 +35,6 @@ export const ToggleOpen = {
 };
 
 export const ToggleMultiple = {
-  parameters: {
-    docs: { description: { story: 'Interaction test: verify multiple sections can be open simultaneously.' } },
-  },
   args: {
     allowMultiple: true,
     items: [

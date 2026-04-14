@@ -320,11 +320,6 @@ node --version
    yarn test
    ```
 
-5. Run tests (validates component rendering and framework integration health):
-   ```bash
-   yarn test
-   ```
-
 ## Usage Example
 
 Create a story for an Astro component:

@@ -1,19 +1,17 @@
 {
-  "name": "@storybook-astro/integration-astro6",
+  "name": "@storybook-astro/integration-astro6-server",
   "private": true,
   "type": "module",
   "version": "0.0.1",
   "scripts": {
     "dev": "yarn storybook",
-    "build": "astro build",
-    "storybook": "storybook dev -p 6006",
+    "storybook": "storybook dev -p 6004",
     "build-storybook": "storybook build",
-    "test": "vitest",
-    "test:browser": "vitest run --config vitest.browser.config.ts",
-    "lint": "eslint ."
+    "test:browser": "vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
     "@astrojs/alpinejs": "0.5.0",
+    "@astrojs/node": "^9.0.0",
     "@astrojs/preact": "5.0.0",
     "@astrojs/react": "5.0.0",
     "@astrojs/solid-js": "6.0.0",
@@ -33,6 +31,7 @@
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.0.0",
+    "@playwright/test": "^1.49.0",
     "@storybook-astro/framework": "workspace:*",
     "@storybook/addon-docs": "10.2.7",
     "@storybook/addon-vitest": "^10.2.7",
@@ -40,14 +39,7 @@
     "@storybook/react-vite": "10.2.7",
     "@storybook/svelte": "^10.2.7",
     "@storybook/vue3": "^10.2.7",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@types/prop-types": "^15.7.14",
-    "@playwright/test": "^1.49.0",
     "@vitest/browser": "^4.0.18",
-    "@vitest/ui": "^4.0.18",
-    "happy-dom": "^17.4.4",
-    "msw": "^2.12.10",
     "prop-types": "^15.8.1",
     "solid-js": "^1.9.10",
     "storybook": "10.2.7",

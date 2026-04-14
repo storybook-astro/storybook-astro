@@ -31,21 +31,31 @@ cd storybook-astro</code></pre>
         <pre><code>yarn install</code></pre>
       </li>
       <li>
-        Start both Storybook testing instances and the website simultaneously:
+        Start all demo instances and the website simultaneously:
         <pre><code>yarn dev</code></pre>
-        This runs the Astro 6 demo (port 6006), the Astro 5 demo (port 6007), and the marketing website in parallel.
+        This runs all Storybook demo instances and the marketing website in parallel.
         To start a single Storybook instance instead:
         <pre><code>yarn workspace @storybook-astro/integration-astro6 storybook</code></pre>
       </li>
     </ol>
 
     <h3>Running Tests</h3>
-    <p>Run the full test suite before submitting a PR:</p>
+    <p>Run the SSR unit tests before submitting a PR:</p>
     <pre><code>yarn test</code></pre>
     <p>
-      All 17 test suites (36 tests) should pass, covering Astro, React, Vue, Svelte,
-      Preact, Solid, and Alpine.js components.
+      This covers Astro, React, Vue, Svelte, Preact, Solid, and Alpine.js components
+      via server-side rendering through the Astro Container API.
     </p>
+    <p>
+      For changes touching stories, components, or the rendering pipeline, also run the
+      browser interaction tests. These use Playwright to verify real JS interactivity
+      (client scripts, DOM events) in both static and server Astro output modes:
+    </p>
+    <pre><code># First time only — installs Chromium
+npx playwright install --with-deps chromium
+
+yarn workspace @storybook-astro/integration-astro6 test:browser
+yarn workspace @storybook-astro/integration-astro5 test:browser</code></pre>
   </section>
 
   <section>
