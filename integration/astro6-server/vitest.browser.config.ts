@@ -11,7 +11,7 @@ export default defineConfig({
     name: 'astro6-server-browser',
     browser: {
       enabled: true,
-      provider: playwright,
+      provider: playwright(),
       instances: [{ browser: 'chromium' }],
       headless: true,
     },
