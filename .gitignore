@@ -1,6 +1,7 @@
 # build and test output
 dist/
 coverage/
+test-results/
 
 # generated types
 .astro/
