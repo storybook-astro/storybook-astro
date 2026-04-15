@@ -3639,6 +3639,7 @@ __metadata:
     "@types/react": "npm:^18.3.20"
     "@types/react-dom": "npm:^18.3.6"
     "@vitest/browser": "npm:^4.0.18"
+    "@vitest/browser-playwright": "npm:^4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:5.17.2"
     preact: "npm:^10.28.1"
@@ -3683,6 +3684,7 @@ __metadata:
     "@types/react": "npm:^18.3.20"
     "@types/react-dom": "npm:^18.3.6"
     "@vitest/browser": "npm:^4.0.18"
+    "@vitest/browser-playwright": "npm:^4.0.18"
     "@vitest/ui": "npm:^4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:5.17.2"
@@ -3727,6 +3729,7 @@ __metadata:
     "@types/react": "npm:^18.3.20"
     "@types/react-dom": "npm:^18.3.6"
     "@vitest/browser": "npm:^4.0.18"
+    "@vitest/browser-playwright": "npm:^4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:6.0.3"
     preact: "npm:^10.28.1"
@@ -3770,6 +3773,7 @@ __metadata:
     "@types/react": "npm:^18.3.20"
     "@types/react-dom": "npm:^18.3.6"
     "@vitest/browser": "npm:^4.0.18"
+    "@vitest/browser-playwright": "npm:^4.0.18"
     "@vitest/ui": "npm:^4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:6.0.3"
@@ -4789,7 +4793,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vitest/browser@npm:^4.0.18":
+"@vitest/browser-playwright@npm:^4.0.18":
+  version: 4.1.4
+  resolution: "@vitest/browser-playwright@npm:4.1.4"
+  dependencies:
+    "@vitest/browser": "npm:4.1.4"
+    "@vitest/mocker": "npm:4.1.4"
+    tinyrainbow: "npm:^3.1.0"
+  peerDependencies:
+    playwright: "*"
+    vitest: 4.1.4
+  peerDependenciesMeta:
+    playwright:
+      optional: false
+  checksum: 10c0/3f2d29631de796d041d43334552b13c2adf3e5ab04b9a60ba28e666b3b4a6628cc57e7a8b4949f4ed4a536a796908079297d9d33b4e90f5b13e2abb45f419c22
+  languageName: node
+  linkType: hard
+
+"@vitest/browser@npm:4.1.4, @vitest/browser@npm:^4.0.18":
   version: 4.1.4
   resolution: "@vitest/browser@npm:4.1.4"
   dependencies:
