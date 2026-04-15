@@ -3623,7 +3623,6 @@ __metadata:
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.2.7"
-    "@storybook/addon-vitest": "npm:^10.2.7"
     "@storybook/preact-vite": "npm:10.2.7"
     "@storybook/react-vite": "npm:10.2.7"
     "@storybook/svelte": "npm:^10.2.7"
@@ -3631,8 +3630,6 @@ __metadata:
     "@types/alpinejs": "npm:^3.13.11"
     "@types/react": "npm:^18.3.20"
     "@types/react-dom": "npm:^18.3.6"
-    "@vitest/browser": "npm:4.0.18"
-    "@vitest/browser-playwright": "npm:4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:5.17.2"
     preact: "npm:^10.28.1"
@@ -3664,7 +3661,6 @@ __metadata:
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.2.7"
-    "@storybook/addon-vitest": "npm:^10.2.7"
     "@storybook/preact-vite": "npm:10.2.7"
     "@storybook/react-vite": "npm:10.2.7"
     "@storybook/svelte": "npm:^10.2.7"
@@ -3676,8 +3672,6 @@ __metadata:
     "@types/prop-types": "npm:^15.7.14"
     "@types/react": "npm:^18.3.20"
     "@types/react-dom": "npm:^18.3.6"
-    "@vitest/browser": "npm:4.0.18"
-    "@vitest/browser-playwright": "npm:4.0.18"
     "@vitest/ui": "npm:^4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:5.17.2"
@@ -3713,7 +3707,6 @@ __metadata:
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.2.7"
-    "@storybook/addon-vitest": "npm:^10.2.7"
     "@storybook/preact-vite": "npm:10.2.7"
     "@storybook/react-vite": "npm:10.2.7"
     "@storybook/svelte": "npm:^10.2.7"
@@ -3721,8 +3714,6 @@ __metadata:
     "@types/alpinejs": "npm:^3.13.11"
     "@types/react": "npm:^18.3.20"
     "@types/react-dom": "npm:^18.3.6"
-    "@vitest/browser": "npm:4.0.18"
-    "@vitest/browser-playwright": "npm:4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:6.0.3"
     preact: "npm:^10.28.1"
@@ -3754,7 +3745,6 @@ __metadata:
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.2.7"
-    "@storybook/addon-vitest": "npm:^10.2.7"
     "@storybook/preact-vite": "npm:10.2.7"
     "@storybook/react-vite": "npm:10.2.7"
     "@storybook/svelte": "npm:^10.2.7"
@@ -3765,8 +3755,6 @@ __metadata:
     "@types/prop-types": "npm:^15.7.14"
     "@types/react": "npm:^18.3.20"
     "@types/react-dom": "npm:^18.3.6"
-    "@vitest/browser": "npm:4.0.18"
-    "@vitest/browser-playwright": "npm:4.0.18"
     "@vitest/ui": "npm:^4.0.18"
     alpinejs: "npm:^3.14.9"
     astro: "npm:6.0.3"
@@ -4783,41 +4771,6 @@ __metadata:
     vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0
     vue: ^3.2.25
   checksum: 10c0/38ba89e52cb663b0da8a0c202f315e92e47874bc1347ce5591c8e982342c33ad046389f174237bcf7c215fbad08c927c2c582d36ae76f9ababe7763a388a5b63
-  languageName: node
-  linkType: hard
-
-"@vitest/browser-playwright@npm:4.0.18":
-  version: 4.0.18
-  resolution: "@vitest/browser-playwright@npm:4.0.18"
-  dependencies:
-    "@vitest/browser": "npm:4.0.18"
-    "@vitest/mocker": "npm:4.0.18"
-    tinyrainbow: "npm:^3.0.3"
-  peerDependencies:
-    playwright: "*"
-    vitest: 4.0.18
-  peerDependenciesMeta:
-    playwright:
-      optional: false
-  checksum: 10c0/505fafe6f957d020b74914ed328de57cba0be65ff82810da85297523776a0d7389669660e58734a416fc09ce262632b4d2cf257a9e8ab1115b695d133bba7bb5
-  languageName: node
-  linkType: hard
-
-"@vitest/browser@npm:4.0.18":
-  version: 4.0.18
-  resolution: "@vitest/browser@npm:4.0.18"
-  dependencies:
-    "@vitest/mocker": "npm:4.0.18"
-    "@vitest/utils": "npm:4.0.18"
-    magic-string: "npm:^0.30.21"
-    pixelmatch: "npm:7.1.0"
-    pngjs: "npm:^7.0.0"
-    sirv: "npm:^3.0.2"
-    tinyrainbow: "npm:^3.0.3"
-    ws: "npm:^8.18.3"
-  peerDependencies:
-    vitest: 4.0.18
-  checksum: 10c0/6b7bda92fa2e8c68de3e51c97322161484c3f1dd7a7417cdeabb4f1d98eab7dba96c156ac4282ea537c58d55cc0e5959abb4b9d90d3823b3cc3071c3f7460633
   languageName: node
   linkType: hard
 
@@ -10924,17 +10877,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pixelmatch@npm:7.1.0":
-  version: 7.1.0
-  resolution: "pixelmatch@npm:7.1.0"
-  dependencies:
-    pngjs: "npm:^7.0.0"
-  bin:
-    pixelmatch: bin/pixelmatch
-  checksum: 10c0/ff069f92edaa841ac9b58b0ab74e1afa1f3b5e770eea0218c96bac1da4e752f5f6b79a0f9c4ba6b02afb955d39b8c78bcc3cc884f8122b67a1f2efbbccbe1a73
-  languageName: node
-  linkType: hard
-
 "pkg-types@npm:^1.0.3, pkg-types@npm:^1.3.0":
   version: 1.3.1
   resolution: "pkg-types@npm:1.3.1"
@@ -10967,13 +10909,6 @@ __metadata:
   bin:
     playwright: cli.js
   checksum: 10c0/dfe38396e616e5c4f98825ce90037bb96e477c5a2bd9258a24854f8ce72a8a41427b19098863866f85aa0216e70287dd537c4438d761aca93995e31ae099c533
-  languageName: node
-  linkType: hard
-
-"pngjs@npm:^7.0.0":
-  version: 7.0.0
-  resolution: "pngjs@npm:7.0.0"
-  checksum: 10c0/0d4c7a0fd476a9c33df7d0a2a73e1d56537628a668841f6995c2bca070cf30819f9254a64363266bc14ef2fee47659dd3b4f2b18eec7ab65143015139f497b38
   languageName: node
   linkType: hard
 
@@ -14300,21 +14235,6 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: 10c0/eac918213de265ef7cb3d4ca348b891a51a520d839aa51cdb8ca93d4fa7ff9f6ccb339ccee89e4075324097f0a55157c89fa3f7147bde9d8d7e90335dc087b53
-  languageName: node
-  linkType: hard
-
-"ws@npm:^8.18.3":
-  version: 8.20.0
-  resolution: "ws@npm:8.20.0"
-  peerDependencies:
-    bufferutil: ^4.0.1
-    utf-8-validate: ">=5.0.2"
-  peerDependenciesMeta:
-    bufferutil:
-      optional: true
-    utf-8-validate:
-      optional: true
-  checksum: 10c0/956ac5f11738c914089b65878b9223692ace77337ba55379ae68e1ecbeae9b47a0c6eb9403688f609999a58c80d83d99865fe0029b229d308b08c1ef93d4ea14
   languageName: node
   linkType: hard
 

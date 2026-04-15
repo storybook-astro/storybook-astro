@@ -7,7 +7,7 @@
     "dev": "yarn storybook",
     "storybook": "storybook dev -p 6005",
     "build-storybook": "storybook build",
-    "test:browser": "vitest run --config vitest.browser.config.ts"
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@astrojs/alpinejs": "^0.4.5",
@@ -34,13 +34,10 @@
     "@playwright/test": "^1.49.0",
     "@storybook-astro/framework": "workspace:*",
     "@storybook/addon-docs": "10.2.7",
-    "@storybook/addon-vitest": "^10.2.7",
     "@storybook/preact-vite": "10.2.7",
     "@storybook/react-vite": "10.2.7",
     "@storybook/svelte": "^10.2.7",
     "@storybook/vue3": "^10.2.7",
-    "@vitest/browser": "4.0.18",
-    "@vitest/browser-playwright": "4.0.18",
     "prop-types": "^15.8.1",
     "solid-js": "^1.9.10",
     "storybook": "10.2.7",
