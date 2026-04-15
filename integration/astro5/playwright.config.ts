@@ -3,12 +3,13 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   use: {
-    baseURL: 'http://localhost:6910',
+    baseURL: 'http://localhost:6007',
   },
   webServer: {
-    command: 'npx serve storybook-static -l 6910',
-    url: 'http://localhost:6910',
+    command: 'yarn storybook',
+    url: 'http://localhost:6007',
     reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
   },
   projects: [
     {
