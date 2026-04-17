@@ -110,3 +110,20 @@ mobile-starlight-toc .caret {
 .sidebar-pane {
   border-color: #e1e4e8;
 }
+
+/* ── Pagefind search dialog: force light-theme colors ── */
+/*
+ * The site always uses a light body. When the OS is in dark mode, Starlight
+ * applies [data-theme="dark"] which makes --sl-color-text and --sl-color-gray-*
+ * light-colored. Pagefind UI inherits those via --pagefind-ui-primary/text, so
+ * result titles (.pagefind-ui__result-link) become unreadable on the white dialog
+ * background. Override with hardcoded light-theme values to stay readable regardless
+ * of OS color scheme.
+ */
+:root #starlight__search {
+  --pagefind-ui-primary: #24292f;
+  --pagefind-ui-text: #24292f;
+  --pagefind-ui-background: #ffffff;
+  --pagefind-ui-border: #e1e4e8;
+  --pagefind-ui-tag: #eef0f2;
+}
