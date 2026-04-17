@@ -123,7 +123,7 @@ mobile-starlight-toc .caret {
 :root #starlight__search {
   --pagefind-ui-primary: #24292f;
   --pagefind-ui-text: #24292f;
-  --pagefind-ui-background: #ffffff;
   --pagefind-ui-border: #e1e4e8;
+  --pagefind-ui-background: #ffffff;
   --pagefind-ui-tag: #eef0f2;
 }
