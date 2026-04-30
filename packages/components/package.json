@@ -31,7 +31,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vitest/coverage-v8": "4.0.18",
-    "astro": "5.17.2",
+    "astro": "6.2.1",
     "happy-dom": "^17.4.4",
     "jsdom": "^28.1.0",
     "storybook": "10.2.7",

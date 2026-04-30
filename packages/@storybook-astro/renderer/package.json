@@ -54,7 +54,7 @@
     "prepublishOnly": "tsup"
   },
   "devDependencies": {
-    "astro": "^5.6.1 || ^6.1.1",
+    "astro": "^6.2.0",
     "tsup": "^8.5.1"
   },
   "peerDependencies": {

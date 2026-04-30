@@ -405,7 +405,7 @@ These are the key adaptations for Astro 6. If Astro's APIs change in future rele
 
 1. **`vitePluginAstroComponentMarker.ts`** — Detects the Astro 6 client-side stub pattern and replaces it. If Astro changes the stub text or reintroduces `isAstroComponentFactory`, this plugin may need updating or removal. **`experimental.rustCompiler` risk**: the Rust compiler (added in 6.0) may emit a different stub text than the JS compiler; if a user enables this flag and Astro components render blank, verify the stub string in this plugin matches what the Rust compiler produces.
 2. **`patchCreateAstroCompat()` in `middleware.ts`** — Bridges the 3-arg (compiler v2) and 2-arg (compiler v3/Astro 6) `createAstro` calling conventions. Can be removed once the compiler is updated to match the runtime.
-3. **`vitePluginAstroFontsFallback.ts`** — Stubs font virtual modules. Can be removed if Astro's font plugin properly handles the Storybook SSR context.
+3. **`vitePluginAstroFontsFallback.ts`** — Stubs font virtual modules. Can be removed if Astro's font plugin properly handles the Storybook SSR context. **Astro 6.2 added** `virtual:astro:assets/fonts/runtime/font-file-url-resolver` (exports `runtimeFontFileUrlResolver` for `experimental_getFontFileURL`); the plugin stubs this too. If Astro adds more font virtual modules, add them here.
 4. **Framework delegation order in `render.tsx`** — `renderToCanvas()` delegates to framework renderers BEFORE calling `storyFn()`. Reordering this can break reactive framework rendering.
 
 ## Future Considerations
