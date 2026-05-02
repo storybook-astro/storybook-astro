@@ -110,3 +110,28 @@ mobile-starlight-toc .caret {
 .sidebar-pane {
   border-color: #e1e4e8;
 }
+
+/* ── Pagefind search dialog: force light-theme colors ── */
+/*
+ * The search dialog lives inside header.header, whose dark-header rules
+ * (header.header :is(a, button, label) { color: #f0f6fc }) set light text
+ * on every link and button. Because the search drawer has a white/light
+ * background, we must reset those colors to dark so titles, links, and
+ * buttons remain readable.
+ */
+:root #starlight__search {
+  --pagefind-ui-primary: #24292f;
+  --pagefind-ui-text: #24292f;
+  --pagefind-ui-border: #e1e4e8;
+  --pagefind-ui-background: #ffffff;
+  --pagefind-ui-tag: #eef0f2;
+}
+
+/* Override the header's light-text rule for everything inside the search drawer */
+header.header #starlight__search :is(a, button, label) {
+  color: #24292f;
+}
+
+header.header #starlight__search a:hover {
+  color: #7c3aed;
+}
