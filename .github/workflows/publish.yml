@@ -47,17 +47,21 @@ jobs:
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
-      - name: Publish renderer
-        run: yarn workspace @storybook-astro/renderer npm publish --tag beta --access public
+      - name: Pack packages
+        run: |
+          yarn workspace @storybook-astro/renderer pack --out /tmp/renderer.tgz
+          yarn workspace @storybook-astro/framework pack --out /tmp/framework.tgz
+
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
         env:
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish renderer
+        run: npm publish /tmp/renderer.tgz --tag beta --access public
 
       - name: Publish framework
-        run: yarn workspace @storybook-astro/framework npm publish --tag beta --access public
-        env:
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
+        run: npm publish /tmp/framework.tgz --tag beta --access public
 
       - name: Promote to latest
         run: |
