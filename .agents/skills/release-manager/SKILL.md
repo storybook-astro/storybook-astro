@@ -109,6 +109,8 @@ Sections:
 - `Removed` — Removed features
 - `Security` — Security fixes
 
+**Website Changelog**: The [website changelog page](/reference/changelog/) mirrors the content from the root CHANGELOG.md file. After updating CHANGELOG.md in step 4, also update `apps/website/src/content/docs/reference/changelog.md` with the same changes. This keeps the website changelog in sync.
+
 **5. Commit and push to release branch**
 
 ```bash
@@ -404,6 +406,7 @@ Use this before releasing:
 - [ ] Release branch created: `git checkout -b release/X.Y.Z-beta.N`
 - [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version
 - [ ] CHANGELOG.md updated with new version section and entries
+- [ ] Website changelog at `apps/website/src/content/docs/reference/changelog.md` updated with same version section and entries
 - [ ] `yarn lint` passes
 - [ ] `yarn test` passes (both Astro 5 and 6)
 - [ ] `yarn build:packages` succeeds (clean build — `rm -rf dist` first)
@@ -421,6 +424,7 @@ Use this before releasing:
 
 - `docs/RELEASING.md` - Full release walkthrough (standard, hotfix, website-only)
 - `CHANGELOG.md` - Release history and change entries
+- `apps/website/src/content/docs/reference/changelog.md` - Website changelog reference page (links to GitHub CHANGELOG.md)
 - `packages/@storybook-astro/framework/package.json` - Framework package config
 - `packages/@storybook-astro/renderer/package.json` - Renderer package config
 - `.github/workflows/publish.yml` - Automated publish workflow
