@@ -7,6 +7,7 @@ import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.t
 import { vitePluginAstroBuildServer } from './vitePluginAstroBuildServer.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
+import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 
@@ -52,6 +53,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vitePluginAstroComponentMarker() as any,
     vitePluginAstroIntegrationOptsFallback(),
+    vitePluginAstroToolbarFallback(),
     vitePluginAstroVueFallback(),
   );
 
@@ -127,7 +129,8 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
     'virtual:@astrojs/vue/app',
     'virtual:astro:vue-app',
     'astro:react:opts',
-    'astro:preact:opts'
+    'astro:preact:opts',
+    'astro:toolbar:internal'
   ];
 
   // Vite ≤7 (esbuild-based optimizer)
