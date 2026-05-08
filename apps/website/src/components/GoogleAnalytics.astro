@@ -13,8 +13,13 @@ const GA_ID = 'G-ZSG21NBNEC';
   gtag('js', new Date());
   gtag('config', GA_ID);
 
-  // Support for Astro View Transitions (if enabled)
+  // Track pageviews on initial load and Astro View Transitions
   document.addEventListener('astro:page-load', () => {
     gtag('event', 'page_view');
   });
+  
+  // Also fire pageview for initial load in case View Transitions aren't enabled
+  if (document.readyState !== 'loading') {
+    gtag('event', 'page_view');
+  }
 </script>
