@@ -9,6 +9,24 @@ export default defineConfig({
     preact(),
     starlight({
       title: 'Storybook Astro',
+      head: [
+        {
+          tag: 'script',
+          attrs: {
+            src: 'https://www.googletagmanager.com/gtag/js?id=G-ZSG21NBNEC',
+            async: true,
+          },
+        },
+        {
+          tag: 'script',
+          content: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-ZSG21NBNEC');
+          `,
+        },
+      ],
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/storybook-astro/storybook-astro' },
         { icon: 'external', label: 'Live Demo', href: 'https://demo.storybook-astro.org' },
