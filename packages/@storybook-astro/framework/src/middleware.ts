@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { Integration } from './integrations/index.ts';
+import { installPassthroughImageService } from './lib/passthrough-image-service.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { resolveStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
@@ -39,51 +40,9 @@ type HandlerFactoryOptions = {
 };
 
 export async function handlerFactory(_integrations: Integration[], options?: HandlerFactoryOptions) {
-  // Inject a passthrough image service before any component renders.
-  //
-  // AstroContainer has no image service configuration API, and the default
-  // getConfiguredImageService() tries to dynamically import "virtual:image-service"
-  // which fails in astro6/Vite 7's module runner. Even when it succeeds (astro5),
-  // the noop service still routes through /_image?href=... URLs that the Storybook
-  // dev server cannot serve.
-  //
-  // Pre-populating globalThis.astroAsset.imageService bypasses the dynamic import
-  // entirely. Our service returns the direct /@fs/... Vite URL from the ImageMetadata
-  // object, which Vite can serve as a static asset in the browser.
-  if (!globalThis.astroAsset) {
-    (globalThis as Record<string, unknown>).astroAsset = {};
-  }
-  (globalThis.astroAsset as Record<string, unknown>).imageService = {
-    propertiesToHash: ['src'],
-    validateOptions(options: Record<string, unknown>) {
-      return options;
-    },
-    getURL(options: { src: unknown }) {
-      const src = options.src;
-
-      if (src != null && typeof src === 'object' && 'src' in src && typeof (src as Record<string, unknown>).src === 'string') {
-        // ImageMetadata object — return the /@fs/... Vite URL directly
-        return (src as Record<string, unknown>).src as string;
-      }
-
-      return typeof src === 'string' ? src : '';
-    },
-    getHTMLAttributes(options: Record<string, unknown>) {
-      const { src, width, height, format, quality, densities, widths, formats, layout, priority, fit, position, background, ...attrs } = options;
-      const srcObj = src != null && typeof src === 'object' ? src as Record<string, unknown> : null;
-
-      return {
-        ...attrs,
-        width: width ?? srcObj?.width,
-        height: height ?? srcObj?.height,
-        loading: (attrs.loading as string | undefined) ?? 'lazy',
-        decoding: (attrs.decoding as string | undefined) ?? 'async',
-      };
-    },
-    getSrcSet() {
-      return [];
-    }
-  };
+  // Inject a passthrough image service before any component renders. See
+  // `lib/passthrough-image-service.ts` for why this is necessary.
+  installPassthroughImageService();
 
   const container = await AstroContainer.create({
     // Somewhat hacky way to force client-side Storybook's Vite to resolve modules properly

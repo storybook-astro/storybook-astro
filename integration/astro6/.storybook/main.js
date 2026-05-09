@@ -22,7 +22,9 @@ const config = {
   framework: {
     name: '@storybook-astro/framework',
     options: {
+      renderMode: 'static',
       storyRules: './.storybook/story-rules.ts',
+      componentRoots: ['../../packages/components/src'],
       integrations: [
         react({
           include: ['**/react/**']

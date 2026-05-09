@@ -26,7 +26,9 @@ Storybook Astro follows [Semantic Versioning](https://semver.org/):
 - **Minor** (`0.x.0`) — New features, backward-compatible
 - **Patch** (`0.0.x`) — Bug fixes, backward-compatible
 
-**Beta format**: `0.x.y-beta.z` (e.g., `0.1.0-beta.14`)
+**Beta format**: `0.x.y-beta.z` (e.g., `0.1.0-beta.14`) — promoted to `latest` automatically
+
+**Test/preview format**: `0.x.y-<label>.z` where `<label>` is one of `next`, `alpha`, `canary`, `rc`, or `test` (e.g., `0.1.0-next.1`, `0.1.0-canary.3`) — published under the matching dist-tag only, never promoted to `latest`
 
 Only packages under `packages/@storybook-astro/*` are versioned:
 - `@storybook-astro/framework`
@@ -194,6 +196,89 @@ If there are conflicts or just to keep branches in sync:
 git checkout develop
 git merge main
 git push origin develop
+```
+
+## Test/Preview Release Workflow
+
+Use this when you want to publish a version for testing or previewing unreleased changes without affecting what `npm install @storybook-astro/framework` gives to end users.
+
+The publish workflow detects the pre-release label in the version string and uses it as the dist-tag. Any label other than `beta` skips the "Promote to latest" step.
+
+| Version format | Dist-tag | Promoted to `latest`? |
+|---|---|---|
+| `0.1.0-beta.14` | `beta` | Yes |
+| `0.1.0-next.1` | `next` | No |
+| `0.1.0-alpha.1` | `alpha` | No |
+| `0.1.0-canary.1` | `canary` | No |
+| `0.1.0-rc.1` | `rc` | No |
+
+**When to use `next`**: Validating that a future `beta` release works before committing to it.
+
+**When to use `canary`**: Publishing work-in-progress builds for early feedback.
+
+**When to use `rc`**: Release candidates that are feature-complete and in final testing.
+
+### Steps
+
+**1. Bump versions to a test/preview identifier**
+
+In both `packages/@storybook-astro/*/package.json`:
+
+```json
+{
+  "version": "0.1.0-next.1"
+}
+```
+
+**2. Update CHANGELOG.md**
+
+Add an entry (same format as a normal release) under a section like `[0.1.0-next.1]`.
+
+**3. Commit and push**
+
+Do **not** add a CHANGELOG.md entry — test/preview releases are transient and the changes will be captured when the real beta ships.
+
+```bash
+git add packages/*/package.json
+git commit -m "chore: release v0.1.0-next.1 (test)"
+git push origin <branch>
+```
+
+**4. Tag on `main` and push**
+
+Same convention as a standard release — tag on `main` only:
+
+```bash
+git checkout main
+git merge --no-ff <branch>
+git tag v0.1.0-next.1
+git push origin main
+git push origin v0.1.0-next.1
+```
+
+**5. Verify it did NOT become latest**
+
+```bash
+npm dist-tag ls @storybook-astro/framework
+# Should show:  next: 0.1.0-next.1
+# Should NOT show:  latest: 0.1.0-next.1
+```
+
+**6. Consumers install via dist-tag**
+
+```bash
+npm install @storybook-astro/framework@next
+# or
+npm install @storybook-astro/framework@canary
+```
+
+### Cleanup After Testing
+
+Once the preview is no longer needed, remove the dist-tag to keep npm tidy:
+
+```bash
+npm dist-tag rm @storybook-astro/framework next
+npm dist-tag rm @storybook-astro/renderer next
 ```
 
 ## Hotfix Workflow
@@ -400,7 +485,7 @@ git push origin v0.1.0-beta.14
 
 ## Checklist
 
-Use this before releasing:
+### Standard release
 
 - [ ] All features/fixes on `develop` branch
 - [ ] Release branch created: `git checkout -b release/X.Y.Z-beta.N`
@@ -419,6 +504,16 @@ Use this before releasing:
 - [ ] Publish workflow completes successfully (includes automated smoke test)
 - [ ] `npm view @storybook-astro/framework versions --json` shows new version
 - [ ] `npm dist-tag ls @storybook-astro/framework` shows `latest` pointing to new version
+
+### Test/preview release
+
+- [ ] Version uses a non-`beta` pre-release label: `next`, `alpha`, `canary`, `rc`, or `test`
+- [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version
+- [ ] Changes committed and pushed to branch (no CHANGELOG.md update)
+- [ ] Branch merged into `main`
+- [ ] Tag created on `main` and pushed: `git tag vX.Y.Z-<label>.N && git push origin vX.Y.Z-<label>.N`
+- [ ] Publish workflow completes successfully
+- [ ] `npm dist-tag ls @storybook-astro/framework` shows `<label>: X.Y.Z-<label>.N` but **not** `latest`
 
 ## References
 

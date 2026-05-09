@@ -11,8 +11,18 @@ import { definePreview as definePreviewBase, type PreviewAddon, type InferTypes,
 import type { ProjectAnnotations } from 'storybook/internal/types';
 import type { AstroRenderer } from './portable-stories.ts';
 
-/** Preview configuration type for `.storybook/preview.ts` in Astro projects. */
-export type Preview = ProjectAnnotations<AstroRenderer>;
+/**
+ * Preview configuration type for `.storybook/preview.ts` in Astro projects.
+ * Reflects the full type returned by `definePreview`, including addon type extensions.
+ * Use this to annotate your preview module when needed:
+ *
+ * ```ts
+ * import type { Preview } from '@storybook-astro/framework';
+ * const preview: Preview = { ... };
+ * export default preview;
+ * ```
+ */
+export type Preview<Addons extends PreviewAddon<never>[] = []> = CsfPreview<AstroRenderer & InferTypes<Addons>>;
 
 // Export portable stories functionality
 export {

@@ -9,6 +9,7 @@ import solid from 'vite-plugin-solid';
 import alpinejs from '@astrojs/alpinejs';
 import { alpinejs as alpineIntegration } from '@storybook-astro/framework/integrations';
 import { registerTestingIntegrationsForRoot } from '@storybook-astro/framework/testing/integration-config';
+import { vitePluginAstroComponentMarker } from '@storybook-astro/framework/vitest';
 
 const root = import.meta.dirname;
 
@@ -24,6 +25,8 @@ const globalSetupPath = resolve(
 const vitestConfig = defineConfig({
   mode: 'test',
   plugins: [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vitePluginAstroComponentMarker() as any,
     preact({
       include: ['**/preact/**'],
       reactAliasesEnabled: false,
@@ -35,7 +38,7 @@ const vitestConfig = defineConfig({
     vue(),
     svelte(),
     react({
-      include: ['**/react/**']
+      include: [/[/\\]react[/\\]/]
     })
   ],
   test: {
