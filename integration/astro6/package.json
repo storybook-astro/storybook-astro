@@ -10,6 +10,7 @@
     "build-storybook": "storybook build",
     "test": "vitest",
     "test:browser": "playwright test",
+    "test:static": "playwright test --config playwright.static.config.ts",
     "lint": "eslint ."
   },
   "dependencies": {
