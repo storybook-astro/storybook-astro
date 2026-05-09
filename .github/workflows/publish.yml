@@ -47,19 +47,35 @@ jobs:
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
+      - name: Detect release channel
+        id: channel
+        run: |
+          VERSION=$(node -p "require('./packages/@storybook-astro/renderer/package.json').version")
+          # Extract pre-release label (e.g. "beta" from "0.1.0-beta.14", "next" from "0.1.0-next.1")
+          PRERELEASE=$(node -e "const v='$VERSION',m=v.match(/-([a-zA-Z]+)[.\d]/);process.stdout.write(m?m[1]:'')")
+          # Promote to latest only for beta and stable releases; test/preview labels (next, alpha, canary, rc, test) stay on their own dist-tag
+          if [ -z "$PRERELEASE" ] || [ "$PRERELEASE" = "beta" ]; then
+            echo "dist_tag=beta" >> "$GITHUB_OUTPUT"
+            echo "promote_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_tag=$PRERELEASE" >> "$GITHUB_OUTPUT"
+            echo "promote_latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish renderer
-        run: yarn workspace @storybook-astro/renderer npm publish --tag beta --access public
+        run: yarn workspace @storybook-astro/renderer npm publish --tag ${{ steps.channel.outputs.dist_tag }} --access public
         env:
           YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
 
       - name: Publish framework
-        run: yarn workspace @storybook-astro/framework npm publish --tag beta --access public
+        run: yarn workspace @storybook-astro/framework npm publish --tag ${{ steps.channel.outputs.dist_tag }} --access public
         env:
           YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           YARN_NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
 
       - name: Promote to latest
+        if: steps.channel.outputs.promote_latest == 'true'
         run: |
           yarn npm tag add @storybook-astro/renderer@$(node -p "require('./packages/@storybook-astro/renderer/package.json').version") latest
           yarn npm tag add @storybook-astro/framework@$(node -p "require('./packages/@storybook-astro/framework/package.json').version") latest
