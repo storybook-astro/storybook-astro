@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import type { Dirent } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { createServer, mergeConfig, type Plugin, type Rollup } from 'vite';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
@@ -123,8 +123,16 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
         staticEntrypointRefs.set(specifier, fileReferenceId);
       });
 
-      const srcRoot = resolve(resolveFrom, 'src/components');
-      const specifiers = await collectHydratableSourceModules(srcRoot);
+      const componentRootPaths = [
+        resolve(resolveFrom, 'src/components'),
+        ...(options.renderMode === 'static' && options.componentRoots
+          ? options.componentRoots.map((root) => resolve(resolveFrom, root))
+          : [])
+      ];
+      const specifierArrays = await Promise.all(
+        componentRootPaths.map((root) => collectHydratableSourceModules(root))
+      );
+      const specifiers = specifierArrays.flat();
 
       specifiers.forEach((specifier) => {
         const fileReferenceId = this.emitFile({
@@ -136,7 +144,7 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
       });
     },
 
-    async writeBundle(this: Rollup.PluginContext) {
+    async writeBundle(this: Rollup.PluginContext, _outputOptions: Rollup.NormalizedOutputOptions, bundle: Rollup.OutputBundle) {
       const staticModuleMap = buildStaticModuleMap(
         this,
         staticEntrypointRefs,
@@ -158,7 +166,8 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
         storyRulesConfigFilePath,
         staticModuleMap,
         trackedSpecifiers,
-        resolveFrom
+        resolveFrom,
+        bundle
       });
 
       await writePrerenderedStoriesFile(outDir, prerenderedStories);
@@ -179,6 +188,7 @@ async function prerenderStories(options: {
   staticModuleMap: Record<string, string>;
   trackedSpecifiers: Set<string>;
   resolveFrom: string;
+  bundle: Rollup.OutputBundle;
 }) {
   const sanitizationOptions = resolveSanitizationOptions(options.sanitization ?? undefined);
   const resolveClientModule = createClientModuleResolver(
@@ -191,6 +201,7 @@ async function prerenderStories(options: {
     options.resolveFrom
   );
   const rulesConfigModule = await loadRulesConfigModule(viteServer, options.storyRulesConfigFilePath);
+  const assetPathMap = buildAssetPathMap(options.bundle);
 
   // Inject a passthrough image service before the container renders any
   // components. The `image: { service: passthroughImageService() }` config
@@ -202,7 +213,17 @@ async function prerenderStories(options: {
   installPassthroughImageService();
 
   try {
-    const container = await AstroContainer.create({
+    // Load AstroContainer through the SSR module graph so that internal
+    // classes (SlotString, HTMLString) share the same module instance as the
+    // Astro components loaded via ssrLoadModule below. Cross-module instanceof
+    // checks fail when AstroContainer is imported statically (Node.js context)
+    // and components are loaded via Vite SSR (separate module graph), which
+    // causes slot HTML to be escaped character-by-character instead of being
+    // passed through as raw HTML.
+    const containerModule = await viteServer.ssrLoadModule('astro/container');
+    const AstroContainerRuntime = containerModule.experimental_AstroContainer as typeof AstroContainer;
+
+    const container = await AstroContainerRuntime.create({
       resolve: async (specifier) => {
         const mockedModule = resolveStoryModuleMock(specifier);
 
@@ -280,7 +301,7 @@ async function prerenderStories(options: {
       });
 
       if (html !== undefined) {
-        output[story.id] = html;
+        output[story.id] = rewriteAssetPaths(html, assetPathMap);
       }
     }
 
@@ -557,6 +578,46 @@ function isClientEntrypoint(specifier: string) {
 
 function toPublicPath(fileName: string) {
   return `./${fileName}`;
+}
+
+function buildAssetPathMap(bundle: Rollup.OutputBundle): Map<string, string> {
+  const map = new Map<string, string>();
+
+  for (const chunk of Object.values(bundle)) {
+    if (chunk.type !== 'asset') {
+      continue;
+    }
+
+    const asset = chunk as Rollup.OutputAsset;
+
+    if (!asset.originalFileNames || asset.originalFileNames.length === 0) {
+      continue;
+    }
+
+    for (const originalPath of asset.originalFileNames) {
+      map.set(originalPath, `/${asset.fileName}`);
+    }
+  }
+
+  return map;
+}
+
+function rewriteAssetPaths(html: string, assetPathMap: Map<string, string>): string {
+  if (assetPathMap.size === 0) {
+    return html;
+  }
+
+  // Match /@fs/ URLs in HTML attribute values, stripping any query string.
+  // Vite dev server uses /@fs//absolute/path for filesystem assets; in static
+  // builds these are emitted as /_astro/name.hash.ext output assets.
+  return html.replace(/\/@fs\/[^"'\s]+/g, (match) => {
+    const pathOnly = match.replace(/\?.*$/, '');
+    const fsPath = pathOnly.slice('/@fs'.length);
+    // Handle /@fs//abs/path (double leading slash on Unix)
+    const absolutePath = fsPath.startsWith('//') ? fsPath.slice(1) : fsPath;
+
+    return assetPathMap.get(absolutePath) ?? match;
+  });
 }
 
 async function collectHydratableSourceModules(srcRoot: string): Promise<string[]> {
