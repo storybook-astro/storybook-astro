@@ -18,7 +18,7 @@ export default defineConfig({
   },
   integrations: [
     react({
-      include: ['**/react/**']
+      include: [/[/\\]react[/\\]/]
     }),
     solid({
       include: ['**/solid/*.tsx']
