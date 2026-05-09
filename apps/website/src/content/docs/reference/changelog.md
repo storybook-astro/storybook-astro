@@ -10,7 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.1] - 2026-05-07
+## [1.2.0] - 2026-05-09
+
+### Added
+- Controls panel is now automatically disabled for Astro stories in production (static Storybook) builds
+
+### Fixed
+- Resolved broken images and escaped slot HTML in static prerender
+- Alpine.js component detection no longer incorrectly includes plain `.ts`/`.js` files in the hydratable source scan
+- Svelte and Vue component chunks now emitted directly instead of through virtual modules, improving static build compatibility
+- Prevented `vite-plugin-svelte` from processing component virtual module stubs
+- Passthrough image service now correctly injected during Astro 6 build prerender
+- React plugin `include` filter in vitest configs now uses a RegExp for compatibility with more project setups
+- `setProjectAnnotations`, `composeStory`, and `composeStories` are now generic over renderer type for improved TypeScript support
+- Widened `@vitejs/plugin-vue` peer dep range to `^5.2.3 || ^6.0.0` and `@vitejs/plugin-vue-jsx` to `^4.1.2 || ^5.0.0` — fixes install conflict when using `@astrojs/vue@6`
+
+## [1.1.1]
 
 ### Fixed
 - Stubbed `astro:toolbar:internal` virtual module in Storybook context to prevent build errors with Astro's internal toolbar module
