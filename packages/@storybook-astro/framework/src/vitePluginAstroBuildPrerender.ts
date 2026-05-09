@@ -677,7 +677,10 @@ async function collectHydratableSourceModules(srcRoot: string): Promise<string[]
 }
 
 function isHydratableSourceFile(input: string) {
-  return /\.(jsx|tsx|vue|svelte|js|ts)$/.test(input);
+  // Only framework component extensions — plain .js/.ts are utilities/data
+  // files that are not hydratable client components and must not be emitted
+  // as entry chunks (they may lack a default export, causing a build error).
+  return /\.(jsx|tsx|vue|svelte)$/.test(input);
 }
 
 function isNonHydratableSourceFile(input: string) {
