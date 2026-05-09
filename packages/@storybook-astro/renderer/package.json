@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/renderer",
-  "version": "1.1.1-canary.1",
+  "version": "1.1.1-canary.2",
   "description": "Client-side renderer for Storybook Astro framework",
   "module": "./src/preset.ts",
   "type": "module",
