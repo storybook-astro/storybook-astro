@@ -137,10 +137,16 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
       const specifiers = specifierArrays.flat();
 
       specifiers.forEach((specifier) => {
-        const fileReferenceId = this.emitFile({
-          type: 'chunk',
-          id: toComponentVirtualId(specifier)
-        });
+        // .svelte and .vue files must be emitted as direct chunks so their
+        // native Vite compile plugins process them correctly. The virtual
+        // module wrapper exposes a JS re-export stub; vite-plugin-svelte and
+        // @vitejs/plugin-vue strip the query string before checking the
+        // extension, so they still try to compile the stub as framework source.
+        const chunkId = /\.(svelte|vue)$/.test(specifier)
+          ? specifier
+          : toComponentVirtualId(specifier);
+
+        const fileReferenceId = this.emitFile({ type: 'chunk', id: chunkId });
 
         componentEntrypointRefs.set(specifier, fileReferenceId);
       });
