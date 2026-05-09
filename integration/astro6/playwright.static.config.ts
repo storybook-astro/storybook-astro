@@ -20,6 +20,7 @@ const PORT = 6008;
 
 export default defineConfig({
   testDir: './tests',
+  testMatch: '**/*-static.spec.ts',
   use: {
     baseURL: `http://localhost:${PORT}`,
   },

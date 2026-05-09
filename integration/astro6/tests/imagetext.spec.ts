@@ -10,13 +10,8 @@ test.describe('ImageText', () => {
     await expect(img).toHaveAttribute('alt', 'Astro Storybook Earth');
 
     // Image should actually load (naturalWidth > 0), not show as a broken icon.
-    // Also reject /@fs/ paths — they only work on the Vite dev server and are
-    // a sign that the static build's asset-path rewriting failed.
-    const src = await img.getAttribute('src');
-
-    expect(src).not.toContain('/@fs/');
-
-    await expect(img).toHaveJSProperty('naturalWidth', expect.any(Number));
+    // Note: /@fs/ paths are valid in the dev server — the static-build-only
+    // assertion lives in playwright.static.config.ts tests instead.
     const naturalWidth = await img.evaluate((el: HTMLImageElement) => el.naturalWidth);
 
     expect(naturalWidth).toBeGreaterThan(0);
