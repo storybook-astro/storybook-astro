@@ -98,7 +98,9 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
       }
 
       if (id.startsWith('\0virtual:astro-component-module/')) {
-        const encodedSpecifier = id.replace('\0virtual:astro-component-module/', '');
+        const withoutPrefix = id.replace('\0virtual:astro-component-module/', '');
+        // Strip the ?component-wrapper query appended by toComponentVirtualId
+        const encodedSpecifier = withoutPrefix.replace(/\?.*$/, '');
         const specifier = decodeURIComponent(encodedSpecifier);
 
         return [`export { default } from '${specifier}';`, `export * from '${specifier}';`].join('\n');
@@ -569,7 +571,9 @@ function toStaticVirtualId(specifier: string) {
 }
 
 function toComponentVirtualId(specifier: string) {
-  return `virtual:astro-component-module/${encodeURIComponent(specifier)}`;
+  // Append a non-extension suffix so framework compile plugins (e.g. vite-plugin-svelte)
+  // don't match the virtual module ID by extension and try to compile the JS re-export stub.
+  return `virtual:astro-component-module/${encodeURIComponent(specifier)}?component-wrapper`;
 }
 
 function isClientEntrypoint(specifier: string) {
