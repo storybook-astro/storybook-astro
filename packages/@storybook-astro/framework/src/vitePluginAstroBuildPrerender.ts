@@ -347,6 +347,15 @@ async function createStorySsrServer(
     server: {
       middlewareMode: true
     },
+    ssr: {
+      // Force Astro runtime modules to be loaded through Vite's SSR transform
+      // pipeline rather than being externalized via Node.js native import().
+      // Without this, the AstroContainer (loaded via ssrLoadModule) and the
+      // component rendering pipeline may resolve internal classes like
+      // SlotString/HTMLString from separate module instances, causing
+      // instanceof checks to fail and slot HTML to be escaped.
+      noExternal: /^astro(\/.+)?$/
+    },
     plugins: [
       createProjectAstroResolutionPlugin(resolveFrom),
       vitePluginAstroFontsFallback(),
@@ -591,7 +600,8 @@ function toPublicPath(fileName: string) {
 }
 
 function buildAssetPathMap(bundle: Rollup.OutputBundle): Map<string, string> {
-  const map = new Map<string, string>();
+  const exactMap = new Map<string, string>();
+  const stemMap = new Map<string, string>();
 
   for (const chunk of Object.values(bundle)) {
     if (chunk.type !== 'asset') {
@@ -600,33 +610,66 @@ function buildAssetPathMap(bundle: Rollup.OutputBundle): Map<string, string> {
 
     const asset = chunk as Rollup.OutputAsset;
 
-    if (!asset.originalFileNames || asset.originalFileNames.length === 0) {
-      continue;
+    if (asset.originalFileNames && asset.originalFileNames.length > 0) {
+      for (const originalPath of asset.originalFileNames) {
+        exactMap.set(originalPath, `/${asset.fileName}`);
+      }
     }
 
-    for (const originalPath of asset.originalFileNames) {
-      map.set(originalPath, `/${asset.fileName}`);
+    // Vite does not populate originalFileNames for image assets processed
+    // through its asset pipeline. Build a secondary lookup by the filename
+    // stem so /@fs/ URLs in prerendered HTML can still be mapped to their
+    // content-hashed output paths.  e.g. "storybook-astro-CfMmZdup.png" ⟶
+    // stem key "storybook-astro.png" ⟶ "/_astro/storybook-astro-CfMmZdup.png".
+    const baseName = asset.fileName.split('/').pop() ?? '';
+    const stemMatch = baseName.match(/^(.+)-[A-Za-z0-9]{6,12}\.(png|jpe?g|gif|webp|svg|avif|ico)$/);
+
+    if (stemMatch) {
+      stemMap.set(`${stemMatch[1]}.${stemMatch[2]}`, `/${asset.fileName}`);
     }
   }
 
-  return map;
+  return { exactMap, stemMap } as unknown as Map<string, string>;
 }
 
-function rewriteAssetPaths(html: string, assetPathMap: Map<string, string>): string {
-  if (assetPathMap.size === 0) {
+function rewriteAssetPaths(html: string, assetPathMap: ReturnType<typeof buildAssetPathMap>): string {
+  const { exactMap, stemMap } = assetPathMap as unknown as {
+    exactMap: Map<string, string>;
+    stemMap: Map<string, string>;
+  };
+
+  if (exactMap.size === 0 && stemMap.size === 0) {
     return html;
   }
 
   // Match /@fs/ URLs in HTML attribute values, stripping any query string.
   // Vite dev server uses /@fs//absolute/path for filesystem assets; in static
   // builds these are emitted as /_astro/name.hash.ext output assets.
-  return html.replace(/\/@fs\/[^"'\s]+/g, (match) => {
+  // The character class deliberately excludes only quotes (the attribute
+  // delimiters) so that paths containing spaces are captured in full.
+  return html.replace(/\/@fs\/[^"']+/g, (match) => {
     const pathOnly = match.replace(/\?.*$/, '');
     const fsPath = pathOnly.slice('/@fs'.length);
     // Handle /@fs//abs/path (double leading slash on Unix)
     const absolutePath = fsPath.startsWith('//') ? fsPath.slice(1) : fsPath;
 
-    return assetPathMap.get(absolutePath) ?? match;
+    // Try exact match by originalFileNames first
+    const exact = exactMap.get(absolutePath);
+
+    if (exact) {
+      return exact;
+    }
+
+    // Fall back to stem-based matching for image assets whose
+    // originalFileNames are empty (standard Vite asset pipeline behaviour).
+    const baseName = absolutePath.split('/').pop() ?? '';
+    const stemHit = stemMap.get(baseName);
+
+    if (stemHit) {
+      return stemHit;
+    }
+
+    return match;
   });
 }
 
