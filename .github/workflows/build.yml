@@ -43,12 +43,12 @@ jobs:
 
       - name: Build Storybook (Astro 6)
         continue-on-error: true
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build-storybook || test $? -eq 124
+        run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build-storybook -- --test || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 5)
         continue-on-error: true
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build-storybook || test $? -eq 124
+        run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build-storybook -- --test || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1

@@ -1,6 +1,7 @@
 ---
 import Header from '@storybook-astro/components/Header/astro/Header.astro';
 import Footer from '@storybook-astro/components/Footer/astro/Footer.astro';
+import GoogleAnalytics from '../components/GoogleAnalytics.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -17,6 +18,7 @@ const { title = 'Storybook Astro — Community Storybook Framework for Astro' } 
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<GoogleAnalytics />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />

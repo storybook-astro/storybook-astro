@@ -25,7 +25,7 @@ Since Astro components require server-side rendering via the Container API, stat
 Astro component stories are rendered with their default args at build time. Changing args via the Controls panel has no effect in static builds.
 :::
 
-- **No interactive Controls** — Since Astro components are pre-rendered at build time, the Controls panel cannot re-render them with different args. This only affects Astro components — framework component stories (React, Vue, etc.) remain fully interactive.
+- **No interactive Controls** — Since Astro components are pre-rendered at build time, the Controls panel cannot re-render them with different args. This only affects Astro components — framework component stories (React, Vue, etc.) remain fully interactive. In static builds, the package automatically disables all control inputs for Astro stories and shows an **ℹ️ Astro** info row in the Controls table so viewers understand why. No configuration is needed.
 - **No story-level component override** — Stories that override the meta-level `component` are not pre-rendered.
 - **Dev mode unaffected** — In `storybook dev`, all components render on-demand and Controls work as expected.
 

@@ -26,7 +26,9 @@ Storybook Astro follows [Semantic Versioning](https://semver.org/):
 - **Minor** (`0.x.0`) — New features, backward-compatible
 - **Patch** (`0.0.x`) — Bug fixes, backward-compatible
 
-**Beta format**: `0.x.y-beta.z` (e.g., `0.1.0-beta.14`)
+**Beta format**: `0.x.y-beta.z` (e.g., `0.1.0-beta.14`) — promoted to `latest` automatically
+
+**Test/preview format**: `0.x.y-<label>.z` where `<label>` is one of `next`, `alpha`, `canary`, `rc`, or `test` (e.g., `0.1.0-next.1`, `0.1.0-canary.3`) — published under the matching dist-tag only, never promoted to `latest`
 
 Only packages under `packages/@storybook-astro/*` are versioned:
 - `@storybook-astro/framework`
@@ -109,6 +111,8 @@ Sections:
 - `Removed` — Removed features
 - `Security` — Security fixes
 
+**Website Changelog**: The [website changelog page](/reference/changelog/) mirrors the content from the root CHANGELOG.md file. After updating CHANGELOG.md in step 4, also update `apps/website/src/content/docs/reference/changelog.md` with the same changes. This keeps the website changelog in sync.
+
 **5. Commit and push to release branch**
 
 ```bash
@@ -146,18 +150,45 @@ The `.github/workflows/publish.yml` workflow automatically:
 - Publishes renderer first, then framework with `beta` dist-tag
 - Promotes both to `latest` dist-tag
 
-Check status:
+Check workflow status:
 
 ```bash
 # Check workflow run
 gh run list --repo storybook-astro/storybook-astro --workflow publish.yml --limit 1
-
-# Verify npm packages
-npm view @storybook-astro/framework versions --json
-npm view @storybook-astro/renderer versions --json
 ```
 
-**9. Merge `main` back to `develop` (optional)**
+The workflow should show a **✓** (success) status. If it shows an **X** (failed), check the logs with:
+
+```bash
+gh run view <RUN_ID> --repo storybook-astro/storybook-astro
+```
+
+**9. Confirm packages on npm**
+
+This is the final verification step. Confirm both packages are published with the correct version and latest dist-tag:
+
+```bash
+# Check that new version exists in version list
+npm view @storybook-astro/framework versions --json | grep X.Y.Z
+npm view @storybook-astro/renderer versions --json | grep X.Y.Z
+
+# Confirm latest dist-tag points to new version
+npm dist-tag ls @storybook-astro/framework
+npm dist-tag ls @storybook-astro/renderer
+
+# Check package info
+npm view @storybook-astro/framework@latest
+npm view @storybook-astro/renderer@latest
+```
+
+Expected output:
+- Both version lists include `X.Y.Z`
+- Both `latest` dist-tags point to `X.Y.Z`
+- Package info shows the correct version with correct description
+
+If versions are missing or dist-tags are incorrect, refer to the **Manual Publish Fallback** section.
+
+**10. Merge `main` back to `develop` (optional)**
 
 If there are conflicts or just to keep branches in sync:
 
@@ -165,6 +196,89 @@ If there are conflicts or just to keep branches in sync:
 git checkout develop
 git merge main
 git push origin develop
+```
+
+## Test/Preview Release Workflow
+
+Use this when you want to publish a version for testing or previewing unreleased changes without affecting what `npm install @storybook-astro/framework` gives to end users.
+
+The publish workflow detects the pre-release label in the version string and uses it as the dist-tag. Any label other than `beta` skips the "Promote to latest" step.
+
+| Version format | Dist-tag | Promoted to `latest`? |
+|---|---|---|
+| `0.1.0-beta.14` | `beta` | Yes |
+| `0.1.0-next.1` | `next` | No |
+| `0.1.0-alpha.1` | `alpha` | No |
+| `0.1.0-canary.1` | `canary` | No |
+| `0.1.0-rc.1` | `rc` | No |
+
+**When to use `next`**: Validating that a future `beta` release works before committing to it.
+
+**When to use `canary`**: Publishing work-in-progress builds for early feedback.
+
+**When to use `rc`**: Release candidates that are feature-complete and in final testing.
+
+### Steps
+
+**1. Bump versions to a test/preview identifier**
+
+In both `packages/@storybook-astro/*/package.json`:
+
+```json
+{
+  "version": "0.1.0-next.1"
+}
+```
+
+**2. Update CHANGELOG.md**
+
+Add an entry (same format as a normal release) under a section like `[0.1.0-next.1]`.
+
+**3. Commit and push**
+
+Do **not** add a CHANGELOG.md entry — test/preview releases are transient and the changes will be captured when the real beta ships.
+
+```bash
+git add packages/*/package.json
+git commit -m "chore: release v0.1.0-next.1 (test)"
+git push origin <branch>
+```
+
+**4. Tag on `main` and push**
+
+Same convention as a standard release — tag on `main` only:
+
+```bash
+git checkout main
+git merge --no-ff <branch>
+git tag v0.1.0-next.1
+git push origin main
+git push origin v0.1.0-next.1
+```
+
+**5. Verify it did NOT become latest**
+
+```bash
+npm dist-tag ls @storybook-astro/framework
+# Should show:  next: 0.1.0-next.1
+# Should NOT show:  latest: 0.1.0-next.1
+```
+
+**6. Consumers install via dist-tag**
+
+```bash
+npm install @storybook-astro/framework@next
+# or
+npm install @storybook-astro/framework@canary
+```
+
+### Cleanup After Testing
+
+Once the preview is no longer needed, remove the dist-tag to keep npm tidy:
+
+```bash
+npm dist-tag rm @storybook-astro/framework next
+npm dist-tag rm @storybook-astro/renderer next
 ```
 
 ## Hotfix Workflow
@@ -341,14 +455,43 @@ git tag v0.1.0-beta.14
 git push origin v0.1.0-beta.14
 ```
 
+### Version Changes Not in Commit
+
+**Problem**: Workflow publishes with old version (e.g., 1.0.3 instead of 1.1.0), causing npm 403 error: "You cannot publish over the previously published versions"
+
+**What it means**: The version bump changes in `package.json` files were not committed to git before pushing the release tag. The workflow checks out the committed code, not your working directory changes.
+
+**Solution**:
+1. Verify versions are updated in your working directory:
+   ```bash
+   cat packages/@storybook-astro/renderer/package.json | grep version
+   cat packages/@storybook-astro/framework/package.json | grep version
+   ```
+2. Commit the changes:
+   ```bash
+   git add packages/*/package.json CHANGELOG.md
+   git commit -a -m "chore: update versions to X.Y.Z"
+   git push origin main
+   ```
+3. Delete and recreate the tag on the new commit:
+   ```bash
+   git tag -d vX.Y.Z
+   git tag vX.Y.Z
+   git push origin vX.Y.Z --force
+   ```
+4. The workflow will automatically re-trigger and use the correct versions
+
+**Prevention**: Always verify versions are committed with `git show HEAD:packages/@storybook-astro/renderer/package.json | grep version` before tagging.
+
 ## Checklist
 
-Use this before releasing:
+### Standard release
 
 - [ ] All features/fixes on `develop` branch
 - [ ] Release branch created: `git checkout -b release/X.Y.Z-beta.N`
 - [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version
 - [ ] CHANGELOG.md updated with new version section and entries
+- [ ] Website changelog at `apps/website/src/content/docs/reference/changelog.md` updated with same version section and entries
 - [ ] `yarn lint` passes
 - [ ] `yarn test` passes (both Astro 5 and 6)
 - [ ] `yarn build:packages` succeeds (clean build — `rm -rf dist` first)
@@ -362,10 +505,21 @@ Use this before releasing:
 - [ ] `npm view @storybook-astro/framework versions --json` shows new version
 - [ ] `npm dist-tag ls @storybook-astro/framework` shows `latest` pointing to new version
 
+### Test/preview release
+
+- [ ] Version uses a non-`beta` pre-release label: `next`, `alpha`, `canary`, `rc`, or `test`
+- [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version
+- [ ] Changes committed and pushed to branch (no CHANGELOG.md update)
+- [ ] Branch merged into `main`
+- [ ] Tag created on `main` and pushed: `git tag vX.Y.Z-<label>.N && git push origin vX.Y.Z-<label>.N`
+- [ ] Publish workflow completes successfully
+- [ ] `npm dist-tag ls @storybook-astro/framework` shows `<label>: X.Y.Z-<label>.N` but **not** `latest`
+
 ## References
 
 - `docs/RELEASING.md` - Full release walkthrough (standard, hotfix, website-only)
 - `CHANGELOG.md` - Release history and change entries
+- `apps/website/src/content/docs/reference/changelog.md` - Website changelog reference page (links to GitHub CHANGELOG.md)
 - `packages/@storybook-astro/framework/package.json` - Framework package config
 - `packages/@storybook-astro/renderer/package.json` - Renderer package config
 - `.github/workflows/publish.yml` - Automated publish workflow

@@ -1,0 +1,25 @@
+---
+// Google Analytics script component
+const GA_ID = 'G-ZSG21NBNEC';
+
+---
+
+<!-- Google tag (gtag.js) -->
+<script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
+<script define:vars={{ GA_ID }}>
+  window.dataLayer = window.dataLayer || [];
+  // eslint-disable-next-line prefer-rest-params
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', GA_ID);
+
+  // Track pageviews on initial load and Astro View Transitions
+  document.addEventListener('astro:page-load', () => {
+    gtag('event', 'page_view');
+  });
+  
+  // Also fire pageview for initial load in case View Transitions aren't enabled
+  if (document.readyState !== 'loading') {
+    gtag('event', 'page_view');
+  }
+</script>

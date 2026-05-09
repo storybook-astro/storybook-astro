@@ -35,7 +35,7 @@ const vitestConfig = defineConfig({
     vue(),
     svelte(),
     react({
-      include: ['**/react/**']
+      include: [/[/\\]react[/\\]/]
     })
   ],
   test: {

@@ -54,8 +54,10 @@ export default {
 
 ## Static build limitation
 
-:::caution
-For Astro components in static builds (`storybook build`), changing args via Controls has no effect because Astro components are pre-rendered at build time. Controls work fully in dev mode (`storybook dev`) and for framework component stories (React, Vue, etc.).
-:::
+In static builds (`storybook build`), Astro components are pre-rendered at build time with their default args. The Controls panel cannot re-render them with different values.
 
-See [Static Builds](/how-it-works/static-builds/) for more details on this limitation.
+The package handles this automatically: in a static build, all control inputs for Astro component stories are disabled and an **ℹ️ Astro** info row appears in the Controls table explaining that the component is pre-rendered. No configuration is needed.
+
+Controls work fully in dev mode (`storybook dev`) and for framework component stories (React, Vue, etc.) in all modes.
+
+See [Static Builds](/how-it-works/static-builds/) for more details.

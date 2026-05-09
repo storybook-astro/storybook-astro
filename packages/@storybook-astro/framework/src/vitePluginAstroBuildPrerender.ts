@@ -6,6 +6,7 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { createServer, mergeConfig, type Plugin, type Rollup } from 'vite';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
+import { installPassthroughImageService } from './lib/passthrough-image-service.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { resolveStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
@@ -190,6 +191,15 @@ async function prerenderStories(options: {
     options.resolveFrom
   );
   const rulesConfigModule = await loadRulesConfigModule(viteServer, options.storyRulesConfigFilePath);
+
+  // Inject a passthrough image service before the container renders any
+  // components. The `image: { service: passthroughImageService() }` config
+  // passed to Astro above is not sufficient on Astro 6: at render time
+  // `getConfiguredImageService()` still dynamically imports
+  // "virtual:image-service", which fails in Vite 7's module runner with
+  // `InvalidImageService`. Pre-populating globalThis.astroAsset.imageService
+  // short-circuits that dynamic import. See `lib/passthrough-image-service.ts`.
+  installPassthroughImageService();
 
   try {
     const container = await AstroContainer.create({

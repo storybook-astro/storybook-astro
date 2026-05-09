@@ -1,4 +1,7 @@
-# Changelog
+---
+title: Changelog
+description: Release history and version changes for Storybook Astro packages.
+---
 
 All notable changes to this project will be documented in this file.
 

@@ -7,12 +7,20 @@ import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.t
 import { vitePluginAstroBuildServer } from './vitePluginAstroBuildServer.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
+import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 
 export const core = {
   builder: '@storybook/builder-vite',
-  renderer: '@storybook-astro/renderer'
+  // Use import.meta.resolve so Storybook receives an absolute file:// URL
+  // to the renderer preset rather than a bare package specifier.  When
+  // package managers like pnpm use strict node_modules isolation, bare
+  // specifiers are resolved from the *project root*, where the renderer
+  // (a dep of this framework, not the user's project) is not hoisted.
+  // The absolute URL is resolved from *this* file's location where the
+  // renderer is always accessible as a direct dependency.
+  renderer: import.meta.resolve('@storybook-astro/renderer')
 };
 
 export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { configType, presets }) => {
@@ -45,6 +53,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vitePluginAstroComponentMarker() as any,
     vitePluginAstroIntegrationOptsFallback(),
+    vitePluginAstroToolbarFallback(),
     vitePluginAstroVueFallback(),
   );
 
@@ -120,7 +129,8 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
     'virtual:@astrojs/vue/app',
     'virtual:astro:vue-app',
     'astro:react:opts',
-    'astro:preact:opts'
+    'astro:preact:opts',
+    'astro:toolbar:internal'
   ];
 
   // Vite ≤7 (esbuild-based optimizer)

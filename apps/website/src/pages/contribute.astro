@@ -31,12 +31,11 @@ cd storybook-astro</code></pre>
         <pre><code>yarn install</code></pre>
       </li>
       <li>
-        Start Storybook (dev mode):
-        <pre><code>yarn storybook</code></pre>
-      </li>
-      <li>
-        Run the Astro site:
+        Start both Storybook testing instances and the website simultaneously:
         <pre><code>yarn dev</code></pre>
+        This runs the Astro 6 demo (port 6006), the Astro 5 demo (port 6007), and the marketing website in parallel.
+        To start a single Storybook instance instead:
+        <pre><code>yarn workspace @storybook-astro/integration-astro6 storybook</code></pre>
       </li>
     </ol>
 
