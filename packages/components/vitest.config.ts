@@ -25,6 +25,7 @@ const globalSetupPath = resolve(
 const vitestConfig = defineConfig({
   mode: 'test',
   plugins: [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vitePluginAstroComponentMarker() as any,
     preact({
       include: ['**/preact/**'],
