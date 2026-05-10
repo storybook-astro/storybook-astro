@@ -5,7 +5,8 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createAstroRenderHandler, type HandlerProps } from '../astroRenderHandler.ts';
+import type { HandlerProps } from '../astroRenderHandler.ts';
+import { createProductionRenderRuntime } from '../productionRenderRuntime.ts';
 import sanitization from 'virtual:storybook-astro-sanitization-config';
 import {
   storybookAstroServerAuthHeader,
@@ -19,15 +20,9 @@ import {
   storybookAstroServerRuntimeStoryRulesConfigRelativePath,
   storybookAstroServerRuntimeTrackedSpecifiers
 } from 'virtual:storybook-astro-server-runtime-config';
-import {
-  createClientModuleResolver,
-  createProductionAstroContainer,
-  createStorySsrViteServer,
-  loadRulesConfigModule
-} from '../storySsrVite.ts';
 
 const app = new Hono();
-const renderHandlerPromise = createRenderHandler();
+const renderAstroStoryPromise = createAstroStoryRenderer();
 
 app.use(
   '*',
@@ -46,8 +41,8 @@ app.post('/render', async (context) => {
   }
 
   const input = (await context.req.json()) as Partial<HandlerProps>;
-  const renderHandler = await renderHandlerPromise;
-  const html = await renderHandler({
+  const renderAstroStory = await renderAstroStoryPromise;
+  const html = await renderAstroStory({
     component: input.component ?? '',
     args: input.args ?? {},
     slots: input.slots ?? {},
@@ -59,50 +54,33 @@ app.post('/render', async (context) => {
 
 export default app;
 
-async function createRenderHandler() {
-  const snapshotRoot = resolve(dirname(fileURLToPath(import.meta.url)), storybookAstroServerRuntimeSnapshotDirName);
+/** Creates the server-mode Astro story renderer from the shared production runtime. */
+async function createAstroStoryRenderer() {
+  const snapshotRoot = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    storybookAstroServerRuntimeSnapshotDirName
+  );
   const storyRulesConfigFilePath = storybookAstroServerRuntimeStoryRulesConfigRelativePath
     ? resolve(snapshotRoot, storybookAstroServerRuntimeStoryRulesConfigRelativePath)
     : undefined;
-  const viteServer = await createStorySsrViteServer({
+  const runtime = await createProductionRenderRuntime({
     integrations: storybookAstroServerRuntimeIntegrations,
-    trackedSpecifiers: new Set(storybookAstroServerRuntimeTrackedSpecifiers),
-    resolveFrom: snapshotRoot
-  });
-  const resolveClientModule = createClientModuleResolver(
-    storybookAstroServerRuntimeIntegrations,
-    storybookAstroServerRuntimeStaticModuleMap
-  );
-  const container = await createProductionAstroContainer({
-    integrations: storybookAstroServerRuntimeIntegrations,
-    resolveClientModule,
-    viteServer
-  });
-
-  return createAstroRenderHandler({
-    container,
     sanitization: sanitization ?? undefined,
-    rulesConfigFilePath: storyRulesConfigFilePath,
-    resolveRulesConfigModule: () => loadRulesConfigModule(viteServer, storyRulesConfigFilePath),
-    loadModule: async (componentId) => {
-      const resolvedComponentId = resolveServerComponentPath(snapshotRoot, componentId);
-      const loadedModule = await viteServer.ssrLoadModule(resolvedComponentId);
-
-      return {
-        default: loadedModule.default
-      };
-    },
-    invalidateModuleGraph: () => {
-      viteServer.moduleGraph.invalidateAll();
-    }
+    storyRulesConfigFilePath,
+    staticModuleMap: storybookAstroServerRuntimeStaticModuleMap,
+    trackedSpecifiers: new Set(storybookAstroServerRuntimeTrackedSpecifiers),
+    resolveFrom: snapshotRoot,
+    resolveComponentId: (componentId: string) => resolveSnapshotComponentPath(snapshotRoot, componentId)
   });
+
+  return runtime.renderAstroStory;
 }
 
-function resolveServerComponentPath(snapshotRoot: string, componentId: string) {
-  const mappedPath = storybookAstroServerRuntimeComponentPathMap[componentId];
+function resolveSnapshotComponentPath(snapshotRoot: string, componentId: string) {
+  const snapshotComponentPath = storybookAstroServerRuntimeComponentPathMap[componentId];
 
-  if (mappedPath) {
-    return resolve(snapshotRoot, mappedPath);
+  if (snapshotComponentPath) {
+    return resolve(snapshotRoot, snapshotComponentPath);
   }
 
   return componentId;
@@ -113,7 +91,7 @@ function isRequestAuthorized(headerValue: string | undefined) {
     return true;
   }
 
-  const normalizedHeaderValue = normalizeHeaderValue(headerValue);
+  const normalizedHeaderValue = normalizeAuthHeaderValue(headerValue);
 
   if (!normalizedHeaderValue) {
     return false;
@@ -122,7 +100,7 @@ function isRequestAuthorized(headerValue: string | undefined) {
   return isSecureEqual(normalizedHeaderValue, storybookAstroServerAuthToken);
 }
 
-function normalizeHeaderValue(value: string | undefined) {
+function normalizeAuthHeaderValue(value: string | undefined) {
   if (!value) {
     return undefined;
   }

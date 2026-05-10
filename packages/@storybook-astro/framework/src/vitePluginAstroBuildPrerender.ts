@@ -2,16 +2,13 @@ import type { Dirent } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Plugin, Rollup } from 'vite';
-import { createAstroRenderHandler } from './astroRenderHandler.ts';
 import type { Integration } from './integrations/index.ts';
-import { resolveRulesConfigFilePath } from './rules-options.ts';
-import { runWithStoryRules } from './storyRulesRuntime.ts';
 import {
-  createClientModuleResolver,
-  createProductionAstroContainer,
-  createStorySsrViteServer,
-  loadRulesConfigModule
-} from './storySsrVite.ts';
+  createProductionRenderRuntime,
+  renderProductionStoryToHtml,
+  type ProductionStoryEntry
+} from './productionRenderRuntime.ts';
+import { resolveRulesConfigFilePath } from './rules-options.ts';
 import type { FrameworkOptions } from './types.ts';
 
 const PRERENDERED_STORIES_FILE = 'astro-prerendered-stories.json';
@@ -29,15 +26,6 @@ type StoryIndex = {
       name?: string;
     }
   >;
-};
-
-type StoryEntry = {
-  id: string;
-  importPath: string;
-  componentPath: string;
-  exportName: string;
-  title?: string;
-  name?: string;
 };
 
 export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin {
@@ -150,16 +138,16 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
         componentEntrypointRefs
       );
 
-      const stories = await collectAstroStories(outDir);
+      const astroStories = await collectAstroStories(outDir);
 
-      if (stories.length === 0) {
+      if (astroStories.length === 0) {
         await writePrerenderedStoriesFile(outDir, {});
 
         return;
       }
 
-      const prerenderedStories = await prerenderStories({
-        stories,
+      const prerenderedStories = await prerenderAstroStories({
+        astroStories,
         integrations,
         sanitization: options.sanitization,
         storyRulesConfigFilePath,
@@ -179,8 +167,9 @@ async function writePrerenderedStoriesFile(outDir: string, payload: Record<strin
   await writeFile(resolve(outDir, PRERENDERED_STORIES_FILE), JSON.stringify(payload), 'utf-8');
 }
 
-async function prerenderStories(options: {
-  stories: StoryEntry[];
+/** Renders each Astro story once during the static build and stores the resulting HTML by story id. */
+async function prerenderAstroStories(options: {
+  astroStories: ProductionStoryEntry[];
   integrations: Integration[];
   sanitization?: FrameworkOptions['sanitization'];
   storyRulesConfigFilePath?: string;
@@ -189,91 +178,25 @@ async function prerenderStories(options: {
   resolveFrom: string;
   bundle: Rollup.OutputBundle;
 }) {
-  const resolveClientModule = createClientModuleResolver(
-    options.integrations,
-    options.staticModuleMap
-  );
-  const viteServer = await createStorySsrViteServer({
+  const runtime = await createProductionRenderRuntime({
     integrations: options.integrations,
+    sanitization: options.sanitization,
+    storyRulesConfigFilePath: options.storyRulesConfigFilePath,
+    staticModuleMap: options.staticModuleMap,
     trackedSpecifiers: options.trackedSpecifiers,
     resolveFrom: options.resolveFrom
   });
-  const rulesConfigModule = await loadRulesConfigModule(
-    viteServer,
-    options.storyRulesConfigFilePath
-  );
   const assetPathMap = buildAssetPathMap(options.bundle);
 
   try {
-    const container = await createProductionAstroContainer({
-      integrations: options.integrations,
-      resolveClientModule,
-      viteServer
-    });
-    const renderHandler = createAstroRenderHandler({
-      container,
-      sanitization: options.sanitization,
-      loadModule: async (id: string) => {
-        const loadedModule = await viteServer.ssrLoadModule(id);
-
-        return {
-          default: loadedModule.default
-        };
-      },
-      invalidateModuleGraph: () => {
-        viteServer.moduleGraph.invalidateAll();
-      }
-    });
-
     const output: Record<string, string> = {};
 
-    for (const story of options.stories) {
-      const html = await runWithStoryRules(
-        {
-          story: {
-            id: story.id,
-            title: story.title,
-            name: story.name
-          },
-          rulesConfigFilePath: options.storyRulesConfigFilePath,
-          resolveRulesConfigModule: () => rulesConfigModule,
-          invalidateModuleGraph: () => {
-            viteServer.moduleGraph.invalidateAll();
-          }
-        },
-        async () => {
-          const modulePath = resolveImportPath(story.importPath, options.resolveFrom);
-          const componentPath = resolveImportPath(story.componentPath, options.resolveFrom);
-          const storyModule = await viteServer.ssrLoadModule(modulePath);
-          const meta = isRecord(storyModule.default) ? storyModule.default : {};
-          const storyExport = isRecord(storyModule[story.exportName])
-            ? storyModule[story.exportName]
-            : {};
-
-          if (typeof meta.component !== 'function') {
-            throw new Error(
-              `Unable to prerender story "${story.id}". Missing default export component in ${story.importPath}.`
-            );
-          }
-
-          if (storyExport.component && storyExport.component !== meta.component) {
-            return undefined;
-          }
-
-          const mergedArgs = mergeStoryArgs(toRecord(meta.args), toRecord(storyExport.args));
-          const { args, slots } = separateSlots(mergedArgs);
-          return renderHandler({
-            component: componentPath,
-            args,
-            slots,
-            story: {
-              id: story.id,
-              title: story.title,
-              name: story.name
-            }
-          });
-        }
-      );
+    for (const story of options.astroStories) {
+      const html = await renderProductionStoryToHtml({
+        story,
+        runtime,
+        resolveFrom: options.resolveFrom
+      });
 
       if (html !== undefined) {
         output[story.id] = rewriteAssetPaths(html, assetPathMap);
@@ -282,11 +205,11 @@ async function prerenderStories(options: {
 
     return output;
   } finally {
-    await viteServer.close();
+    await runtime.close();
   }
 }
 
-async function collectAstroStories(outDir: string): Promise<StoryEntry[]> {
+async function collectAstroStories(outDir: string): Promise<ProductionStoryEntry[]> {
   const indexFile = resolve(outDir, 'index.json');
   const indexRaw = await readFile(indexFile, 'utf-8');
   const indexJson = JSON.parse(indexRaw) as StoryIndex;
@@ -307,55 +230,6 @@ async function collectAstroStories(outDir: string): Promise<StoryEntry[]> {
         name: entry.name
       };
     });
-}
-
-function mergeStoryArgs(
-  metaArgs: Record<string, unknown> | undefined,
-  storyArgs: Record<string, unknown> | undefined
-) {
-  return {
-    ...(metaArgs ?? {}),
-    ...(storyArgs ?? {})
-  };
-}
-
-function separateSlots(inputArgs: Record<string, unknown>) {
-  const args = { ...inputArgs };
-  const slotsCandidate = args.slots;
-
-  delete args.slots;
-
-  if (!isRecord(slotsCandidate)) {
-    return {
-      args,
-      slots: {}
-    };
-  }
-
-  return {
-    args,
-    slots: slotsCandidate as Record<string, string>
-  };
-}
-
-function resolveImportPath(importPath: string, resolveFrom: string) {
-  if (importPath.startsWith('./')) {
-    return resolve(resolveFrom, importPath.slice(2));
-  }
-
-  return resolve(resolveFrom, importPath);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function toRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!isRecord(value)) {
-    return undefined;
-  }
-
-  return value;
 }
 
 function collectTrackedSpecifiers(integrations: Integration[]) {
