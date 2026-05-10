@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite';
-import { createVirtualModulePlugin } from './createVirtualModulePlugin.ts';
+import { createVirtualModule } from './virtualModulePlugin.ts';
 
 type ImportRecord = {
   id: string;
@@ -7,9 +7,9 @@ type ImportRecord = {
   importStatement: string;
 };
 
-export function astroFilesVirtualModulePlugin(astroComponents: string[]): Plugin {
-  return createVirtualModulePlugin({
-    pluginName: 'storybook-astro:virtual-astro-files',
+export function astroFilesPlugin(astroComponents: string[]): Plugin {
+  return createVirtualModule({
+    pluginName: 'storybook-astro:astro-files',
     virtualModuleId: 'virtual:astro-files',
     load() {
       const imports = astroComponents.reduce<ImportRecord[]>((records, file, index) => {

@@ -1,18 +1,17 @@
 import type { Plugin } from 'vite';
 import type { StoryRulesOptions } from '../rules-options.ts';
 import { resolveRulesConfigFilePath } from '../rules-options.ts';
-import { createVirtualModulePlugin } from './createVirtualModulePlugin.ts';
+import { createVirtualModule } from './virtualModulePlugin.ts';
 
-export const STORYBOOK_ASTRO_STORY_RULES_CONFIG_VIRTUAL_MODULE_ID =
-  'virtual:storybook-astro-story-rules-config';
+export const STORY_RULES_MODULE_ID = 'virtual:storybook-astro/story-rules';
 
-export function storybookAstroStoryRulesConfigVirtualModulePlugin(
+export function storyRulesPlugin(
   options?: StoryRulesOptions,
   resolveFrom = process.cwd()
 ): Plugin {
-  return createVirtualModulePlugin({
-    pluginName: 'storybook-astro:virtual-story-rules-config',
-    virtualModuleId: STORYBOOK_ASTRO_STORY_RULES_CONFIG_VIRTUAL_MODULE_ID,
+  return createVirtualModule({
+    pluginName: 'storybook-astro:story-rules',
+    virtualModuleId: STORY_RULES_MODULE_ID,
     load() {
       const configFilePath = resolveRulesConfigFilePath(options, resolveFrom);
 

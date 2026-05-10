@@ -1,5 +1,5 @@
 import type { Integration } from './integrations/index.ts';
-import { createVirtualModulePlugin } from './vite/createVirtualModulePlugin.ts';
+import { createVirtualModule } from './vite/virtualModulePlugin.ts';
 
 type PluginOptions = {
   mode?: 'development' | 'production';
@@ -14,7 +14,7 @@ export function viteAstroContainerRenderersPlugin(
   const mode = options.mode ?? 'development';
   const staticModuleMap = options.staticModuleMap ?? {};
 
-  return createVirtualModulePlugin({
+  return createVirtualModule({
     pluginName: 'storybook-astro:container-renderers',
     virtualModuleId: 'virtual:astro-container-renderers',
     load() {

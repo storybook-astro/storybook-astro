@@ -6,9 +6,9 @@ import { build, type Rollup } from 'vite';
 import type { FrameworkOptions } from './types.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
-import { storybookAstroSanitizationConfigVirtualModulePlugin } from './vite/storybookAstroSanitizationConfigVirtualModulePlugin.ts';
-import { storybookAstroServerAuthConfigVirtualModulePlugin } from './vite/storybookAstroServerAuthConfigVirtualModulePlugin.ts';
-import { storybookAstroServerRuntimeVirtualModulePlugin } from './vite/storybookAstroServerRuntimeVirtualModulePlugin.ts';
+import { sanitizeConfigPlugin } from './vite/sanitizeConfigPlugin.ts';
+import { serverAuthPlugin } from './vite/serverAuthPlugin.ts';
+import { serverRuntimePlugin } from './vite/serverRuntimePlugin.ts';
 
 const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '.');
 // packageRoot works regardless of whether this file is running from src/ or dist/
@@ -161,9 +161,9 @@ async function buildAstroServer(options: {
       }
     },
     plugins: [
-      storybookAstroSanitizationConfigVirtualModulePlugin(options.sanitization),
-      storybookAstroServerAuthConfigVirtualModulePlugin(options.server),
-      storybookAstroServerRuntimeVirtualModulePlugin({
+      sanitizeConfigPlugin(options.sanitization),
+      serverAuthPlugin(options.server),
+      serverRuntimePlugin({
         integrations: options.integrations,
         storyRules: options.storyRules,
         resolveFrom: options.resolveFrom,

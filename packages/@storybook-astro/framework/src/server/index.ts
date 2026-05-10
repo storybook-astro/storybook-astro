@@ -7,11 +7,11 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { HandlerProps } from '../astroRenderHandler.ts';
 import { createProductionRenderRuntime } from '../productionRenderRuntime.ts';
-import sanitization from 'virtual:storybook-astro-sanitization-config';
+import sanitization from 'virtual:storybook-astro/sanitize-config';
 import {
   storybookAstroServerAuthHeader,
   storybookAstroServerAuthToken
-} from 'virtual:storybook-astro-server-auth-config';
+} from 'virtual:storybook-astro/server-auth';
 import {
   storybookAstroServerRuntimeComponentPathMap,
   storybookAstroServerRuntimeIntegrations,
@@ -19,7 +19,7 @@ import {
   storybookAstroServerRuntimeStaticModuleMap,
   storybookAstroServerRuntimeStoryRulesConfigRelativePath,
   storybookAstroServerRuntimeTrackedSpecifiers
-} from 'virtual:storybook-astro-server-runtime-config';
+} from 'virtual:storybook-astro/server-runtime';
 
 const app = new Hono();
 const renderAstroStoryPromise = createAstroStoryRenderer();

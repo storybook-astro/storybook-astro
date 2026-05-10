@@ -1,5 +1,5 @@
 import type { RenderMode, ServerBuildOptions } from './types.ts';
-import { createVirtualModulePlugin } from './vite/createVirtualModulePlugin.ts';
+import { createVirtualModule } from './vite/virtualModulePlugin.ts';
 
 const packageName = '@storybook-astro/framework';
 
@@ -13,7 +13,7 @@ export function viteStorybookAstroRendererPlugin(options: {
   const isProduction = options.mode === 'production';
   const isStaticMode = options.renderMode === 'static';
 
-  return createVirtualModulePlugin({
+  return createVirtualModule({
     pluginName,
     virtualModuleId,
     load() {

@@ -2,12 +2,11 @@ import { relative } from 'node:path';
 import type { Integration } from '../integrations/index.ts';
 import { resolveRulesConfigFilePath } from '../rules-options.ts';
 import type { FrameworkOptions } from '../types.ts';
-import { createVirtualModulePlugin } from './createVirtualModulePlugin.ts';
+import { createVirtualModule } from './virtualModulePlugin.ts';
 
-export const STORYBOOK_ASTRO_SERVER_RUNTIME_VIRTUAL_MODULE_ID =
-  'virtual:storybook-astro-server-runtime-config';
+export const SERVER_RUNTIME_MODULE_ID = 'virtual:storybook-astro/server-runtime';
 
-export function storybookAstroServerRuntimeVirtualModulePlugin(options: {
+export function serverRuntimePlugin(options: {
   integrations?: FrameworkOptions['integrations'];
   storyRules?: FrameworkOptions['storyRules'];
   resolveFrom: string;
@@ -16,9 +15,9 @@ export function storybookAstroServerRuntimeVirtualModulePlugin(options: {
   staticModuleMap: Record<string, string>;
   trackedSpecifiers: string[];
 }) {
-  return createVirtualModulePlugin({
-    pluginName: 'storybook-astro:virtual-server-runtime-config',
-    virtualModuleId: STORYBOOK_ASTRO_SERVER_RUNTIME_VIRTUAL_MODULE_ID,
+  return createVirtualModule({
+    pluginName: 'storybook-astro:server-runtime',
+    virtualModuleId: SERVER_RUNTIME_MODULE_ID,
     load() {
       const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, options.resolveFrom);
       const storyRulesConfigRelativePath = storyRulesConfigFilePath
