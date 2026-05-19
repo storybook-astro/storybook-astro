@@ -14,7 +14,6 @@ type GithubRepositoryInput = {
 export async function fetchGithubRepositoryStats(
   repository: string
 ): Promise<GithubRepositoryStats | undefined> {
-  console.log("I AM INSIDE ORIGINAL MODULE!");
   const octokit = createOctokit();
   const { owner, repo } = parseGithubRepository(repository);
 

@@ -41,8 +41,6 @@ export async function fetchGithubStars(repository: string, fallbackStars = 0): P
   try {
     const payload = await fetchGithubRepositoryStats(repository);
 
-    console.log(payload,"<-----payload");
-
     if (!payload) {
       return normalizeCount(fallbackStars);
     }
