@@ -24,14 +24,14 @@ export default {
       description: 'Small label displayed above the animated number.',
       control: { type: 'text' },
     },
-  },
+  }
 };
 
 export const Default = {
   parameters: {
     docs: {
       description: {
-        story: 'Uses story rules + MSW to mock a standard repository response.',
+        story: 'Uses story rules + module mocks to swap the GitHub SDK client with a deterministic fixture.',
       },
     },
   },

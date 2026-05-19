@@ -11,6 +11,7 @@ import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts'
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
+import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 
@@ -37,6 +38,9 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
         rulesConfigFilePath: storyRulesConfigFilePath,
         resolveRulesConfigModule: () =>
           loadRulesConfigModule(viteServer!, storyRulesConfigFilePath),
+        invalidateModuleGraph: () => {
+          viteServer?.moduleGraph.invalidateAll();
+        },
         loadModule: (id: string) =>
           ssrLoadModuleWithFsFallback(viteServer!, id, {
             fixStacktrace: true
@@ -52,6 +56,9 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
       server.watcher.on('add', resetHandler);
       server.watcher.on('change', resetHandler);
       server.watcher.on('unlink', resetHandler);
+      viteServer.watcher.on('add', resetHandler);
+      viteServer.watcher.on('change', resetHandler);
+      viteServer.watcher.on('unlink', resetHandler);
 
       server.ws.on('astro:render:request', async (data: RenderRequestMessage['data']) => {
         try {
@@ -178,6 +185,7 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
       vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
+      vitePluginStoryModuleMocks(),
       ...(config.plugins?.filter(Boolean) ?? []),
       viteAstroContainerRenderersPlugin(safeIntegrations)
     ]

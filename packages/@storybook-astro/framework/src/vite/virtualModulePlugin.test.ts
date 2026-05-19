@@ -1,6 +1,6 @@
 import type { PluginOption } from 'vite';
 import { describe, expect, test, vi } from 'vitest';
-import { createVirtualModulePlugin } from './createVirtualModulePlugin.ts';
+import { createVirtualModule } from './virtualModulePlugin.ts';
 
 function getPlugin(pluginOption: PluginOption) {
   if (Array.isArray(pluginOption)) {
@@ -31,9 +31,9 @@ function getHookHandler<T extends (...args: unknown[]) => unknown>(hook: unknown
   throw new Error('Expected hook to be a function or an object with a handler function.');
 }
 
-describe('createVirtualModulePlugin', () => {
+describe('createVirtualModule', () => {
   test('resolves configured virtual module id with a null-byte prefix', () => {
-    const pluginOption = createVirtualModulePlugin({
+    const pluginOption = createVirtualModule({
       pluginName: 'test:virtual-module',
       virtualModuleId: 'virtual:test-module',
       load: () => 'export default true;'
@@ -48,7 +48,7 @@ describe('createVirtualModulePlugin', () => {
 
   test('loads module content only for the resolved virtual module id', async () => {
     const load = vi.fn(() => 'export const message = "hello";');
-    const pluginOption = createVirtualModulePlugin({
+    const pluginOption = createVirtualModule({
       pluginName: 'test:virtual-module',
       virtualModuleId: 'virtual:test-module',
       load
@@ -67,7 +67,7 @@ describe('createVirtualModulePlugin', () => {
   });
 
   test('supports asynchronous virtual module loaders', async () => {
-    const pluginOption = createVirtualModulePlugin({
+    const pluginOption = createVirtualModule({
       pluginName: 'test:virtual-module',
       virtualModuleId: 'virtual:test-module',
       load: async () => 'export default "async";'

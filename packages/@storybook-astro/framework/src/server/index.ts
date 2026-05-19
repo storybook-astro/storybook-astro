@@ -1,20 +1,28 @@
+/// <reference path="../virtual.d.ts" />
+
 import { timingSafeEqual } from 'node:crypto';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { HandlerProps } from '../middleware.ts';
-import { handlerFactory } from '../middleware.ts';
-import astroFiles from 'virtual:astro-files';
-import sanitization from 'virtual:storybook-astro-sanitization-config';
-import storyRulesConfigModule, {
-  storybookAstroStoryRulesConfigFilePath
-} from 'virtual:storybook-astro-story-rules-config';
+import type { HandlerProps } from '../astroRenderHandler.ts';
+import { createProductionRenderRuntime } from '../productionRenderRuntime.ts';
+import sanitization from 'virtual:storybook-astro/sanitize-config';
 import {
   storybookAstroServerAuthHeader,
   storybookAstroServerAuthToken
-} from 'virtual:storybook-astro-server-auth-config';
+} from 'virtual:storybook-astro/server-auth';
+import {
+  storybookAstroServerRuntimeComponentPathMap,
+  storybookAstroServerRuntimeIntegrations,
+  storybookAstroServerRuntimeSnapshotDirName,
+  storybookAstroServerRuntimeStaticModuleMap,
+  storybookAstroServerRuntimeStoryRulesConfigRelativePath,
+  storybookAstroServerRuntimeTrackedSpecifiers
+} from 'virtual:storybook-astro/server-runtime';
 
 const app = new Hono();
-const renderHandlerPromise = createRenderHandler();
+const renderAstroStoryPromise = createAstroStoryRenderer();
 
 app.use(
   '*',
@@ -33,8 +41,8 @@ app.post('/render', async (context) => {
   }
 
   const input = (await context.req.json()) as Partial<HandlerProps>;
-  const renderHandler = await renderHandlerPromise;
-  const html = await renderHandler({
+  const renderAstroStory = await renderAstroStoryPromise;
+  const html = await renderAstroStory({
     component: input.component ?? '',
     args: input.args ?? {},
     slots: input.slots ?? {},
@@ -46,25 +54,36 @@ app.post('/render', async (context) => {
 
 export default app;
 
-async function createRenderHandler() {
-  return handlerFactory([], {
+/** Creates the server-mode Astro story renderer from the shared production runtime. */
+async function createAstroStoryRenderer() {
+  const snapshotRoot = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    storybookAstroServerRuntimeSnapshotDirName
+  );
+  const storyRulesConfigFilePath = storybookAstroServerRuntimeStoryRulesConfigRelativePath
+    ? resolve(snapshotRoot, storybookAstroServerRuntimeStoryRulesConfigRelativePath)
+    : undefined;
+  const runtime = await createProductionRenderRuntime({
+    integrations: storybookAstroServerRuntimeIntegrations,
     sanitization: sanitization ?? undefined,
-    rulesConfigFilePath: storybookAstroStoryRulesConfigFilePath,
-    resolveRulesConfigModule: () => storyRulesConfigModule,
-    loadModule: async (componentId) => {
-      const component = astroFiles[componentId as keyof typeof astroFiles];
-
-      if (!component) {
-        throw new Error(
-          `Unable to resolve Astro component "${componentId}" in the server build output.`
-        );
-      }
-
-      return {
-        default: component
-      };
-    }
+    storyRulesConfigFilePath,
+    staticModuleMap: storybookAstroServerRuntimeStaticModuleMap,
+    trackedSpecifiers: new Set(storybookAstroServerRuntimeTrackedSpecifiers),
+    resolveFrom: snapshotRoot,
+    resolveComponentId: (componentId: string) => resolveSnapshotComponentPath(snapshotRoot, componentId)
   });
+
+  return runtime.renderAstroStory;
+}
+
+function resolveSnapshotComponentPath(snapshotRoot: string, componentId: string) {
+  const snapshotComponentPath = storybookAstroServerRuntimeComponentPathMap[componentId];
+
+  if (snapshotComponentPath) {
+    return resolve(snapshotRoot, snapshotComponentPath);
+  }
+
+  return componentId;
 }
 
 function isRequestAuthorized(headerValue: string | undefined) {
@@ -72,7 +91,7 @@ function isRequestAuthorized(headerValue: string | undefined) {
     return true;
   }
 
-  const normalizedHeaderValue = normalizeHeaderValue(headerValue);
+  const normalizedHeaderValue = normalizeAuthHeaderValue(headerValue);
 
   if (!normalizedHeaderValue) {
     return false;
@@ -81,7 +100,7 @@ function isRequestAuthorized(headerValue: string | undefined) {
   return isSecureEqual(normalizedHeaderValue, storybookAstroServerAuthToken);
 }
 
-function normalizeHeaderValue(value: string | undefined) {
+function normalizeAuthHeaderValue(value: string | undefined) {
   if (!value) {
     return undefined;
   }

@@ -1,15 +1,14 @@
 import type { Dirent } from 'node:fs';
-import { readdir } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, type Rollup } from 'vite';
 import type { FrameworkOptions } from './types.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
-import { astroFilesVirtualModulePlugin } from './vite/astroFilesVirtualModulePlugin.ts';
-import { storybookAstroStoryRulesConfigVirtualModulePlugin } from './vite/storybookAstroRulesConfigVirtualModulePlugin.ts';
-import { storybookAstroSanitizationConfigVirtualModulePlugin } from './vite/storybookAstroSanitizationConfigVirtualModulePlugin.ts';
-import { storybookAstroServerAuthConfigVirtualModulePlugin } from './vite/storybookAstroServerAuthConfigVirtualModulePlugin.ts';
+import { sanitizeConfigPlugin } from './vite/sanitizeConfigPlugin.ts';
+import { serverAuthPlugin } from './vite/serverAuthPlugin.ts';
+import { serverRuntimePlugin } from './vite/serverRuntimePlugin.ts';
 
 const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '.');
 // packageRoot works regardless of whether this file is running from src/ or dist/
@@ -112,29 +111,37 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
         componentEntrypointRefs
       );
       const serverOutDir = resolve(dirname(storybookStaticOutDir), 'storybook-server');
+      const snapshotDirName = 'project';
+      const componentPathMap = buildComponentPathMap(astroComponents, resolveFrom, snapshotDirName);
 
       await buildAstroServer({
-        astroComponents,
         integrations,
         sanitization: options.sanitization,
         storyRules: options.storyRules,
         server: options.server,
         outDir: serverOutDir,
+        snapshotDirName,
+        componentPathMap,
         staticModuleMap,
+        trackedSpecifiers: Array.from(trackedSpecifiers),
         resolveFrom
       });
+
+      await copyServerRuntimeSnapshot(resolveFrom, resolve(serverOutDir, snapshotDirName));
     }
   };
 }
 
 async function buildAstroServer(options: {
-  astroComponents: string[];
-  integrations: FrameworkOptions['integrations'];
+  integrations: NonNullable<FrameworkOptions['integrations']>;
   sanitization?: FrameworkOptions['sanitization'];
   storyRules?: FrameworkOptions['storyRules'];
   server?: FrameworkOptions['server'];
   outDir: string;
+  snapshotDirName: string;
+  componentPathMap: Record<string, string>;
   staticModuleMap: Record<string, string>;
+  trackedSpecifiers: string[];
   resolveFrom: string;
 }) {
   const buildConfig = {
@@ -154,10 +161,17 @@ async function buildAstroServer(options: {
       }
     },
     plugins: [
-      astroFilesVirtualModulePlugin(options.astroComponents),
-      storybookAstroSanitizationConfigVirtualModulePlugin(options.sanitization),
-      storybookAstroStoryRulesConfigVirtualModulePlugin(options.storyRules, options.resolveFrom),
-      storybookAstroServerAuthConfigVirtualModulePlugin(options.server),
+      sanitizeConfigPlugin(options.sanitization),
+      serverAuthPlugin(options.server),
+      serverRuntimePlugin({
+        integrations: options.integrations,
+        storyRules: options.storyRules,
+        resolveFrom: options.resolveFrom,
+        snapshotDirName: options.snapshotDirName,
+        componentPathMap: options.componentPathMap,
+        staticModuleMap: options.staticModuleMap,
+        trackedSpecifiers: options.trackedSpecifiers
+      }),
       viteAstroContainerRenderersPlugin(options.integrations, {
         mode: 'production',
         staticModuleMap: options.staticModuleMap
@@ -176,7 +190,77 @@ async function buildAstroServer(options: {
   await build(finalConfig);
 }
 
-function collectTrackedSpecifiers(integrations: FrameworkOptions['integrations']) {
+function buildComponentPathMap(
+  astroComponents: string[],
+  resolveFrom: string,
+  snapshotDirName: string
+) {
+  return Object.fromEntries(
+    astroComponents.map((componentPath) => [
+      componentPath,
+      resolve(snapshotDirName, relativePathFromRoot(resolveFrom, componentPath)).replace(/\\/g, '/')
+    ])
+  );
+}
+
+async function copyServerRuntimeSnapshot(resolveFrom: string, snapshotRoot: string) {
+  const entries = [
+    '.storybook',
+    'src',
+    'lib',
+    'public',
+    'package.json',
+    'tsconfig.json',
+    'tsconfig.base.json',
+    'jsconfig.json',
+    'astro.config.mjs',
+    'astro.config.js',
+    'astro.config.ts',
+    'vite.config.js',
+    'vite.config.ts',
+    'svelte.config.js',
+    'wrangler.toml'
+  ];
+
+  await Promise.all(
+    entries.map(async (entry) => {
+      const sourcePath = resolve(resolveFrom, entry);
+      const targetPath = resolve(snapshotRoot, entry);
+
+      try {
+        await copyPath(sourcePath, targetPath);
+      } catch {
+        return;
+      }
+    })
+  );
+}
+
+async function copyPath(sourcePath: string, targetPath: string): Promise<void> {
+  const sourceStats = await stat(sourcePath);
+
+  if (sourceStats.isDirectory()) {
+    await mkdir(targetPath, { recursive: true });
+    const entries = await readdir(sourcePath, { withFileTypes: true });
+
+    await Promise.all(
+      entries.map((entry) => {
+        return copyPath(resolve(sourcePath, entry.name), resolve(targetPath, entry.name));
+      })
+    );
+
+    return;
+  }
+
+  await mkdir(dirname(targetPath), { recursive: true });
+  await copyFile(sourcePath, targetPath);
+}
+
+function relativePathFromRoot(resolveFrom: string, filePath: string) {
+  return filePath.slice(resolveFrom.length).replace(/^[/\\]+/, '');
+}
+
+function collectTrackedSpecifiers(integrations: FrameworkOptions['integrations'] = []) {
   const specifiers = new Set<string>(['astro:scripts/page.js', 'astro:scripts/before-hydration.js']);
 
   integrations.forEach((integration) => {

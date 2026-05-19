@@ -2,7 +2,7 @@
   "extends": "astro/tsconfigs/strict",
   "exclude": ["dist"],
   "compilerOptions": {
-    "types": ["@testing-library/jest-dom"]
+    "types": ["@testing-library/jest-dom", "astro/client"]
   },
   "include": ["./src/**/*", "./env.d.ts"]
 }

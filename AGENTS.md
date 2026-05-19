@@ -107,6 +107,28 @@ import { handlerFactory } from './middleware.ts';
 import { handlerFactory } from './middleware';
 ```
 
+### Documentation
+
+Never commit AI planning documents, speculative implementation plans, or proposal docs unless explicitly asked. Prefer implementing the feature, updating real user-facing docs, or leaving planning notes in the conversation instead of adding files to the repo.
+
+### Readability
+
+Write code that is nice to read. Optimize for first-read understanding by a tired engineer, not for cleverness, symmetry, or showing off patterns.
+
+- Prefer boring, direct code over clever abstractions.
+- Use names that describe the user or product workflow, not the implementation trick.
+- Choose names that read like normal English.
+- Keep ownership obvious: a file should make clear what state, side effects, and workflows it owns.
+- Do not add helpers, wrappers, callbacks, types, or layers unless they clearly improve readability.
+- Do not hide simple one-off conditions behind grand helper names.
+- Comments should explain why code exists or what boundary it owns, not restate obvious syntax.
+- `useEffect` blocks should usually have a short comment explaining the side effect's job.
+- JSDoc is useful for non-trivial hooks, helpers, and components when it helps orientation; skip it for obvious names.
+- Tests should read like behavior or business scenarios, not framework plumbing.
+- Keep readability refactors minimal and focused; do not rewrite large files unless behavior or clarity genuinely requires it.
+
+Before finishing a change, ask whether every abstraction pays rent. If removing a helper, wrapper, comment, or type would make the file easier to understand, remove it.
+
 ## Common Development Tasks
 
 ### Adding a New Framework Integration

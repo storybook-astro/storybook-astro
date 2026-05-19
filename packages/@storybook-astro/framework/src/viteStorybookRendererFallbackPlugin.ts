@@ -1,10 +1,10 @@
 import type { Integration } from './integrations/index.ts';
-import { createVirtualModulePlugin } from './vite/createVirtualModulePlugin.ts';
+import { createVirtualModule } from './vite/virtualModulePlugin.ts';
 
 export function viteStorybookRendererFallbackPlugin(integrations: Integration[]) {
   const safeIntegrations = integrations ?? [];
 
-  return createVirtualModulePlugin({
+  return createVirtualModule({
     pluginName: 'storybook-renderer-fallback',
     virtualModuleId: 'virtual:storybook-renderer-fallback',
     load() {

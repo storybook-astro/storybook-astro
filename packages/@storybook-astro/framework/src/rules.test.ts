@@ -13,6 +13,10 @@ function createRulesConfig(config: StoryRulesConfig) {
   };
 }
 
+function getMockReplacement(selection: Awaited<ReturnType<typeof selectStoryRules>>, specifier: string) {
+  return selection.moduleMocks.get(specifier)?.replacement;
+}
+
 describe('story rules', () => {
   test('returns an empty selection when no rules are configured', async () => {
     const selection = await selectStoryRules({
@@ -43,7 +47,7 @@ describe('story rules', () => {
       }
     });
 
-    expect(selection.moduleMocks.get('~/lib/api')).toBe('~/lib/api.mock');
+    expect(getMockReplacement(selection, '~/lib/api')).toBe('~/lib/api.mock');
     expect(selection.cleanups).toHaveLength(0);
   });
 
@@ -66,7 +70,7 @@ describe('story rules', () => {
       }
     });
 
-    expect(selection.moduleMocks.get('~/service')).toBe('~/service.mock');
+    expect(getMockReplacement(selection, '~/service')).toBe('~/service.mock');
   });
 
   test('matches rules against /story/<id> style story identifiers', async () => {
@@ -86,7 +90,31 @@ describe('story rules', () => {
       }
     });
 
-    expect(selection.moduleMocks.get('~/store')).toBe('~/store.mock');
+    expect(getMockReplacement(selection, '~/store')).toBe('~/store.mock');
+  });
+
+  test('supports inline factory module mocks', async () => {
+    const selection = await selectStoryRules({
+      configModule: createRulesConfig({
+        rules: [
+          {
+            match: '*',
+            use: ({ mock }) => {
+              mock('~/lib/api', () => ({
+                fetchUser: async () => ({ id: 1, name: 'Storybook User' })
+              }));
+            }
+          }
+        ]
+      }),
+      story: {
+        id: 'components-card--default'
+      }
+    });
+
+    expect(getMockReplacement(selection, '~/lib/api')).toMatch(
+      /^virtual:storybook-astro-inline-module:/
+    );
   });
 
   test('collects cleanup functions from matching rules', async () => {
@@ -207,7 +235,7 @@ describe('story rules', () => {
       }
     });
 
-    expect(selection.moduleMocks.get('~/lib/api')).toBe(
+    expect(getMockReplacement(selection, '~/lib/api')).toBe(
       resolve('/repo/.storybook', './mocks/api.ts').replaceAll('\\', '/')
     );
   });
@@ -250,5 +278,25 @@ describe('story rules', () => {
     ).rejects.toThrow(
       'Story rule mock replacement uses a relative path, but rules config path is unavailable.'
     );
+  });
+
+  test('throws when a mock factory returns a non-object value', async () => {
+    await expect(
+      selectStoryRules({
+        configModule: createRulesConfig({
+          rules: [
+            {
+              match: '*',
+              use: ({ mock }) => {
+                mock('~/lib/api', () => 'bad' as never);
+              }
+            }
+          ]
+        }),
+        story: {
+          id: 'components-card--default'
+        }
+      })
+    ).rejects.toThrow('Story rule mock factory must return an object of module exports.');
   });
 });

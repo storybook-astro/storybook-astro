@@ -1,19 +1,16 @@
 import type { Plugin } from 'vite';
 import type { ServerBuildOptions } from '../types.ts';
-import { createVirtualModulePlugin } from './createVirtualModulePlugin.ts';
+import { createVirtualModule } from './virtualModulePlugin.ts';
 
-export const STORYBOOK_ASTRO_SERVER_AUTH_CONFIG_VIRTUAL_MODULE_ID =
-  'virtual:storybook-astro-server-auth-config';
+export const SERVER_AUTH_MODULE_ID = 'virtual:storybook-astro/server-auth';
 
-export function storybookAstroServerAuthConfigVirtualModulePlugin(
-  options?: ServerBuildOptions
-): Plugin {
+export function serverAuthPlugin(options?: ServerBuildOptions): Plugin {
   const authToken = normalizeOptionalString(options?.authToken);
   const authHeader = normalizeAuthHeader(options?.authHeader);
 
-  return createVirtualModulePlugin({
-    pluginName: 'storybook-astro:virtual-server-auth-config',
-    virtualModuleId: STORYBOOK_ASTRO_SERVER_AUTH_CONFIG_VIRTUAL_MODULE_ID,
+  return createVirtualModule({
+    pluginName: 'storybook-astro:server-auth',
+    virtualModuleId: SERVER_AUTH_MODULE_ID,
     load() {
       return [
         `export const storybookAstroServerAuthToken = ${

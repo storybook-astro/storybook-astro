@@ -1,12 +1,12 @@
 import type { Plugin } from 'vite';
 
-type CreateVirtualModulePluginOptions = {
+type CreateVirtualModuleOptions = {
   pluginName: string;
   virtualModuleId: string;
   load: (id: string) => string | Promise<string> | undefined;
 };
 
-export function createVirtualModulePlugin(options: CreateVirtualModulePluginOptions): Plugin {
+export function createVirtualModule(options: CreateVirtualModuleOptions): Plugin {
   const resolvedVirtualModuleId = `\0${options.virtualModuleId}`;
 
   return {
