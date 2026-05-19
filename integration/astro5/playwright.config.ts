@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: '**/*-static.spec.ts',
   use: {
     baseURL: 'http://localhost:6007',
   },

@@ -42,25 +42,21 @@ jobs:
         run: yarn test
 
       - name: Build Storybook (Astro 6 static)
-        continue-on-error: true
         run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build-storybook -- --test || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 5 static)
-        continue-on-error: true
         run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build-storybook -- --test || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 6 server)
-        continue-on-error: true
         run: timeout 180 yarn workspace @storybook-astro/integration-astro6-server build-storybook -- --test || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 5 server)
-        continue-on-error: true
         run: timeout 180 yarn workspace @storybook-astro/integration-astro5-server build-storybook -- --test || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
@@ -85,5 +81,15 @@ jobs:
 
       - name: Interaction tests (Astro 5 server)
         run: yarn workspace @storybook-astro/integration-astro5-server test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Static-build assertions (Astro 6)
+        run: yarn workspace @storybook-astro/integration-astro6 test:static
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Static-build assertions (Astro 5)
+        run: yarn workspace @storybook-astro/integration-astro5 test:static
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
