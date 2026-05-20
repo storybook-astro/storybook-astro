@@ -29,6 +29,9 @@ pnpm-debug.log*
 # local AI enhancement settings
 .agents/settings.local.json
 
+# Agent plans (local working documents)
+.plans/
+
 *storybook.log
 
 .yarn/*
