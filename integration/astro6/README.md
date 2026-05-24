@@ -11,7 +11,8 @@ Integration example for validating `@storybook-astro/framework` against **Astro 
 ## Scripts
 
 ```bash
-yarn workspace @storybook-astro/integration-astro6 storybook    # Dev server on port 6006
-yarn workspace @storybook-astro/integration-astro6 build-storybook
+yarn workspace @storybook-astro/integration-astro6 dev          # Dev server on port 6006
+yarn workspace @storybook-astro/integration-astro6 build
+yarn workspace @storybook-astro/integration-astro6 serve
 yarn workspace @storybook-astro/integration-astro6 test
 ```

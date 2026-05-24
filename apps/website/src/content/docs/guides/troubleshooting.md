@@ -114,13 +114,13 @@ The framework isn't properly configured or the middleware isn't running.
 
 2. Make sure you're running Storybook in dev mode:
    ```bash
-   npm run storybook
+   npm run dev
    ```
 
 3. Clear Storybook's cache and restart:
    ```bash
    rm -rf node_modules/.cache
-   npm run storybook
+   npm run dev
    ```
 
 ---
@@ -179,7 +179,7 @@ The Solid framework integration (`@astrojs/solid-js@6.0.1`) has a transitive dep
 
 ### Production Builds
 
-Storybook Astro is currently optimized for development. Static builds (`npm run build-storybook`) are not fully supported yet.
+Storybook Astro is currently optimized for development. Production builds (`npm run build`) are still more limited than dev mode.
 
 ---
 

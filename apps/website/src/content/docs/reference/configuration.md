@@ -276,11 +276,11 @@ export default {
 ```json
 {
   "scripts": {
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "dev": "storybook dev -p 6006",
+    "build": "storybook build"
   }
 }
 ```
 
-- **`storybook dev`** — Starts the development server with live rendering and HMR
-- **`storybook build`** — Produces a static Storybook with pre-rendered Astro component stories
+- **`dev`** — Starts the Storybook development server with live rendering and HMR
+- **`build`** — Produces the package's built Storybook artifact

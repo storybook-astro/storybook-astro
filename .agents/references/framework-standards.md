@@ -348,7 +348,7 @@ When adding or modifying a framework integration:
 - [ ] Tests in `packages/@storybook-astro/framework/src/[framework].test.ts`
 - [ ] `.storybook/main.js` in both integration examples updated with recursive glob for this framework
 - [ ] `yarn test` passes
-- [ ] `yarn workspace @storybook-astro/integration-astro6 storybook` loads without errors
+- [ ] `yarn workspace @storybook-astro/integration-astro6 dev` loads without errors
 - [ ] Components render correctly in Storybook UI
 - [ ] Interactivity works (if applicable)
 - [ ] Styles apply correctly

@@ -223,7 +223,7 @@ console.log('Container created:', container);
 - Test files use `.test.ts` extension
 - All 17 test suites (36 tests) pass, covering Astro, React, Vue, Svelte, Preact, Solid, and Alpine.js
 
-**Manual Testing**: Run with `yarn storybook`
+**Manual Testing**: Run with `yarn dev` or a workspace `dev` script such as `yarn workspace @storybook-astro/integration-astro6 dev`
 - Example stories in `src/components/*/`
 - Test different framework integrations
 - Check browser console for errors
@@ -390,7 +390,7 @@ export const MyStory = {
 
 ## Development Workflow
 
-1. **Start Storybook**: `yarn storybook`
+1. **Start Storybook**: `yarn dev` or `yarn workspace @storybook-astro/integration-astro6 dev`
 2. **Make Changes**: Edit files in `packages/@storybook/*/src/`
 3. **Test**: Changes hot-reload automatically (most of the time)
 4. **Verify**: Check browser console and Storybook UI for errors

@@ -109,13 +109,13 @@ This typically means the framework isn't properly configured or the middleware i
 
 2. Check that you're running Storybook dev mode (not build):
    ```bash
-   npm run storybook
+   npm run dev
    ```
 
 3. Try clearing Storybook's cache:
    ```bash
    rm -rf node_modules/.cache
-   npm run storybook
+   npm run dev
    ```
 
 ---
@@ -176,7 +176,7 @@ The Solid framework integration (`@astrojs/solid-js`) has a transitive dependenc
 
 ### Production Builds
 
-Storybook Astro is currently optimized for development. Static builds (`npm run build-storybook`) are not fully supported yet.
+Storybook Astro is currently optimized for development. Production builds (`npm run build`) are still more limited than dev mode.
 
 ---
 
