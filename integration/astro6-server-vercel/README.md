@@ -1,0 +1,11 @@
+# Astro 6 Server Build on Vercel
+
+This integration app exercises the production `server` render mode with Astro 6.
+
+It intentionally includes only Astro stories that perform server-side work:
+
+- npm weekly downloads
+- GitHub contributors
+- GitHub stars
+
+The Storybook static app calls the generated Astro render server through `/api/storybook-astro/render`, which is wrapped by `api/storybook-astro/[...path].js` for Vercel.

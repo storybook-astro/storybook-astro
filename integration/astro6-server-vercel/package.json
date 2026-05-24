@@ -1,0 +1,27 @@
+{
+  "name": "@storybook-astro/integration-astro6-server-vercel",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "yarn storybook",
+    "storybook": "storybook dev -p 6016",
+    "prebuild-storybook": "yarn build:packages",
+    "build-storybook": "storybook build",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@astrojs/preact": "5.0.0",
+    "@storybook-astro/components": "workspace:*",
+    "astro": "6.0.3",
+    "hono": "^4.11.12",
+    "preact": "^10.28.1"
+  },
+  "devDependencies": {
+    "@storybook-astro/framework": "workspace:*",
+    "@storybook/addon-docs": "10.2.7",
+    "msw": "^2.12.10",
+    "storybook": "10.2.7",
+    "vite": "^7.3.1"
+  }
+}

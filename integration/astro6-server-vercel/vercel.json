@@ -1,0 +1,14 @@
+{
+  "buildCommand": "yarn build-storybook",
+  "outputDirectory": "storybook-static",
+  "rewrites": [
+    {
+      "source": "/api/storybook-astro/(.*)",
+      "destination": "/api/storybook-astro/[...path]"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
+  ]
+}
