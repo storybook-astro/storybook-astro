@@ -288,10 +288,10 @@ The portable stories implementation provides testing capabilities outside Storyb
 
 ### Building
 
-The project uses a development workflow without compilation:
-- Packages are consumed directly from source via `workspace:*` protocol
-- No build step required for development
-- Storybook reads TypeScript files directly via Vite
+The framework and renderer are library packages consumed from `dist`:
+- Run `yarn build:packages` before integration builds, Vitest runs that import package entrypoints, or manual Storybook checks.
+- For local development, keep the package watcher running with `yarn dev:packages` while editing framework or renderer source.
+- Integration apps import package entrypoints exactly like consumers do, so stale `dist` means stale integration behavior.
 
 ### Publishing to npm
 
@@ -410,7 +410,7 @@ See [`docs/RELEASING.md`](./docs/RELEASING.md) for the full release process, inc
 - Gitflow branching model (`main`, `develop`, `feature/*`, `fix/*`, `release/*`)
 - Distinction between **package releases** (go through `develop` → `main`) and **website-only changes** (merge directly to `main`)
 - Hotfix and mixed-change workflows
-- Pre-publish smoke test (`yarn smoke`) and dist validation (`yarn validate:dist`)
+- Pre-publish smoke test (`yarn smoke`)
 
 ## Getting Help
 

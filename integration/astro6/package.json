@@ -7,7 +7,9 @@
     "dev": "yarn storybook",
     "build": "astro build",
     "storybook": "storybook dev -p 6006",
+    "prebuild-storybook": "yarn build:packages",
     "build-storybook": "storybook build",
+    "pretest": "yarn build:packages",
     "test": "vitest",
     "lint": "eslint ."
   },

@@ -11,6 +11,7 @@
     "@octokit/rest": "^22.0.0"
   },
   "scripts": {
+    "pretest": "yarn build:packages",
     "test": "vitest"
   },
   "exports": {

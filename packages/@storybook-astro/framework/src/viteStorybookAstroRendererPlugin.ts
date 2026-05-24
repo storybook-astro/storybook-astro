@@ -1,7 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import type { RenderMode, ServerBuildOptions } from './types.ts';
 import { createVirtualModule } from './vite/virtualModulePlugin.ts';
 
-const packageName = '@storybook-astro/framework';
+const rendererDevModulePath = fileURLToPath(new URL('./renderer/renderer-dev.js', import.meta.url));
+const rendererStaticModulePath = fileURLToPath(new URL('./renderer/renderer-static.js', import.meta.url));
+const rendererServerModulePath = fileURLToPath(new URL('./renderer/renderer-server.js', import.meta.url));
 
 export function viteStorybookAstroRendererPlugin(options: {
   mode: 'development' | 'production';
@@ -18,15 +21,15 @@ export function viteStorybookAstroRendererPlugin(options: {
     virtualModuleId,
     load() {
       if (!isProduction) {
-        return `export * from '${packageName}/renderer/renderer-dev.ts';`;
+        return `export * from ${JSON.stringify(normalizePath(rendererDevModulePath))};`;
       }
 
       if (isStaticMode) {
-        return `export * from '${packageName}/renderer/renderer-static.ts';`;
+        return `export * from ${JSON.stringify(normalizePath(rendererStaticModulePath))};`;
       }
 
       return [
-        `import { createServerRenderer } from '${packageName}/renderer/renderer-server.ts';`,
+        `import { createServerRenderer } from ${JSON.stringify(normalizePath(rendererServerModulePath))};`,
         `const renderer = createServerRenderer(${JSON.stringify(
           {
             serverUrl: options.server?.serverUrl,
@@ -42,4 +45,8 @@ export function viteStorybookAstroRendererPlugin(options: {
       ].join('\n');
     }
   });
+}
+
+function normalizePath(value: string) {
+  return value.replace(/\\/g, '/');
 }

@@ -5,6 +5,7 @@ import type { FrameworkOptions } from '../types.ts';
 import { createVirtualModule } from './virtualModulePlugin.ts';
 
 export const SERVER_RUNTIME_MODULE_ID = 'virtual:storybook-astro/server-runtime';
+const integrationsModuleId = '@storybook-astro/framework/integrations';
 
 export function serverRuntimePlugin(options: {
   integrations?: FrameworkOptions['integrations'];
@@ -44,7 +45,7 @@ function createIntegrationImports(integrations: Integration[]) {
     return '';
   }
 
-  return `import { ${integrationNames.join(', ')} } from '../integrations/index.ts';`;
+  return `import { ${integrationNames.join(', ')} } from ${JSON.stringify(integrationsModuleId)};`;
 }
 
 function createIntegrationFactoryCalls(integrations: Integration[]) {

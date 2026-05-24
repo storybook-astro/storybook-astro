@@ -2,6 +2,9 @@
   "name": "@storybook-astro/framework",
   "version": "1.1.1-canary.2",
   "description": "Community-supported Storybook framework for Astro 5 & 6 components",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -24,47 +27,31 @@
     "README.md"
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./integrations": "./src/integrations/index.ts",
-    "./testing": "./src/testing.ts",
-    "./vitest": "./src/vitest/index.ts",
-    "./node": "./src/node/index.ts",
-    "./preset": "./preset.ts",
-    "./package.json": "./package.json",
-    "./*": "./src/*"
-  },
-  "publishConfig": {
-    "exports": {
-      ".": {
-        "types": "./src/index.ts",
-        "import": "./dist/index.js"
-      },
-      "./integrations": {
-        "types": "./src/integrations/index.ts",
-        "import": "./dist/integrations/index.js"
-      },
-      "./testing": {
-        "types": "./src/testing.ts",
-        "import": "./dist/testing.js"
-      },
-      "./vitest": {
-        "types": "./src/vitest/index.ts",
-        "import": "./dist/vitest/index.js"
-      },
-      "./node": {
-        "types": "./src/node/index.ts",
-        "import": "./dist/node/index.js"
-      },
-      "./preset": {
-        "types": "./preset.ts",
-        "import": "./dist/preset.js"
-      },
-      "./package.json": "./package.json",
-      "./*": "./src/*"
-    }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./integrations": {
+      "types": "./dist/integrations/index.d.ts",
+      "import": "./dist/integrations/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    },
+    "./vitest": {
+      "types": "./dist/vitest/index.d.ts",
+      "import": "./dist/vitest/index.js"
+    },
+    "./preset": {
+      "types": "./dist/preset.d.ts",
+      "import": "./dist/preset.js"
+    },
+    "./package.json": "./package.json"
   },
   "scripts": {
     "build": "tsup",
+    "dev": "tsup --watch",
     "prepublishOnly": "tsup"
   },
   "devDependencies": {

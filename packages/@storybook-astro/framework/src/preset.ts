@@ -107,7 +107,17 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
   if (!finalConfig.optimizeDeps.exclude) {
     finalConfig.optimizeDeps.exclude = [];
   }
-  for (const pkg of ['@astrojs/vue', '@astrojs/react', '@astrojs/preact']) {
+  for (const pkg of [
+    '@astrojs/vue',
+    '@astrojs/vue/client.js',
+    '@astrojs/vue/server.js',
+    '@astrojs/react',
+    '@astrojs/react/client.js',
+    '@astrojs/react/server.js',
+    '@astrojs/preact',
+    '@astrojs/preact/client.js',
+    '@astrojs/preact/server.js'
+  ]) {
     if (!finalConfig.optimizeDeps.exclude.includes(pkg)) {
       finalConfig.optimizeDeps.exclude.push(pkg);
     }
