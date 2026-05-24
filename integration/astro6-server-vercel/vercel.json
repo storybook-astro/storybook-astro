@@ -1,5 +1,5 @@
 {
-  "buildCommand": "yarn build-storybook",
+  "buildCommand": "yarn build",
   "outputDirectory": "storybook-static",
   "rewrites": [
     {

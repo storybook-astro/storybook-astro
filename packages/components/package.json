@@ -11,8 +11,8 @@
     "@octokit/rest": "^22.0.0"
   },
   "scripts": {
-    "pretest": "yarn build:packages",
-    "test": "vitest"
+    "test": "vitest",
+    "lint": "eslint ."
   },
   "exports": {
     "./package.json": "./package.json",
@@ -36,6 +36,7 @@
     "@vitejs/plugin-vue": "^5.2.3",
     "@vitest/coverage-v8": "4.0.18",
     "astro": "5.17.2",
+    "eslint": "^9.39.2",
     "happy-dom": "^17.4.4",
     "jsdom": "^28.1.0",
     "storybook": "10.2.7",

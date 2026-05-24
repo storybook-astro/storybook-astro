@@ -4,14 +4,14 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "yarn storybook",
-    "storybook": "storybook dev -p 6016",
-    "prebuild-storybook": "yarn build:packages",
-    "build-storybook": "storybook build",
+    "dev": "storybook dev -p 6016",
+    "build": "storybook build",
+    "serve": "node ./preview-storybook.mjs",
     "lint": "eslint ."
   },
   "dependencies": {
     "@astrojs/preact": "5.0.0",
+    "@hono/node-server": "^1.19.6",
     "@storybook-astro/components": "workspace:*",
     "astro": "6.0.3",
     "hono": "^4.11.12",
@@ -20,6 +20,7 @@
   "devDependencies": {
     "@storybook-astro/framework": "workspace:*",
     "@storybook/addon-docs": "10.2.7",
+    "eslint": "^9.39.2",
     "msw": "^2.12.10",
     "storybook": "10.2.7",
     "vite": "^7.3.1"
