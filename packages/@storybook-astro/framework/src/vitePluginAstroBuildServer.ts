@@ -1,9 +1,19 @@
-import type { Dirent } from 'node:fs';
-import { copyFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, type Rollup } from 'vite';
+import { resolveRulesConfigFilePath } from './rules-options.ts';
 import type { FrameworkOptions } from './types.ts';
+import {
+  buildStaticCssMap,
+  buildStaticModuleMap,
+  buildSnapshotFilePath,
+  copyRuntimeSnapshot,
+  trackHydratedComponentImport,
+  collectTrackedSpecifiers,
+  emitBuildEntrypoints,
+  loadVirtualBuildModule,
+  resolveVirtualBuildModuleId,
+} from './vitePluginAstroBuildShared.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
 import { sanitizeConfigPlugin } from './vite/sanitizeConfigPlugin.ts';
@@ -32,7 +42,7 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
       storybookStaticOutDir = resolve(resolveFrom, config.build.outDir ?? 'storybook-static');
     },
 
-    resolveId(id: string, importer?: string) {
+    resolveId(this: Rollup.PluginContext, id: string, importer?: string) {
       if (id.endsWith('.astro') && importer) {
         const absoluteAstroPath = resolve(dirname(importer), id);
 
@@ -43,76 +53,43 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
         storiesMap.get(absoluteAstroPath)?.add(importer);
       }
 
-      if (id.startsWith('virtual:astro-static-module/')) {
-        return `\0${id}`;
-      }
+      trackHydratedComponentImport({
+        pluginContext: this,
+        importer,
+        id,
+        resolveFrom,
+        componentEntrypointRefs
+      });
 
-      if (id.startsWith('virtual:astro-component-module/')) {
-        return `\0${id}`;
-      }
+      return resolveVirtualBuildModuleId(id);
     },
 
     load(id: string) {
-      if (id.startsWith('\0virtual:astro-static-module/')) {
-        const encodedSpecifier = id.replace('\0virtual:astro-static-module/', '');
-        const specifier = decodeURIComponent(encodedSpecifier);
-
-        if (isClientEntrypoint(specifier)) {
-          return [`export { default } from '${specifier}';`, `export * from '${specifier}';`].join('\n');
-        }
-
-        return [`import '${specifier}';`, 'export default undefined;'].join('\n');
-      }
-
-      if (id.startsWith('\0virtual:astro-component-module/')) {
-        const encodedSpecifier = id.replace('\0virtual:astro-component-module/', '');
-        const specifier = decodeURIComponent(encodedSpecifier);
-
-        return [`export { default } from '${specifier}';`, `export * from '${specifier}';`].join('\n');
-      }
+      return loadVirtualBuildModule(id);
     },
 
     async buildStart(this: Rollup.PluginContext) {
-      integrations.forEach((integration) => {
-        const entrypoint = integration.renderer.client?.entrypoint;
-
-        if (entrypoint) {
-          this.addWatchFile(entrypoint);
-        }
-      });
-
-      trackedSpecifiers.forEach((specifier) => {
-        const fileReferenceId = this.emitFile({
-          type: 'chunk',
-          id: toStaticVirtualId(specifier)
-        });
-
-        staticEntrypointRefs.set(specifier, fileReferenceId);
-      });
-
-      const srcRoot = resolve(resolveFrom, 'src/components');
-      const specifiers = await collectHydratableSourceModules(srcRoot);
-
-      specifiers.forEach((specifier) => {
-        const fileReferenceId = this.emitFile({
-          type: 'chunk',
-          id: toComponentVirtualId(specifier)
-        });
-
-        componentEntrypointRefs.set(specifier, fileReferenceId);
+      await emitBuildEntrypoints({
+        pluginContext: this,
+        integrations,
+        resolveFrom,
+        trackedSpecifiers,
+        staticEntrypointRefs
       });
     },
 
-    async writeBundle(this: Rollup.PluginContext) {
+    async writeBundle(
+      this: Rollup.PluginContext,
+      _outputOptions: Rollup.NormalizedOutputOptions,
+      bundle: Rollup.OutputBundle
+    ) {
       const astroComponents = Array.from(storiesMap.keys());
-      const staticModuleMap = buildStaticModuleMap(
-        this,
-        staticEntrypointRefs,
-        componentEntrypointRefs
-      );
+      const staticModuleMap = buildStaticModuleMap(this, staticEntrypointRefs, componentEntrypointRefs);
+      const staticCssMap = buildStaticCssMap(this, bundle, componentEntrypointRefs);
       const serverOutDir = resolve(dirname(storybookStaticOutDir), 'storybook-server');
       const snapshotDirName = 'project';
       const componentPathMap = buildComponentPathMap(astroComponents, resolveFrom, snapshotDirName);
+      const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
 
       await buildAstroServer({
         integrations,
@@ -123,15 +100,23 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
         snapshotDirName,
         componentPathMap,
         staticModuleMap,
+        staticCssMap,
         trackedSpecifiers: Array.from(trackedSpecifiers),
         resolveFrom
       });
 
-      await copyServerRuntimeSnapshot(resolveFrom, resolve(serverOutDir, snapshotDirName));
+      await copyRuntimeSnapshot({
+        resolveFrom,
+        snapshotRoot: resolve(serverOutDir, snapshotDirName),
+        snapshotDirName,
+        astroComponents,
+        storyRulesConfigFilePath
+      });
     }
   };
 }
 
+/** Builds the standalone Astro render server used by server-mode Storybook output. */
 async function buildAstroServer(options: {
   integrations: NonNullable<FrameworkOptions['integrations']>;
   sanitization?: FrameworkOptions['sanitization'];
@@ -141,6 +126,7 @@ async function buildAstroServer(options: {
   snapshotDirName: string;
   componentPathMap: Record<string, string>;
   staticModuleMap: Record<string, string>;
+  staticCssMap: Record<string, string[]>;
   trackedSpecifiers: string[];
   resolveFrom: string;
 }) {
@@ -170,6 +156,7 @@ async function buildAstroServer(options: {
         snapshotDirName: options.snapshotDirName,
         componentPathMap: options.componentPathMap,
         staticModuleMap: options.staticModuleMap,
+        staticCssMap: options.staticCssMap,
         trackedSpecifiers: options.trackedSpecifiers
       }),
       viteAstroContainerRenderersPlugin(options.integrations, {
@@ -190,184 +177,18 @@ async function buildAstroServer(options: {
   await build(finalConfig);
 }
 
+/** Rewrites Astro component module ids so the standalone server loads them from the snapshot tree. */
 function buildComponentPathMap(
   astroComponents: string[],
   resolveFrom: string,
   snapshotDirName: string
 ) {
+  // The built render server loads Astro component modules from the snapshot,
+  // not from the original project root that existed during the build.
   return Object.fromEntries(
     astroComponents.map((componentPath) => [
       componentPath,
-      resolve(snapshotDirName, relativePathFromRoot(resolveFrom, componentPath)).replace(/\\/g, '/')
+      buildSnapshotFilePath(resolveFrom, componentPath, snapshotDirName)
     ])
-  );
-}
-
-async function copyServerRuntimeSnapshot(resolveFrom: string, snapshotRoot: string) {
-  const entries = [
-    '.storybook',
-    'src',
-    'lib',
-    'public',
-    'package.json',
-    'tsconfig.json',
-    'tsconfig.base.json',
-    'jsconfig.json',
-    'astro.config.mjs',
-    'astro.config.js',
-    'astro.config.ts',
-    'vite.config.js',
-    'vite.config.ts',
-    'svelte.config.js',
-    'wrangler.toml'
-  ];
-
-  await Promise.all(
-    entries.map(async (entry) => {
-      const sourcePath = resolve(resolveFrom, entry);
-      const targetPath = resolve(snapshotRoot, entry);
-
-      try {
-        await copyPath(sourcePath, targetPath);
-      } catch {
-        return;
-      }
-    })
-  );
-}
-
-async function copyPath(sourcePath: string, targetPath: string): Promise<void> {
-  const sourceStats = await stat(sourcePath);
-
-  if (sourceStats.isDirectory()) {
-    await mkdir(targetPath, { recursive: true });
-    const entries = await readdir(sourcePath, { withFileTypes: true });
-
-    await Promise.all(
-      entries.map((entry) => {
-        return copyPath(resolve(sourcePath, entry.name), resolve(targetPath, entry.name));
-      })
-    );
-
-    return;
-  }
-
-  await mkdir(dirname(targetPath), { recursive: true });
-  await copyFile(sourcePath, targetPath);
-}
-
-function relativePathFromRoot(resolveFrom: string, filePath: string) {
-  return filePath.slice(resolveFrom.length).replace(/^[/\\]+/, '');
-}
-
-function collectTrackedSpecifiers(integrations: FrameworkOptions['integrations'] = []) {
-  const specifiers = new Set<string>(['astro:scripts/page.js', 'astro:scripts/before-hydration.js']);
-
-  integrations.forEach((integration) => {
-    const entrypoint = integration.renderer.client?.entrypoint;
-
-    if (entrypoint) {
-      specifiers.add(entrypoint);
-    }
-  });
-
-  return specifiers;
-}
-
-function buildStaticModuleMap(
-  pluginContext: Rollup.PluginContext,
-  staticEntrypointRefs: Map<string, string>,
-  componentEntrypointRefs: Map<string, string>
-) {
-  const map: Record<string, string> = {};
-
-  staticEntrypointRefs.forEach((fileReferenceId, specifier) => {
-    const fileName = pluginContext.getFileName(fileReferenceId);
-
-    if (fileName) {
-      map[specifier] = toPublicPath(fileName);
-    }
-  });
-
-  componentEntrypointRefs.forEach((fileReferenceId, specifier) => {
-    const fileName = pluginContext.getFileName(fileReferenceId);
-
-    if (fileName) {
-      map[specifier] = toPublicPath(fileName);
-    }
-  });
-
-  return map;
-}
-
-function toStaticVirtualId(specifier: string) {
-  return `virtual:astro-static-module/${encodeURIComponent(specifier)}`;
-}
-
-function toComponentVirtualId(specifier: string) {
-  return `virtual:astro-component-module/${encodeURIComponent(specifier)}`;
-}
-
-function isClientEntrypoint(specifier: string) {
-  return specifier.startsWith('@astrojs/') && specifier.endsWith('/client.js');
-}
-
-function toPublicPath(fileName: string) {
-  return `./${fileName}`;
-}
-
-async function collectHydratableSourceModules(srcRoot: string): Promise<string[]> {
-  const modules: string[] = [];
-
-  async function walk(directory: string) {
-    let entries: Dirent[];
-
-    try {
-      entries = await readdir(directory, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    await Promise.all(
-      entries.map(async (entry) => {
-        const absolutePath = resolve(directory, entry.name);
-
-        if (entry.isDirectory()) {
-          await walk(absolutePath);
-
-          return;
-        }
-
-        if (!entry.isFile()) {
-          return;
-        }
-
-        const normalizedPath = absolutePath.replace(/\\/g, '/');
-
-        if (!isHydratableSourceFile(normalizedPath)) {
-          return;
-        }
-
-        if (isNonHydratableSourceFile(normalizedPath)) {
-          return;
-        }
-
-        modules.push(normalizedPath);
-      })
-    );
-  }
-
-  await walk(srcRoot);
-
-  return modules;
-}
-
-function isHydratableSourceFile(input: string) {
-  return /\.(jsx|tsx|vue|svelte|js|ts)$/.test(input);
-}
-
-function isNonHydratableSourceFile(input: string) {
-  return /\.stories\.[jt]sx?$|\.stories\.vue$|\.stories\.svelte$|\.(spec|test)\.[jt]sx?$/.test(
-    input
   );
 }

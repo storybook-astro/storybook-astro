@@ -17,7 +17,6 @@ const config = {
     options: {
       renderMode: 'server',
       storyRules: './.storybook/story-rules.ts',
-      resolveFrom: process.cwd(),
       server: {
         serverUrl: process.env.STORYBOOK_ASTRO_SERVER_URL ?? '/api/storybook-astro',
         authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,

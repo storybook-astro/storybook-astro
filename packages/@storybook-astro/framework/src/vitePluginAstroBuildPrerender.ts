@@ -1,8 +1,15 @@
-import type { Dirent } from 'node:fs';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Plugin, Rollup } from 'vite';
 import type { Integration } from './integrations/index.ts';
+import {
+  buildStaticModuleMap,
+  trackHydratedComponentImport,
+  collectTrackedSpecifiers,
+  emitBuildEntrypoints,
+  loadVirtualBuildModule,
+  resolveVirtualBuildModuleId
+} from './vitePluginAstroBuildShared.ts';
 import {
   createProductionRenderRuntime,
   renderProductionStoryToHtml,
@@ -46,84 +53,29 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
       outDir = resolve(resolveFrom, config.build.outDir ?? 'storybook-static');
     },
 
-    resolveId(id: string) {
-      if (id.startsWith('virtual:astro-static-module/')) {
-        return `\0${id}`;
-      }
+    resolveId(this: Rollup.PluginContext, id: string, importer?: string) {
+      trackHydratedComponentImport({
+        pluginContext: this,
+        importer,
+        id,
+        resolveFrom,
+        componentEntrypointRefs
+      });
 
-      if (id.startsWith('virtual:astro-component-module/')) {
-        return `\0${id}`;
-      }
+      return resolveVirtualBuildModuleId(id);
     },
 
     load(id: string) {
-      if (id.startsWith('\0virtual:astro-static-module/')) {
-        const encodedSpecifier = id.replace('\0virtual:astro-static-module/', '');
-        const specifier = decodeURIComponent(encodedSpecifier);
-
-        if (isClientEntrypoint(specifier)) {
-          return [`export { default } from '${specifier}';`, `export * from '${specifier}';`].join(
-            '\n'
-          );
-        }
-
-        return [`import '${specifier}';`, 'export default undefined;'].join('\n');
-      }
-
-      if (id.startsWith('\0virtual:astro-component-module/')) {
-        const withoutPrefix = id.replace('\0virtual:astro-component-module/', '');
-        // Strip the ?component-wrapper query appended by toComponentVirtualId
-        const encodedSpecifier = withoutPrefix.replace(/\?.*$/, '');
-        const specifier = decodeURIComponent(encodedSpecifier);
-
-        return [`export { default } from '${specifier}';`, `export * from '${specifier}';`].join(
-          '\n'
-        );
-      }
+      return loadVirtualBuildModule(id);
     },
 
     async buildStart(this: Rollup.PluginContext) {
-      integrations.forEach((integration) => {
-        const entrypoint = integration.renderer.client?.entrypoint;
-
-        if (entrypoint) {
-          this.addWatchFile(entrypoint);
-        }
-      });
-
-      trackedSpecifiers.forEach((specifier) => {
-        const fileReferenceId = this.emitFile({
-          type: 'chunk',
-          id: toStaticVirtualId(specifier)
-        });
-
-        staticEntrypointRefs.set(specifier, fileReferenceId);
-      });
-
-      const componentRootPaths = [
-        resolve(resolveFrom, 'src/components'),
-        ...(options.renderMode === 'static' && options.componentRoots
-          ? options.componentRoots.map((root) => resolve(resolveFrom, root))
-          : [])
-      ];
-      const specifierArrays = await Promise.all(
-        componentRootPaths.map((root) => collectHydratableSourceModules(root))
-      );
-      const specifiers = specifierArrays.flat();
-
-      specifiers.forEach((specifier) => {
-        // .svelte and .vue files must be emitted as direct chunks so their
-        // native Vite compile plugins process them correctly. The virtual
-        // module wrapper exposes a JS re-export stub; vite-plugin-svelte and
-        // @vitejs/plugin-vue strip the query string before checking the
-        // extension, so they still try to compile the stub as framework source.
-        const chunkId = /\.(svelte|vue)$/.test(specifier)
-          ? specifier
-          : toComponentVirtualId(specifier);
-
-        const fileReferenceId = this.emitFile({ type: 'chunk', id: chunkId });
-
-        componentEntrypointRefs.set(specifier, fileReferenceId);
+      await emitBuildEntrypoints({
+        pluginContext: this,
+        integrations,
+        resolveFrom,
+        trackedSpecifiers,
+        staticEntrypointRefs
       });
     },
 
@@ -162,12 +114,13 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
   };
 }
 
+/** Writes the prerendered Astro story payload consumed by the static renderer. */
 async function writePrerenderedStoriesFile(outDir: string, payload: Record<string, string>) {
   await mkdir(outDir, { recursive: true });
   await writeFile(resolve(outDir, PRERENDERED_STORIES_FILE), JSON.stringify(payload), 'utf-8');
 }
 
-/** Renders each Astro story once during the static build and stores the resulting HTML by story id. */
+/** Renders Astro stories during the static build and stores the HTML by story id. */
 async function prerenderAstroStories(options: {
   astroStories: ProductionStoryEntry[];
   integrations: Integration[];
@@ -209,11 +162,14 @@ async function prerenderAstroStories(options: {
   }
 }
 
+/** Reads the built Storybook index and keeps only Astro stories that can be prerendered. */
 async function collectAstroStories(outDir: string): Promise<ProductionStoryEntry[]> {
   const indexFile = resolve(outDir, 'index.json');
   const indexRaw = await readFile(indexFile, 'utf-8');
   const indexJson = JSON.parse(indexRaw) as StoryIndex;
 
+  // Static prerender only owns Astro stories. Framework-rendered stories stay
+  // with Storybook's normal preview pipeline and are not pre-rendered here.
   return Object.values(indexJson.entries ?? {})
     .filter((entry) => entry.type === 'story' && entry.componentPath?.endsWith('.astro'))
     .map((entry) => {
@@ -232,67 +188,7 @@ async function collectAstroStories(outDir: string): Promise<ProductionStoryEntry
     });
 }
 
-function collectTrackedSpecifiers(integrations: Integration[]) {
-  const specifiers = new Set<string>([
-    'astro:scripts/page.js',
-    'astro:scripts/before-hydration.js'
-  ]);
-
-  integrations.forEach((integration) => {
-    const entrypoint = integration.renderer.client?.entrypoint;
-
-    if (entrypoint) {
-      specifiers.add(entrypoint);
-    }
-  });
-
-  return specifiers;
-}
-
-function buildStaticModuleMap(
-  pluginContext: Rollup.PluginContext,
-  staticEntrypointRefs: Map<string, string>,
-  componentEntrypointRefs: Map<string, string>
-) {
-  const map: Record<string, string> = {};
-
-  staticEntrypointRefs.forEach((fileReferenceId, specifier) => {
-    const fileName = pluginContext.getFileName(fileReferenceId);
-
-    if (fileName) {
-      map[specifier] = toPublicPath(fileName);
-    }
-  });
-
-  componentEntrypointRefs.forEach((fileReferenceId, specifier) => {
-    const fileName = pluginContext.getFileName(fileReferenceId);
-
-    if (fileName) {
-      map[specifier] = toPublicPath(fileName);
-    }
-  });
-
-  return map;
-}
-
-function toStaticVirtualId(specifier: string) {
-  return `virtual:astro-static-module/${encodeURIComponent(specifier)}`;
-}
-
-function toComponentVirtualId(specifier: string) {
-  // Append a non-extension suffix so framework compile plugins (e.g. vite-plugin-svelte)
-  // don't match the virtual module ID by extension and try to compile the JS re-export stub.
-  return `virtual:astro-component-module/${encodeURIComponent(specifier)}?component-wrapper`;
-}
-
-function isClientEntrypoint(specifier: string) {
-  return specifier.startsWith('@astrojs/') && specifier.endsWith('/client.js');
-}
-
-function toPublicPath(fileName: string) {
-  return `./${fileName}`;
-}
-
+/** Builds lookup tables that map original asset paths to emitted static asset URLs. */
 function buildAssetPathMap(bundle: Rollup.OutputBundle): Map<string, string> {
   const exactMap = new Map<string, string>();
   const stemMap = new Map<string, string>();
@@ -326,6 +222,7 @@ function buildAssetPathMap(bundle: Rollup.OutputBundle): Map<string, string> {
   return { exactMap, stemMap } as unknown as Map<string, string>;
 }
 
+/** Rewrites dev-only /@fs/ asset URLs in prerendered HTML to emitted build asset paths. */
 function rewriteAssetPaths(
   html: string,
   assetPathMap: ReturnType<typeof buildAssetPathMap>
@@ -339,11 +236,8 @@ function rewriteAssetPaths(
     return html;
   }
 
-  // Match /@fs/ URLs in HTML attribute values, stripping any query string.
-  // Vite dev server uses /@fs//absolute/path for filesystem assets; in static
-  // builds these are emitted as /_astro/name.hash.ext output assets.
-  // The character class deliberately excludes only quotes (the attribute
-  // delimiters) so that paths containing spaces are captured in full.
+  // Prerendering happens through a Vite SSR server, so image/style URLs can
+  // still point at dev-only /@fs/ paths. Rewrite them to the emitted assets.
   return html.replace(/\/@fs\/[^"']+/g, (match) => {
     const pathOnly = match.replace(/\?.*$/, '');
     const fsPath = pathOnly.slice('/@fs'.length);
@@ -368,63 +262,4 @@ function rewriteAssetPaths(
 
     return match;
   });
-}
-
-async function collectHydratableSourceModules(srcRoot: string): Promise<string[]> {
-  const modules: string[] = [];
-
-  async function walk(directory: string) {
-    let entries: Dirent[];
-
-    try {
-      entries = await readdir(directory, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    await Promise.all(
-      entries.map(async (entry) => {
-        const absolutePath = resolve(directory, entry.name);
-
-        if (entry.isDirectory()) {
-          await walk(absolutePath);
-
-          return;
-        }
-
-        if (!entry.isFile()) {
-          return;
-        }
-
-        const normalizedPath = absolutePath.replace(/\\/g, '/');
-
-        if (!isHydratableSourceFile(normalizedPath)) {
-          return;
-        }
-
-        if (isNonHydratableSourceFile(normalizedPath)) {
-          return;
-        }
-
-        modules.push(normalizedPath);
-      })
-    );
-  }
-
-  await walk(srcRoot);
-
-  return modules;
-}
-
-function isHydratableSourceFile(input: string) {
-  // Only framework component extensions — plain .js/.ts are utilities/data
-  // files that are not hydratable client components and must not be emitted
-  // as entry chunks (they may lack a default export, causing a build error).
-  return /\.(jsx|tsx|vue|svelte)$/.test(input);
-}
-
-function isNonHydratableSourceFile(input: string) {
-  return /\.stories\.[jt]sx?$|\.stories\.vue$|\.stories\.svelte$|\.(spec|test)\.[jt]sx?$/.test(
-    input
-  );
 }

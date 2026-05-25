@@ -1,3 +1,4 @@
+import { dirname } from 'node:path';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
@@ -23,15 +24,19 @@ export const core = {
   renderer: import.meta.resolve('@storybook-astro/renderer')
 };
 
-export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { configType, presets }) => {
-  const options = await presets.apply<FrameworkOptions>('frameworkOptions');
+export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storybookOptions) => {
+  const { configType, presets, configDir } = storybookOptions;
+  const frameworkOptions = await presets.apply<FrameworkOptions>('frameworkOptions');
+  const options = {
+    ...frameworkOptions,
+    resolveFrom: frameworkOptions.resolveFrom ?? dirname(configDir)
+  } satisfies FrameworkOptions;
 
   if (!config.plugins) {
     config.plugins = [];
   }
 
   const integrations = options.integrations ?? [];
-  const resolveFrom = options.resolveFrom ?? process.cwd();
   const renderMode = options.renderMode ?? 'server';
   const mode = configType === 'DEVELOPMENT' ? 'development' : 'production';
   const command = configType === 'DEVELOPMENT' ? 'serve' : 'build';
@@ -54,7 +59,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
     vitePluginAstroComponentMarker() as any,
     vitePluginAstroIntegrationOptsFallback(),
     vitePluginAstroToolbarFallback(),
-    vitePluginAstroVueFallback(),
+    vitePluginAstroVueFallback()
   );
 
   if (configType === 'DEVELOPMENT') {
@@ -97,7 +102,13 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
     aliases['react-dom'] = 'react-dom';
   }
 
-  const finalConfig = await mergeWithAstroConfig(config, integrations, resolveFrom, mode, command);
+  const finalConfig = await mergeWithAstroConfig(
+    config,
+    integrations,
+    options.resolveFrom,
+    mode,
+    command
+  );
 
   // Exclude Astro integration packages from dependency optimization because
   // they import virtual modules that esbuild cannot resolve.
@@ -156,8 +167,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, { conf
     }
   }
 
-  // Vite 8+ (Rolldown-based optimizer) — same semantics, different key
-  // Use a loose cast because rolldownOptions is absent from Vite <8 types.
+  // Vite 8+ uses Rolldown for dependency optimization.
   const optimizeDepsMut = finalConfig.optimizeDeps as Record<string, unknown>;
   const rolldownOpts = (optimizeDepsMut.rolldownOptions ?? {}) as { external?: string[] };
 

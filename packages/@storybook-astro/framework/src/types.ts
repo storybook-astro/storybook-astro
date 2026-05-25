@@ -37,15 +37,6 @@ type StaticFrameworkOptions = BaseFrameworkOptions & {
   renderMode: 'static';
   storyRules?: StoryRulesOptions;
   server?: never;
-  /**
-   * Additional source directories (relative to `resolveFrom`) to scan for
-   * hydratable client components (JSX/TSX/Vue/Svelte). Use this when stories
-   * reference components that live outside the default `src/components` scan
-   * root — for example, workspace packages included in the `stories` globs.
-   *
-   * @example ['../../packages/components/src']
-   */
-  componentRoots?: string[];
 };
 
 export type FrameworkOptions = ServerFrameworkOptions | StaticFrameworkOptions;
