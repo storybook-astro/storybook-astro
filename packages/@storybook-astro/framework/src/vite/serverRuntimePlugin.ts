@@ -7,6 +7,7 @@ import { createVirtualModule } from './virtualModulePlugin.ts';
 export const SERVER_RUNTIME_MODULE_ID = 'virtual:storybook-astro/server-runtime';
 const integrationsModuleId = '@storybook-astro/framework/integrations';
 
+/** Produces the virtual module that hands the standalone render server its build-time config. */
 export function serverRuntimePlugin(options: {
   integrations?: FrameworkOptions['integrations'];
   storyRules?: FrameworkOptions['storyRules'];
@@ -14,6 +15,7 @@ export function serverRuntimePlugin(options: {
   snapshotDirName: string;
   componentPathMap: Record<string, string>;
   staticModuleMap: Record<string, string>;
+  staticCssMap: Record<string, string[]>;
   trackedSpecifiers: string[];
 }) {
   return createVirtualModule({
@@ -24,20 +26,28 @@ export function serverRuntimePlugin(options: {
       const storyRulesConfigRelativePath = storyRulesConfigFilePath
         ? relative(options.resolveFrom, storyRulesConfigFilePath).replace(/\\/g, '/')
         : undefined;
+      const integrations = options.integrations ?? [];
+      // Keep the generated module small: one config object for plain data,
+      // one integrations export for real factory calls.
+      const runtimeConfig = {
+        snapshotDirName: options.snapshotDirName,
+        storyRulesConfigRelativePath,
+        componentPathMap: options.componentPathMap,
+        staticModuleMap: options.staticModuleMap,
+        staticCssMap: options.staticCssMap,
+        trackedSpecifiers: options.trackedSpecifiers
+      };
 
       return [
-        createIntegrationImports(options.integrations ?? []),
-        `export const storybookAstroServerRuntimeSnapshotDirName = ${JSON.stringify(options.snapshotDirName)};`,
-        `export const storybookAstroServerRuntimeStoryRulesConfigRelativePath = ${serializeValue(storyRulesConfigRelativePath)};`,
-        `export const storybookAstroServerRuntimeComponentPathMap = ${serializeValue(options.componentPathMap)};`,
-        `export const storybookAstroServerRuntimeStaticModuleMap = ${serializeValue(options.staticModuleMap)};`,
-        `export const storybookAstroServerRuntimeTrackedSpecifiers = ${serializeValue(options.trackedSpecifiers)};`,
-        `export const storybookAstroServerRuntimeIntegrations = [${createIntegrationFactoryCalls(options.integrations ?? [])}];`
+        createIntegrationImports(integrations),
+        `export const runtimeConfig = ${serializeValue(runtimeConfig)};`,
+        `export const integrations = [${createIntegrationFactoryCalls(integrations)}];`
       ].join('\n');
     }
   });
 }
 
+/** Imports only the integration factories used by this runtime bundle. */
 function createIntegrationImports(integrations: Integration[]) {
   const integrationNames = Array.from(new Set(integrations.map((integration) => integration.name)));
 
@@ -48,12 +58,14 @@ function createIntegrationImports(integrations: Integration[]) {
   return `import { ${integrationNames.join(', ')} } from ${JSON.stringify(integrationsModuleId)};`;
 }
 
+/** Recreates the configured integration list inside the generated runtime module. */
 function createIntegrationFactoryCalls(integrations: Integration[]) {
   return integrations
     .map((integration) => `${integration.name}(${serializeValue(integration.options)})`)
     .join(', ');
 }
 
+/** Serializes plain runtime config values into executable module source. */
 function serializeValue(value: unknown): string {
   if (value === undefined) {
     return 'undefined';

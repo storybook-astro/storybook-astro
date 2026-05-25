@@ -45,12 +45,15 @@ declare module 'virtual:storybook-astro/server-auth' {
 declare module 'virtual:storybook-astro/server-runtime' {
   import type { Integration } from './integrations/index.ts';
 
-  export const storybookAstroServerRuntimeSnapshotDirName: string;
-  export const storybookAstroServerRuntimeStoryRulesConfigRelativePath: string | undefined;
-  export const storybookAstroServerRuntimeComponentPathMap: Record<string, string>;
-  export const storybookAstroServerRuntimeStaticModuleMap: Record<string, string>;
-  export const storybookAstroServerRuntimeTrackedSpecifiers: string[];
-  export const storybookAstroServerRuntimeIntegrations: Integration[];
+  export const runtimeConfig: {
+    snapshotDirName: string;
+    storyRulesConfigRelativePath: string | undefined;
+    componentPathMap: Record<string, string>;
+    staticModuleMap: Record<string, string>;
+    staticCssMap: Record<string, string[]>;
+    trackedSpecifiers: string[];
+  };
+  export const integrations: Integration[];
 }
 
 declare module 'virtual:storybook-renderer-fallback' {}
