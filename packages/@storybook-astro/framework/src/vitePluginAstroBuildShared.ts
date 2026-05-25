@@ -70,43 +70,56 @@ export async function emitBuildEntrypoints(options: {
   });
 }
 
-/** Records one hydratable framework component import when an Astro file pulls it into the build graph. */
-export function trackHydratedComponentImport(options: {
+/** Emits framework component entry chunks for one Astro component file used in the build graph. */
+export async function emitHydratedComponentEntriesFromAstroFile(options: {
   pluginContext: Rollup.PluginContext;
-  importer?: string;
-  id: string;
+  astroFilePath: string;
   resolveFrom: string;
   componentEntrypointRefs: Map<string, string>;
 }) {
-  const importerPath = stripQuery(options.importer);
+  const hydratedComponentPaths = await collectHydratedComponentPaths(options.astroFilePath);
 
-  if (!importerPath?.endsWith('.astro')) {
-    return;
+  for (const resolvedImportPath of hydratedComponentPaths) {
+
+    if (options.componentEntrypointRefs.has(resolvedImportPath)) {
+      continue;
+    }
+
+    const fileReferenceId = options.pluginContext.emitFile({
+      type: 'chunk',
+      id: toComponentChunkId(resolvedImportPath),
+      name: createEntrypointName(options.resolveFrom, resolvedImportPath)
+    });
+
+    options.componentEntrypointRefs.set(resolvedImportPath, fileReferenceId);
   }
+}
 
+/** Collects the framework component files one Astro component hydrates in the browser. */
+export async function collectHydratedComponentPaths(astroFilePath: string) {
   // Only Astro components create islands, so only their framework imports
   // need standalone client chunks in built Storybook output.
-  const specifier = resolve(dirname(importerPath), stripQuery(options.id));
-  const normalizedSpecifier = specifier.replace(/\\/g, '/');
+  const localImportSpecifiers = await readLocalImportSpecifiers(astroFilePath);
+  const hydratedComponentPaths: string[] = [];
 
-  if (
-    !isHydratableSourceFile(normalizedSpecifier) ||
-    isNonHydratableSourceFile(normalizedSpecifier)
-  ) {
-    return;
+  for (const specifier of localImportSpecifiers) {
+    const resolvedImportPath = await resolveLocalImportPath(astroFilePath, specifier);
+
+    if (!resolvedImportPath) {
+      continue;
+    }
+
+    if (
+      !isHydratableSourceFile(resolvedImportPath) ||
+      isNonHydratableSourceFile(resolvedImportPath)
+    ) {
+      continue;
+    }
+
+    hydratedComponentPaths.push(resolvedImportPath);
   }
 
-  if (options.componentEntrypointRefs.has(normalizedSpecifier)) {
-    return;
-  }
-
-  const fileReferenceId = options.pluginContext.emitFile({
-    type: 'chunk',
-    id: toComponentChunkId(normalizedSpecifier),
-    name: createEntrypointName(options.resolveFrom, normalizedSpecifier)
-  });
-
-  options.componentEntrypointRefs.set(normalizedSpecifier, fileReferenceId);
+  return hydratedComponentPaths;
 }
 
 /** Collects framework client runtimes that must stay addressable after the preview is built. */
@@ -180,6 +193,10 @@ export function buildStaticCssMap(
 /** Normalizes one emitted file name to the relative public path used in built HTML. */
 export function toPublicPath(fileName: string) {
   return `./${fileName}`;
+}
+
+export function stripQuery(input: string | undefined) {
+  return input?.replace(/\?.*$/, '');
 }
 
 /** Converts a project file path into the stable path used inside the snapshot tree. */
@@ -271,10 +288,6 @@ function createEntrypointName(resolveFrom: string, specifier: string) {
   const hash = createHash('sha1').update(normalizedSpecifier).digest('hex').slice(0, 8);
 
   return `${sanitizedName}-${hash}`;
-}
-
-function stripQuery(input: string | undefined) {
-  return input?.replace(/\?.*$/, '');
 }
 
 function isClientEntrypoint(specifier: string) {

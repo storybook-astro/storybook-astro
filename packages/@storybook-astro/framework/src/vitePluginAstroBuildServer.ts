@@ -1,14 +1,14 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { build, type Rollup } from 'vite';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import type { FrameworkOptions } from './types.ts';
 import {
-  buildStaticCssMap,
   buildStaticModuleMap,
   buildSnapshotFilePath,
+  collectHydratedComponentPaths,
   copyRuntimeSnapshot,
-  trackHydratedComponentImport,
   collectTrackedSpecifiers,
   emitBuildEntrypoints,
   loadVirtualBuildModule,
@@ -27,10 +27,8 @@ const packageRoot = resolve(moduleRoot, '..');
 export function vitePluginAstroBuildServer(options: FrameworkOptions) {
   const integrations = options.integrations ?? [];
   const resolveFrom = options.resolveFrom ?? process.cwd();
-  const storiesMap = new Map<string, Set<string>>();
   const trackedSpecifiers = collectTrackedSpecifiers(integrations);
   const staticEntrypointRefs = new Map<string, string>();
-  const componentEntrypointRefs = new Map<string, string>();
   let storybookStaticOutDir = resolve(resolveFrom, 'storybook-static');
 
   return {
@@ -42,25 +40,7 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
       storybookStaticOutDir = resolve(resolveFrom, config.build.outDir ?? 'storybook-static');
     },
 
-    resolveId(this: Rollup.PluginContext, id: string, importer?: string) {
-      if (id.endsWith('.astro') && importer) {
-        const absoluteAstroPath = resolve(dirname(importer), id);
-
-        if (!storiesMap.has(absoluteAstroPath)) {
-          storiesMap.set(absoluteAstroPath, new Set());
-        }
-
-        storiesMap.get(absoluteAstroPath)?.add(importer);
-      }
-
-      trackHydratedComponentImport({
-        pluginContext: this,
-        importer,
-        id,
-        resolveFrom,
-        componentEntrypointRefs
-      });
-
+    resolveId(id: string) {
       return resolveVirtualBuildModuleId(id);
     },
 
@@ -80,16 +60,30 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
 
     async writeBundle(
       this: Rollup.PluginContext,
-      _outputOptions: Rollup.NormalizedOutputOptions,
-      bundle: Rollup.OutputBundle
+      _outputOptions: Rollup.NormalizedOutputOptions
     ) {
-      const astroComponents = Array.from(storiesMap.keys());
-      const staticModuleMap = buildStaticModuleMap(this, staticEntrypointRefs, componentEntrypointRefs);
-      const staticCssMap = buildStaticCssMap(this, bundle, componentEntrypointRefs);
       const serverOutDir = resolve(dirname(storybookStaticOutDir), 'storybook-server');
       const snapshotDirName = 'project';
-      const componentPathMap = buildComponentPathMap(astroComponents, resolveFrom, snapshotDirName);
+      const astroStories = await collectAstroStories(storybookStaticOutDir, resolveFrom);
+      const storyAstroComponentPaths = Array.from(new Set(astroStories.map((story) => story.componentPath)));
+      const componentPathMap = buildComponentPathMap(storyAstroComponentPaths, resolveFrom, snapshotDirName);
       const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
+      const trackedModuleMap = buildStaticModuleMap(this, staticEntrypointRefs, new Map());
+      const hydratedComponentAssets = await buildHydratedComponentAssets({
+        componentPaths: storyAstroComponentPaths,
+        integrations,
+        resolveFrom,
+        outDir: storybookStaticOutDir
+      });
+      const staticModuleMap = addSnapshotModuleAliases({
+        ...trackedModuleMap,
+        ...hydratedComponentAssets.staticModuleMap
+      }, {
+        resolveFrom,
+        snapshotRoot: resolve(serverOutDir, snapshotDirName),
+        snapshotDirName
+      });
+      const staticCssMap = hydratedComponentAssets.staticCssMap;
 
       await buildAstroServer({
         integrations,
@@ -109,7 +103,7 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
         resolveFrom,
         snapshotRoot: resolve(serverOutDir, snapshotDirName),
         snapshotDirName,
-        astroComponents,
+        astroComponents: storyAstroComponentPaths,
         storyRulesConfigFilePath
       });
     }
@@ -188,7 +182,160 @@ function buildComponentPathMap(
   return Object.fromEntries(
     astroComponents.map((componentPath) => [
       componentPath,
-      buildSnapshotFilePath(resolveFrom, componentPath, snapshotDirName)
+      buildSnapshotFilePath(resolveFrom, componentPath, snapshotDirName).replace(
+        new RegExp(`^${snapshotDirName}/`),
+        ''
+      )
     ])
   );
+}
+
+async function collectAstroStories(outDir: string, resolveFrom: string) {
+  const indexFile = resolve(outDir, 'index.json');
+  const indexRaw = await import('node:fs/promises').then(({ readFile }) => readFile(indexFile, 'utf-8'));
+  const indexJson = JSON.parse(indexRaw) as {
+    entries?: Record<string, { type?: string; componentPath?: string; importPath?: string; exportName?: string }>
+  };
+
+  return Object.values(indexJson.entries ?? [])
+    .filter((entry) => entry.type === 'story' && entry.componentPath?.endsWith('.astro'))
+    .map((entry) => ({
+      componentPath: entry.componentPath?.startsWith('./') || entry.componentPath?.startsWith('../')
+        ? resolve(resolveFrom, entry.componentPath)
+        : entry.componentPath
+    }))
+    .filter((entry): entry is { componentPath: string } => Boolean(entry.componentPath));
+}
+
+async function buildHydratedComponentAssets(options: {
+  componentPaths: string[];
+  integrations: NonNullable<FrameworkOptions['integrations']>;
+  resolveFrom: string;
+  outDir: string;
+}) {
+  const hydratedComponentPaths = Array.from(
+    new Set((await Promise.all(options.componentPaths.map((componentPath) => collectHydratedComponentPaths(componentPath)))).flat())
+  );
+
+  if (hydratedComponentPaths.length === 0) {
+    return {
+      staticModuleMap: {},
+      staticCssMap: {}
+    };
+  }
+
+  const clientEntrypoints = Array.from(
+    new Set(
+      options.integrations
+        .map((integration) => integration.renderer.client?.entrypoint)
+        .filter((entrypoint): entrypoint is string => Boolean(entrypoint))
+    )
+  );
+  const entryNames = Object.fromEntries(
+    [
+      ...hydratedComponentPaths.map((componentPath, index) => [`component-${index}`, componentPath]),
+      ...clientEntrypoints.map((entrypoint, index) => [`renderer-${index}`, entrypoint])
+    ]
+  );
+  const buildConfig = {
+    root: options.resolveFrom,
+    build: {
+      write: false,
+      outDir: options.outDir,
+      emptyOutDir: false,
+      manifest: false,
+      rollupOptions: {
+        input: entryNames,
+        preserveEntrySignatures: 'strict',
+        output: {
+          entryFileNames: '_astro/[name]-[hash].js',
+          chunkFileNames: '_astro/[name]-[hash].js',
+          assetFileNames: '_astro/[name]-[hash][extname]'
+        }
+      }
+    }
+  };
+  const finalConfig = await mergeWithAstroConfig(
+    buildConfig,
+    options.integrations,
+    options.resolveFrom,
+    'production',
+    'build'
+  );
+  const buildOutput = await build(finalConfig);
+  const output = Array.isArray(buildOutput) ? buildOutput.flatMap((result) => result.output) : buildOutput.output;
+  const staticModuleMap: Record<string, string> = {};
+  const staticCssMap: Record<string, string[]> = {};
+
+  for (const item of output) {
+    await writeBuildOutputFile(options.outDir, item);
+
+    if (item.type !== 'chunk' || !item.facadeModuleId) {
+      continue;
+    }
+
+    const normalizedFacadeId = item.facadeModuleId.replace(/\\/g, '/');
+    const originalInputSpecifier = entryNames[item.name];
+
+    staticModuleMap[normalizedFacadeId] = `./${item.fileName}`;
+
+    if (originalInputSpecifier && originalInputSpecifier !== normalizedFacadeId) {
+      staticModuleMap[originalInputSpecifier] = `./${item.fileName}`;
+    }
+
+    const importedCss = Array.from((item.viteMetadata?.importedCss ?? new Set<string>()).values());
+
+    if (importedCss.length > 0) {
+      staticCssMap[normalizedFacadeId] = importedCss.map((fileName) => `./${fileName}`);
+
+      if (originalInputSpecifier && originalInputSpecifier !== normalizedFacadeId) {
+        staticCssMap[originalInputSpecifier] = importedCss.map((fileName) => `./${fileName}`);
+      }
+    }
+  }
+
+  return {
+    staticModuleMap,
+    staticCssMap
+  };
+}
+
+async function writeBuildOutputFile(outDir: string, item: Rollup.OutputAsset | Rollup.OutputChunk) {
+  const outputPath = resolve(outDir, item.fileName);
+
+  await mkdir(dirname(outputPath), { recursive: true });
+
+  if (item.type === 'asset') {
+    await writeFile(outputPath, item.source);
+
+    return;
+  }
+
+  await writeFile(outputPath, item.code);
+}
+
+function addSnapshotModuleAliases(
+  staticModuleMap: Record<string, string>,
+  options: {
+    resolveFrom: string;
+    snapshotRoot: string;
+    snapshotDirName: string;
+  }
+) {
+  const mapWithSnapshotPaths = { ...staticModuleMap };
+
+  for (const [sourcePath, builtPath] of Object.entries(staticModuleMap)) {
+    if (!sourcePath.startsWith('/')) {
+      continue;
+    }
+
+    const snapshotPath = resolve(
+      dirname(options.snapshotRoot),
+      buildSnapshotFilePath(options.resolveFrom, sourcePath, options.snapshotDirName)
+    ).replace(/\\/g, '/');
+
+    mapWithSnapshotPaths[snapshotPath] = builtPath;
+  }
+
+  return mapWithSnapshotPaths;
 }

@@ -14,5 +14,5 @@ app.use('/*', serveStatic({ root: './storybook-static' }));
 app.get('*', serveStatic({ root: './storybook-static', path: './index.html' }));
 
 serve({ fetch: app.fetch, port }, () => {
-  process.stdout.write(`Storybook Vercel preview ready at http://127.0.0.1:${port}\n`);
+  globalThis.console.warn(`Storybook Vercel preview ready at http://127.0.0.1:${port}`);
 });

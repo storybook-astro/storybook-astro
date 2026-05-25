@@ -7,14 +7,14 @@
     "node": ">=20.16.0 || >=22.19.0 || >=24.0.0"
   },
   "scripts": {
-    "dev": "yarn workspaces foreach -A --parallel --interlaced --if-present run dev",
+    "dev": "yarn workspaces foreach -A --parallel --interlaced run dev",
     "dev:packages": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{framework,renderer}' run dev",
     "website": "yarn workspace @storybook-astro/website dev",
-    "build": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced --exclude '@storybook-astro/{framework,renderer}' --if-present run build",
-    "serve": "yarn workspaces foreach -A --parallel --interlaced --if-present run serve",
-    "lint": "yarn workspaces foreach -A --parallel --interlaced --if-present run lint",
+    "build": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced --exclude '@storybook-astro/{framework,renderer}' run build",
+    "serve": "yarn workspaces foreach -A --parallel --interlaced run serve",
+    "lint": "yarn workspaces foreach -A --parallel --interlaced run lint",
     "lint:fix": "eslint . --fix",
-    "test": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced --if-present run test",
+    "test": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced run test",
     "build:packages": "yarn workspaces foreach -A --topological --include '@storybook-astro/{framework,renderer}' run build",
     "smoke": "bash scripts/smoke-test.sh"
   },

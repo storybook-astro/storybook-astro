@@ -4,11 +4,12 @@ import type { Plugin, Rollup } from 'vite';
 import type { Integration } from './integrations/index.ts';
 import {
   buildStaticModuleMap,
-  trackHydratedComponentImport,
+  emitHydratedComponentEntriesFromAstroFile,
   collectTrackedSpecifiers,
   emitBuildEntrypoints,
   loadVirtualBuildModule,
-  resolveVirtualBuildModuleId
+  resolveVirtualBuildModuleId,
+  stripQuery
 } from './vitePluginAstroBuildShared.ts';
 import {
   createProductionRenderRuntime,
@@ -53,14 +54,17 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
       outDir = resolve(resolveFrom, config.build.outDir ?? 'storybook-static');
     },
 
-    resolveId(this: Rollup.PluginContext, id: string, importer?: string) {
-      trackHydratedComponentImport({
-        pluginContext: this,
-        importer,
-        id,
-        resolveFrom,
-        componentEntrypointRefs
-      });
+    async resolveId(this: Rollup.PluginContext, id: string, importer?: string) {
+      const importerPath = stripQuery(importer);
+
+      if (importerPath?.endsWith('.astro')) {
+        await emitHydratedComponentEntriesFromAstroFile({
+          pluginContext: this,
+          astroFilePath: importerPath,
+          resolveFrom,
+          componentEntrypointRefs
+        });
+      }
 
       return resolveVirtualBuildModuleId(id);
     },
