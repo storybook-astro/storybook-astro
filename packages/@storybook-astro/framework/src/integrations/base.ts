@@ -13,6 +13,12 @@ export type RendererDeclaration = {
 
 export abstract class Integration {
   abstract readonly name: string;
+  // Identifier used to import this integration's factory from
+  // `@storybook-astro/framework/integrations` when generating the server
+  // runtime module. Defaults to `name` for integrations whose public name
+  // matches their factory export. Override when they diverge (e.g. Alpine's
+  // `name` is "alpine" but its factory export is `alpinejs`).
+  readonly factoryName?: string;
   abstract readonly dependencies: string[];
   abstract readonly options: Record<string | number | symbol, unknown>;
   abstract readonly renderer: RendererDeclaration;

@@ -14,7 +14,7 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
   },
   webServer: {
-    command: `yarn build-storybook --quiet && npx http-server storybook-static -p ${PORT} -s -c-1`,
+    command: `yarn build --quiet && npx http-server storybook-static -p ${PORT} -s -c-1`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000,

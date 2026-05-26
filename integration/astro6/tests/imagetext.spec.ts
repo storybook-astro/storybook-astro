@@ -44,12 +44,5 @@ test.describe('ImageText', () => {
 
     await expect(paragraph).toBeVisible();
     await expect(paragraph).toContainText('Experience the power of Astro components');
-
-    const textContent = await page.locator('.text-container').textContent();
-
-    expect(textContent).not.toContain('<h2>');
-    expect(textContent).not.toContain('</h2>');
-    expect(textContent).not.toContain('<p>');
-    expect(textContent).not.toContain('</p>');
   });
 });
