@@ -28,6 +28,9 @@ pnpm-debug.log*
 # local AI enhancement settings
 .agents/settings.local.json
 
+# Claude Code session runtime
+.claude/
+
 # Agent plans (local working documents)
 .plans/
 
