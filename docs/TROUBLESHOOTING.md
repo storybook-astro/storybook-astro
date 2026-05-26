@@ -84,6 +84,55 @@ The framework now requires `vite@^6.4.1 || ^7.0.0 || ^8.0.0` to ensure compatibi
 
 ## Runtime Issues
 
+### `No loader is configured for ".node" files` (fsevents)
+
+**Error:**
+```
+Error: Error during dependency optimization:
+✘ [ERROR] No loader is configured for ".node" files:
+    node_modules/.../fsevents/fsevents.node
+```
+
+**Cause:**
+
+Vite's esbuild dependency prebundler scans installed packages and tries to bundle `fsevents`, a macOS-only native module used by Vite's HMR file watcher. esbuild has no loader for the `.node` binary it ships with, so the scan fails. The error is most commonly seen on macOS with pnpm because pnpm's directory layout makes `fsevents` visible to the scan path.
+
+**Solution:**
+
+Recent framework versions exclude `fsevents` from `optimizeDeps` automatically. If you're pinned to an older release, add it yourself in `.storybook/main.ts`:
+
+```ts
+const config: StorybookConfig = {
+  // ...
+  viteFinal: async (config) => {
+    const { mergeConfig } = await import('vite');
+    return mergeConfig(config, {
+      optimizeDeps: { exclude: ['fsevents'] },
+    });
+  },
+};
+```
+
+---
+
+### `SyntaxError: redeclaration of import __vite__injectQuery` (portable stories)
+
+**Error (browser console):**
+```
+Uncaught SyntaxError: redeclaration of import __vite__injectQuery
+    chunk-XXXXXXXX.js
+```
+
+**Cause:**
+
+When a story uses the CSF Next `preview.meta({...})` portable-stories shape, `storybook/internal/preview-api` can be processed by Vite's transform pipeline twice — once during dependency prebundling and again as a regular module. Each pass injects its own `__vite__injectQuery` helper import, producing a duplicate declaration in the generated chunk.
+
+**Solution:**
+
+Recent framework versions exclude `storybook/internal/preview-api` from `optimizeDeps` so it's only resolved once. If you're pinned to an older release, mirror the fsevents workaround above and add `'storybook/internal/preview-api'` to the same `optimizeDeps.exclude` list.
+
+---
+
 ### Storybook won't start / "Astro components cannot be used in the browser"
 
 **Error:**

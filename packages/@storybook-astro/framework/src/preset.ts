@@ -142,6 +142,16 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   if (!finalConfig.optimizeDeps.exclude.includes('@storybook-astro/renderer')) {
     finalConfig.optimizeDeps.exclude.push('@storybook-astro/renderer');
   }
+  // fsevents is a macOS-only native chokidar dep with a .node binary that
+  // esbuild's prebundler can't load. storybook/internal/preview-api can pass
+  // through the transform pipeline twice when used by CSF Next portable
+  // stories, producing a duplicate __vite__injectQuery import in the
+  // generated chunk; excluding it from prebundling collapses the duplicate.
+  for (const pkg of ['fsevents', 'storybook/internal/preview-api']) {
+    if (!finalConfig.optimizeDeps.exclude.includes(pkg)) {
+      finalConfig.optimizeDeps.exclude.push(pkg);
+    }
+  }
   // Mark integration virtual modules as external so the dep bundler doesn't
   // try to resolve them (they are Vite virtual modules with no real package).
   // Set both esbuildOptions (Vite ≤7) and rolldownOptions (Vite 8+, Rolldown)
