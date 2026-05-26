@@ -7,6 +7,18 @@ import { createVirtualModule } from './virtualModulePlugin.ts';
 export const SERVER_RUNTIME_MODULE_ID = 'virtual:storybook-astro/server-runtime';
 const integrationsModuleId = '@storybook-astro/framework/integrations';
 
+// Most integrations' `name` matches their factory export 1:1. Alpine is the
+// exception: AlpineIntegration.name is 'alpine' but the factory export is
+// `alpinejs`. Without this map, the generated runtime module would emit
+// `import { alpine } from '...'` and the build would fail with MISSING_EXPORT.
+const INTEGRATION_FACTORY_NAMES: Record<string, string> = {
+  alpine: 'alpinejs'
+};
+
+function getIntegrationFactoryName(integration: Integration): string {
+  return INTEGRATION_FACTORY_NAMES[integration.name] ?? integration.name;
+}
+
 /** Produces the virtual module that hands the standalone render server its build-time config. */
 export function serverRuntimePlugin(options: {
   integrations?: FrameworkOptions['integrations'];
@@ -49,19 +61,19 @@ export function serverRuntimePlugin(options: {
 
 /** Imports only the integration factories used by this runtime bundle. */
 function createIntegrationImports(integrations: Integration[]) {
-  const integrationNames = Array.from(new Set(integrations.map((integration) => integration.name)));
+  const factoryNames = Array.from(new Set(integrations.map(getIntegrationFactoryName)));
 
-  if (integrationNames.length === 0) {
+  if (factoryNames.length === 0) {
     return '';
   }
 
-  return `import { ${integrationNames.join(', ')} } from ${JSON.stringify(integrationsModuleId)};`;
+  return `import { ${factoryNames.join(', ')} } from ${JSON.stringify(integrationsModuleId)};`;
 }
 
 /** Recreates the configured integration list inside the generated runtime module. */
 function createIntegrationFactoryCalls(integrations: Integration[]) {
   return integrations
-    .map((integration) => `${integration.name}(${serializeValue(integration.options)})`)
+    .map((integration) => `${getIntegrationFactoryName(integration)}(${serializeValue(integration.options)})`)
     .join(', ');
 }
 
