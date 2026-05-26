@@ -7,16 +7,8 @@ import { createVirtualModule } from './virtualModulePlugin.ts';
 export const SERVER_RUNTIME_MODULE_ID = 'virtual:storybook-astro/server-runtime';
 const integrationsModuleId = '@storybook-astro/framework/integrations';
 
-// Most integrations' `name` matches their factory export 1:1. Alpine is the
-// exception: AlpineIntegration.name is 'alpine' but the factory export is
-// `alpinejs`. Without this map, the generated runtime module would emit
-// `import { alpine } from '...'` and the build would fail with MISSING_EXPORT.
-const INTEGRATION_FACTORY_NAMES: Record<string, string> = {
-  alpine: 'alpinejs'
-};
-
 function getIntegrationFactoryName(integration: Integration): string {
-  return INTEGRATION_FACTORY_NAMES[integration.name] ?? integration.name;
+  return integration.factoryName ?? integration.name;
 }
 
 /** Produces the virtual module that hands the standalone render server its build-time config. */

@@ -5,6 +5,7 @@ export type Options = Record<string, unknown>;
 
 export class AlpineIntegration implements Integration {
   readonly name = 'alpine';
+  readonly factoryName = 'alpinejs';
   readonly dependencies = [
     '@astrojs/alpinejs',
     'alpinejs'

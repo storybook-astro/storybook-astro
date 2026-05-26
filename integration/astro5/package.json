@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "storybook dev -p 6007",
     "build": "storybook build",
-    "build-storybook": "storybook build",
     "serve": "http-server storybook-static -p 6007 -s",
     "test": "vitest",
     "test:browser": "playwright test",
