@@ -42,13 +42,24 @@ jobs:
         run: yarn test
 
       - name: Build Storybook (Astro 6)
-        continue-on-error: true
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build-storybook -- --test || test $? -eq 124
+        run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build-storybook --test || test $? -eq 124
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 5)
-        continue-on-error: true
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build-storybook -- --test || test $? -eq 124
+        run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build-storybook --test || test $? -eq 124
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests (Astro 6 static)
+        run: yarn workspace @storybook-astro/integration-astro6 test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Browser tests (Astro 5 static)
+        run: yarn workspace @storybook-astro/integration-astro5 test:browser
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
