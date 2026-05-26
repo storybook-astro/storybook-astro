@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { createServer, mergeConfig, type Plugin, type ViteDevServer } from 'vite';
-import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { ensureAstroPassthroughImageService } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
@@ -110,7 +110,19 @@ export async function createProductionAstroContainer(options: {
 }) {
   ensureAstroPassthroughImageService();
 
-  const container = await AstroContainer.create({
+  // Astro 6's container wraps each slot value in a SlotString, and the
+  // rendering pipeline detects raw-HTML slot chunks via `instanceof SlotString`.
+  // If the container is loaded by Node's ESM resolver while components are
+  // loaded through Vite's SSR graph, the two paths produce different
+  // SlotString classes and the instanceof check fails — slot content then
+  // takes the escaping code path. Loading the container via the same Vite
+  // SSR server keeps the class identity consistent.
+  const containerModule = (await options.viteServer.ssrLoadModule('astro/container')) as {
+    experimental_AstroContainer: typeof AstroContainer;
+  };
+  const ViteAstroContainer = containerModule.experimental_AstroContainer;
+
+  const container = await ViteAstroContainer.create({
     resolve: async (specifier) => {
       const mockedModule = resolveStoryModuleMock(specifier);
 
