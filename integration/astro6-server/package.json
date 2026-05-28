@@ -1,5 +1,5 @@
 {
-  "name": "@storybook-astro/integration-astro6-server-vercel",
+  "name": "@storybook-astro/integration-astro6-server",
   "private": true,
   "type": "module",
   "version": "0.0.1",
