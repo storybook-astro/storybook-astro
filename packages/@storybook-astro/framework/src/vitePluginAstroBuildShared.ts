@@ -116,10 +116,31 @@ export async function collectHydratedComponentPaths(astroFilePath: string) {
       continue;
     }
 
+    // The component loader emits `export { default } from '<file>'` for each
+    // hydratable path, so a file without a default export would crash the
+    // build with `"default" is not exported`. Astro islands are default
+    // exports by convention, so skip files that have no default export.
+    if (!(await hasDefaultExport(resolvedImportPath))) {
+      continue;
+    }
+
     hydratedComponentPaths.push(resolvedImportPath);
   }
 
   return hydratedComponentPaths;
+}
+
+/** Reports whether a source file declares a default export (islands are default exports). */
+async function hasDefaultExport(absPath: string) {
+  try {
+    const source = await readFile(absPath, 'utf-8');
+
+    return /export\s+default\b/.test(source) || /export\s*\{[^}]*\bdefault\b/.test(source);
+  } catch {
+    // On read error keep the file to preserve prior behaviour rather than
+    // silently dropping a component that might be hydratable.
+    return true;
+  }
 }
 
 /** Collects framework client runtimes that must stay addressable after the preview is built. */
