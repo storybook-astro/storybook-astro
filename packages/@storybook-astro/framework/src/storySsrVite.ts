@@ -4,6 +4,7 @@ import type { experimental_AstroContainer as AstroContainer } from 'astro/contai
 import { ensureAstroPassthroughImageService } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
+import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
 import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
@@ -91,6 +92,15 @@ export function createClientModuleResolver(
 
     if (Object.hasOwn(staticModuleMap, normalizedSpecifier)) {
       return staticModuleMap[normalizedSpecifier];
+    }
+
+    // Last resort: an island imported via a tsconfig path alias (e.g. `@/...`)
+    // never matches the static map under its raw specifier. Resolve the alias
+    // to an on-disk path and look that up in the built module map instead.
+    const abs = resolveAliasedIsland(specifier, process.cwd());
+
+    if (abs && Object.hasOwn(staticModuleMap, abs)) {
+      return staticModuleMap[abs];
     }
 
     for (const integration of integrations) {
