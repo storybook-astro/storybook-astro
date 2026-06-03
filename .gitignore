@@ -1,3 +1,6 @@
+# nx cache
+.nx/
+
 # build and test output
 dist/
 coverage/
