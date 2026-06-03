@@ -1,8 +1,8 @@
 {
   "name": "@storybook-astro/renderer",
-  "version": "1.1.0",
+  "version": "1.1.1-canary.2",
   "description": "Client-side renderer for Storybook Astro framework",
-  "module": "./src/preset.ts",
+  "module": "./dist/preset.js",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -24,37 +24,29 @@
     "README.md"
   ],
   "exports": {
-    ".": "./src/preset.ts",
+    ".": {
+      "types": "./dist/preset.d.ts",
+      "import": "./dist/preset.js"
+    },
     "./package.json": "./package.json",
-    "./preset": "./src/preset.ts",
-    "./types": "./src/types.ts",
-    "./*": "./src/*"
-  },
-  "publishConfig": {
-    "module": "./dist/preset.js",
-    "exports": {
-      ".": {
-        "types": "./dist/preset.d.ts",
-        "import": "./dist/preset.js"
-      },
-      "./package.json": "./package.json",
-      "./preset": {
-        "types": "./dist/preset.d.ts",
-        "import": "./dist/preset.js"
-      },
-      "./types": {
-        "types": "./dist/types.d.ts",
-        "import": "./dist/types.js"
-      },
-      "./*": "./src/*"
+    "./preset": {
+      "types": "./dist/preset.d.ts",
+      "import": "./dist/preset.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
     }
   },
   "scripts": {
     "build": "tsup",
+    "dev": "tsup --watch --no-clean",
+    "lint": "eslint .",
     "prepublishOnly": "tsup"
   },
   "devDependencies": {
     "astro": "^6.3.0",
+    "eslint": "^9.39.2",
     "tsup": "^8.5.1"
   },
   "peerDependencies": {

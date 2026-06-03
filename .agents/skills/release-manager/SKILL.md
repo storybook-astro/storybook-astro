@@ -403,7 +403,7 @@ If a PR includes both package and website changes, follow the **standard release
 rm -rf dist && yarn build:packages
 ```
 
-Run `yarn validate:dist` after building to confirm all `publishConfig.exports` paths exist in `dist/` before proceeding.
+Run `yarn smoke` after building to confirm the packed packages install and work before proceeding.
 
 ### Smoke Test Failures
 
@@ -415,7 +415,7 @@ Run `yarn validate:dist` after building to confirm all `publishConfig.exports` p
 1. The working directory is preserved at `/tmp/sb-smoke-*` on failure — inspect it
 2. Check `storybook build` output for Vite/import errors (often a missing `external` in tsup)
 3. Check vitest output for runtime rendering errors
-4. Run `yarn validate:dist` separately to isolate missing dist files
+4. Rebuild packages and inspect package `exports` if a packed install reports missing dist files
 
 ```bash
 # Run smoke test manually against a single version
@@ -495,7 +495,6 @@ git push origin v0.1.0-beta.14
 - [ ] `yarn lint` passes
 - [ ] `yarn test` passes (both Astro 5 and 6)
 - [ ] `yarn build:packages` succeeds (clean build — `rm -rf dist` first)
-- [ ] `yarn validate:dist` passes (all publishConfig.exports paths exist in dist)
 - [ ] `yarn smoke` passes (tarball install + storybook build + tests on Astro 5 and 6)
 - [ ] Changes committed and pushed to release branch
 - [ ] Release branch merged into `main` and pushed
@@ -525,7 +524,6 @@ git push origin v0.1.0-beta.14
 - `.github/workflows/publish.yml` - Automated publish workflow
 - `.github/workflows/smoke-test.yml` - Smoke test CI workflow (runs on PRs to main)
 - `scripts/smoke-test.sh` - Smoke test orchestration script (`yarn smoke`)
-- `scripts/validate-dist.js` - Dist validation script (`yarn validate:dist`)
 - `smoke/templates/` - Minimal Astro project templates used by smoke tests
 - [Semantic Versioning](https://semver.org/)
 - [Keep a Changelog](https://keepachangelog.com/)

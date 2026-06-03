@@ -10,7 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-03-29
+## [1.1.1] - 2026-05-07
+
+### Fixed
+- Stubbed `astro:toolbar:internal` virtual module in Storybook context to prevent build errors with Astro's internal toolbar module
+- Renderer now resolved via `import.meta.resolve` for compatibility with pnpm installations
+
+## [1.1.0]
 
 ### Added
 - Nested Astro component rendering support — components can now include other Astro components as children

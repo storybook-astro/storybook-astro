@@ -83,9 +83,6 @@ yarn workspace @storybook-astro/integration-astro6 test
 rm -rf packages/@storybook-astro/renderer/dist packages/@storybook-astro/framework/dist
 yarn build:packages
 
-# Validate all publishConfig.exports paths exist in dist/
-yarn validate:dist
-
 # Smoke test — installs from tarball into a clean project outside the workspace,
 # runs storybook build and vitest. Catches issues yarn test cannot.
 yarn smoke
@@ -167,7 +164,7 @@ git checkout -b fix/describe-the-bug
 
 ### 2. Fix, test, validate
 
-Make the fix. Run the full check sequence from step 4 above (`yarn lint`, `yarn test`, `yarn build:packages`, `yarn validate:dist`, `yarn smoke`).
+Make the fix. Run the full check sequence from step 4 above (`yarn lint`, `yarn test`, `yarn build:packages`, `yarn smoke`).
 
 ### 3. Bump the patch version and update CHANGELOG.md
 
@@ -216,10 +213,10 @@ The compiled dist is broken in some way. **Do not proceed with the publish.** Th
 
 Common causes:
 - A missing `external` in `tsup.config.ts` caused a dep to be inlined that shouldn't be
-- A new entry point added to `src/` but not to `tsup.config.ts` or `publishConfig.exports`
-- A `publishConfig.exports` path points to a file that doesn't exist in `dist/`
+- A new entry point added to `src/` but not to `tsup.config.ts` or package `exports`
+- A package `exports` path points to a file that doesn't exist in `dist/`
 
-Run `yarn validate:dist` and `yarn smoke 6 fresh` locally to reproduce.
+Run `yarn smoke 6 fresh` locally to reproduce.
 
 ### Publish step failed (after smoke passed)
 
@@ -272,7 +269,6 @@ npm dist-tag add @storybook-astro/framework@1.0.4 latest
 yarn lint                          # Lint check
 yarn test                          # Unit + portable story tests
 yarn build:packages                # Build both packages (after rm -rf dist)
-yarn validate:dist                 # Assert all publishConfig.exports exist in dist
 yarn smoke                         # Full tarball smoke test (Astro 5 + 6)
 yarn smoke 6 fresh                 # Smoke test Astro 6 only
 yarn smoke both upgrade            # Upgrade scenario (requires packages on npm)

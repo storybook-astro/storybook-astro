@@ -4,11 +4,11 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "yarn storybook",
-    "build": "astro build",
-    "storybook": "storybook dev -p 6007",
-    "build-storybook": "storybook build",
+    "dev": "storybook dev -p 6007",
+    "build": "storybook build",
+    "serve": "http-server storybook-static -p 6007 -s",
     "test": "vitest",
+    "test:browser": "playwright test",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.0.0",
+    "@playwright/test": "^1.49.0",
     "@storybook-astro/framework": "workspace:*",
     "@storybook/addon-docs": "10.2.7",
     "@storybook/addon-vitest": "^10.2.7",
@@ -44,7 +45,9 @@
     "@testing-library/react": "^16.3.2",
     "@types/prop-types": "^15.7.14",
     "@vitest/ui": "^4.0.18",
+    "eslint": "^9.39.2",
     "happy-dom": "^17.4.4",
+    "http-server": "^14.1.1",
     "msw": "^2.12.10",
     "prop-types": "^15.8.1",
     "solid-js": "^1.9.10",

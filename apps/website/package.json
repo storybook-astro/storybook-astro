@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "serve": "astro preview",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@astrojs/preact": "^5.0.1",
@@ -16,5 +17,8 @@
     "@storybook-astro/framework": "workspace:*",
     "astro": "^6.1.1",
     "preact": "^10.28.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.2"
   }
 }

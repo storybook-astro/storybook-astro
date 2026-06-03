@@ -34,14 +34,24 @@ Thank you for your interest in contributing! This project is community-driven an
    Or start a single Storybook instance:
    ```bash
    # Astro 6 (port 6006)
-   yarn workspace @storybook-astro/integration-astro6 storybook
+   yarn workspace @storybook-astro/integration-astro6 dev
 
    # Astro 5 (port 6007)
-   yarn workspace @storybook-astro/integration-astro5 storybook
+   yarn workspace @storybook-astro/integration-astro5 dev
    ```
 5. Run tests:
    ```bash
    yarn test
+   ```
+
+   Build everything:
+   ```bash
+   yarn build
+   ```
+
+   Serve all prebuilt apps:
+   ```bash
+   yarn serve
    ```
 
 ## Branching Strategy
@@ -128,10 +138,10 @@ All 17 test suites (36 tests) should pass, covering Astro, React, Vue, Svelte, P
 
 ```bash
 # Test with Astro 6
-yarn workspace @storybook-astro/integration-astro6 storybook
+yarn workspace @storybook-astro/integration-astro6 dev
 
 # Test with Astro 5
-yarn workspace @storybook-astro/integration-astro5 storybook
+yarn workspace @storybook-astro/integration-astro5 dev
 ```
 
 Check the browser console for errors and verify your changes work across different component types and Astro versions.

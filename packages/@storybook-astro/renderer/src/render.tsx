@@ -85,6 +85,10 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
   return output;
 }
 
+// Tracks the renderer used in the previous renderToCanvas call so we can detect
+// framework switches and clear the canvas before the new framework mounts.
+let activeRenderer: string | undefined;
+
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
   canvasElement: HTMLElement
@@ -92,6 +96,13 @@ export async function renderToCanvas(
   const { storyFn, kind, name, showMain, showError, forceRemount, storyContext } = ctx;
   const renderer = ctx.storyContext.parameters?.renderer as string | undefined;
   const typedRenderers = renderers as RendererRegistry;
+
+  // When the framework changes, clear the canvas so the previous framework's DOM
+  // doesn't stack alongside the new one. Same-framework rerenders are unaffected.
+  if (renderer !== activeRenderer) {
+    canvasElement.innerHTML = '';
+  }
+  activeRenderer = renderer;
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     showMain();
@@ -192,8 +203,67 @@ async function renderAstroToCanvas(
   });
 
   astroRenderer.applyStyles?.();
-  canvasElement.innerHTML = response.html;
+  canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement.ownerDocument);
   invokeScriptTags(canvasElement);
+}
+
+/** Parses the server HTML response and hoists any stylesheet links into the iframe head. */
+function prepareServerRenderedHtml(html: string, document: Document) {
+  const template = document.createElement('template');
+
+  template.innerHTML = html;
+
+  // Server mode returns stylesheet links in the HTML response. Keep those in
+  // the iframe head so controls rerenders can reuse them instead of refetching.
+  syncServerRenderedStylesheets(template.content, document);
+
+  return template.innerHTML;
+}
+
+/** Keeps server-rendered stylesheets in the iframe head across controls rerenders. */
+function syncServerRenderedStylesheets(fragment: DocumentFragment, document: Document) {
+  const nextHrefs = new Set<string>();
+  const stylesheetLinks = Array.from(fragment.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'));
+
+  stylesheetLinks.forEach((link) => {
+    const href = link.getAttribute('href');
+
+    if (!href) {
+      link.remove();
+
+      return;
+    }
+
+    nextHrefs.add(href);
+
+    if (!document.head.querySelector(`link[data-storybook-astro-style="${cssEscape(href)}"]`)) {
+      const nextLink = document.createElement('link');
+
+      Array.from(link.attributes).forEach((attribute) => {
+        nextLink.setAttribute(attribute.name, attribute.value);
+      });
+
+      nextLink.setAttribute('data-storybook-astro-style', href);
+      document.head.appendChild(nextLink);
+    }
+
+    link.remove();
+  });
+
+  Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[data-storybook-astro-style]')).forEach(
+    (link) => {
+      const href = link.getAttribute('data-storybook-astro-style');
+
+      if (href && !nextHrefs.has(href)) {
+        link.remove();
+      }
+    }
+  );
+}
+
+/** Escapes one attribute value for use inside a CSS attribute selector. */
+function cssEscape(value: string) {
+  return value.replace(/(["\\])/g, '\\$1');
 }
 
 function invokeScriptTags(element: HTMLElement) {

@@ -36,7 +36,7 @@ export const Default = {
   parameters: {
     docs: {
       description: {
-        story: 'Mocks a healthy contributor set with a small remaining count.',
+        story: 'Uses story rules + module mocks to replace the GitHub SDK client with contributor fixtures.',
       },
     },
   },

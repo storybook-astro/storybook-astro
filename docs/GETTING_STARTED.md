@@ -83,15 +83,15 @@ export default preview;
 
 ```json
 "scripts": {
-  "storybook": "storybook dev -p 6006",
-  "build-storybook": "storybook build"
+  "dev": "storybook dev -p 6006",
+  "build": "storybook build"
 }
 ```
 
 ### 5. Run Storybook
 
 ```bash
-npm run storybook
+npm run dev
 ```
 
 > **Note:** `npm create storybook@latest` does not yet recognize Astro as a framework. Use the manual setup above instead.
