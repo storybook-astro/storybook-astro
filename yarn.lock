@@ -3760,9 +3760,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@storybook-astro/integration-astro6-server-vercel@workspace:integration/astro6-server-vercel":
+"@storybook-astro/integration-astro6-server@workspace:integration/astro6-server":
   version: 0.0.0-use.local
-  resolution: "@storybook-astro/integration-astro6-server-vercel@workspace:integration/astro6-server-vercel"
+  resolution: "@storybook-astro/integration-astro6-server@workspace:integration/astro6-server"
   dependencies:
     "@astrojs/preact": "npm:5.0.0"
     "@hono/node-server": "npm:^1.19.6"

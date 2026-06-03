@@ -51,7 +51,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch",
+    "dev": "tsup --watch --no-clean",
     "lint": "eslint .",
     "prepublishOnly": "tsup"
   },
