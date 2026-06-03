@@ -85,6 +85,10 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
   return output;
 }
 
+// Tracks the renderer used in the previous renderToCanvas call so we can detect
+// framework switches and clear the canvas before the new framework mounts.
+let activeRenderer: string | undefined;
+
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
   canvasElement: HTMLElement
@@ -92,6 +96,13 @@ export async function renderToCanvas(
   const { storyFn, kind, name, showMain, showError, forceRemount, storyContext } = ctx;
   const renderer = ctx.storyContext.parameters?.renderer as string | undefined;
   const typedRenderers = renderers as RendererRegistry;
+
+  // When the framework changes, clear the canvas so the previous framework's DOM
+  // doesn't stack alongside the new one. Same-framework rerenders are unaffected.
+  if (renderer !== activeRenderer) {
+    canvasElement.innerHTML = '';
+  }
+  activeRenderer = renderer;
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     showMain();
