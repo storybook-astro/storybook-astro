@@ -107,6 +107,28 @@ import { handlerFactory } from './middleware.ts';
 import { handlerFactory } from './middleware';
 ```
 
+### Documentation
+
+Never commit AI planning documents, speculative implementation plans, or proposal docs unless explicitly asked. Prefer implementing the feature, updating real user-facing docs, or leaving planning notes in the conversation instead of adding files to the repo.
+
+### Readability
+
+Write code that is nice to read. Optimize for first-read understanding by a tired engineer, not for cleverness, symmetry, or showing off patterns.
+
+- Prefer boring, direct code over clever abstractions.
+- Use names that describe the user or product workflow, not the implementation trick.
+- Choose names that read like normal English.
+- Keep ownership obvious: a file should make clear what state, side effects, and workflows it owns.
+- Do not add helpers, wrappers, callbacks, types, or layers unless they clearly improve readability.
+- Do not hide simple one-off conditions behind grand helper names.
+- Comments should explain why code exists or what boundary it owns, not restate obvious syntax.
+- `useEffect` blocks should usually have a short comment explaining the side effect's job.
+- JSDoc is useful for non-trivial hooks, helpers, and components when it helps orientation; skip it for obvious names.
+- Tests should read like behavior or business scenarios, not framework plumbing.
+- Keep readability refactors minimal and focused; do not rewrite large files unless behavior or clarity genuinely requires it.
+
+Before finishing a change, ask whether every abstraction pays rent. If removing a helper, wrapper, comment, or type would make the file easier to understand, remove it.
+
 ## Common Development Tasks
 
 ### Adding a New Framework Integration
@@ -201,7 +223,7 @@ console.log('Container created:', container);
 - Test files use `.test.ts` extension
 - All 17 test suites (36 tests) pass, covering Astro, React, Vue, Svelte, Preact, Solid, and Alpine.js
 
-**Manual Testing**: Run with `yarn storybook`
+**Manual Testing**: Run with `yarn dev` or a workspace `dev` script such as `yarn workspace @storybook-astro/integration-astro6 dev`
 - Example stories in `src/components/*/`
 - Test different framework integrations
 - Check browser console for errors
@@ -266,10 +288,10 @@ The portable stories implementation provides testing capabilities outside Storyb
 
 ### Building
 
-The project uses a development workflow without compilation:
-- Packages are consumed directly from source via `workspace:*` protocol
-- No build step required for development
-- Storybook reads TypeScript files directly via Vite
+The framework and renderer are library packages consumed from `dist`:
+- Run `yarn build:packages` before integration builds, Vitest runs that import package entrypoints, or manual Storybook checks.
+- For local development, keep the package watcher running with `yarn dev:packages` while editing framework or renderer source.
+- Integration apps import package entrypoints exactly like consumers do, so stale `dist` means stale integration behavior.
 
 ### Publishing to npm
 
@@ -368,7 +390,7 @@ export const MyStory = {
 
 ## Development Workflow
 
-1. **Start Storybook**: `yarn storybook`
+1. **Start Storybook**: `yarn dev` or `yarn workspace @storybook-astro/integration-astro6 dev`
 2. **Make Changes**: Edit files in `packages/@storybook/*/src/`
 3. **Test**: Changes hot-reload automatically (most of the time)
 4. **Verify**: Check browser console and Storybook UI for errors
@@ -388,7 +410,7 @@ See [`docs/RELEASING.md`](./docs/RELEASING.md) for the full release process, inc
 - Gitflow branching model (`main`, `develop`, `feature/*`, `fix/*`, `release/*`)
 - Distinction between **package releases** (go through `develop` → `main`) and **website-only changes** (merge directly to `main`)
 - Hotfix and mixed-change workflows
-- Pre-publish smoke test (`yarn smoke`) and dist validation (`yarn validate:dist`)
+- Pre-publish smoke test (`yarn smoke`)
 
 ## Getting Help
 

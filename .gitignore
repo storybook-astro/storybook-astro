@@ -1,6 +1,11 @@
+# nx cache
+.nx/
+
 # build and test output
 dist/
 coverage/
+test-results/
+playwright-report/
 
 # generated types
 .astro/
@@ -27,6 +32,12 @@ pnpm-debug.log*
 
 # local AI enhancement settings
 .agents/settings.local.json
+
+# Claude Code session runtime
+.claude/
+
+# Agent plans (local working documents)
+.plans/
 
 *storybook.log
 

@@ -1,3 +1,4 @@
+import { userEvent, within, expect } from 'storybook/test';
 import Accordion from '@storybook-astro/components/Accordion/astro/Accordion.astro';
 
 export default {
@@ -54,5 +55,46 @@ export const AllowMultiple = {
       { title: 'Second Item', content: 'Try clicking on multiple headers.' },
       { title: 'Third Item', content: 'All can be open simultaneously.' },
     ],
+  },
+};
+
+export const ToggleOpen = {
+  parameters: {
+    docs: { description: { story: 'Interaction test: click a header and verify section expands.' } },
+  },
+  args: {
+    items: [{ title: 'Section 1', content: 'Content for section 1' }],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const header = canvas.getByRole('button', { name: /Section 1/ });
+
+    await expect(header).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(header);
+    await expect(header).toHaveAttribute('aria-expanded', 'true');
+    await expect(canvas.getByText('Content for section 1')).toBeVisible();
+  },
+};
+
+export const ToggleMultiple = {
+  parameters: {
+    docs: { description: { story: 'Interaction test: verify multiple sections can be open simultaneously.' } },
+  },
+  args: {
+    allowMultiple: true,
+    items: [
+      { title: 'First Item', content: 'First content' },
+      { title: 'Second Item', content: 'Second content' },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const first = canvas.getByRole('button', { name: /First Item/ });
+    const second = canvas.getByRole('button', { name: /Second Item/ });
+
+    await userEvent.click(first);
+    await userEvent.click(second);
+    await expect(first).toHaveAttribute('aria-expanded', 'true');
+    await expect(second).toHaveAttribute('aria-expanded', 'true');
   },
 };

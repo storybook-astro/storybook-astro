@@ -128,7 +128,7 @@ gh pr create \\
 Adds support for lazy-loading Astro components via dynamic imports.
 
 ### How to Test
-1. Run \\`yarn workspace @storybook-astro/integration-astro6 storybook\\`
+1. Run \\`yarn workspace @storybook-astro/integration-astro6 dev\\`
 2. Load a lazy-loaded component
 3. Verify it renders correctly
 

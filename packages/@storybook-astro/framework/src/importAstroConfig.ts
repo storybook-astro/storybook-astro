@@ -7,5 +7,5 @@ export async function importAstroConfig(resolveFrom: string) {
     paths: [resolveFrom]
   });
 
-  return import(pathToFileURL(astroConfigEntrypoint).href);
+  return import(/* @vite-ignore */ pathToFileURL(astroConfigEntrypoint).href);
 }

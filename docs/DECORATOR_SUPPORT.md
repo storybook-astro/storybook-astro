@@ -10,9 +10,9 @@ Users of Storybook Astro have reported that decorators do not work — neither a
 
 ## Current State
 
-### How Storybook applies decorators
+### How Storybook composes decorators
 
-Storybook's `preview-api` composes decorators into the story function (`storyFn`) before `renderToCanvas` is called. By the time our renderer's `renderToCanvas` runs, `ctx.storyFn` is already a composed function that, when called, returns the outermost decorator's output wrapping the inner story result.
+`storybook/internal/preview-api` composes decorators into the story function (`storyFn`) before `renderToCanvas` is called. Composition is synchronous and renderer-agnostic: each decorator is invoked as `decorator(Story, context)`, where `Story` is a thunk that, when called, returns whatever the inner decorator (or the renderer's `render()`) returns. The pipeline does not constrain or interpret the return type — the renderer does.
 
 ### Framework component stories (React, Vue, Svelte, etc.)
 
@@ -27,87 +27,154 @@ if (renderer && Object.hasOwn(typedRenderers, renderer)) {
 }
 ```
 
-The framework renderer calls `ctx.storyFn()` internally. Since Storybook has already composed decorators into `storyFn`, decorators written in the framework's native format (e.g. React JSX decorators for React stories) should work through this path — but this is **untested and undocumented**.
+The framework renderer calls `ctx.storyFn()` internally. Because Storybook has already composed decorators into `storyFn`, decorators written in the framework's native format should work through this path — but this is currently **untested and undocumented**.
 
-### Astro component stories
+### Astro component stories — the structural problem
 
-For Astro component stories, `renderToCanvas` calls `storyFn()` directly:
+For Astro stories, the renderer's `render()` returns an `AstroComponentFactory`. SSR via the Astro Container API happens later, in `renderAstroToCanvas`. This means a decorator written in the obvious "string template" style does **not** work:
 
-```ts
-// render.tsx line 107
-const element = storyFn();
+```js
+// BROKEN: Story() returns an AstroComponentFactory (a function), not HTML.
+(Story) => `<div class="wrapper">${Story()}</div>`
+// Renders: <div class="wrapper">function () {...}</div>
 ```
 
-Storybook composes decorators into `storyFn`, so the composed function calls the decorator chain. Each decorator receives the inner `storyFn` and is expected to wrap and return the result. But what should a decorator *return* for an Astro component?
+To make decorators work for Astro stories, the decorator return value has to be something the renderer can resolve to HTML at SSR time. There is currently no defined contract for this.
 
-- If a decorator returns a React element wrapping the Astro component, `renderToCanvas` can't handle it — it's not an Astro component, string, or DOM node.
-- There is currently no defined decorator contract for the Astro SSR path.
-- No examples exist in the integration apps.
+## Design Considerations
 
-## Implementation Plan
+Storybook's existing renderers offer four precedents:
 
-### Step 1 — Verify framework decorator path
+| Renderer | Decorator shape | UX | Maintenance |
+|---|---|---|---|
+| **Svelte CSF** | Native Svelte components, parsed from `.stories.svelte` | High | High — custom `DecoratorHandler.svelte` and a custom CSF parser |
+| **Vue 3** | Function returning a component options object or render function | Medium-high | Low — plain JS, standard Vue shapes |
+| **React** | Function returning JSX (HOC pattern) | High (in React) | Very low — natural to JSX |
+| **HTML** | Function returning a string or DOM node | Low | Very low |
 
-Add story-level and global decorators to the integration apps for React and Vue component stories. Run Storybook manually to confirm that `typedRenderers[renderer].renderToCanvas(ctx, canvasElement)` correctly applies composed decorators.
+The Storybook engineering team has indicated a preference for "native" syntax (better UX) but acknowledges higher maintenance, and has invited us to a contributor office hour to discuss the choice. The Nuxt community addon is also exploring a native-syntax approach.
 
-If working: document the pattern and close the framework decorator part of the issue.
-If broken: investigate the delegation path and `virtual:storybook-renderer-fallback` module resolution.
+For Astro, **native** in this context means: the decorator is an Astro component (`Wrapper.astro`) with a `<slot />` for the inner story. This is achievable cheaply because:
 
-**Files to touch**:
-- `integration/astro5/.storybook/preview.js`
-- `integration/astro6/.storybook/preview.js`
-- A React or Vue story file in each integration app
+- Astro's compiler already handles parsing — we don't need a custom CSF format the way Svelte CSF does.
+- Astro Container's `renderToString(Component, { props, slots })` already accepts HTML strings for slots, so passing inner-rendered HTML into an outer decorator component is a one-line operation.
 
-### Step 2 — Define an HTML string decorator contract for Astro stories
+The proposed primary contract is therefore Vue-shaped (function returning a descriptor) but with Astro components as the descriptor's payload — getting native UX without Svelte-CSF-level maintenance.
 
-Define a decorator contract for Astro component stories: decorators should return an **HTML string** that wraps the SSR-rendered output of the inner story. The inner story's HTML is passed to the decorator as the result of calling `Story()`.
+## Proposed Decorator Contract
 
-Proposed contract:
+### Primary: function returning an Astro component descriptor
 
 ```js
 // .storybook/preview.js
+import Wrapper from './Wrapper.astro';
+
 export const decorators = [
-  (Story) => `<div class="padded-wrapper">${Story()}</div>`,
+  (Story, ctx) => ({ component: Wrapper, props: { theme: ctx.globals.theme } }),
 ];
 ```
 
-To support this, `renderAstroToCanvas` in `render.tsx` needs to be restructured so that:
+```astro
+---
+// Wrapper.astro
+const { theme } = Astro.props;
+---
+<div class={`wrapper theme-${theme}`}>
+  <slot />
+</div>
+```
 
-1. The Astro component is rendered to an HTML string first.
-2. Any decorators from `storyContext.decorators` that return strings are applied around that HTML string, outer-to-inner.
-3. The final HTML string is set as `canvasElement.innerHTML`.
+The renderer renders the inner story to HTML, then renders `Wrapper` with the inner HTML supplied as the `default` slot. Named slots are supported via `slots: { sidebar: <Renderable> }` on the descriptor.
 
-This avoids restructuring how Storybook composes decorators — it's a post-SSR HTML wrapping step that runs after `astroRenderer.render(...)`.
+### Composition across multiple decorators
 
-**Files to touch**:
-- `packages/@storybook-astro/renderer/src/render.tsx` — restructure `renderAstroToCanvas` to accept and apply HTML string decorators after SSR
+Because composition is synchronous and SSR is async, decorators do not call `await Story()`. Instead, calling `Story()` returns a **renderable descriptor** — a sync, normalized intermediate value. The renderer resolves the entire descriptor tree to HTML in a single async pass after `storyFn()` returns:
 
-### Step 3 — Add integration test stories with decorators
+```ts
+type Renderable =
+  | AstroComponentFactory                                    // bare component, no decorators
+  | { component: AstroComponentFactory; props?: object;
+      slots?: Record<string, Renderable | string> };         // wrapped component
+```
 
-Add concrete decorator examples to both integration apps:
+A two-decorator chain naturally composes: each decorator's `Story()` returns whatever the inner decorator returned, and the outer wraps it by placing it in `slots.default`. The renderer then walks the tree inner-to-outer, calling Astro Container at each level and threading the resulting HTML up as a slot string to the next level.
 
-- **Global decorator** in `preview.js`: adds a layout wrapper `<div>` with padding
-- **Story-level decorator**: adds a background or theme class
-- **React decorator** on a React component story: `(Story) => <ThemeProvider><Story /></ThemeProvider>`
+### Fallbacks
 
-These serve as both regression tests and usage examples.
+- **Bare Astro component as decorator value** — sugar for `(Story) => ({ component: Wrapper, slots: { default: Story() } })`. Detected because Astro component factories carry `isAstroComponentFactory`.
+- **Framework component stories** — handled entirely by the delegated framework renderer; users write decorators in that framework's native style. Documented but no Astro-specific code path.
 
-**Files to touch**:
-- `integration/astro5/.storybook/preview.js`
-- `integration/astro6/.storybook/preview.js`
-- One or more story files in each integration app
+### Explicitly out of scope (for now)
 
-### Step 4 — Document decorator patterns
+- **HTML-string decorators**. Supporting `(Story) => string` cleanly requires either pre-rendering the inner story (forces every storyFn to be async, which Storybook's pipeline does not currently model) or an async `Story()` thunk (decorator pipeline is sync). Both options are invasive for marginal benefit — the Astro-component descriptor form covers all real wrapping cases. Revisit if user demand emerges.
+- **Reactive / runtime decorators** — Astro is SSR-first; decorators run at render time only. Interactive wrapper behavior should be implemented inside the decorator's Astro component using its own `<script>` or framework islands.
 
-Add a `decorators.md` guide under `apps/website/src/content/docs/writing-stories/` covering:
+## Implementation Plan
 
-- How decorators work for framework component stories (React, Vue, etc.)
-- How to write Astro-compatible HTML string decorators
-- Global vs. component-level vs. story-level decorator scoping
-- Limitations: Astro decorators must return HTML strings; JSX decorators are not supported for Astro stories
+### Step 0 — Validate the contract with Storybook contributors
+
+Attend a contributor office hour. Walk through the proposed contract, the trade space (vs. Svelte CSF, Vue, Nuxt's in-progress approach), and the "renderable descriptor" composition model. Adjust before implementation if precedents we don't yet know about argue for a different shape.
+
+**Exit criteria**: rough alignment from at least one Storybook maintainer, or an explicit decision to diverge with documented rationale.
+
+### Step 1 — Verify and lock down framework decorator delegation
+
+Add story-level and global decorators for React and Vue framework component stories in both integration apps. Confirm they apply correctly through the existing `typedRenderers[renderer].renderToCanvas` delegation. Add a Vitest test per framework that asserts a decorator wrapper appears in rendered output.
+
+If broken: investigate the `virtual:storybook-renderer-fallback` resolution path before touching anything else — this should work today.
+
+**Files**:
+- `integration/astro5/.storybook/preview.js`, `integration/astro6/.storybook/preview.js`
+- A React and a Vue story file in each integration app, with decorators
+- Vitest tests using `composeStories` + `renderStory`
+
+### Step 2 — Introduce the renderable descriptor
+
+In `packages/@storybook-astro/renderer/src/render.tsx`, define the `Renderable` union and a single `resolveRenderable(r): Promise<string>` function. It handles:
+
+1. Bare `AstroComponentFactory` — render via Astro Container, return HTML.
+2. `{ component, props, slots }` descriptor — recursively resolve each slot to an HTML string, then render `component` with those slot strings.
+3. (Internal only) string passthrough, used when resolving slots.
+
+`renderAstroToCanvas` becomes: `canvasElement.innerHTML = await resolveRenderable(storyFn())`.
+
+This is the single architectural change. Everything else is documentation and tests.
+
+**Files**:
+- `packages/@storybook-astro/renderer/src/render.tsx` — restructure `renderAstroToCanvas`
+- `packages/@storybook-astro/framework/src/middleware.ts` — confirm Container's `slots` map accepts strings (it does); no change expected
+- `packages/@storybook-astro/renderer/src/types.ts` — export `Renderable` and `AstroDecoratorDescriptor` types
+
+### Step 3 — Integration test stories with decorators
+
+Add concrete examples in both integration apps:
+
+- Global decorator (`Wrapper.astro` with theme class) wired in `preview.js`.
+- Component-level decorator on an Astro story.
+- Story-level decorator that reads `context.globals` and passes a prop.
+- A two-decorator chain to exercise composition.
+- A React decorator on a React story (regression coverage from Step 1).
+
+Each gets a Vitest test asserting the wrapper markup is present.
+
+**Files**:
+- `integration/astro5/.storybook/Wrapper.astro`, `integration/astro6/.storybook/Wrapper.astro`
+- `integration/{astro5,astro6}/.storybook/preview.js`
+- One Astro story file and one React story file per integration app
+- Matching `*.test.ts` files
+
+### Step 4 — Document
+
+Add `apps/website/src/content/docs/writing-stories/decorators.md`:
+
+- Conceptual overview: where decorators run, sync composition + async resolution.
+- Astro decorator authoring (Astro component + descriptor function).
+- Framework decorators on framework stories (React, Vue, Svelte, etc.) — write them in the framework's native style; Storybook handles the rest.
+- Globals/args access via the descriptor function's `context` argument.
+- Limitations (see below).
 
 ## Known Limitations
 
-- Decorators for Astro stories cannot return JSX or framework component trees — only HTML strings are supported in the SSR path.
-- Decorators that need access to a framework's runtime (e.g. a React context provider) must be used on framework component stories with the appropriate `parameters.renderer` set.
-- Interactive client-side decorator behavior (e.g. event handlers in a wrapper) is not supported in the Astro SSR path.
+- Decorators on Astro stories must be Astro components, not framework components or HTML strings. Wrap framework-context concerns (e.g. a React `ThemeProvider`) inside an Astro island within the decorator.
+- Decorator props can read `context` (globals, args, parameters) at render time, but cannot react to client-side state changes — Astro is SSR-first.
+- Slot content other than `default` requires explicit named slots in both the decorator's Astro template and the descriptor's `slots` map.

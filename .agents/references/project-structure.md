@@ -69,8 +69,8 @@ yarn workspace @storybook-astro/renderer test
 yarn workspace @storybook-astro/renderer build
 
 # Integration examples
-yarn workspace @storybook-astro/integration-astro6 storybook
-yarn workspace @storybook-astro/integration-astro5 storybook
+yarn workspace @storybook-astro/integration-astro6 dev
+yarn workspace @storybook-astro/integration-astro5 dev
 
 # Website
 yarn workspace @storybook-astro/website dev
@@ -84,6 +84,10 @@ yarn lint:fix
 
 # Build packages only
 yarn build:packages
+
+# Build or serve all workspaces
+yarn build
+yarn serve
 ```
 
 ## Important Conventions

@@ -196,7 +196,7 @@ yarn lint:fix
 yarn build:packages
 
 # Storybook (pick an integration example)
-yarn workspace @storybook-astro/integration-astro6 storybook
+yarn workspace @storybook-astro/integration-astro6 dev
 ```
 
 ## When to Use Each Skill

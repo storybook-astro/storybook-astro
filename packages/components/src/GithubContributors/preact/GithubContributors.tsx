@@ -1,13 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useMemo } from 'preact/hooks';
 import styles from '../styles/githubContributors.module.css';
-
-type GithubContributor = {
-  id: number;
-  login: string;
-  avatarUrl: string;
-  profileUrl: string;
-};
+import type { GithubContributor } from '../../githubTypes.ts';
 
 type GithubContributorsProps = {
   repository?: string;

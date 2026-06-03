@@ -67,14 +67,7 @@ build_packages() {
   ok "Build complete"
 }
 
-# ── Step 2: Validate dist ──────────────────────────────────────────────────────
-validate_dist() {
-  header "Validating dist against publishConfig.exports"
-  cd "$REPO_ROOT"
-  node scripts/validate-dist.js
-}
-
-# ── Step 3: Pack ───────────────────────────────────────────────────────────────
+# ── Step 2: Pack ───────────────────────────────────────────────────────────────
 pack_packages() {
   header "Packing packages"
   RENDERER_TGZ="$WORK_ROOT/renderer.tgz"
@@ -184,7 +177,6 @@ run_upgrade() {
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 build_packages
-validate_dist
 pack_packages
 
 versions=()

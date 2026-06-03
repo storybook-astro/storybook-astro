@@ -76,15 +76,15 @@ If your project uses global CSS, a CSS utility framework (UnoCSS, Tailwind CSS),
 
 ```json
 "scripts": {
-  "storybook": "storybook dev -p 6006",
-  "build-storybook": "storybook build"
+  "dev": "storybook dev -p 6006",
+  "build": "storybook build"
 }
 ```
 
 ## 4. Run Storybook
 
 ```bash
-npm run storybook
+npm run dev
 ```
 
 Storybook will open at [http://localhost:6006](http://localhost:6006). You're ready to start [writing stories](/writing-stories/).
