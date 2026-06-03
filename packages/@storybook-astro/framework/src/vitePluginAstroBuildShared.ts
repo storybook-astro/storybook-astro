@@ -116,6 +116,16 @@ export async function collectHydratedComponentPaths(astroFilePath: string) {
       continue;
     }
 
+    // Only .jsx/.tsx files go through toComponentVirtualId, which emits
+    // `export { default } from '<file>'`. A file with no default export
+    // crashes Rollup with '"default" is not exported'. Svelte/Vue SFCs are
+    // passed directly to their compilers, which generate the default export —
+    // checking their source for a literal `export default` would falsely
+    // exclude them.
+    if (/\.(jsx|tsx)$/.test(resolvedImportPath) && !(await hasDefaultExport(resolvedImportPath))) {
+      continue;
+    }
+
     hydratedComponentPaths.push(resolvedImportPath);
   }
 
@@ -263,6 +273,24 @@ export async function copyRuntimeSnapshot(options: {
 
   for (const runtimeInputFile of runtimeInputFiles) {
     await copyLocalRuntimeDependencies(runtimeInputFile, options, copiedFiles);
+  }
+}
+
+/** Reports whether a JS/TS source file has a default export.
+ * Only call for .jsx/.tsx — Svelte and Vue SFCs have no literal `export default`
+ * in source, but their compilers generate one. On read error the file is kept,
+ * preserving prior behaviour rather than silently dropping a component.
+ *
+ * The regex scan is intentionally conservative: it can match inside comments
+ * or string literals, which produces a false-positive (file kept, Rollup crashes
+ * as before) rather than a false-negative (file silently dropped). */
+async function hasDefaultExport(absPath: string) {
+  try {
+    const source = await readFile(absPath, 'utf-8');
+
+    return /export\s+default\b/.test(source) || /export\s*\{[^}]*\bdefault\b/.test(source);
+  } catch {
+    return true;
   }
 }
 
