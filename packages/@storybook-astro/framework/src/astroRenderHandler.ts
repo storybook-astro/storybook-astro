@@ -1,6 +1,7 @@
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
+import { reviveDateStrings } from './lib/revive-dates.ts';
 import { runWithStoryRules, type ResolveRulesConfigModule } from './storyRulesRuntime.ts';
 import type { RenderStoryInput } from './types.ts';
 
@@ -86,9 +87,10 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
             selectedRules.moduleMocks.size === 0
           );
           const processedArgs = await processImageMetadata(data.args ?? {});
+          const revivedArgs = reviveDateStrings(processedArgs);
           const sanitizedPayload = sanitizeRenderPayload(
             {
-              args: processedArgs,
+              args: revivedArgs,
               slots: data.slots ?? {}
             },
             sanitizationOptions
