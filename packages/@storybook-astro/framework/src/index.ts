@@ -56,9 +56,6 @@ export type {
 } from './rules.ts';
 export { defineStoryRules } from './rules.ts';
 
-// Re-export preset functionality for framework usage
-export { core, viteFinal } from './preset.ts';
-
 // Preview configuration helper
 export function definePreview<Addons extends PreviewAddon<never>[] = []>(
   input: ProjectAnnotations<AstroRenderer> & { addons?: Addons }
