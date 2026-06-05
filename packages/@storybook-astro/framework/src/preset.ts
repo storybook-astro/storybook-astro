@@ -133,14 +133,22 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
       finalConfig.optimizeDeps.exclude.push(pkg);
     }
   }
-  // Exclude the renderer from Vite's esbuild pre-bundler so that
-  // import.meta.hot is preserved in the preview iframe. When installed
-  // via npm (not workspace:*), Vite would otherwise pre-bundle the
-  // renderer with esbuild, which strips import.meta.hot and causes the
-  // renderer to fall back to fetching astro-prerendered-stories.json
-  // (a 404 in dev mode) rather than using the Vite HMR channel.
-  if (!finalConfig.optimizeDeps.exclude.includes('@storybook-astro/renderer')) {
-    finalConfig.optimizeDeps.exclude.push('@storybook-astro/renderer');
+  // Exclude the renderer and framework from Vite's esbuild pre-bundler.
+  //
+  // Renderer: import.meta.hot must be preserved so the HMR channel works.
+  // When esbuild pre-bundles it, import.meta.hot is stripped and render
+  // responses are never received, producing an infinite loading spinner.
+  //
+  // Framework: the main entry re-exports browser-safe helpers (definePreview,
+  // composeStories, etc.) but also has subpath exports that depend on Vite
+  // server APIs. If Vite's dep optimizer scans the package transitively it
+  // can pull in createServer and other Node-only code, creating a >50k-line
+  // browser bundle that causes duplicate __vite__injectQuery declarations
+  // and a SyntaxError that crashes the preview iframe.
+  for (const pkg of ['@storybook-astro/renderer', '@storybook-astro/framework']) {
+    if (!finalConfig.optimizeDeps.exclude.includes(pkg)) {
+      finalConfig.optimizeDeps.exclude.push(pkg);
+    }
   }
   // fsevents is a macOS-only native chokidar dep with a .node binary that
   // esbuild's prebundler can't load. storybook/internal/preview-api can pass
