@@ -74,17 +74,19 @@ If your project uses global CSS, a CSS utility framework (UnoCSS, Tailwind CSS),
 
 ## 3. Add scripts to `package.json`
 
+Astro projects already use `dev` and `build` for `astro dev` and `astro build`. Use separate script names for Storybook to avoid conflicts:
+
 ```json
 "scripts": {
-  "dev": "storybook dev -p 6006",
-  "build": "storybook build"
+  "storybook": "storybook dev -p 6006",
+  "build-storybook": "storybook build"
 }
 ```
 
 ## 4. Run Storybook
 
 ```bash
-npm run dev
+npm run storybook
 ```
 
 Storybook will open at [http://localhost:6006](http://localhost:6006). You're ready to start [writing stories](/writing-stories/).
