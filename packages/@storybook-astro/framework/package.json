@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/framework",
-  "version": "1.3.0-canary.2",
+  "version": "1.3.0-canary.3",
   "description": "Community-supported Storybook framework for Astro 5 & 6 components",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -42,6 +42,10 @@
     "./vitest": {
       "types": "./dist/vitest/index.d.ts",
       "import": "./dist/vitest/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
     },
     "./preset": {
       "types": "./dist/preset.d.ts",
