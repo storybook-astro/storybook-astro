@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: [
     'src/index.ts',
+    'src/node/index.ts',
     'src/preset.ts',
     'src/testing.ts',
     'src/vitest/index.ts',
@@ -20,6 +21,7 @@ export default defineConfig({
     // It has no public API consumers, so DTS is not needed for it.
     entry: [
       'src/index.ts',
+      'src/node/index.ts',
       'src/preset.ts',
       'src/testing.ts',
       'src/vitest/index.ts',

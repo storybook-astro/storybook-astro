@@ -43,6 +43,10 @@
       "types": "./dist/vitest/index.d.ts",
       "import": "./dist/vitest/index.js"
     },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
+    },
     "./preset": {
       "types": "./dist/preset.d.ts",
       "import": "./dist/preset.js"
