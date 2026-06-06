@@ -177,29 +177,6 @@ export function buildStaticModuleMap(
   return map;
 }
 
-/** Builds the stylesheet map for emitted framework component entry chunks. */
-export function buildStaticCssMap(
-  pluginContext: Rollup.PluginContext,
-  bundle: Rollup.OutputBundle,
-  componentEntrypointRefs: Map<string, string>
-) {
-  const map: Record<string, string[]> = {};
-
-  componentEntrypointRefs.forEach((fileReferenceId, specifier) => {
-    const fileName = pluginContext.getFileName(fileReferenceId);
-    const chunk = fileName ? (bundle[fileName] as Rollup.OutputChunk | undefined) : undefined;
-    const importedCss = Array.from(
-      (chunk?.viteMetadata?.importedCss ?? new Set<string>()).values()
-    );
-
-    if (importedCss.length > 0) {
-      map[specifier] = importedCss.map((cssFileName) => toPublicPath(cssFileName));
-    }
-  });
-
-  return map;
-}
-
 /** Normalizes one emitted file name to the relative public path used in built HTML. */
 export function toPublicPath(fileName: string) {
   return `./${fileName}`;
