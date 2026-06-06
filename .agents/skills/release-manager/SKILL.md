@@ -58,25 +58,13 @@ git checkout develop
 git pull origin develop
 ```
 
-**2. Cut release branch**
+**2. Bump versions and update changelogs on `develop`**
 
-Create a release branch from `develop` for this specific version:
+> **Important**: Version bumps, CHANGELOG.md, and the website changelog must all be committed to `develop` **before** cutting the release branch. This prevents merge conflicts with `main`, which may have changelog entries from previous releases that `develop` hasn't seen yet.
 
-```bash
-# Create and switch to release branch (e.g., release/0.1.0-beta.14)
-git checkout -b release/0.1.0-beta.14
-git push origin release/0.1.0-beta.14
-```
-
-> **Convention**: Release branches follow the pattern `release/X.Y.Z-beta.N` and allow for last-minute fixes without blocking `develop`.
-
-**3. Bump versions**
-
-Update BOTH package files:
+Update BOTH package files to the same version:
 - `packages/@storybook-astro/renderer/package.json`
 - `packages/@storybook-astro/framework/package.json`
-
-Use the same version for both (they're always released together):
 
 ```json
 {
@@ -84,9 +72,7 @@ Use the same version for both (they're always released together):
 }
 ```
 
-**4. Update CHANGELOG.md**
-
-Add a new section at the top with the version and date:
+Add a new section at the top of CHANGELOG.md with the version and date:
 
 ```markdown
 ## [0.1.0-beta.14] - 2026-03-15
@@ -111,17 +97,28 @@ Sections:
 - `Removed` — Removed features
 - `Security` — Security fixes
 
-**Website Changelog**: The [website changelog page](/reference/changelog/) mirrors the content from the root CHANGELOG.md file. After updating CHANGELOG.md in step 4, also update `apps/website/src/content/docs/reference/changelog.md` with the same changes. This keeps the website changelog in sync.
+**Website Changelog**: Also update `apps/website/src/content/docs/reference/changelog.md` with the same changes to keep the website changelog in sync.
 
-**5. Commit and push to release branch**
+Commit and push to `develop`:
 
 ```bash
-git add packages/*/package.json CHANGELOG.md
+git add packages/*/package.json CHANGELOG.md apps/website/src/content/docs/reference/changelog.md
 git commit -m "chore: release v0.1.0-beta.14"
+git push origin develop
+```
+
+**3. Cut release branch**
+
+Create a release branch from `develop`. Since changelogs and versions are already committed, the release branch only exists for any last-minute fixes before merging to `main`.
+
+```bash
+git checkout -b release/0.1.0-beta.14
 git push origin release/0.1.0-beta.14
 ```
 
-**6. Merge release branch into `main`**
+> **Convention**: Release branches follow the pattern `release/X.Y.Z` or `release/X.Y.Z-beta.N`.
+
+**4. Merge release branch into `main`**
 
 ```bash
 git checkout main
@@ -130,7 +127,7 @@ git merge --no-ff release/0.1.0-beta.14
 git push origin main
 ```
 
-**7. Tag on `main` and push**
+**5. Tag on `main` and push**
 
 Tags trigger the publish workflow:
 
@@ -141,7 +138,7 @@ git push origin v0.1.0-beta.14
 
 > **Convention**: Only tag on `main`. Tagging on `develop` or other branches would publish from an unreleased state.
 
-**8. Verify publish succeeded**
+**6. Verify publish succeeded**
 
 The `.github/workflows/publish.yml` workflow automatically:
 - Runs `yarn lint` and tests (both Astro 5 and 6)
@@ -163,7 +160,7 @@ The workflow should show a **✓** (success) status. If it shows an **X** (faile
 gh run view <RUN_ID> --repo storybook-astro/storybook-astro
 ```
 
-**9. Confirm packages on npm**
+**7. Confirm packages on npm**
 
 This is the final verification step. Confirm both packages are published with the correct version and latest dist-tag:
 
@@ -188,9 +185,9 @@ Expected output:
 
 If versions are missing or dist-tags are incorrect, refer to the **Manual Publish Fallback** section.
 
-**10. Merge `main` back to `develop` (optional)**
+**8. Merge `main` back to `develop`**
 
-If there are conflicts or just to keep branches in sync:
+Sync `main` back to `develop` so that changelog and version entries are present on both branches:
 
 ```bash
 git checkout develop
@@ -488,21 +485,22 @@ git push origin v0.1.0-beta.14
 ### Standard release
 
 - [ ] All features/fixes on `develop` branch
-- [ ] Release branch created: `git checkout -b release/X.Y.Z-beta.N`
-- [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version
-- [ ] CHANGELOG.md updated with new version section and entries
-- [ ] Website changelog at `apps/website/src/content/docs/reference/changelog.md` updated with same version section and entries
+- [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version on `develop`
+- [ ] CHANGELOG.md updated with new version section and entries on `develop`
+- [ ] Website changelog at `apps/website/src/content/docs/reference/changelog.md` updated on `develop`
+- [ ] Version and changelog changes committed and pushed to `develop`
+- [ ] Release branch created from `develop`: `git checkout -b release/X.Y.Z`
 - [ ] `yarn lint` passes
 - [ ] `yarn test` passes (both Astro 5 and 6)
 - [ ] `yarn build:packages` succeeds (clean build — `rm -rf dist` first)
 - [ ] `yarn smoke` passes (tarball install + storybook build + tests on Astro 5 and 6)
-- [ ] Changes committed and pushed to release branch
 - [ ] Release branch merged into `main` and pushed
-- [ ] Tag created on `main`: `git tag vX.Y.Z-beta.N`
-- [ ] Tag pushed to remote: `git push origin vX.Y.Z-beta.N`
+- [ ] Tag created on `main`: `git tag vX.Y.Z`
+- [ ] Tag pushed to remote: `git push origin vX.Y.Z`
 - [ ] Publish workflow completes successfully (includes automated smoke test)
 - [ ] `npm view @storybook-astro/framework versions --json` shows new version
 - [ ] `npm dist-tag ls @storybook-astro/framework` shows `latest` pointing to new version
+- [ ] `main` merged back to `develop`
 
 ### Test/preview release
 
