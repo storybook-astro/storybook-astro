@@ -42,19 +42,6 @@ export type {
   StoryRulesOptions,
   StorybookConfig
 } from './types.ts';
-export type {
-  StoryRuleCleanup,
-  StoryRuleMock,
-  StoryRuleMockFactory,
-  StoryRule,
-  StoryRulesConfig,
-  StoryRuleSelection,
-  StoryRuleSelectionInput,
-  StoryRuleStory,
-  StoryRuleUse,
-  StoryRuleUseContext
-} from './rules.ts';
-export { defineStoryRules } from './rules.ts';
 
 // Preview configuration helper
 export function definePreview<Addons extends PreviewAddon<never>[] = []>(
