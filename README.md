@@ -58,7 +58,7 @@ export default {
 // .storybook/story-rules.ts
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { defineStoryRules } from '@storybook-astro/framework';
+import { defineStoryRules } from '@storybook-astro/framework/node';
 
 const server = setupServer();
 let isListening = false;
