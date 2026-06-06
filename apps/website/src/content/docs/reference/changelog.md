@@ -10,6 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-06
+
+### Added
+- Factory story-rule mocks — `defineStoryRules` now supports factory functions for dynamic mock values
+
+### Fixed
+- Date props (e.g. `pubDate`) now survive JSON serialization across the render pipeline — previously caused `date.toISOString is not a function` errors in components like FormattedDate
+- Restored missing `./node` export dropped during dist migration
+- Removed preset re-export from index entry to prevent bundler conflicts and excluded framework from Vite `optimizeDeps`
+- Hydrated framework component styles now emitted correctly in static prerender builds
+- `defineStoryRules` and `StoryRule` types moved to the `./node` entry so they resolve in Node-only contexts
+- Scoped `hasDefaultExport` check to `.jsx/.tsx` files only in the hydratable component scan
+- Renderer now clears the canvas when switching between framework renderers, preventing stacked DOM from different frameworks
+- Suppressed unanalyzable dynamic import warning emitted by Vite during SSR
+- Restored built server hydration and interactive behavior for server-mode stories
+- Astro container now loaded via Vite SSR for correct slot class identity
+- Excluded `fsevents` and `preview-api` from `optimizeDeps` to prevent bundling errors
+
+### Changed
+- Unified Astro render pipeline and shared production render runtime across dev, static, and server modes
+- Simplified Vite plugin naming conventions
+- Integration examples now consume compiled package dist instead of source
+
 ## [1.2.0] - 2026-05-09
 
 ### Added
@@ -25,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `setProjectAnnotations`, `composeStory`, and `composeStories` are now generic over renderer type for improved TypeScript support
 - Widened `@vitejs/plugin-vue` peer dep range to `^5.2.3 || ^6.0.0` and `@vitejs/plugin-vue-jsx` to `^4.1.2 || ^5.0.0` — fixes install conflict when using `@astrojs/vue@6`
 
-## [1.1.1]
+## [1.1.1] - 2026-05-07
 
 ### Fixed
 - Stubbed `astro:toolbar:internal` virtual module in Storybook context to prevent build errors with Astro's internal toolbar module
