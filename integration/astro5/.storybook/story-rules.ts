@@ -1,4 +1,4 @@
-import { defineStoryRules } from '@storybook-astro/framework';
+import { defineStoryRules } from '@storybook-astro/framework/node';
 import { HttpResponse, http } from 'msw';
 import { getMswServer } from './msw-server.ts';
 import type {
