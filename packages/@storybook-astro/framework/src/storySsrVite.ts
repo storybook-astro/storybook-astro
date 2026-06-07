@@ -6,7 +6,7 @@ import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
-import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
@@ -44,7 +44,7 @@ export async function createStorySsrViteServer(options: {
     },
     plugins: [
       createProjectAstroResolutionPlugin(options.resolveFrom),
-      vitePluginAstroFontsFallback(),
+      vitePluginAstroFonts({ root: options.resolveFrom }),
       vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
