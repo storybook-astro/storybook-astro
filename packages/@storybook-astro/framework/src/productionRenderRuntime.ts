@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
+import type { FrameworkOptions } from './types.ts';
 import {
   createClientModuleResolver,
   createProductionAstroContainer,
@@ -34,6 +35,7 @@ type ProductionRenderRuntimeOptions = {
   trackedSpecifiers: Set<string>;
   resolveFrom: string;
   resolveComponentId?: (id: string) => string;
+  fonts?: FrameworkOptions['fonts'];
 };
 
 /** Creates the shared SSR runtime used by both build-time prerendering and the standalone render server. */
@@ -43,7 +45,8 @@ export async function createProductionRenderRuntime(
   const viteServer = await createStorySsrViteServer({
     integrations: options.integrations,
     trackedSpecifiers: options.trackedSpecifiers,
-    resolveFrom: options.resolveFrom
+    resolveFrom: options.resolveFrom,
+    fonts: options.fonts
   });
 
   try {

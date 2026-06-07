@@ -7,7 +7,7 @@ import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
-import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
@@ -25,7 +25,7 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   const vitePlugin = {
     name: 'storybook-astro-middleware-plugin',
     async configureServer(server) {
-      viteServer = await createViteServer(options.integrations ?? [], resolveFrom);
+      viteServer = await createViteServer(options.integrations ?? [], resolveFrom, options.fonts);
       const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
 
       const filePath = fileURLToPath(new URL('./middleware', import.meta.url));
@@ -155,7 +155,11 @@ function createSsrServerLogger() {
   return logger;
 }
 
-export async function createViteServer(integrations: Integration[], resolveFrom = process.cwd()) {
+export async function createViteServer(
+  integrations: Integration[],
+  resolveFrom = process.cwd(),
+  fonts?: FrameworkOptions['fonts']
+) {
   const { getViteConfig, passthroughImageService } = await importAstroConfig(resolveFrom);
   const safeIntegrations = integrations ?? [];
   const projectAstroResolutionPlugin = createProjectAstroResolutionPlugin(resolveFrom);
@@ -181,7 +185,7 @@ export async function createViteServer(integrations: Integration[], resolveFrom 
     plugins: [
       projectAstroResolutionPlugin,
       // Fallbacks must come first to intercept before Astro's plugins
-      vitePluginAstroFontsFallback(),
+      vitePluginAstroFonts({ fonts, root: resolveFrom }),
       vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
