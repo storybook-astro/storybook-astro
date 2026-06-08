@@ -138,6 +138,7 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
         staticCssMap,
         trackedSpecifiers,
         resolveFrom,
+        fonts: options.fonts,
         bundle
       });
 
@@ -162,6 +163,7 @@ async function prerenderAstroStories(options: {
   staticCssMap: StaticCssMap;
   trackedSpecifiers: Set<string>;
   resolveFrom: string;
+  fonts?: FrameworkOptions['fonts'];
   bundle: Rollup.OutputBundle;
 }) {
   const runtime = await createProductionRenderRuntime({
@@ -170,7 +172,8 @@ async function prerenderAstroStories(options: {
     storyRulesConfigFilePath: options.storyRulesConfigFilePath,
     staticModuleMap: options.staticModuleMap,
     trackedSpecifiers: options.trackedSpecifiers,
-    resolveFrom: options.resolveFrom
+    resolveFrom: options.resolveFrom,
+    fonts: options.fonts
   });
   const assetPathMap = buildAssetPathMap(options.bundle);
 

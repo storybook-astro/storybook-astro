@@ -100,14 +100,21 @@ git commit -m "chore: release v1.0.4"
 git push origin develop
 ```
 
-### 6. Merge `develop` into `main`
+### 6. Merge `develop` into `main` and `website`
 
 ```bash
 git checkout main
 git pull origin main
 git merge --no-ff develop
 git push origin main
+
+git checkout website
+git pull origin website
+git merge --no-ff develop
+git push origin website
 ```
+
+The `website` branch is what Cloudflare deploys to storybook-astro.org. Standard releases always merge to both.
 
 ### 7. Tag on `main` and push
 
@@ -198,10 +205,12 @@ The publish workflow handles the rest.
 Changes to `apps/website/` only — documentation updates, styling, copy — do **not** need a release:
 
 - Branch from `main` (e.g. `website/update-docs`)
-- Open a PR targeting `main`
-- Merge — CloudFlare deploys automatically, no version bump or publish needed
+- Open PRs targeting both `main` and `website`
+- Merge `main` first, then `website` — CloudFlare deploys from `website` automatically, no version bump or publish needed
 
 A PR is website-only if it touches nothing under `packages/@storybook-astro/*`.
+
+> **Why two branches?** The `website` branch is what Cloudflare deploys. Canary releases merge to `main` (to trigger the npm publish workflow) but never to `website`, so the public site always reflects the `latest` npm package.
 
 ---
 
@@ -257,11 +266,12 @@ npm dist-tag add @storybook-astro/framework@1.0.4 latest
 
 ## Quick reference
 
-| Scenario | Branch from | PR target | Version bump | Tag on |
+| Scenario | Branch from | Merge to | Version bump | Tag on |
 |---|---|---|---|---|
-| Feature / fix | `develop` | `develop` | Yes | `main` |
-| Hotfix | `main` | `main` + `develop` | Patch only | `main` |
-| Website-only | `main` | `main` | No | — |
+| Feature / fix | `develop` | `develop` → `main` + `website` | Yes | `main` |
+| Canary / preview | `develop` | `main` only (not `website`) | Yes (pre-release label) | `main` |
+| Hotfix | `main` | `main` + `website` + `develop` | Patch only | `main` |
+| Website-only | `main` | `main` + `website` | No | — |
 
 ### Key commands
 

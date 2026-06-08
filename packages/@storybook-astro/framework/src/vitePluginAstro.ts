@@ -1,6 +1,7 @@
 import { mergeConfig, type InlineConfig } from 'vite';
 import type { Integration } from './integrations/index.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
+import { loadUserAstroIntegrations } from './loadUserAstroConfig.ts';
 
 const ASTRO_PLUGINS_THAT_ARE_SUPPOSEDLY_NOT_NEEDED_IN_STORYBOOK = [
   '@astro/plugin-actions',
@@ -38,13 +39,19 @@ export async function mergeWithAstroConfig(
   const { getViteConfig } = await importAstroConfig(resolveFrom);
   const safeIntegrations = integrations ?? [];
 
+  const frameworkIntegrations = await Promise.all(
+    safeIntegrations.map((integration) => integration.loadIntegration(resolveFrom))
+  );
+
+  const userIntegrations = await loadUserAstroIntegrations(resolveFrom);
+  const frameworkNames = new Set(frameworkIntegrations.map(i => i.name));
+  const extraIntegrations = userIntegrations.filter(i => !frameworkNames.has(i.name));
+
   const astroConfig = await getViteConfig(
     {},
     {
       configFile: false,
-      integrations: await Promise.all(
-        safeIntegrations.map((integration) => integration.loadIntegration(resolveFrom))
-      )
+      integrations: [...frameworkIntegrations, ...extraIntegrations]
     }
   )({
     mode,
