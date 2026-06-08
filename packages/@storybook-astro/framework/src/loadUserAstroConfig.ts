@@ -19,7 +19,10 @@ const CONFIG_FILENAMES = [
  */
 export async function loadUserAstroIntegrations(resolveFrom: string): Promise<AstroIntegration[]> {
   const configFile = CONFIG_FILENAMES.find(name => existsSync(resolve(resolveFrom, name)));
-  if (!configFile) return [];
+
+  if (!configFile) {
+    return [];
+  }
 
   try {
     const result = await loadConfigFromFile(
@@ -27,14 +30,21 @@ export async function loadUserAstroIntegrations(resolveFrom: string): Promise<As
       configFile,
       resolveFrom
     );
-    if (!result?.config) return [];
+
+    if (!result?.config) {
+      return [];
+    }
 
     const config = result.config as { integrations?: unknown };
     const raw = config.integrations;
-    if (!raw) return [];
+
+    if (!raw) {
+      return [];
+    }
 
     // Astro allows nested arrays from conditional spreads (e.g. ...whenX(() => mdx()))
     const flat = (Array.isArray(raw) ? raw : [raw]).flat(Infinity);
+
     return flat.filter(
       (i): i is AstroIntegration => Boolean(i) && typeof i === 'object' && 'name' in i && 'hooks' in i
     );
@@ -43,6 +53,7 @@ export async function loadUserAstroIntegrations(resolveFrom: string): Promise<As
       '[storybook-astro] Could not load astro.config to discover integrations:',
       err instanceof Error ? err.message : String(err)
     );
+
     return [];
   }
 }
