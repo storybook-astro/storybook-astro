@@ -36,7 +36,8 @@
     "./types": {
       "types": "./dist/types.d.ts",
       "import": "./dist/types.js"
-    }
+    },
+    "./entry-preview": "./dist/entry-preview.js"
   },
   "scripts": {
     "build": "tsup",
