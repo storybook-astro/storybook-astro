@@ -45,7 +45,8 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
         loadModule: (id: string) =>
           ssrLoadModuleWithFsFallback(viteServer!, id, {
             fixStacktrace: true
-          })
+          }),
+        resolveFrom
       });
 
       let handlerPromise = createHandler();
