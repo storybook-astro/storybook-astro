@@ -73,7 +73,11 @@ Expand testing capabilities for Astro components tested in isolation, including 
 **Complexity**: Medium  
 **Details**: The community has shared best practices for testing Astro components using the Container API with DOM libraries (jsdom/happy-dom). Storybook Astro can improve this experience by providing tested patterns and utilities.
 
-**Potential additions**:
+**Already shipped**:
+- `setProjectAnnotations`, `composeStory`, and `composeStories` are generic over renderer type for stronger TypeScript inference (1.2.0)
+- `defineStoryRules` supports factory functions for dynamic mock values (1.3.0)
+
+**Still to do**:
 - Test helper utilities for common testing patterns
 - Documentation with examples for testing composed components
 - Integration with testing libraries (Testing Library, Vitest patterns)
@@ -83,7 +87,7 @@ Expand testing capabilities for Astro components tested in isolation, including 
 
 ### Dynamic Astro Controls in Static Builds
 
-Currently, Astro component stories are pre-rendered with their default args at build time, making the Storybook Controls panel non-functional for Astro components in static deployments. A future enhancement could enable live re-rendering with different args via a companion service.
+Currently, Astro component stories are pre-rendered with their default args at build time, making the Storybook Controls panel non-functional for Astro components in static deployments. As of 1.2.0, the Controls panel is automatically disabled for Astro stories in static builds so users aren't left adjusting controls that have no effect. A future enhancement could enable live re-rendering with different args via a companion service.
 
 **Potential approaches**:
 - Embed a lightweight server within the static build for on-demand rendering
@@ -112,7 +116,7 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 ## Known Limitations
 
-- **Astro components in static builds** are pre-rendered with default args — Controls modifications have no effect (framework components remain fully interactive)
+- **Astro components in static builds** are pre-rendered with default args — the Controls panel is automatically disabled for these stories in static builds (framework components remain fully interactive)
 - **Client-side behavior** of Astro components requires end-to-end tests (Playwright, Cypress) as the Container API doesn't execute script tags
 - **Circular component references** are not yet detected or prevented when passing components as props
 - **Module hot-reloading** with nested component references may require manual refresh in some cases

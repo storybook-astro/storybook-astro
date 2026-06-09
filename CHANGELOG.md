@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] - 2026-06-09
+
+### Added
+- Astro 6 Font Provider API — font providers declared in `astro.config` are now resolved and injected during Storybook SSR
+
+### Fixed
+- User `astro.config` integrations are now auto-loaded into Vite, so framework-specific plugins (e.g. `@astrojs/react`) no longer need manual configuration
+- Tsconfig path aliases (e.g. `@/components/...`) now resolve correctly for embedded island hydration
+- Renderer annotations are now composed into `definePreview` for CSF4 compatibility
 
 ## [1.3.0] - 2026-06-06
 
