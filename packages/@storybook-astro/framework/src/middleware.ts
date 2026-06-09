@@ -6,6 +6,7 @@ import { ensureAstroPassthroughImageService } from './astroImageService.ts';
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
+import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
 import { addRenderers, resolveClientModules } from 'virtual:astro-container-renderers';
 
@@ -18,6 +19,7 @@ type HandlerFactoryOptions = {
   loadModule?: (id: string) => Promise<{ default: unknown }>;
   invalidateModuleGraph?: () => void;
   resolveModule?: (specifier: string) => string | undefined;
+  resolveFrom?: string;
 };
 
 export type { HandlerProps };
@@ -50,6 +52,19 @@ export async function handlerFactory(
 
       if (resolution) {
         return resolution;
+      }
+
+      // Last resort: an island imported via a tsconfig path alias (e.g. `@/...`)
+      // has its raw aliased specifier baked into the island's component-url.
+      // Resolve it to an on-disk file and hand back a `/@fs/` URL the dev Vite
+      // server can serve so the island still hydrates.
+      const aliasedIsland = await resolveAliasedIsland(
+        specifier,
+        options?.resolveFrom ?? process.cwd()
+      );
+
+      if (aliasedIsland) {
+        return `/@fs/${aliasedIsland}`;
       }
 
       return specifier;

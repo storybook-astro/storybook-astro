@@ -3,6 +3,7 @@ import { access, copyFile, mkdir, readFile, readdir, stat } from 'node:fs/promis
 import { dirname, resolve } from 'node:path';
 import type { Rollup } from 'vite';
 import type { Integration } from './integrations/index.ts';
+import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 
 /** Resolves the shared virtual module ids used by both build pipelines. */
 export function resolveVirtualBuildModuleId(id: string) {
@@ -77,7 +78,10 @@ export async function emitHydratedComponentEntriesFromAstroFile(options: {
   resolveFrom: string;
   componentEntrypointRefs: Map<string, string>;
 }) {
-  const hydratedComponentPaths = await collectHydratedComponentPaths(options.astroFilePath);
+  const hydratedComponentPaths = await collectHydratedComponentPaths(
+    options.astroFilePath,
+    options.resolveFrom
+  );
 
   for (const resolvedImportPath of hydratedComponentPaths) {
 
@@ -96,14 +100,18 @@ export async function emitHydratedComponentEntriesFromAstroFile(options: {
 }
 
 /** Collects the framework component files one Astro component hydrates in the browser. */
-export async function collectHydratedComponentPaths(astroFilePath: string) {
+export async function collectHydratedComponentPaths(astroFilePath: string, resolveFrom: string) {
   // Only Astro components create islands, so only their framework imports
   // need standalone client chunks in built Storybook output.
-  const localImportSpecifiers = await readLocalImportSpecifiers(astroFilePath);
+  const allImportSpecifiers = await readAllImportSpecifiers(astroFilePath);
   const hydratedComponentPaths: string[] = [];
 
-  for (const specifier of localImportSpecifiers) {
-    const resolvedImportPath = await resolveLocalImportPath(astroFilePath, specifier);
+  for (const specifier of allImportSpecifiers) {
+    // Resolve the specifier to an on-disk path — relative imports use the
+    // importer's directory; aliased imports go through the tsconfig paths map.
+    const resolvedImportPath = specifier.startsWith('.')
+      ? await resolveLocalImportPath(astroFilePath, specifier)
+      : await resolveAliasedIsland(specifier, resolveFrom);
 
     if (!resolvedImportPath) {
       continue;
@@ -385,20 +393,25 @@ async function copyLocalRuntimeDependencies(
   }
 }
 
-/** Reads local import specifiers from source files that can participate in the SSR runtime. */
-async function readLocalImportSpecifiers(filePath: string) {
+const IMPORT_RE =
+  /(?:import|export)\s+(?:[^'"`]*?\s+from\s+)?['"`]([^'"`]+)['"`]|import\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
+
+/** Returns all import specifiers found in the file (relative, aliased, and package). */
+async function readAllImportSpecifiers(filePath: string): Promise<string[]> {
   if (!/\.(astro|[cm]?[jt]sx?|vue|svelte)$/.test(filePath)) {
     return [];
   }
 
   const source = await readFile(filePath, 'utf-8');
-  const matches = source.matchAll(
-    /(?:import|export)\s+(?:[^'"`]*?\s+from\s+)?['"`]([^'"`]+)['"`]|import\(\s*['"`]([^'"`]+)['"`]\s*\)/g
-  );
 
-  return Array.from(matches, (match) => match[1] ?? match[2]).filter(
-    (specifier): specifier is string => Boolean(specifier) && specifier.startsWith('.')
+  return Array.from(source.matchAll(IMPORT_RE), (match) => match[1] ?? match[2]).filter(
+    (specifier): specifier is string => Boolean(specifier)
   );
+}
+
+/** Reads local (relative) import specifiers from source files that can participate in the SSR runtime. */
+async function readLocalImportSpecifiers(filePath: string) {
+  return (await readAllImportSpecifiers(filePath)).filter((s) => s.startsWith('.'));
 }
 
 /** Resolves one relative import the same way the project source tree would on disk. */
