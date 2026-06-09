@@ -276,7 +276,7 @@ export default {
 ```json
 {
   "scripts": {
-    "dev": "storybook dev -p 6006",
+    "dev": "storybook dev",
     "build": "storybook build"
   }
 }

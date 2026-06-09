@@ -61,7 +61,8 @@ export async function createProductionRenderRuntime(
     const astroContainer = await createProductionAstroContainer({
       integrations: options.integrations,
       resolveClientModule,
-      viteServer
+      viteServer,
+      resolveFrom: options.resolveFrom
     });
 
     const loadModule = async (moduleId: string) => {
