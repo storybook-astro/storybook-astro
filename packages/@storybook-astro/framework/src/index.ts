@@ -95,7 +95,13 @@ export function definePreview<Addons extends PreviewAddon<never>[] = []>(
 ): CsfPreview<AstroRenderer & InferTypes<Addons>> {
   // Kick off the renderer load eagerly so the impl is ready by the time
   // Storybook calls renderToCanvas — but don't await, so this stays sync.
-  void loadRendererEntryPreview();
+  // The `.catch` is a no-op handler that marks this fire-and-forget call as
+  // handled: the renderer's `entry-preview` pulls Vite/Astro virtual modules
+  // that can't be resolved in Node test setups, and we don't want to crash
+  // those setups with an unhandled rejection. If a real render later awaits
+  // the cached promise via `composedRenderToCanvas`, the original rejection
+  // still surfaces there.
+  void loadRendererEntryPreview().catch(() => {});
 
   return definePreviewBase<AstroRenderer, Addons>({
     ...input,
