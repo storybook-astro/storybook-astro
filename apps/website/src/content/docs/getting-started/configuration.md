@@ -78,7 +78,7 @@ Astro projects already use `dev` and `build` for `astro dev` and `astro build`. 
 
 ```json
 "scripts": {
-  "storybook": "storybook dev -p 6006",
+  "storybook": "storybook dev",
   "build-storybook": "storybook build"
 }
 ```
@@ -89,4 +89,4 @@ Astro projects already use `dev` and `build` for `astro dev` and `astro build`. 
 npm run storybook
 ```
 
-Storybook will open at [http://localhost:6006](http://localhost:6006). You're ready to start [writing stories](/writing-stories/).
+Storybook will open at `http://localhost:6006` by default. You're ready to start [writing stories](/writing-stories/).
