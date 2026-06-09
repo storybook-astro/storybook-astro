@@ -91,6 +91,7 @@ describe('collectHydratedComponentPaths', () => {
     // inputs. This test confirms the alias is resolved and included.
     await mkdir(join(tmpDir, 'src', 'components'), { recursive: true });
     const counterFile = join(tmpDir, 'src', 'components', 'Counter.tsx');
+
     await writeFile(counterFile, `export default function Counter() { return null; }`);
     await writeFile(join(tmpDir, 'Island.astro'), `---\nimport Counter from '@/components/Counter';\n---\n<Counter client:visible />`);
     await writeFile(

@@ -22,6 +22,7 @@ describe('resolveAliasedIsland', () => {
   test('resolves a basic @/ alias to an absolute path', async () => {
     await mkdir(join(tmpDir, 'src', 'components'), { recursive: true });
     const counterFile = join(tmpDir, 'src', 'components', 'Counter.tsx');
+
     await writeFile(counterFile, `export default function Counter() {}`);
     await writeTsconfig({
       compilerOptions: {
@@ -37,6 +38,7 @@ describe('resolveAliasedIsland', () => {
   test('resolves when baseUrl shifts the path root', async () => {
     await mkdir(join(tmpDir, 'src', 'components'), { recursive: true });
     const counterFile = join(tmpDir, 'src', 'components', 'Counter.tsx');
+
     await writeFile(counterFile, `export default function Counter() {}`);
     // With baseUrl: "src", paths are relative to src/
     await writeTsconfig({
@@ -54,6 +56,7 @@ describe('resolveAliasedIsland', () => {
   test('falls back to second target when first does not exist on disk', async () => {
     await mkdir(join(tmpDir, 'app', 'components'), { recursive: true });
     const counterFile = join(tmpDir, 'app', 'components', 'Counter.tsx');
+
     await writeFile(counterFile, `export default function Counter() {}`);
     // First target points at a non-existent dir; second target resolves.
     await writeTsconfig({
@@ -70,6 +73,7 @@ describe('resolveAliasedIsland', () => {
   test('resolves an alias with an explicit file extension in the specifier', async () => {
     await mkdir(join(tmpDir, 'src'), { recursive: true });
     const file = join(tmpDir, 'src', 'Button.tsx');
+
     await writeFile(file, `export default function Button() {}`);
     await writeTsconfig({ compilerOptions: { paths: { '@/*': ['src/*'] } } });
 
@@ -135,6 +139,7 @@ describe('resolveAliasedIsland', () => {
   test('resolves a custom alias prefix (not @/)', async () => {
     await mkdir(join(tmpDir, 'src'), { recursive: true });
     const file = join(tmpDir, 'src', 'Widget.vue');
+
     await writeFile(file, `<template><div /></template>`);
     await writeTsconfig({ compilerOptions: { paths: { '~/*': ['src/*'] } } });
 

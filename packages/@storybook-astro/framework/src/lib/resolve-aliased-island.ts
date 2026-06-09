@@ -14,6 +14,7 @@ const ALIAS_EXTS = ['.tsx', '.ts', '.jsx', '.js', '.vue', '.svelte', '.mts', '.m
 async function isFile(candidate: string): Promise<boolean> {
   try {
     await access(candidate);
+
     return true;
   } catch {
     return false;
