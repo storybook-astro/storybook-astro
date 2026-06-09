@@ -8,8 +8,54 @@ export type {
 } from 'storybook/internal/types';
 
 import { definePreview as definePreviewBase, type PreviewAddon, type InferTypes, type Preview as CsfPreview } from 'storybook/internal/csf';
-import type { ProjectAnnotations } from 'storybook/internal/types';
+import type { ArgsStoryFn, ProjectAnnotations, RenderContext, Renderer } from 'storybook/internal/types';
 import type { AstroRenderer } from './portable-stories.ts';
+
+// CSF4 consumers reach `definePreview` from the preview iframe; Node test setup
+// files (e.g. `vitest.setup.ts`) only import the type helpers and
+// `setProjectAnnotations`. Loading `@storybook-astro/renderer/entry-preview` at
+// module scope here would pull `render.tsx`'s virtual-module chain — including
+// the configured framework integrations like Alpine.js — into the Node test
+// process, which has no `MutationObserver` etc. The dynamic import below keeps
+// that load inside `definePreview` so test setups don't pay for it.
+// Types come from src/renderer-entry-preview.d.ts; entry-preview.ts itself
+// isn't dts-built because it imports Vite virtual modules.
+import type * as RendererEntryPreviewModule from '@storybook-astro/renderer/entry-preview';
+
+type RendererEntryPreview = typeof RendererEntryPreviewModule;
+let rendererImpl: RendererEntryPreview | undefined;
+let rendererLoadPromise: Promise<RendererEntryPreview> | undefined;
+
+function loadRendererEntryPreview(): Promise<RendererEntryPreview> {
+  rendererLoadPromise ??= import('@storybook-astro/renderer/entry-preview').then((mod) => {
+    rendererImpl = mod;
+
+    return mod;
+  });
+
+  return rendererLoadPromise;
+}
+
+const composedRender: ArgsStoryFn<AstroRenderer> = (args, context) => {
+  if (!rendererImpl) {
+    throw new Error(
+      '@storybook-astro: renderer not ready when `render` was called. ' +
+        'This should be reached only after `definePreview()` has kicked off the renderer load. ' +
+        'If you see this in tests, import the renderer module yourself or render via portable stories.'
+    );
+  }
+
+  return rendererImpl.render(args, context);
+};
+
+const composedRenderToCanvas = async (
+  context: RenderContext<Renderer>,
+  canvasElement: HTMLElement
+): Promise<void> => {
+  const impl = await loadRendererEntryPreview();
+
+  return impl.renderToCanvas(context, canvasElement);
+};
 
 /**
  * Preview configuration type for `.storybook/preview.ts` in Astro projects.
@@ -47,5 +93,14 @@ export type {
 export function definePreview<Addons extends PreviewAddon<never>[] = []>(
   input: ProjectAnnotations<AstroRenderer> & { addons?: Addons }
 ): CsfPreview<AstroRenderer & InferTypes<Addons>> {
-  return definePreviewBase<AstroRenderer, Addons>(input);
+  // Kick off the renderer load eagerly so the impl is ready by the time
+  // Storybook calls renderToCanvas — but don't await, so this stays sync.
+  void loadRendererEntryPreview();
+
+  return definePreviewBase<AstroRenderer, Addons>({
+    ...input,
+    parameters: { renderer: 'astro' as const, ...input.parameters },
+    render: input.render ?? composedRender,
+    renderToCanvas: input.renderToCanvas ?? composedRenderToCanvas
+  });
 }
