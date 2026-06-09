@@ -72,36 +72,7 @@ Because Storybook never renders that component, the variables won't exist. Copy 
 
 ## CSS utility frameworks
 
-CSS frameworks like [UnoCSS](https://unocss.dev/) and [Tailwind CSS](https://tailwindcss.com/) are typically configured as Astro integrations, but their Vite plugins may not be automatically available in Storybook's build pipeline. You can add them directly using `viteFinal` in `.storybook/main.js`.
-
-### UnoCSS
-
-```javascript
-// .storybook/main.js
-import UnoCSS from 'unocss/vite';
-
-export default {
-  stories: ['../src/**/*.stories.@(js|jsx|ts|tsx)'],
-  framework: {
-    name: '@storybook-astro/framework',
-    options: {},
-  },
-  async viteFinal(config) {
-    config.plugins = config.plugins || [];
-    config.plugins.push(UnoCSS());
-    return config;
-  },
-};
-```
-
-Then import UnoCSS's generated stylesheet in `.storybook/preview.js`:
-
-```javascript
-import 'virtual:uno.css';
-import './preview.css';
-```
-
-UnoCSS reads your project's `uno.config.ts` automatically, so your presets (e.g. `presetWind`, `presetIcons`, `presetTypography`) will apply.
+CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) are typically configured as Astro integrations, but their Vite plugins may not be automatically available in Storybook's build pipeline. You can add them directly using `viteFinal` in `.storybook/main.js`.
 
 ### Tailwind CSS
 
@@ -132,6 +103,35 @@ import './preview.css';
 ```
 
 For Tailwind CSS v3 (which uses PostCSS), no `viteFinal` changes are needed — just ensure your global CSS with `@tailwind` directives is imported in `.storybook/preview.css` and your `postcss.config.js` is in place.
+
+### UnoCSS
+
+```javascript
+// .storybook/main.js
+import UnoCSS from 'unocss/vite';
+
+export default {
+  stories: ['../src/**/*.stories.@(js|jsx|ts|tsx)'],
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {},
+  },
+  async viteFinal(config) {
+    config.plugins = config.plugins || [];
+    config.plugins.push(UnoCSS());
+    return config;
+  },
+};
+```
+
+Then import UnoCSS's generated stylesheet in `.storybook/preview.js`:
+
+```javascript
+import 'virtual:uno.css';
+import './preview.css';
+```
+
+UnoCSS reads your project's `uno.config.ts` automatically, so your presets (e.g. `presetWind`, `presetIcons`, `presetTypography`) will apply.
 
 ## Path aliases
 
