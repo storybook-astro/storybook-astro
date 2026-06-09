@@ -115,7 +115,11 @@ export async function renderToCanvas(
     return;
   }
 
-  const element = storyFn();
+  // storyFn() can return a Promise — for example when the composed `render`
+  // is the lazy wrapper from entry-preview.ts (CSF4 consumers reach
+  // renderToCanvas through the framework's definePreview). Wrapping in
+  // Promise.resolve is a no-op for sync returns and unwraps async ones.
+  const element = await Promise.resolve(storyFn());
 
   showMain();
 
