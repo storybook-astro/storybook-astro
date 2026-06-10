@@ -73,6 +73,21 @@ Expand testing capabilities for Astro components tested in isolation, including 
 - Integration with testing libraries (Testing Library, Vitest patterns)
 - Guidance on testing both server-rendered and client-side behavior
 
+### Code Panel Source for Astro Components
+
+The Storybook Docs "Show code" / Code Panel currently falls back to displaying the raw story file source because the framework doesn't implement a `sourceDecorator`. The panel should show the Astro template syntax for the component being rendered with the story's args (e.g. `<HeroHijri imageUrl="..." />`).
+
+**Status**: Planned  
+**Complexity**: Medium  
+**Tracking**: [Issue #106 — Code Panel shows story source instead of component usage](https://github.com/storybook-astro/storybook-astro/issues/106)
+
+**What this requires**:
+- A `sourceDecorator` registered via `entry-preview.ts` that intercepts story renders and records the component + args
+- An Astro template serializer that maps `{ component, args }` to a `.astro` template string, including decisions about bare string attributes vs. `{expression}` bindings and slot handling
+- Parity with how `@storybook/react`, `@storybook/vue3`, and similar packages implement dynamic source for their template syntaxes
+
+**Workaround**: Set `parameters.docs.source.code` manually on any story where you want a specific snippet shown.
+
 ## Future Enhancements
 
 ### Dynamic Astro Controls in Static Builds
