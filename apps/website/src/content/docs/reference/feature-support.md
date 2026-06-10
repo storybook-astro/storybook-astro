@@ -14,10 +14,7 @@ This page tracks Astro's built-in framework features and their compatibility sta
 - **Client Directives** — `client:load`, `client:only`, etc. for framework components
 - **Static Builds** — `storybook build` with build-time pre-rendering of Astro component stories
 - **`astro:assets` (Image Optimization)** — Components that use `<Image>` from `astro:assets` render correctly in Storybook. Import image assets in story files as `ImageMetadata` and pass them as props — no workarounds required. See [Images](/guides/images/).
-
-## Partial support
-
-- **Astro Fonts** — Font virtual modules are stubbed with no-op exports. Components render correctly but without Astro's font optimization.
+- **Astro Font Provider API** — Pass the same `fonts` array from `astro.config.*` as `framework.options.fonts` in `.storybook/main.js` and the `<Font>` component renders real `@font-face` CSS with provider-resolved URLs (Google, Bunny, Fontsource, local, etc.) in dev and static builds. Preload links, Capsize-optimized fallback metrics, build-time font file emission, and the server-build pipeline are not yet covered — see the [Roadmap](/guides/roadmap/#astro-6-font-provider-api-integration). Setup details in the [Styling guide](/guides/styling/#astro-font-provider-api).
 
 ## Not yet supported
 
