@@ -23,7 +23,7 @@ Enable composing Astro components by passing them as props to other Astro compon
 
 ### Astro 6 Font Provider API Integration
 
-Shipped in 1.4.0. Pass the same `fonts` array from `astro.config.*` as `framework.options.fonts` in `.storybook/main.js` and the `<Font>` component renders real `@font-face` CSS in dev and static builds. See the [Styling guide](/guides/styling/#astro-font-provider-api) for setup.
+Shipped. The `<Font>` component renders real `@font-face` CSS in dev and static builds, driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required). See the [Styling guide](/guides/styling/#astro-font-provider-api).
 
 **Still to do**:
 - Preload `<link>` tag emission
@@ -31,15 +31,12 @@ Shipped in 1.4.0. Pass the same `fonts` array from `astro.config.*` as `framewor
 - Build-time font file emission to the static output (current builds rely on the remote URLs returned by the provider)
 - Wire fonts through the server-build pipeline (only the static prerender path is plumbed today)
 
-### Auto-detect CSS Frameworks from Astro Config
+### Auto-load Astro Config into Storybook
 
-Automatically detect and configure CSS utility frameworks (UnoCSS, Tailwind CSS, etc.) registered as Astro integrations, so their Vite plugins are available in Storybook without manual `viteFinal` configuration.
+Shipped. Anything declared in `astro.config.*` is picked up by Storybook automatically: `integrations:` (e.g. `astro-icon`, `unocss/astro`, `@astrojs/tailwind`), top-level `fonts:`, and `vite.plugins:` (e.g. `@tailwindcss/vite`, `unocss/vite`). Users no longer need to duplicate any of these into `.storybook/main.js`.
 
-**Partially shipped (1.4.0)**: Integrations declared in `astro.config.*` — including CSS-framework integrations like `unocss/astro` and `@astrojs/tailwind` — are now auto-loaded into both the Storybook Vite server and the internal Astro SSR server. Their Vite plugins are registered automatically; users no longer need to duplicate those integrations in `.storybook/main.js`.
-
-**Still to do**:
-- CSS frameworks added as raw Vite plugins rather than Astro integrations (e.g. `@tailwindcss/vite`, `unocss/vite`) still require manual `viteFinal` setup
-- Virtual module preview imports (e.g. `import 'virtual:uno.css'`) still must be added to `.storybook/preview.js` by hand
+**Intentionally out of scope**:
+- Virtual module preview imports (e.g. `import 'virtual:uno.css'`) — Storybook can't know which ones your preview should pull in, so these stay in `.storybook/preview.js` by hand.
 
 ### Decorator Support
 
