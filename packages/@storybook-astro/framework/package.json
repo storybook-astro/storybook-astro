@@ -51,13 +51,16 @@
       "types": "./dist/preset.d.ts",
       "import": "./dist/preset.js"
     },
+    "./shim": {
+      "types": "./src/shim.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node -e \"require('fs').copyFileSync('src/shim.d.ts','dist/shim.d.ts')\"",
     "dev": "tsup --watch --no-clean",
     "lint": "eslint .",
-    "prepublishOnly": "tsup"
+    "prepublishOnly": "tsup && node -e \"require('fs').copyFileSync('src/shim.d.ts','dist/shim.d.ts')\""
   },
   "devDependencies": {
     "@storybook/preact": "^10.0.0",
