@@ -72,7 +72,13 @@ Because Storybook never renders that component, the variables won't exist. Copy 
 
 ## CSS utility frameworks
 
-CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) are typically configured as Astro integrations, but their Vite plugins may not be automatically available in Storybook's build pipeline. You can add them directly using `viteFinal` in `.storybook/main.js`.
+CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) can be wired into Storybook in two ways depending on how they're configured in your project.
+
+:::tip
+**As of 1.4.0**, integrations declared in `astro.config.*` (e.g. `unocss/astro`, `@astrojs/tailwind`) are auto-loaded into Storybook's Vite pipeline — no `viteFinal` step required. You still need to import the framework's CSS entry or virtual module in `.storybook/preview.js` so it reaches the story canvas.
+
+The examples below cover the case where the framework is added as a raw Vite plugin (`@tailwindcss/vite`, `unocss/vite`) rather than as an Astro integration; those still need `viteFinal` registration.
+:::
 
 ### Tailwind CSS
 
@@ -162,6 +168,52 @@ export default {
 Match whatever aliases you have in your `astro.config.*` — `@`, `~`, `#`, etc.
 
 ## Fonts
+
+### Astro Font Provider API
+
+If your project uses Astro 6's [Font Provider API](https://docs.astro.build/en/reference/font-provider-reference/) — `fonts: [...]` in `astro.config.*` with providers like `fontProviders.google()`, `fontProviders.local()`, etc. — pass the same array through `framework.options.fonts` and the `<Font>` component will render real `@font-face` CSS in Storybook.
+
+The cleanest pattern is to export the array from `astro.config.*` and import it into `.storybook/main.js`:
+
+```javascript
+// astro.config.mjs
+import { defineConfig, fontProviders } from 'astro/config';
+
+export const fonts = [
+  {
+    provider: fontProviders.google(),
+    name: 'Inter',
+    cssVariable: '--font-inter',
+    weights: [400, 700],
+  },
+];
+
+export default defineConfig({
+  fonts,
+  // ...other config
+});
+```
+
+```javascript
+// .storybook/main.js
+import { fonts } from '../astro.config.mjs';
+
+export default {
+  stories: ['../src/**/*.stories.@(js|jsx|ts|tsx)'],
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      fonts,
+    },
+  },
+};
+```
+
+The provider's `init` and `resolveFont` hooks run during Storybook's SSR setup, producing `@font-face` rules and a `:root { --font-inter: "Inter", sans-serif; }` binding. Use `<Font cssVariable="--font-inter" />` in your Astro components exactly as you would in a normal Astro page.
+
+:::caution
+Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not yet covered — see the [Roadmap](/guides/roadmap/#astro-6-font-provider-api-integration). Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime, so an offline Storybook will fall through to fallback families.
+:::
 
 ### npm font packages
 
