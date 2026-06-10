@@ -27,10 +27,6 @@ export default defineConfig({
       'src/vitest/index.ts',
       'src/integrations/index.ts',
     ],
-    // Prepend the shim reference to every generated .d.ts so TypeScript
-    // automatically loads dist/shim.d.ts and the declare module '*.astro'
-    // ambient declaration is globally available to any consumer project.
-    banner: '/// <reference path="./shim.d.ts" />',
   },
   sourcemap: true,
   clean: true,

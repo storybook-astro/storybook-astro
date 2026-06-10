@@ -57,10 +57,10 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsup && node -e \"require('fs').copyFileSync('src/shim.d.ts','dist/shim.d.ts')\"",
+    "build": "tsup",
     "dev": "tsup --watch --no-clean",
     "lint": "eslint .",
-    "prepublishOnly": "tsup && node -e \"require('fs').copyFileSync('src/shim.d.ts','dist/shim.d.ts')\""
+    "prepublishOnly": "tsup"
   },
   "devDependencies": {
     "@storybook/preact": "^10.0.0",

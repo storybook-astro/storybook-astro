@@ -5,9 +5,9 @@
 // treated as an error-typed value and fires
 // @typescript-eslint/no-unsafe-assignment on `component: Foo`.
 //
-// This file is automatically referenced from dist/index.d.ts via a triple-slash
-// directive, so any project that imports from @storybook-astro/framework gets
-// these declarations without any manual setup.
+// To opt in, add this to your project's src/env.d.ts:
+//
+//   /// <reference types="@storybook-astro/framework/shim" />
 
 declare module '*.astro' {
   type AstroComponentFactory = {

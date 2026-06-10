@@ -218,6 +218,31 @@ Framework integration may not be configured or glob patterns are too restrictive
 
 ---
 
+### `@typescript-eslint/no-unsafe-assignment` on `.astro` imports
+
+**Error message (ESLint):**
+```
+Unsafe assignment of an error typed value.  @typescript-eslint/no-unsafe-assignment
+```
+
+**Cause:**
+
+ESLint's type-checker does not use the Astro language server. When it encounters `import Button from './Button.astro'`, it cannot resolve the `.astro` module and treats `Button` as an error-typed value — which fires `@typescript-eslint/no-unsafe-assignment` (and related rules like `no-unsafe-argument`, `no-unsafe-call`) when the component is passed to story objects or helper functions.
+
+**Solution:**
+
+Add a triple-slash reference directive to your project's `src/env.d.ts`:
+
+```ts
+/// <reference types="@storybook-astro/framework/shim" />
+```
+
+This pulls in an ambient `declare module '*.astro'` declaration that gives ESLint a concrete type for Astro component imports, resolving the rule violation.
+
+If your project does not have a `src/env.d.ts`, create one with just that line, or add it to any `.d.ts` file that is included in your `tsconfig.json`.
+
+---
+
 ## Known Limitations
 
 ### Vite 5 + Solid Integration
