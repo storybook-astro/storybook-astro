@@ -25,7 +25,7 @@ Enable composing Astro components by passing them as props to other Astro compon
 
 ### Decorator Support
 
-📋 **To Do**
+📝 **In Planning**
 
 Enable Storybook's standard [decorator](https://storybook.js.org/docs/writing-stories/decorators) API for both Astro component stories and framework component stories (React, Vue, etc.).
 
