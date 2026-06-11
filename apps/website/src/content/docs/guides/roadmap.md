@@ -7,7 +7,9 @@ This document outlines the planned features and improvements for Storybook Astro
 
 ## High Priority
 
-### Support Astro Components as Props — **In Planning**
+### Support Astro Components as Props
+
+📝 **In Planning**
 
 Enable composing Astro components by passing them as props to other Astro components in stories. This allows patterns like wrapping a Button inside a Link, or passing Icon components to other components.
 
@@ -21,7 +23,9 @@ Enable composing Astro components by passing them as props to other Astro compon
 - Passing Astro components as props in story args
 - Support in portable stories (testing API)
 
-### Decorator Support — **To Do**
+### Decorator Support
+
+📋 **To Do**
 
 Enable Storybook's standard [decorator](https://storybook.js.org/docs/writing-stories/decorators) API for both Astro component stories and framework component stories (React, Vue, etc.).
 
@@ -37,7 +41,9 @@ Enable Storybook's standard [decorator](https://storybook.js.org/docs/writing-st
 
 ## Medium Priority
 
-### Enhanced Testing & Portable Stories — **Partially Complete**
+### Enhanced Testing & Portable Stories
+
+🚧 **Partially Complete**
 
 Expand testing capabilities for Astro components tested in isolation, including better support for Container API integration and DOM testing patterns.
 
@@ -51,7 +57,9 @@ Expand testing capabilities for Astro components tested in isolation, including 
 - Integration with testing libraries (Testing Library, Vitest patterns)
 - Guidance on testing both server-rendered and client-side behavior
 
-### Code Panel Source for Astro Components — **To Do**
+### Code Panel Source for Astro Components
+
+📋 **To Do**
 
 The Storybook Docs "Show code" / Code Panel currently falls back to displaying the raw story file source because the framework doesn't implement a `sourceDecorator`. The panel should show the Astro template syntax for the component being rendered with the story's args (e.g. `<HeroHijri imageUrl="..." />`).
 
@@ -65,7 +73,9 @@ The Storybook Docs "Show code" / Code Panel currently falls back to displaying t
 
 **Workaround**: Set `parameters.docs.source.code` manually on any story where you want a specific snippet shown.
 
-### Automatic Documentation Extraction from JSDoc — **To Do**
+### Automatic Documentation Extraction from JSDoc
+
+📋 **To Do**
 
 Enable automatic extraction of component descriptions and prop documentation from JSDoc comments in Astro components, similar to how React/Vue frameworks extract documentation via docgen tools.
 
