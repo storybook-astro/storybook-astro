@@ -3,8 +3,3 @@ compatibility_date = "2026-02-15"
 
 [assets]
 directory = "./storybook-static"
-
-# The functions directory contains the Cloudflare Pages Functions
-# that handle the server-side rendering API endpoint
-[[compatibility_flags]]
-nodejs_compat = true

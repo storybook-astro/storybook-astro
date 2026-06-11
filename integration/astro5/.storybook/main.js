@@ -22,13 +22,8 @@ const config = {
   framework: {
     name: '@storybook-astro/framework',
     options: {
-      renderMode: 'server',
+      renderMode: 'static',
       storyRules: './.storybook/story-rules.ts',
-      server: {
-        serverUrl: process.env.STORYBOOK_ASTRO_SERVER_URL ?? '/api/storybook-astro',
-        authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
-        authHeader: process.env.STORYBOOK_ASTRO_SERVER_AUTH_HEADER
-      },
       integrations: [
         react({
           include: ['**/react/**']
