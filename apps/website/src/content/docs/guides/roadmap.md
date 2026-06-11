@@ -7,42 +7,24 @@ This document outlines the planned features and improvements for Storybook Astro
 
 ## High Priority
 
-### Support Astro Components as Props
+### Support Astro Components as Props — **In Planning**
 
 Enable composing Astro components by passing them as props to other Astro components in stories. This allows patterns like wrapping a Button inside a Link, or passing Icon components to other components.
 
-**Phase 1 — Template nesting and image rendering**: Shipped. Components whose templates use other Astro components (transitively) render correctly, including those that use `<Image>` from `astro:assets`. No story-side changes are required.
+**Current Status**: Phase 1 complete (template nesting), Phase 2 in design (props-based nesting)
 
-**Phase 2 — Props-based nesting**: In Design. Passing an Astro component factory as a story arg (e.g. `<Link Icon={MyIcon} />`) is not yet supported. See the [nested component support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/NESTED_COMPONENT_SUPPORT.md) for the proposed implementation strategy.
+**Phase 2 — Props-based nesting**: Passing an Astro component factory as a story arg (e.g. `<Link Icon={MyIcon} />`) is not yet supported. See the [nested component support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/NESTED_COMPONENT_SUPPORT.md) for the proposed implementation strategy.
 
-**Scope**: Medium-High complexity (Phase 2)
+**Complexity**: Medium-High (Phase 2)
 
-**What Phase 2 enables**:
+**What Phase 2 will enable**:
 - Passing Astro components as props in story args
 - Support in portable stories (testing API)
 
-### Astro 6 Font Provider API Integration
-
-Shipped. The `<Font>` component renders real `@font-face` CSS in dev and static builds, driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required). See the [Styling guide](/guides/styling/#astro-font-provider-api).
-
-**Still to do**:
-- Preload `<link>` tag emission
-- Capsize-optimized fallback metrics
-- Build-time font file emission to the static output (current builds rely on the remote URLs returned by the provider)
-- Wire fonts through the server-build pipeline (only the static prerender path is plumbed today)
-
-### Auto-load Astro Config into Storybook
-
-Shipped. Anything declared in `astro.config.*` is picked up by Storybook automatically: `integrations:` (e.g. `astro-icon`, `unocss/astro`, `@astrojs/tailwind`), top-level `fonts:`, and `vite.plugins:` (e.g. `@tailwindcss/vite`, `unocss/vite`). Users no longer need to duplicate any of these into `.storybook/main.js`.
-
-**Intentionally out of scope**:
-- Virtual module preview imports (e.g. `import 'virtual:uno.css'`) — Storybook can't know which ones your preview should pull in, so these stay in `.storybook/preview.js` by hand.
-
-### Decorator Support
+### Decorator Support — **To Do**
 
 Enable Storybook's standard [decorator](https://storybook.js.org/docs/writing-stories/decorators) API for both Astro component stories and framework component stories (React, Vue, etc.).
 
-**Status**: Planned
 **Complexity**: Medium
 **Tracking**: [Issue #40 — Unable to use decorators](https://github.com/storybook-astro/storybook-astro/issues/40)
 **Details**: See the [decorator support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) for full analysis and implementation strategy.
@@ -55,17 +37,13 @@ Enable Storybook's standard [decorator](https://storybook.js.org/docs/writing-st
 
 ## Medium Priority
 
-### Enhanced Testing & Portable Stories
+### Enhanced Testing & Portable Stories — **Partially Complete**
 
 Expand testing capabilities for Astro components tested in isolation, including better support for Container API integration and DOM testing patterns.
 
-**Status**: In Discussion  
-**Complexity**: Medium  
-**Details**: The community has shared best practices for testing Astro components using the Container API with DOM libraries (jsdom/happy-dom). Storybook Astro can improve this experience by providing tested patterns and utilities.
+**Current Status**: Core APIs shipped, additional utilities and documentation in progress
 
-**Already shipped**:
-- `setProjectAnnotations`, `composeStory`, and `composeStories` are generic over renderer type for stronger TypeScript inference (1.2.0)
-- `defineStoryRules` supports factory functions for dynamic mock values (1.3.0)
+**Complexity**: Medium
 
 **Still to do**:
 - Test helper utilities for common testing patterns
@@ -73,12 +51,11 @@ Expand testing capabilities for Astro components tested in isolation, including 
 - Integration with testing libraries (Testing Library, Vitest patterns)
 - Guidance on testing both server-rendered and client-side behavior
 
-### Code Panel Source for Astro Components
+### Code Panel Source for Astro Components — **To Do**
 
 The Storybook Docs "Show code" / Code Panel currently falls back to displaying the raw story file source because the framework doesn't implement a `sourceDecorator`. The panel should show the Astro template syntax for the component being rendered with the story's args (e.g. `<HeroHijri imageUrl="..." />`).
 
-**Status**: Planned  
-**Complexity**: Medium  
+**Complexity**: Medium
 **Tracking**: [Issue #106 — Code Panel shows story source instead of component usage](https://github.com/storybook-astro/storybook-astro/issues/106)
 
 **What this requires**:
@@ -88,11 +65,10 @@ The Storybook Docs "Show code" / Code Panel currently falls back to displaying t
 
 **Workaround**: Set `parameters.docs.source.code` manually on any story where you want a specific snippet shown.
 
-### Automatic Documentation Extraction from JSDoc
+### Automatic Documentation Extraction from JSDoc — **To Do**
 
 Enable automatic extraction of component descriptions and prop documentation from JSDoc comments in Astro components, similar to how React/Vue frameworks extract documentation via docgen tools.
 
-**Status**: Planned
 **Complexity**: Medium-High
 **Tracking**: [Issue #110 — Storybook Astro is unable to parse documentation from the component's JSDocs](https://github.com/storybook-astro/storybook-astro/issues/110)
 
@@ -142,6 +118,53 @@ Integration with Astro's middleware system and `astro:env` module for managing e
 ### Internationalization (i18n)
 
 Support for Astro's built-in i18n routing and helpers, enabling documentation of multi-language components.
+
+## Recently Completed
+
+### Auto-load Astro Config into Storybook
+
+**Shipped in**: 1.4.0
+
+Anything declared in `astro.config.*` is picked up by Storybook automatically: `integrations:` (e.g. `astro-icon`, `unocss/astro`, `@astrojs/tailwind`), top-level `fonts:`, and `vite.plugins:` (e.g. `@tailwindcss/vite`, `unocss/vite`). Users no longer need to duplicate any of these into `.storybook/main.js`.
+
+**Documentation**: See [Configuration guide](/getting-started/configuration/)
+
+**Intentionally out of scope**:
+- Virtual module preview imports (e.g. `import 'virtual:uno.css'`) — Storybook can't know which ones your preview should pull in, so these stay in `.storybook/preview.js` by hand.
+
+### Astro 6 Font Provider API Integration
+
+**Shipped in**: 1.4.0
+
+The `<Font>` component renders real `@font-face` CSS in dev and static builds, driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required).
+
+**Documentation**: See [Styling guide](/guides/styling/#astro-font-provider-api)
+
+**Remaining work** (moved to Future Enhancements):
+- Preload `<link>` tag emission
+- Capsize-optimized fallback metrics
+- Build-time font file emission to the static output (current builds rely on the remote URLs returned by the provider)
+- Wire fonts through the server-build pipeline (only the static prerender path is plumbed today)
+
+### Support Astro Components as Props (Phase 1)
+
+**Shipped in**: 1.3.0
+
+Components whose templates use other Astro components (transitively) render correctly, including those that use `<Image>` from `astro:assets`. No story-side changes are required.
+
+**Next phase**: Props-based nesting (Phase 2) — see High Priority section above
+
+### Portable Stories Core APIs
+
+**Shipped in**: 1.2.0–1.3.0
+
+- `setProjectAnnotations`, `composeStory`, and `composeStories` are generic over renderer type for stronger TypeScript inference (1.2.0)
+- `defineStoryRules` supports factory functions for dynamic mock values (1.3.0)
+- `renderStory` helper for testing Astro components via SSR in tests
+
+**Documentation**: See [Testing Stories guide](/guides/testing/)
+
+**Next phase**: Enhanced testing utilities and patterns — see Medium Priority section above
 
 ## Known Limitations
 
