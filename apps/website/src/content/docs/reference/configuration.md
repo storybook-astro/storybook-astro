@@ -136,10 +136,10 @@ export default {
 
 #### `renderMode`
 
-Optional string that determines how Astro components are rendered in production builds (`storybook build`).
+Optional string that determines how Astro components are rendered in production builds (`storybook build`). Defaults to **`'server'`**.
 
-- **`'static'`** (default) — Pre-renders all Astro component stories at build time. The fastest option for serving static builds, but Controls are disabled for Astro components since they can't be re-rendered with different args.
-- **`'server'`** — Enables an HTTP render server that processes render requests on-demand. Controls remain fully functional for Astro components in production, but requires a deployment environment that can run the render server (e.g., Cloudflare Pages Functions, serverless functions).
+- **`'static'`** — Pre-renders all Astro component stories at build time. The fastest option for serving static builds, but Controls are disabled for Astro components since they can't be re-rendered with different args. **Recommended for pure static hosting** (GitHub Pages, Netlify static, Cloudflare Pages static assets).
+- **`'server'`** (default) — Enables an HTTP render server that processes render requests on-demand. Controls remain fully functional for Astro components in production, but requires a deployment environment that can run the render server (e.g., Cloudflare Pages Functions, Node.js servers, serverless platforms).
 
 ```javascript
 export default {
