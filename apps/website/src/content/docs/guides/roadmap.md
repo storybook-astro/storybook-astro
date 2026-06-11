@@ -88,6 +88,30 @@ The Storybook Docs "Show code" / Code Panel currently falls back to displaying t
 
 **Workaround**: Set `parameters.docs.source.code` manually on any story where you want a specific snippet shown.
 
+### Automatic Documentation Extraction from JSDoc
+
+Enable automatic extraction of component descriptions and prop documentation from JSDoc comments in Astro components, similar to how React/Vue frameworks extract documentation via docgen tools.
+
+**Status**: Planned
+**Complexity**: Medium-High
+**Tracking**: [Issue #110 — Storybook Astro is unable to parse documentation from the component's JSDocs](https://github.com/storybook-astro/storybook-astro/issues/110)
+
+**Current behavior**: Users must manually duplicate all documentation in story files via `argTypes` and `parameters.docs.description.component`.
+
+**What this requires**:
+- Parser for Astro component frontmatter to extract TypeScript `Props` interface and JSDoc comments
+- Implementation of `docs.extractArgTypes` and `docs.extractComponentDescription` functions in the framework preset
+- Integration with TypeScript Compiler API (similar to `react-docgen-typescript`) to read type information and JSDoc tags from `.astro` files
+- Handling Astro-specific syntax where the `Props` interface is embedded in frontmatter rather than standalone `.ts` files
+
+**What this enables**:
+- Automatic component descriptions from top-level JSDoc comments
+- Automatic prop documentation in the properties table from interface JSDoc
+- Reduced boilerplate in story files
+- Consistency with how other Storybook frameworks handle documentation
+
+**Workaround**: Manually define `argTypes` and descriptions in story files as shown in the integration examples.
+
 ## Future Enhancements
 
 ### Dynamic Astro Controls in Static Builds
@@ -125,6 +149,73 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 - **Client-side behavior** of Astro components requires end-to-end tests (Playwright, Cypress) as the Container API doesn't execute script tags
 - **Circular component references** are not yet detected or prevented when passing components as props
 - **Module hot-reloading** with nested component references may require manual refresh in some cases
+
+## Feature Support
+
+### Astro Features
+
+This table tracks compatibility of Astro's built-in framework features with Storybook Astro.
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Component Rendering | ✅ Supported | Core Astro component rendering in Storybook |
+| Props & Slots | ✅ Supported | Passing data and content to components |
+| Scoped Styles | ✅ Supported | Component-scoped CSS (including Astro 6's style sub-module imports) |
+| UI Framework Components | ✅ Supported | Astro components and client-side UI components render together (React, Vue, Svelte, Preact, Solid, Alpine.js) |
+| Client Directives | ✅ Supported | `client:load`, `client:only`, etc. for framework components |
+| Static Builds | ✅ Supported | `storybook build` with build-time pre-rendering of Astro component stories |
+| `astro:assets` (Image) | ✅ Supported | Components using `<Image>` render correctly. Import image assets as `ImageMetadata` and pass as props. [See Images guide](/guides/images/) |
+| Font Provider API | 🚧 Partial | `<Font>` component renders with provider-resolved URLs (Google, Bunny, Fontsource, local). Missing: preload links, Capsize fallback metrics, font file emission, server-build pipeline. [See Styling guide](/guides/styling/#astro-font-provider-api) |
+| Nested Components (Template) | ✅ Supported | Components using other Astro components in templates render correctly |
+| Nested Components (Props) | 📋 Planned | Passing Astro component factories as props (e.g. `<Link Icon={MyIcon} />`). See roadmap item above |
+| View Transitions | ❌ Not Supported | Astro's View Transitions API (`<ViewTransitions />`) |
+| Content Collections | ❌ Not Supported | `astro:content` module for type-safe content management |
+| Middleware | ❌ Not Supported | Astro's middleware system for request/response handling |
+| API Routes | ❌ Not Supported | Server endpoints (`/pages/api/*` routes) |
+| Server Islands | ❌ Not Supported | Dynamic content islands with server-side rendering |
+| Actions | ❌ Not Supported | Type-safe backend functions (`astro:actions`) |
+| Environment Variables | ❌ Not Supported | `astro:env` module for managing environment variables |
+| Glob Imports | ❌ Not Supported | `Astro.glob()` for batch file imports |
+| Database Integration | ❌ Not Supported | Astro DB and database utilities |
+| Internationalization (i18n) | ❌ Not Supported | Built-in i18n routing and helpers |
+| Prefetch | ❌ Not Supported | Automatic page prefetching utilities |
+| Dev Toolbar | ❌ Not Supported | Development toolbar integrations |
+| Markdown/MDX Features | ❌ Not Supported | Advanced markdown processing beyond basic rendering |
+| Adapters | 🔮 Future | Integration with deployment adapters (Netlify, Vercel, etc.) |
+
+**Legend**: ✅ Supported | 🚧 Partial | 📋 Planned | ❌ Not Supported | 🔮 Future Consideration
+
+### Storybook Features
+
+This table tracks compatibility of Storybook's built-in features when used with Astro components.
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Stories (CSF) | ✅ Supported | Component Story Format for defining stories |
+| Args & Controls | ✅ Supported | Interactive controls for component props (dev only for Astro components; pre-rendered in static builds) |
+| Actions | ✅ Supported | Log user interactions and events |
+| Docs (Autodocs) | ✅ Supported | Automatic documentation pages for components |
+| Docs (MDX) | ✅ Supported | Custom documentation pages with MDX |
+| Docs Blocks | ✅ Supported | Pre-built documentation components (Description, Primary, Controls, Stories, etc.) |
+| Viewports | ✅ Supported | Responsive design testing with different viewport sizes |
+| Backgrounds | ✅ Supported | Test components against different background colors |
+| Measure & Outline | ✅ Supported | Visual debugging tools for spacing and layout |
+| Component Description | 🚧 Manual | Component descriptions must be set manually via `parameters.docs.description.component` (automatic extraction from JSDoc planned) |
+| ArgTypes Documentation | 🚧 Manual | Prop documentation must be set manually via `argTypes[].description` (automatic extraction from JSDoc planned) |
+| Source Code Display | 🚧 Partial | Shows story file source; doesn't generate component usage syntax (e.g. `<Component prop="value" />`). See roadmap item above |
+| Decorators | 📋 Planned | Wrapper components/HTML for stories. See roadmap item and [design doc](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) |
+| Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
+| Testing with Vitest | ✅ Supported | Test stories with `@storybook-astro/framework/testing` and Vitest |
+| Play Functions | ✅ Supported | Automated interaction testing (framework components only; Astro components are server-rendered HTML) |
+| Interactions Panel | ✅ Supported | Debug play function interactions |
+| Accessibility Addon | ✅ Supported | Automated accessibility testing with a11y addon |
+| Theming | ✅ Supported | Storybook UI theming and customization |
+| Multi-framework | ✅ Supported | Mix Astro and framework components (React, Vue, Svelte, etc.) in one Storybook |
+| TypeScript | ✅ Supported | Full TypeScript support for stories and configuration |
+| Hot Module Replacement | ✅ Supported | Live updates during development |
+| Static Build | ✅ Supported | Build static documentation site with `storybook build` |
+
+**Legend**: ✅ Supported | 🚧 Partial/Manual | 📋 Planned | ❌ Not Supported
 
 ## Contributing
 
