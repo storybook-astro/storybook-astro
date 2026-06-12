@@ -1,14 +1,4 @@
 {
-  "buildCommand": "cd ../.. && yarn build:packages && cd integration/astro6-server && yarn build",
-  "outputDirectory": "storybook-static",
-  "rewrites": [
-    {
-      "source": "/api/storybook-astro/(.*)",
-      "destination": "/api/storybook-astro/[...path]"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/$1"
-    }
-  ]
+  "buildCommand": "cd ../.. && yarn build:packages && cd - && yarn build",
+  "outputDirectory": "storybook-static"
 }
