@@ -7,6 +7,8 @@
     "dev": "storybook dev -p 6016",
     "build": "storybook build",
     "serve": "node ./preview-storybook.mjs",
+    "serve:wrangler": "wrangler pages dev storybook-static --compatibility-flag=nodejs_compat",
+    "deploy": "wrangler pages deploy storybook-static",
     "lint": "eslint ."
   },
   "dependencies": {
