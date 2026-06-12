@@ -1,6 +1,6 @@
 /* global Request, URL */
 
-import app from '../../../storybook-server/index.js';
+import app from '../../storybook-server/index.js';
 
 /**
  * Cloudflare Pages Function handler
