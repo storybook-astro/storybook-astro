@@ -1,8 +1,0 @@
-name = "storybook-astro-server-demo"
-compatibility_date = "2026-02-15"
-
-[assets]
-directory = "./storybook-static"
-
-# Enable Node.js compatibility for the Functions
-compatibility_flags = ["nodejs_compat"]

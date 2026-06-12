@@ -19,7 +19,7 @@ Unlike static mode (which pre-renders all stories at build time), server mode de
 ### How It Works
 
 1. **Build time**: Storybook generates a Hono-based render server (`storybook-server/index.js`)
-2. **Runtime**: Cloudflare Pages Functions route `/api/storybook-astro/*` requests to the Hono app
+2. **Runtime**: API routes (`/api/storybook-astro/*`) forward requests to the Hono app
 3. **Rendering**: When Controls change, the preview iframe sends a render request; the server renders the updated component via Astro Container API
 
 ### Server-Side Stories
@@ -42,11 +42,10 @@ All three stories demonstrate server-side data fetching with interactive Control
          │ render request
          ↓
 ┌─────────────────────────────────┐
-│ Cloudflare Pages Function       │
-│ /functions/api/storybook-astro/ │
-│ [[path]].js                     │
+│ API Route                       │
+│ /api/storybook-astro/[...path]  │
 └────────┬────────────────────────┘
-         │ app.fetch()
+         │ handle(app)
          ↓
 ┌─────────────────────────────────┐
 │ Hono Render Server              │
@@ -62,10 +61,12 @@ All three stories demonstrate server-side data fetching with interactive Control
 
 ## Deployment
 
-This demo is deployed on Cloudflare Pages with:
-- **Assets**: Static Storybook UI in `storybook-static/`
-- **Functions**: Hono render server via Pages Functions
-- **Configuration**: `wrangler.toml` with `nodejs_compat` flag
+This demo requires a Node.js runtime environment that supports:
+- **Static Assets**: Storybook UI in `storybook-static/`
+- **API Routes**: Server-side rendering via `api/storybook-astro/[...path].js`
+- **Node.js APIs**: Vite, Astro Container, filesystem access
+
+Compatible platforms: Vercel, Netlify Functions, custom Node.js servers
 
 ## Learn More
 
