@@ -1,5 +1,5 @@
 {
-  "buildCommand": "yarn build",
+  "buildCommand": "cd ../.. && yarn build:packages && cd integration/astro6-server && yarn build",
   "outputDirectory": "storybook-static",
   "rewrites": [
     {
