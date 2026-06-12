@@ -136,17 +136,31 @@ export default {
 
 #### `renderMode`
 
-Optional string that determines how Astro components are rendered in production builds (`storybook build`). Defaults to **`'server'`**.
+Optional string that determines how Astro components are rendered in production builds (`storybook build`). Defaults to **`'static'`**.
 
-- **`'static'`** — Pre-renders all Astro component stories at build time. The fastest option for serving static builds, but Controls are disabled for Astro components since they can't be re-rendered with different args. **Recommended for pure static hosting** (GitHub Pages, Netlify static, Cloudflare Pages static assets).
-- **`'server'`** (default) — Enables an HTTP render server that processes render requests on-demand. Controls remain fully functional for Astro components in production, but requires a deployment environment that can run the render server (e.g., Cloudflare Pages Functions, Node.js servers, serverless platforms).
+- **`'static'`** (default) — Pre-renders all Astro component stories at build time. The fastest option for serving static builds, but Controls are disabled for Astro components since they can't be re-rendered with different args. **Recommended for pure static hosting** (GitHub Pages, Netlify static, Cloudflare Pages, S3, etc.). Works everywhere with no server requirements.
+- **`'server'`** — Enables an HTTP render server that processes render requests on-demand. Controls remain fully functional for Astro components in production, but requires a deployment environment that can run the render server with full Node.js APIs (Vercel, Netlify Functions, custom Node.js servers). Not compatible with pure static hosts or edge runtimes with limited Node.js support.
 
 ```javascript
+// Default (static mode) - no configuration needed
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      // renderMode defaults to 'static'
+    },
+  },
+};
+
+// Opt into server mode for interactive Astro Controls in production
 export default {
   framework: {
     name: '@storybook-astro/framework',
     options: {
       renderMode: 'server',
+      server: {
+        serverUrl: '/api/storybook-astro',
+      },
     },
   },
 };

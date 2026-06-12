@@ -55,7 +55,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   }
 
   const integrations = options.integrations ?? [];
-  const renderMode = options.renderMode ?? 'server';
+  const renderMode = options.renderMode ?? 'static';
   const mode = configType === 'DEVELOPMENT' ? 'development' : 'production';
   const command = configType === 'DEVELOPMENT' ? 'serve' : 'build';
 
