@@ -7,6 +7,7 @@ const componentsRoot = getAbsolutePath('@storybook-astro/components');
 /** @type { import('@storybook-astro/framework').StorybookConfig } */
 const config = {
   stories: [
+    '../src/stories/Overview.mdx',
     `${componentsRoot}/src/NpmWeeklyDownloads/astro/NpmWeeklyDownloads.stories.js`,
     `${componentsRoot}/src/GithubContributors/astro/GithubContributors.stories.js`,
     `${componentsRoot}/src/GithubStars/astro/GithubStars.stories.js`
