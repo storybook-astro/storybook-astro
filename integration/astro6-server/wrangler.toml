@@ -5,5 +5,4 @@ compatibility_date = "2026-02-15"
 directory = "./storybook-static"
 
 # Enable Node.js compatibility for the Functions
-[[compatibility_flags]]
-nodejs_compat = true
+compatibility_flags = ["nodejs_compat"]
