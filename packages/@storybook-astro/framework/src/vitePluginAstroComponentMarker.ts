@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import type { PluginOption } from 'vite';
 
 /**
@@ -64,53 +65,117 @@ export default __astro_component;
 /**
  * Reads the original .astro source file and generates import statements
  * for each <style> block, using the Astro Vite plugin's sub-module convention.
+ *
+ * Child .astro components imported in the frontmatter are re-imported too.
+ * Only the server renders children, so without these imports the child modules
+ * never enter the browser's module graph and their scoped styles never load.
+ * Each child passes through this same plugin, so style loading is transitive.
  */
 function generateStyleImports(filePath: string): string {
   try {
     const source = readFileSync(filePath, 'utf-8');
     const styleCount = countStyleBlocks(source);
 
-    return Array.from({ length: styleCount }, (_, i) =>
+    const styleImports = Array.from({ length: styleCount }, (_, i) =>
       `import ${JSON.stringify(`${filePath}?astro&type=style&index=${i}&lang.css`)};`
-    ).join('\n');
+    );
+    const childImports = extractAstroImportSpecifiers(source).map(
+      (specifier) => `import ${JSON.stringify(specifier)};`
+    );
+
+    return [...styleImports, ...childImports].join('\n');
   } catch {
     return '';
   }
 }
 
 /**
+ * Extracts import specifiers ending in `.astro` from a component's frontmatter.
+ * Comments are stripped first so commented-out imports don't resurface as
+ * broken module requests in the browser.
+ */
+export function extractAstroImportSpecifiers(source: string): string[] {
+  const frontmatterMatch = source.match(/^---([\s\S]*?)---/m);
+
+  if (!frontmatterMatch) {return [];}
+
+  const frontmatter = frontmatterMatch[1]
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
+
+  // Matches static imports (`import Child from './Child.astro'`), side-effect
+  // imports (`import './Child.astro'`), and dynamic imports (`import('./Child.astro')`).
+  const importPattern = /(?:from|import)\s*\(?\s*['"]([^'"]+\.astro)['"]/g;
+  const specifiers = new Set<string>();
+  let match;
+
+  while ((match = importPattern.exec(frontmatter)) !== null) {
+    specifiers.add(match[1]);
+  }
+
+  return [...specifiers];
+}
+
+/**
  * Reads the original .astro source file and generates a JS snippet that injects
- * the raw CSS from each <style> block into the document. Used during builds where
+ * the raw CSS from each <style> block into the document, recursing into child
+ * .astro components imported via relative paths. Used during builds where
  * Astro's compile metadata cache is unavailable.
  *
  * The CSS is unscoped (no Astro scoping transforms), which is acceptable because
  * Astro components show a fallback message in static builds.
  */
 function generateInlineStyles(filePath: string): string {
-  try {
-    const source = readFileSync(filePath, 'utf-8');
-    const cssBlocks = extractStyleBlocks(source);
+  const cssBlocks = collectStyleBlocks(filePath, new Set());
 
-    if (cssBlocks.length === 0) {return '';}
+  if (cssBlocks.length === 0) {return '';}
 
-    // Create a side-effect that injects styles into the document
-    return cssBlocks.map((css, i) => {
-      const escaped = JSON.stringify(css);
+  // Create a side-effect that injects styles into the document
+  return cssBlocks.map(({ file, css }, i) => {
+    const escaped = JSON.stringify(css);
 
-      
+
 return `
 (function() {
   if (typeof document !== 'undefined') {
     const style = document.createElement('style');
-    style.setAttribute('data-astro-build', ${JSON.stringify(filePath + ':' + i)});
+    style.setAttribute('data-astro-build', ${JSON.stringify(file + ':' + i)});
     style.textContent = ${escaped};
     document.head.appendChild(style);
   }
 })();`;
-    }).join('\n');
+  }).join('\n');
+}
+
+/**
+ * Collects <style> block contents from a component and its child .astro imports.
+ * Only relative specifiers are followed (aliases and packages can't be resolved
+ * from disk here). The visited set guards against import cycles.
+ */
+function collectStyleBlocks(
+  filePath: string,
+  visited: Set<string>
+): Array<{ file: string; css: string }> {
+  if (visited.has(filePath)) {return [];}
+  visited.add(filePath);
+
+  let source: string;
+
+  try {
+    source = readFileSync(filePath, 'utf-8');
   } catch {
-    return '';
+    return [];
   }
+
+  const blocks = extractStyleBlocks(source).map((css) => ({ file: filePath, css }));
+
+  for (const specifier of extractAstroImportSpecifiers(source)) {
+    if (!specifier.startsWith('.')) {continue;}
+
+    blocks.push(...collectStyleBlocks(resolve(dirname(filePath), specifier), visited));
+  }
+
+  return blocks;
 }
 
 /**
