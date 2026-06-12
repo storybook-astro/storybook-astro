@@ -100,17 +100,18 @@ Enable automatic extraction of component descriptions and prop documentation fro
 
 ## Future Enhancements
 
-### Dynamic Astro Controls in Static Builds
+### Dynamic Astro Controls in Production Builds
 
 Astro component stories can use one of two production build modes:
 
-- **Static mode** (`renderMode: 'static'`, default) — Pre-renders all stories at build time. Controls are automatically disabled for Astro components since they can't be re-rendered with different args. Best for pure static hosting (GitHub Pages, Netlify static, etc.).
+- **Static mode** (`renderMode: 'static'`, default) — ✅ **Complete**. Pre-renders all stories at build time. Controls are automatically disabled for Astro components since they can't be re-rendered with different args. Works on any static hosting platform (GitHub Pages, Netlify, Cloudflare Pages, S3, etc.) with no server requirements.
 
-- **Server mode** (`renderMode: 'server'`) — Available as of 1.1.0. Enables an HTTP render server that processes render requests on-demand, keeping Controls fully functional for Astro components in production builds. Requires a deployment environment that can run the render server (Cloudflare Pages Functions, serverless functions, Node.js servers). See [Configuration Reference](/reference/configuration/#rendermode) for setup details.
+- **Server mode** (`renderMode: 'server'`) — 🚧 **In Progress**. Enables an HTTP render server that processes render requests on-demand, keeping Controls fully functional for Astro components in production builds. Requires a deployment environment with full Node.js APIs (Vercel, Netlify Functions, custom Node.js servers). Not compatible with pure static hosts or edge runtimes. See [Configuration Reference](/reference/configuration/#rendermode) for setup details.
 
-**Future enhancements** for static mode:
-- Use a service worker to intercept render requests and enable Controls without a server
-- Provide pre-configured deployment adapters for popular serverless platforms
+**Future enhancements**:
+- Complete server mode deployment guides and examples
+- Service worker-based Controls for static builds (no server required)
+- Pre-configured deployment adapters for popular serverless platforms
 
 ### Content Collections Support
 
@@ -199,7 +200,8 @@ This table tracks compatibility of Astro's built-in framework features with Stor
 | Scoped Styles | ✅ Supported | Component-scoped CSS (including Astro 6's style sub-module imports) |
 | UI Framework Components | ✅ Supported | Astro components and client-side UI components render together (React, Vue, Svelte, Preact, Solid, Alpine.js) |
 | Client Directives | ✅ Supported | `client:load`, `client:only`, etc. for framework components |
-| Static Builds | ✅ Supported | `storybook build` with build-time pre-rendering of Astro component stories |
+| Static Builds | ✅ Supported | `storybook build` with build-time pre-rendering of Astro component stories (default mode) |
+| Server Builds | 🚧 In Progress | `renderMode: 'server'` with on-demand rendering via HTTP server. Requires Node.js runtime. |
 | `astro:assets` (Image) | ✅ Supported | Components using `<Image>` render correctly. Import image assets as `ImageMetadata` and pass as props. [See Images guide](/guides/images/) |
 | Font Provider API | 🚧 Partial | `<Font>` component renders with provider-resolved URLs (Google, Bunny, Fontsource, local). Missing: preload links, Capsize fallback metrics, font file emission, server-build pipeline. [See Styling guide](/guides/styling/#astro-font-provider-api) |
 | Nested Components (Template) | ✅ Supported | Components using other Astro components in templates render correctly |
@@ -219,7 +221,7 @@ This table tracks compatibility of Astro's built-in framework features with Stor
 | Markdown/MDX Features | ❌ Not Supported | Advanced markdown processing beyond basic rendering |
 | Adapters | 🔮 Future | Integration with deployment adapters (Netlify, Vercel, etc.) |
 
-**Legend**: ✅ Supported | 🚧 Partial | 📋 Planned | ❌ Not Supported | 🔮 Future Consideration
+**Legend**: ✅ Supported | 🚧 Partial/In Progress | 📋 Planned | ❌ Not Supported | 🔮 Future Consideration
 
 ### Storybook Features
 
