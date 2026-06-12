@@ -20,6 +20,7 @@ declare module 'virtual:storybook-astro-renderer' {
   ): Promise<RenderResponseMessage['data']>;
   export function init(): void;
   export function applyStyles(): void;
+  export const isStaticMode: boolean;
 }
 
 declare module 'virtual:storybook-astro/sanitize-config' {

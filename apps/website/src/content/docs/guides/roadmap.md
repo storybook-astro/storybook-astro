@@ -102,12 +102,15 @@ Enable automatic extraction of component descriptions and prop documentation fro
 
 ### Dynamic Astro Controls in Static Builds
 
-Currently, Astro component stories are pre-rendered with their default args at build time, making the Storybook Controls panel non-functional for Astro components in static deployments. As of 1.2.0, the Controls panel is automatically disabled for Astro stories in static builds so users aren't left adjusting controls that have no effect. A future enhancement could enable live re-rendering with different args via a companion service.
+Astro component stories can use one of two production build modes:
 
-**Potential approaches**:
-- Embed a lightweight server within the static build for on-demand rendering
-- Use a service worker to intercept render requests
-- Provide a deployment adapter for serverless platforms
+- **Static mode** (`renderMode: 'static'`, default) — Pre-renders all stories at build time. Controls are automatically disabled for Astro components since they can't be re-rendered with different args. Best for pure static hosting (GitHub Pages, Netlify static, etc.).
+
+- **Server mode** (`renderMode: 'server'`) — Available as of 1.1.0. Enables an HTTP render server that processes render requests on-demand, keeping Controls fully functional for Astro components in production builds. Requires a deployment environment that can run the render server (Cloudflare Pages Functions, serverless functions, Node.js servers). See [Configuration Reference](/reference/configuration/#rendermode) for setup details.
+
+**Future enhancements** for static mode:
+- Use a service worker to intercept render requests and enable Controls without a server
+- Provide pre-configured deployment adapters for popular serverless platforms
 
 ### Content Collections Support
 
