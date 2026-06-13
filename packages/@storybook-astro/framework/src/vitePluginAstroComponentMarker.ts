@@ -38,13 +38,14 @@ export function vitePluginAstroComponentMarker(): PluginOption {
 
       const moduleId = id;
 
-      // In dev mode, import style sub-modules via Astro's Vite plugin (which has
-      // compile metadata cached from the SSR transform).
-      // In build mode, Astro's compile metadata cache is not populated for client-side
-      // transforms, so sub-module imports would fail. Extract raw CSS instead.
+      // In Storybook's Vite 6 setup with separate client/SSR environments, Astro's
+      // CSS cache isn't populated for client-side transforms. CSS sub-module imports
+      // fail with "No Astro CSS at index N", so we inline the CSS directly.
+      // However, we still import child .astro components to bring them into the module
+      // graph so the plugin processes them (fix for issue #114).
       const styleCode = isBuild
         ? generateInlineStyles(moduleId)
-        : generateStyleImports(moduleId);
+        : generateHybridStyles(moduleId);
 
       return {
         code: `
@@ -63,30 +64,97 @@ export default __astro_component;
 }
 
 /**
- * Reads the original .astro source file and generates import statements
- * for each <style> block, using the Astro Vite plugin's sub-module convention.
+ * Hybrid approach for dev mode: inline CSS for the current component (to avoid
+ * Astro's cache issues) but import child .astro components (to bring them into
+ * the module graph for processing). This preserves the fix for issue #114 while
+ * avoiding "No Astro CSS at index N" errors.
  *
- * Child .astro components imported in the frontmatter are re-imported too.
- * Only the server renders children, so without these imports the child modules
- * never enter the browser's module graph and their scoped styles never load.
- * Each child passes through this same plugin, so style loading is transitive.
+ * Two caveats follow from inlining raw <style> source instead of routing it
+ * through Astro's compiler:
+ * - Styles are injected globally, not scoped to the component. Plain class
+ *   selectors still match the SSR-rendered HTML, but there is no scope isolation
+ *   between components in dev.
+ * - `:global(...)` wrappers are unwrapped (the browser can't parse them), and
+ *   preprocessed blocks (`<style lang="scss">` etc.) are skipped with a warning
+ *   since the preprocessor isn't reachable here.
  */
-function generateStyleImports(filePath: string): string {
+function generateHybridStyles(filePath: string): string {
   try {
     const source = readFileSync(filePath, 'utf-8');
-    const styleCount = countStyleBlocks(source);
 
-    const styleImports = Array.from({ length: styleCount }, (_, i) =>
-      `import ${JSON.stringify(`${filePath}?astro&type=style&index=${i}&lang.css`)};`
-    );
+    // Inline this component's own CSS (no recursion into children).
+    const inlinedCss = extractStyleBlocksWithLang(source).map((block, i) => {
+      if (block.lang && block.lang !== 'css') {
+        return warnUnsupportedStyleLang(filePath, block.lang);
+      }
+
+      return styleInjectionSnippet(
+        'data-astro-dev',
+        `${filePath}:${i}`,
+        unwrapGlobalSelectors(block.css)
+      );
+    }).join('\n');
+
+    // Import child .astro components so they enter the module graph
     const childImports = extractAstroImportSpecifiers(source).map(
       (specifier) => `import ${JSON.stringify(specifier)};`
     );
 
-    return [...styleImports, ...childImports].join('\n');
+    return [inlinedCss, ...childImports].filter(Boolean).join('\n');
   } catch {
     return '';
   }
+}
+
+/**
+ * Astro's `:global(...)` wrapper marks a selector as un-scoped. Dev-mode styles
+ * are already injected globally, so the wrapper carries no meaning here — and the
+ * browser treats `:global()` as an invalid pseudo-class and drops the whole rule.
+ * Unwrap it to its inner selector so the rule applies.
+ */
+function unwrapGlobalSelectors(css: string): string {
+  return css.replace(/:global\(\s*([^)]*?)\s*\)/g, '$1');
+}
+
+/**
+ * Builds a snippet that warns about a preprocessed <style> block we can't inline.
+ * Astro's compiler (which would turn scss/less/etc. into CSS) isn't reachable
+ * from this client-side transform, and shipping the raw source would break the
+ * browser's CSS parser, so we surface a clear console warning instead.
+ */
+function warnUnsupportedStyleLang(filePath: string, lang: string): string {
+  const message =
+    `[storybook-astro] Skipping <style lang="${lang}"> in ${filePath}: ` +
+    `preprocessed styles are not supported in Storybook dev mode.`;
+
+  return `
+(function() {
+  if (typeof console !== 'undefined') { console.warn(${JSON.stringify(message)}); }
+})();`;
+}
+
+/**
+ * Builds a self-executing snippet that injects a CSS string into <head> as a
+ * <style> tag, tagged with a marker attribute. The marker also dedupes
+ * re-injection (e.g. when a module re-evaluates after HMR) so styles don't
+ * accumulate in the document.
+ */
+function styleInjectionSnippet(markerAttr: string, markerValue: string, css: string): string {
+  const attr = JSON.stringify(markerAttr);
+  const value = JSON.stringify(markerValue);
+
+  return `
+(function() {
+  if (typeof document === 'undefined') { return; }
+  const tagged = document.head.querySelectorAll('style[' + ${attr} + ']');
+  for (const node of tagged) {
+    if (node.getAttribute(${attr}) === ${value}) { return; }
+  }
+  const style = document.createElement('style');
+  style.setAttribute(${attr}, ${value});
+  style.textContent = ${JSON.stringify(css)};
+  document.head.appendChild(style);
+})();`;
 }
 
 /**
@@ -122,8 +190,9 @@ export function extractAstroImportSpecifiers(source: string): string[] {
  * .astro components imported via relative paths. Used during builds where
  * Astro's compile metadata cache is unavailable.
  *
- * The CSS is unscoped (no Astro scoping transforms), which is acceptable because
- * Astro components show a fallback message in static builds.
+ * The CSS is unscoped (no Astro scoping transforms), so `:global(...)` wrappers
+ * are unwrapped here too — without that the browser drops the whole rule (e.g.
+ * PageCard's `.page-card__image-wrapper :global(img)` sizing).
  */
 function generateInlineStyles(filePath: string): string {
   const cssBlocks = collectStyleBlocks(filePath, new Set());
@@ -131,20 +200,11 @@ function generateInlineStyles(filePath: string): string {
   if (cssBlocks.length === 0) {return '';}
 
   // Create a side-effect that injects styles into the document
-  return cssBlocks.map(({ file, css }, i) => {
-    const escaped = JSON.stringify(css);
-
-
-return `
-(function() {
-  if (typeof document !== 'undefined') {
-    const style = document.createElement('style');
-    style.setAttribute('data-astro-build', ${JSON.stringify(file + ':' + i)});
-    style.textContent = ${escaped};
-    document.head.appendChild(style);
-  }
-})();`;
-  }).join('\n');
+  return cssBlocks
+    .map(({ file, css }, i) =>
+      styleInjectionSnippet('data-astro-build', `${file}:${i}`, unwrapGlobalSelectors(css))
+    )
+    .join('\n');
 }
 
 /**
@@ -183,28 +243,25 @@ function collectStyleBlocks(
  * Strips frontmatter before parsing.
  */
 function extractStyleBlocks(source: string): string[] {
-  const withoutFrontmatter = source.replace(/^---[\s\S]*?---/m, '');
-  const blocks: string[] = [];
-  const regex = /<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/g;
-  let match;
-
-  while ((match = regex.exec(withoutFrontmatter)) !== null) {
-    blocks.push(match[1].trim());
-  }
-
-  return blocks;
+  return extractStyleBlocksWithLang(source).map((block) => block.css);
 }
 
 /**
- * Counts the number of top-level <style> blocks in an Astro component's source.
- * Only counts opening tags that are NOT inside the frontmatter fence (---).
+ * Like {@link extractStyleBlocks}, but also reports each block's `lang` attribute
+ * (e.g. "scss") so callers can tell preprocessed styles apart from plain CSS.
+ * Returns `null` for the lang when no attribute is present.
  */
-function countStyleBlocks(source: string): number {
-  // Strip frontmatter
+function extractStyleBlocksWithLang(source: string): Array<{ css: string; lang: string | null }> {
   const withoutFrontmatter = source.replace(/^---[\s\S]*?---/m, '');
-  // Match <style> opening tags (with optional attributes)
-  const matches = withoutFrontmatter.match(/<style(\s|>)/g);
+  const blocks: Array<{ css: string; lang: string | null }> = [];
+  const regex = /<style((?:\s[^>]*)?)>([\s\S]*?)<\/style>/g;
+  let match;
 
-  
-return matches ? matches.length : 0;
+  while ((match = regex.exec(withoutFrontmatter)) !== null) {
+    const langMatch = match[1].match(/\blang\s*=\s*['"]?([\w-]+)/);
+
+    blocks.push({ css: match[2].trim(), lang: langMatch ? langMatch[1] : null });
+  }
+
+  return blocks;
 }

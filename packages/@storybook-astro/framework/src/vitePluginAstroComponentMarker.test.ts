@@ -58,7 +58,7 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(result?.code).toContain(JSON.stringify(filePath));
   });
 
-  test('imports style sub-modules for own <style> blocks in dev mode', () => {
+  test('inlines CSS for own <style> blocks in dev mode (hybrid approach)', () => {
     const filePath = writeAstroFile(
       'Styled.astro',
       '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
@@ -66,7 +66,48 @@ describe('vitePluginAstroComponentMarker transform', () => {
     const plugin = createPlugin();
     const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
-    expect(result?.code).toContain(`${filePath}?astro&type=style&index=0&lang.css`);
+    // Dev mode uses inline CSS instead of sub-module imports to avoid Astro cache issues
+    expect(result?.code).toContain('.a { color: red; }');
+    expect(result?.code).toContain('data-astro-dev');
+  });
+
+  test('unwraps :global() selectors so the CSS is valid in the browser', () => {
+    const filePath = writeAstroFile(
+      'Global.astro',
+      '<div class="wrap"><slot /></div>\n<style>.wrap > :global(img) { width: 100%; }</style>'
+    );
+    const plugin = createPlugin();
+    const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    expect(result?.code).toContain('.wrap > img { width: 100%; }');
+    expect(result?.code).not.toContain(':global(');
+  });
+
+  test('skips preprocessed <style lang="..."> blocks with a console warning in dev mode', () => {
+    const filePath = writeAstroFile(
+      'Scss.astro',
+      '<div class="a">Hi</div>\n<style lang="scss">.a { .b { color: red; } }</style>'
+    );
+    const plugin = createPlugin();
+    const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    // The raw SCSS source must not be injected as a stylesheet.
+    expect(result?.code).not.toContain('document.createElement');
+    expect(result?.code).toContain('console.warn');
+    expect(result?.code).toContain('scss');
+  });
+
+  test('dedupes injected styles so repeated module evaluation does not pile up', () => {
+    const filePath = writeAstroFile(
+      'Dedupe.astro',
+      '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
+    );
+    const plugin = createPlugin();
+    const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    // The injection snippet bails out if a style with the same marker already exists.
+    expect(result?.code).toContain("getAttribute");
+    expect(result?.code).toContain('data-astro-dev');
   });
 
   test('re-imports child .astro components so their scoped styles load in dev mode', () => {
@@ -108,6 +149,18 @@ describe('vitePluginAstroComponentMarker transform', () => {
 
     expect(result?.code).toContain('.parent { padding: 16px; }');
     expect(result?.code).toContain('.child { color: red; }');
+  });
+
+  test('unwraps :global() selectors in build mode too', () => {
+    const filePath = writeAstroFile(
+      'build/Global.astro',
+      '<div class="wrap"><slot /></div>\n<style>.wrap :global(img) { width: 100%; }</style>'
+    );
+    const plugin = createPlugin('build');
+    const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    expect(result?.code).toContain('.wrap img { width: 100%; }');
+    expect(result?.code).not.toContain(':global(');
   });
 
   test('handles circular child imports in build mode without recursing forever', () => {
