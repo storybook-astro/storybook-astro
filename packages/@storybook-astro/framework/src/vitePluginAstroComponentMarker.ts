@@ -190,8 +190,9 @@ export function extractAstroImportSpecifiers(source: string): string[] {
  * .astro components imported via relative paths. Used during builds where
  * Astro's compile metadata cache is unavailable.
  *
- * The CSS is unscoped (no Astro scoping transforms), which is acceptable because
- * Astro components show a fallback message in static builds.
+ * The CSS is unscoped (no Astro scoping transforms), so `:global(...)` wrappers
+ * are unwrapped here too — without that the browser drops the whole rule (e.g.
+ * PageCard's `.page-card__image-wrapper :global(img)` sizing).
  */
 function generateInlineStyles(filePath: string): string {
   const cssBlocks = collectStyleBlocks(filePath, new Set());
@@ -200,7 +201,9 @@ function generateInlineStyles(filePath: string): string {
 
   // Create a side-effect that injects styles into the document
   return cssBlocks
-    .map(({ file, css }, i) => styleInjectionSnippet('data-astro-build', `${file}:${i}`, css))
+    .map(({ file, css }, i) =>
+      styleInjectionSnippet('data-astro-build', `${file}:${i}`, unwrapGlobalSelectors(css))
+    )
     .join('\n');
 }
 

@@ -151,6 +151,18 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(result?.code).toContain('.child { color: red; }');
   });
 
+  test('unwraps :global() selectors in build mode too', () => {
+    const filePath = writeAstroFile(
+      'build/Global.astro',
+      '<div class="wrap"><slot /></div>\n<style>.wrap :global(img) { width: 100%; }</style>'
+    );
+    const plugin = createPlugin('build');
+    const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    expect(result?.code).toContain('.wrap img { width: 100%; }');
+    expect(result?.code).not.toContain(':global(');
+  });
+
   test('handles circular child imports in build mode without recursing forever', () => {
     const aPath = writeAstroFile(
       'cycle/A.astro',
