@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-06-13
+
+### Changed
+- Default `renderMode` is now `'static'` instead of `'server'`
+
+### Fixed
+- `AstroComponentFactory` type is now callable to match Astro language server shape
+- Child component scoped styles are now correctly loaded when rendering parent stories
+- Hybrid CSS injection approach resolves 'No Astro CSS' error in certain configurations
+
 ## [1.4.0] - 2026-06-09
 
 ### Added

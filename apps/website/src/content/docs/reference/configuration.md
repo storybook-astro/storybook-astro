@@ -134,6 +134,69 @@ export default {
 };
 ```
 
+#### `renderMode`
+
+Optional string that determines how Astro components are rendered in production builds (`storybook build`). Defaults to **`'static'`**.
+
+- **`'static'`** (default) — Pre-renders all Astro component stories at build time. The fastest option for serving static builds, but Controls are disabled for Astro components since they can't be re-rendered with different args. **Recommended for pure static hosting** (GitHub Pages, Netlify static, Cloudflare Pages, S3, etc.). Works everywhere with no server requirements.
+- **`'server'`** — Enables an HTTP render server that processes render requests on-demand. Controls remain fully functional for Astro components in production, but requires a deployment environment that can run the render server with full Node.js APIs (Vercel, Netlify Functions, custom Node.js servers). Not compatible with pure static hosts or edge runtimes with limited Node.js support.
+
+```javascript
+// Default (static mode) - no configuration needed
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      // renderMode defaults to 'static'
+    },
+  },
+};
+
+// Opt into server mode for interactive Astro Controls in production
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      renderMode: 'server',
+      server: {
+        serverUrl: '/api/storybook-astro',
+      },
+    },
+  },
+};
+```
+
+Development mode (`storybook dev`) always uses the HMR-based renderer regardless of this setting.
+
+#### `server`
+
+Configuration for the server-mode render endpoint. Only applies when `renderMode: 'server'`.
+
+- **`serverUrl`** — Optional URL where the render server is accessible. Defaults to `'http://localhost:3000'` (development) or can be set to a relative path like `'/api/storybook-astro'` (production with Cloudflare Pages Functions).
+- **`authToken`** — Optional authentication token sent with render requests.
+- **`authHeader`** — Optional HTTP header name for the auth token. Defaults to `'authorization'`.
+
+```javascript
+export default {
+  framework: {
+    name: '@storybook-astro/framework',
+    options: {
+      renderMode: 'server',
+      server: {
+        serverUrl: process.env.STORYBOOK_ASTRO_SERVER_URL ?? '/api/storybook-astro',
+        authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
+        authHeader: process.env.STORYBOOK_ASTRO_SERVER_AUTH_HEADER,
+      },
+    },
+  },
+};
+```
+
+Environment variables or globalThis values can also be used to configure server settings at runtime:
+- `STORYBOOK_ASTRO_SERVER_URL` / `globalThis.STORYBOOK_ASTRO_SERVER_URL`
+- `STORYBOOK_ASTRO_SERVER_TOKEN` / `globalThis.STORYBOOK_ASTRO_SERVER_TOKEN`
+- `STORYBOOK_ASTRO_SERVER_AUTH_HEADER` / `globalThis.STORYBOOK_ASTRO_SERVER_AUTH_HEADER`
+
 #### `storyRules`
 
 Path to a story rules configuration file that defines per-story API mocks and module replacements.

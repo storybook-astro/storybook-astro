@@ -1,7 +1,8 @@
-import { loadConfigFromFile } from 'vite';
+import { loadConfigFromFile, type Plugin } from 'vite';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { AstroIntegration } from 'astro';
+import type { StorybookFontFamily } from './vitePluginAstroFonts.ts';
 
 const CONFIG_FILENAMES = [
   'astro.config.ts',
@@ -10,18 +11,45 @@ const CONFIG_FILENAMES = [
   'astro.config.cjs',
 ];
 
-/**
- * Loads integrations declared in the user's astro.config.* so that any Vite
- * plugins they register (e.g. astro-icon's virtual:astro-icon resolver) are
- * present in both the main Storybook Vite server and the internal Astro SSR
- * server.  Returns an empty array on any failure so the calling code can
- * continue with only the framework-level integrations.
- */
-export async function loadUserAstroIntegrations(resolveFrom: string): Promise<AstroIntegration[]> {
-  const configFile = CONFIG_FILENAMES.find(name => existsSync(resolve(resolveFrom, name)));
+interface UserAstroConfigData {
+  integrations: AstroIntegration[];
+  fonts: StorybookFontFamily[];
+  vitePlugins: Plugin[];
+}
+
+const EMPTY: UserAstroConfigData = {
+  integrations: [],
+  fonts: [],
+  vitePlugins: []
+};
+
+// Cache by resolveFrom — config rarely changes during a Storybook session and
+// several call sites read the same data.  Each entry stores the in-flight
+// promise so concurrent callers share the same load.
+const configCache = new Map<string, Promise<UserAstroConfigData>>();
+
+async function loadUserAstroConfigData(resolveFrom: string): Promise<UserAstroConfigData> {
+  let cached = configCache.get(resolveFrom);
+
+  if (!cached) {
+    cached = readUserAstroConfig(resolveFrom);
+    configCache.set(resolveFrom, cached);
+  }
+
+  return cached;
+}
+
+async function readUserAstroConfig(resolveFrom: string): Promise<UserAstroConfigData> {
+  // Vite's loadConfigFromFile resolves a relative configFile against
+  // process.cwd(), not the configRoot argument, so we always hand it an
+  // absolute path to make the lookup deterministic regardless of where
+  // Storybook is invoked from.
+  const configFile = CONFIG_FILENAMES
+    .map((name) => resolve(resolveFrom, name))
+    .find((path) => existsSync(path));
 
   if (!configFile) {
-    return [];
+    return EMPTY;
   }
 
   try {
@@ -32,28 +60,101 @@ export async function loadUserAstroIntegrations(resolveFrom: string): Promise<As
     );
 
     if (!result?.config) {
-      return [];
+      return EMPTY;
     }
 
-    const config = result.config as { integrations?: unknown };
-    const raw = config.integrations;
+    const config = result.config as {
+      integrations?: unknown;
+      fonts?: unknown;
+      vite?: { plugins?: unknown };
+    };
 
-    if (!raw) {
-      return [];
-    }
-
-    // Astro allows nested arrays from conditional spreads (e.g. ...whenX(() => mdx()))
-    const flat = (Array.isArray(raw) ? raw : [raw]).flat(Infinity);
-
-    return flat.filter(
-      (i): i is AstroIntegration => Boolean(i) && typeof i === 'object' && 'name' in i && 'hooks' in i
-    );
+    return {
+      integrations: extractIntegrations(config.integrations),
+      fonts: extractFonts(config.fonts),
+      vitePlugins: extractVitePlugins(config.vite?.plugins)
+    };
   } catch (err) {
     console.warn(
-      '[storybook-astro] Could not load astro.config to discover integrations:',
+      '[storybook-astro] Could not load astro.config to discover integrations / fonts / vite plugins:',
       err instanceof Error ? err.message : String(err)
     );
 
+    return EMPTY;
+  }
+}
+
+function extractIntegrations(raw: unknown): AstroIntegration[] {
+  if (!raw) {
     return [];
   }
+
+  // Astro allows nested arrays from conditional spreads (e.g. ...whenX(() => mdx()))
+  const flat = (Array.isArray(raw) ? raw : [raw]).flat(Infinity);
+
+  return flat.filter(
+    (i): i is AstroIntegration =>
+      Boolean(i) && typeof i === 'object' && 'name' in i && 'hooks' in i
+  );
+}
+
+function extractFonts(raw: unknown): StorybookFontFamily[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw.filter(
+    (f): f is StorybookFontFamily =>
+      Boolean(f) &&
+      typeof f === 'object' &&
+      typeof (f as { name?: unknown }).name === 'string' &&
+      typeof (f as { cssVariable?: unknown }).cssVariable === 'string' &&
+      typeof (f as { provider?: unknown }).provider === 'object'
+  );
+}
+
+function extractVitePlugins(raw: unknown): Plugin[] {
+  if (!raw) {
+    return [];
+  }
+
+  // vite.plugins accepts Plugin | Plugin[] | (Plugin | false | null | undefined)[][] etc.
+  const flat = (Array.isArray(raw) ? raw : [raw]).flat(Infinity);
+
+  return flat.filter(
+    (p): p is Plugin =>
+      Boolean(p) && typeof p === 'object' && 'name' in p && typeof (p as Plugin).name === 'string'
+  );
+}
+
+/**
+ * Loads integrations declared in the user's astro.config.* so that any Vite
+ * plugins they register (e.g. astro-icon's virtual:astro-icon resolver) are
+ * present in both the main Storybook Vite server and the internal Astro SSR
+ * server.  Returns an empty array on any failure so the calling code can
+ * continue with only the framework-level integrations.
+ */
+export async function loadUserAstroIntegrations(resolveFrom: string): Promise<AstroIntegration[]> {
+  return (await loadUserAstroConfigData(resolveFrom)).integrations;
+}
+
+/**
+ * Loads the `fonts:` array from the user's astro.config.* so the Astro 6
+ * Font Provider API works in Storybook without duplicating the array into
+ * `framework.options.fonts`.  Returns [] if the project has no fonts
+ * configured or the config can't be read.
+ */
+export async function loadUserAstroFonts(resolveFrom: string): Promise<StorybookFontFamily[]> {
+  return (await loadUserAstroConfigData(resolveFrom)).fonts;
+}
+
+/**
+ * Loads raw Vite plugins declared at `vite.plugins` in the user's
+ * astro.config.* (e.g. `@tailwindcss/vite`, `unocss/vite`).  These are not
+ * registered through Astro's integration API so `loadUserAstroIntegrations`
+ * does not pick them up; this loader fills the gap so CSS frameworks added
+ * as raw Vite plugins work in Storybook without `viteFinal`.
+ */
+export async function loadUserAstroVitePlugins(resolveFrom: string): Promise<Plugin[]> {
+  return (await loadUserAstroConfigData(resolveFrom)).vitePlugins;
 }

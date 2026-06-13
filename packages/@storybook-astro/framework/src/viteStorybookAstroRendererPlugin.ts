@@ -41,7 +41,8 @@ export function viteStorybookAstroRendererPlugin(options: {
         )});`,
         'export const render = renderer.render;',
         'export const init = renderer.init;',
-        'export const applyStyles = renderer.applyStyles;'
+        'export const applyStyles = renderer.applyStyles;',
+        'export const isStaticMode = false;'
       ].join('\n');
     }
   });
