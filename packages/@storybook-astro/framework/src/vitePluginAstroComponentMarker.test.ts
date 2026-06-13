@@ -71,6 +71,45 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(result?.code).toContain('data-astro-dev');
   });
 
+  test('unwraps :global() selectors so the CSS is valid in the browser', () => {
+    const filePath = writeAstroFile(
+      'Global.astro',
+      '<div class="wrap"><slot /></div>\n<style>.wrap > :global(img) { width: 100%; }</style>'
+    );
+    const plugin = createPlugin();
+    const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    expect(result?.code).toContain('.wrap > img { width: 100%; }');
+    expect(result?.code).not.toContain(':global(');
+  });
+
+  test('skips preprocessed <style lang="..."> blocks with a console warning in dev mode', () => {
+    const filePath = writeAstroFile(
+      'Scss.astro',
+      '<div class="a">Hi</div>\n<style lang="scss">.a { .b { color: red; } }</style>'
+    );
+    const plugin = createPlugin();
+    const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    // The raw SCSS source must not be injected as a stylesheet.
+    expect(result?.code).not.toContain('document.createElement');
+    expect(result?.code).toContain('console.warn');
+    expect(result?.code).toContain('scss');
+  });
+
+  test('dedupes injected styles so repeated module evaluation does not pile up', () => {
+    const filePath = writeAstroFile(
+      'Dedupe.astro',
+      '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
+    );
+    const plugin = createPlugin();
+    const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    // The injection snippet bails out if a style with the same marker already exists.
+    expect(result?.code).toContain("getAttribute");
+    expect(result?.code).toContain('data-astro-dev');
+  });
+
   test('re-imports child .astro components so their scoped styles load in dev mode', () => {
     const filePath = writeAstroFile(
       'Parent.astro',
