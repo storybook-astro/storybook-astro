@@ -64,33 +64,6 @@ export default __astro_component;
 }
 
 /**
- * Reads the original .astro source file and generates import statements
- * for each <style> block, using the Astro Vite plugin's sub-module convention.
- *
- * Child .astro components imported in the frontmatter are re-imported too.
- * Only the server renders children, so without these imports the child modules
- * never enter the browser's module graph and their scoped styles never load.
- * Each child passes through this same plugin, so style loading is transitive.
- */
-function generateStyleImports(filePath: string): string {
-  try {
-    const source = readFileSync(filePath, 'utf-8');
-    const styleCount = countStyleBlocks(source);
-
-    const styleImports = Array.from({ length: styleCount }, (_, i) =>
-      `import ${JSON.stringify(`${filePath}?astro&type=style&index=${i}&lang.css`)};`
-    );
-    const childImports = extractAstroImportSpecifiers(source).map(
-      (specifier) => `import ${JSON.stringify(specifier)};`
-    );
-
-    return [...styleImports, ...childImports].join('\n');
-  } catch {
-    return '';
-  }
-}
-
-/**
  * Hybrid approach for dev mode: inline CSS for the current component (to avoid
  * Astro's cache issues) but import child .astro components (to bring them into
  * the module graph for processing). This preserves the fix for issue #114 while
@@ -104,6 +77,7 @@ function generateHybridStyles(filePath: string): string {
     const blocks = extractStyleBlocks(source);
     const inlinedCss = blocks.map((css, i) => {
       const escaped = JSON.stringify(css);
+
       return `
 (function() {
   if (typeof document !== 'undefined') {
@@ -230,18 +204,4 @@ function extractStyleBlocks(source: string): string[] {
   }
 
   return blocks;
-}
-
-/**
- * Counts the number of top-level <style> blocks in an Astro component's source.
- * Only counts opening tags that are NOT inside the frontmatter fence (---).
- */
-function countStyleBlocks(source: string): number {
-  // Strip frontmatter
-  const withoutFrontmatter = source.replace(/^---[\s\S]*?---/m, '');
-  // Match <style> opening tags (with optional attributes)
-  const matches = withoutFrontmatter.match(/<style(\s|>)/g);
-
-  
-return matches ? matches.length : 0;
 }
