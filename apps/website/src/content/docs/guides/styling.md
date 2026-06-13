@@ -3,7 +3,7 @@ title: Styling
 description: Set up global CSS, CSS frameworks, fonts, and static assets in Storybook.
 ---
 
-Astro component scoped styles work automatically — Storybook Astro handles them during rendering. But global styles, CSS utility frameworks, and fonts loaded outside your components (e.g. in a layout's `<head>`) require manual setup.
+Astro component scoped styles work automatically — Storybook Astro handles them during rendering. Anything declared in your `astro.config.*` (integrations, `vite.plugins`, `fonts`) is also picked up automatically, so most projects need very little Storybook-specific wiring. The patterns below cover the cases that do need attention: global stylesheets and design tokens that live outside `astro.config.*`, path aliases, fonts loaded outside the Font Provider API, and static assets.
 
 ## Global CSS
 
@@ -72,11 +72,19 @@ Because Storybook never renders that component, the variables won't exist. Copy 
 
 ## CSS utility frameworks
 
-CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) are typically configured as Astro integrations, but their Vite plugins may not be automatically available in Storybook's build pipeline. You can add them directly using `viteFinal` in `.storybook/main.js`.
+CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) configured in `astro.config.*` — either as an Astro integration (`@astrojs/tailwind`, `unocss/astro`) or as a Vite plugin under `vite.plugins` (`@tailwindcss/vite`, `unocss/vite`) — are picked up by Storybook automatically. You only need to import the framework's CSS entry or virtual module in `.storybook/preview.js` so it reaches the story canvas.
 
 ### Tailwind CSS
 
-For Tailwind CSS v4+ (which uses a Vite plugin), register the plugin in `viteFinal` and import your Tailwind CSS entry file in `preview.js`:
+```javascript
+// .storybook/preview.js
+import '../src/styles/tailwind.css'; // your project's @import 'tailwindcss' entrypoint
+import './preview.css';
+```
+
+For Tailwind CSS v3 (which uses PostCSS), no plugin registration is needed at all — just ensure your global CSS with `@tailwind` directives is imported in `.storybook/preview.css` and your `postcss.config.js` is in place.
+
+If you want Tailwind enabled in Storybook *only* (not in your main Astro app), register the plugin yourself with `viteFinal`:
 
 ```javascript
 // .storybook/main.js
@@ -89,49 +97,24 @@ export default {
     options: {},
   },
   async viteFinal(config) {
-    config.plugins = config.plugins || [];
+    config.plugins = config.plugins ?? [];
     config.plugins.push(tailwindcss());
     return config;
   },
 };
 ```
 
-```javascript
-// .storybook/preview.js
-import '../src/styles/tailwind.css'; // your project's @import 'tailwindcss' entrypoint
-import './preview.css';
-```
-
-For Tailwind CSS v3 (which uses PostCSS), no `viteFinal` changes are needed — just ensure your global CSS with `@tailwind` directives is imported in `.storybook/preview.css` and your `postcss.config.js` is in place.
-
 ### UnoCSS
 
 ```javascript
-// .storybook/main.js
-import UnoCSS from 'unocss/vite';
-
-export default {
-  stories: ['../src/**/*.stories.@(js|jsx|ts|tsx)'],
-  framework: {
-    name: '@storybook-astro/framework',
-    options: {},
-  },
-  async viteFinal(config) {
-    config.plugins = config.plugins || [];
-    config.plugins.push(UnoCSS());
-    return config;
-  },
-};
-```
-
-Then import UnoCSS's generated stylesheet in `.storybook/preview.js`:
-
-```javascript
+// .storybook/preview.js
 import 'virtual:uno.css';
 import './preview.css';
 ```
 
 UnoCSS reads your project's `uno.config.ts` automatically, so your presets (e.g. `presetWind`, `presetIcons`, `presetTypography`) will apply.
+
+The same Storybook-only `viteFinal` pattern shown for Tailwind works for UnoCSS — register `unocss/vite` if it isn't already in `astro.config.*`.
 
 ## Path aliases
 
@@ -162,6 +145,44 @@ export default {
 Match whatever aliases you have in your `astro.config.*` — `@`, `~`, `#`, etc.
 
 ## Fonts
+
+### Astro Font Provider API
+
+If your project uses Astro 6's [Font Provider API](https://docs.astro.build/en/reference/font-provider-reference/) — `fonts: [...]` in `astro.config.*` with providers like `fontProviders.google()`, `fontProviders.local()`, etc. — Storybook auto-loads the array and the `<Font>` component renders real `@font-face` CSS in stories with no extra wiring.
+
+```javascript
+// astro.config.mjs
+import { defineConfig, fontProviders } from 'astro/config';
+
+export default defineConfig({
+  fonts: [
+    {
+      provider: fontProviders.google(),
+      name: 'Inter',
+      cssVariable: '--font-inter',
+      weights: [400, 700],
+    },
+  ],
+});
+```
+
+Use `<Font cssVariable="--font-inter" />` in your Astro components exactly as you would in a normal Astro page. The provider's `init` and `resolveFont` hooks run during Storybook's SSR setup, producing `@font-face` rules and a `:root { --font-inter: "Inter", sans-serif; }` binding.
+
+To override the auto-loaded array (e.g. use a different set of families in Storybook), pass `framework.options.fonts` explicitly. An explicit empty array renders with no fonts at all:
+
+```javascript
+// .storybook/main.js
+framework: {
+  name: '@storybook-astro/framework',
+  options: {
+    fonts: [/* override here, or [] for none */],
+  },
+}
+```
+
+:::caution
+Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated.
+:::
 
 ### npm font packages
 
@@ -215,13 +236,12 @@ This makes files in `public/` available at the root URL path — e.g. `public/fo
 
 ## Full example
 
-Here's a complete setup for a project using Tailwind CSS v4, a path alias, an npm font package, and CSS custom properties:
+A typical project — Tailwind v4 and `fonts:` configured in `astro.config.*`, plus a path alias and CSS custom properties — needs very little in `.storybook/main.js`:
 
 ```javascript
 // .storybook/main.js
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import tailwindcss from '@tailwindcss/vite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -232,21 +252,18 @@ export default {
     options: {},
   },
   async viteFinal(config) {
-    config.plugins = config.plugins ?? [];
-    config.plugins.push(tailwindcss());
-
     config.resolve = config.resolve ?? {};
     config.resolve.alias = config.resolve.alias ?? {};
     config.resolve.alias['~'] = path.resolve(__dirname, '../src');
-
     return config;
   },
 };
 ```
 
+Tailwind and the font families are picked up from `astro.config.*` automatically. Only the path alias and the preview imports need explicit wiring:
+
 ```javascript
 // .storybook/preview.js
-import '@fontsource-variable/inter';
 import '../src/assets/styles/tailwind.css';
 import './preview.css';
 

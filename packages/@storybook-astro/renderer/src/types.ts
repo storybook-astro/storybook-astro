@@ -1,6 +1,18 @@
 import type { WebRenderer } from 'storybook/internal/types';
 
 /**
+ * Mirrors the shape that the Astro language server gives to `.astro` imports:
+ * a callable factory function with an optional `isAstroComponentFactory` marker.
+ * Keeping this structurally compatible ensures that assigning an imported Astro
+ * component to `component:` is clean under strict TypeScript / ESLint rules.
+ */
+export type AstroComponentFactory = {
+  (result: unknown, props: unknown, slots: unknown): unknown | Promise<unknown>;
+  isAstroComponentFactory?: boolean;
+  moduleId?: string | undefined;
+};
+
+/**
  * Storybook renderer type for Astro components.
  *
  * Astro components are server-side rendered, so storyResult can be an Astro component
@@ -10,12 +22,6 @@ export interface AstroRenderer extends WebRenderer {
   component: AstroComponentFactory | string | HTMLElement | ((...args: unknown[]) => unknown);
   storyResult: AstroComponentFactory | string | HTMLElement;
 }
-
-/** Minimal type for an Astro component factory as seen by the client-side renderer. */
-export type AstroComponentFactory = {
-  isAstroComponentFactory: boolean;
-  moduleId?: string;
-};
 
 export type RenderComponentInput = {
   component: string;

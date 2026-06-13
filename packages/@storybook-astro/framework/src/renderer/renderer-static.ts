@@ -2,6 +2,8 @@ import type { RenderComponentInput, RenderResponseMessage } from '@storybook-ast
 
 const PRERENDERED_STORIES_FILE = 'astro-prerendered-stories.json';
 
+export const isStaticMode = true;
+
 let prerenderedStoriesPromise: Promise<Record<string, string>> | undefined;
 
 export async function render(data: RenderComponentInput) {

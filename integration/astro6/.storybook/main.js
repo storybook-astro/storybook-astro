@@ -9,7 +9,6 @@ import {
   svelte,
   alpinejs
 } from '@storybook-astro/framework/integrations';
-import { fonts } from '../astro.config.mjs';
 
 /** @type { import('@storybook-astro/framework').StorybookConfig } */
 const config = {
@@ -25,7 +24,6 @@ const config = {
     options: {
       renderMode: 'static',
       storyRules: './.storybook/story-rules.ts',
-      fonts,
       integrations: [
         react({
           include: ['**/react/**']
