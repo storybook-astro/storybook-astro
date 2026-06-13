@@ -58,7 +58,7 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(result?.code).toContain(JSON.stringify(filePath));
   });
 
-  test('imports style sub-modules for own <style> blocks in dev mode', () => {
+  test('inlines CSS for own <style> blocks in dev mode (hybrid approach)', () => {
     const filePath = writeAstroFile(
       'Styled.astro',
       '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
@@ -66,7 +66,9 @@ describe('vitePluginAstroComponentMarker transform', () => {
     const plugin = createPlugin();
     const result = plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
-    expect(result?.code).toContain(`${filePath}?astro&type=style&index=0&lang.css`);
+    // Dev mode uses inline CSS instead of sub-module imports to avoid Astro cache issues
+    expect(result?.code).toContain('.a { color: red; }');
+    expect(result?.code).toContain('data-astro-dev');
   });
 
   test('re-imports child .astro components so their scoped styles load in dev mode', () => {

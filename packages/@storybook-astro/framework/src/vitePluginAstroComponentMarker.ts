@@ -38,13 +38,14 @@ export function vitePluginAstroComponentMarker(): PluginOption {
 
       const moduleId = id;
 
-      // In dev mode, import style sub-modules via Astro's Vite plugin (which has
-      // compile metadata cached from the SSR transform).
-      // In build mode, Astro's compile metadata cache is not populated for client-side
-      // transforms, so sub-module imports would fail. Extract raw CSS instead.
+      // In Storybook's Vite 6 setup with separate client/SSR environments, Astro's
+      // CSS cache isn't populated for client-side transforms. CSS sub-module imports
+      // fail with "No Astro CSS at index N", so we inline the CSS directly.
+      // However, we still import child .astro components to bring them into the module
+      // graph so the plugin processes them (fix for issue #114).
       const styleCode = isBuild
         ? generateInlineStyles(moduleId)
-        : generateStyleImports(moduleId);
+        : generateHybridStyles(moduleId);
 
       return {
         code: `
@@ -84,6 +85,42 @@ function generateStyleImports(filePath: string): string {
     );
 
     return [...styleImports, ...childImports].join('\n');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Hybrid approach for dev mode: inline CSS for the current component (to avoid
+ * Astro's cache issues) but import child .astro components (to bring them into
+ * the module graph for processing). This preserves the fix for issue #114 while
+ * avoiding "No Astro CSS at index N" errors.
+ */
+function generateHybridStyles(filePath: string): string {
+  try {
+    const source = readFileSync(filePath, 'utf-8');
+
+    // Inline CSS for this component only (no recursion)
+    const blocks = extractStyleBlocks(source);
+    const inlinedCss = blocks.map((css, i) => {
+      const escaped = JSON.stringify(css);
+      return `
+(function() {
+  if (typeof document !== 'undefined') {
+    const style = document.createElement('style');
+    style.setAttribute('data-astro-dev', ${JSON.stringify(filePath + ':' + i)});
+    style.textContent = ${escaped};
+    document.head.appendChild(style);
+  }
+})();`;
+    }).join('\n');
+
+    // Import child .astro components so they enter the module graph
+    const childImports = extractAstroImportSpecifiers(source).map(
+      (specifier) => `import ${JSON.stringify(specifier)};`
+    );
+
+    return [inlinedCss, ...childImports].filter(Boolean).join('\n');
   } catch {
     return '';
   }
