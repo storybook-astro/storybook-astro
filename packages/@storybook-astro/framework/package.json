@@ -57,10 +57,10 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/patch-shim-ref.mjs",
     "dev": "tsup --watch --no-clean",
     "lint": "eslint .",
-    "prepublishOnly": "tsup"
+    "prepublishOnly": "tsup && node scripts/patch-shim-ref.mjs"
   },
   "devDependencies": {
     "@storybook/preact": "^10.0.0",
