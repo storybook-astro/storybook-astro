@@ -52,7 +52,8 @@ export async function createStorySsrViteServer(options: {
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
       vitePluginStoryModuleMocks(),
-      createTrackedSpecifierStubPlugin(options.trackedSpecifiers)
+      createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
+      createStorybookBrowserStubPlugin()
     ]
   });
 
@@ -250,4 +251,30 @@ function createTrackedSpecifierStubPlugin(trackedSpecifiers: Set<string>): Plugi
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+// Stubs Storybook's browser-only packages so story files that import docs
+// blocks (e.g. `import { Controls } from '@storybook/blocks'`) don't
+// trigger `document is not defined` during SSR prerendering. We only need
+// component/args from story modules — docs block components are never called.
+function createStorybookBrowserStubPlugin(): Plugin {
+  const STUB_ID = '\0storybook-astro-browser-stub';
+
+  return {
+    name: 'storybook-astro:storybook-browser-stubs',
+    resolveId(id: string) {
+      if (id === '@storybook/blocks') {
+        return STUB_ID;
+      }
+
+      return null;
+    },
+    load(id: string) {
+      if (id === STUB_ID) {
+        return 'export {};';
+      }
+
+      return null;
+    }
+  } satisfies Plugin;
 }
