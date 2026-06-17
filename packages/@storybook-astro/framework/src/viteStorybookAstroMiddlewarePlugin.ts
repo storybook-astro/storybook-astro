@@ -7,7 +7,7 @@ import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
-import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
+import { vitePluginAstroFonts, generateFontCss } from './vitePluginAstroFonts.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
@@ -26,6 +26,8 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   const vitePlugin = {
     name: 'storybook-astro-middleware-plugin',
     async configureServer(server) {
+      const fontCss = await generateFontCss(options.fonts ?? [], resolveFrom);
+
       viteServer = await createViteServer(options.integrations ?? [], resolveFrom, options.fonts);
       const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
 
@@ -65,7 +67,14 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
       server.ws.on('astro:render:request', async (data: RenderRequestMessage['data']) => {
         try {
           const handler = await handlerPromise;
-          const html = await handler(data);
+          const componentHtml = await handler(data);
+          // @font-face rules and :root CSS variable bindings must reach the
+          // browser. The Astro Container API renders a component fragment, not
+          // a full page, so Astro's font pipeline never gets to write them into
+          // a <head>. Prepending a <style> block to the fragment is the
+          // equivalent — @font-face and :root rules apply globally wherever
+          // the <style> element appears in the document.
+          const html = fontCss ? `<style>\n${fontCss}\n</style>${componentHtml}` : componentHtml;
 
           server.ws.send('astro:render:response', {
             html,

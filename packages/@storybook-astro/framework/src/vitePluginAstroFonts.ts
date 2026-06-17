@@ -163,6 +163,22 @@ export function vitePluginAstroFonts(
   };
 }
 
+/**
+ * Resolves all font families and returns a single CSS string containing
+ * all @font-face declarations and :root CSS variable bindings. Used to
+ * inject font CSS into the browser via Storybook's render response.
+ */
+export async function generateFontCss(families: StorybookFontFamily[], rootDir: string): Promise<string> {
+  if (families.length === 0) {
+    return '';
+  }
+
+  const root = pathToFileURL(rootDir.endsWith('/') ? rootDir : rootDir + '/');
+  const { componentEntries } = await resolveAllFamilies(families, root);
+
+  return componentEntries.map(([, { css }]) => css).join('\n');
+}
+
 async function resolveAllFamilies(
   families: StorybookFontFamily[],
   root: URL
