@@ -100,6 +100,17 @@ Enable automatic extraction of component descriptions and prop documentation fro
 
 ## Future Enhancements
 
+### Render Performance
+
+Every story render in dev mode makes a round-trip from the browser through Vite HMR to the server-side Astro Container. On fast machines this is noticeable (a few seconds per render); on slower connections it is more pronounced.
+
+**Complexity**: High
+
+**Potential directions**:
+- Cache the Astro Container instance across renders rather than recreating it per request
+- Stream the HTML response rather than waiting for a full render to complete
+- Preload containers for visible stories during idle time
+
 ### Dynamic Astro Controls in Production Builds
 
 Astro component stories can use one of two production build modes:
