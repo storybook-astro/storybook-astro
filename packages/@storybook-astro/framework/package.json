@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/framework",
-  "version": "1.6.0-canary.2",
+  "version": "1.6.0-canary.3",
   "description": "Community-supported Storybook framework for Astro 5 & 6 components",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -146,9 +146,9 @@
   },
   "dependencies": {
     "@storybook-astro/renderer": "workspace:*",
+    "get-tsconfig": "^4.14.0",
     "hono": "^4.11.12",
     "sanitize-html": "^2.17.0",
-    "tsconfck": "^3.1.6",
     "vite": "^6.4.1 || ^7.0.0 || ^8.0.0"
   }
 }
