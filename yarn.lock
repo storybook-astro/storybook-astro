@@ -3654,10 +3654,10 @@ __metadata:
     alpinejs: "npm:^3.14.9"
     astro: "npm:^5.6.1 || ^6.0.0"
     eslint: "npm:^9.39.2"
+    get-tsconfig: "npm:^4.14.0"
     hono: "npm:^4.11.12"
     sanitize-html: "npm:^2.17.0"
     storybook-solidjs: "npm:^1.0.0-beta.7"
-    tsconfck: "npm:^3.1.6"
     tsup: "npm:^8.5.1"
     vite: "npm:^6.4.1 || ^7.0.0 || ^8.0.0"
     vite-plugin-solid: "npm:^2.11.10"
@@ -8088,6 +8088,15 @@ __metadata:
     "@sec-ant/readable-stream": "npm:^0.4.1"
     is-stream: "npm:^4.0.1"
   checksum: 10c0/d70e73857f2eea1826ac570c3a912757dcfbe8a718a033fa0c23e12ac8e7d633195b01710e0559af574cbb5af101009b42df7b6f6b29ceec8dbdf7291931b948
+  languageName: node
+  linkType: hard
+
+"get-tsconfig@npm:^4.14.0":
+  version: 4.14.0
+  resolution: "get-tsconfig@npm:4.14.0"
+  dependencies:
+    resolve-pkg-maps: "npm:^1.0.0"
+  checksum: 10c0/abc2b9275468eb589079a0b7a95eb5107c14fdd0ca6dda1bff116fe774ea1f79975421dcb22a0c86b4f820fcc69a7655dddf9b6d6a8a2c06fcb59e19794c0724
   languageName: node
   linkType: hard
 
