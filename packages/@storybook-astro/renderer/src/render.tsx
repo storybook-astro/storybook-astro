@@ -266,6 +266,15 @@ function cssEscape(value: string) {
   return value.replace(/(["\\])/g, '\\$1');
 }
 
+// Each story render re-injects the component's scripts. The browser executes a
+// given module URL at most once per realm, so re-inserting an external module
+// script (`<script type="module" src="…">` — what Astro compiles hoisted
+// `<script>` blocks into) is a silent no-op on story navigation: client setup
+// runs on the first view and never again until a full page reload. Bump a
+// unique query on the src so the browser re-imports and re-runs it against the
+// freshly rendered DOM. Inline and classic scripts already re-run on insertion.
+let scriptReloadToken = 0;
+
 function invokeScriptTags(element: HTMLElement) {
   Array.from<HTMLScriptElement>(element.querySelectorAll('script')).forEach((oldScript) => {
     const newScript = document.createElement('script');
@@ -273,6 +282,14 @@ function invokeScriptTags(element: HTMLElement) {
     Array.from(oldScript.attributes).forEach((attribute) => {
       newScript.setAttribute(attribute.name, attribute.value);
     });
+
+    const src = newScript.getAttribute('src');
+
+    if (src && newScript.type === 'module') {
+      const separator = src.includes('?') ? '&' : '?';
+
+      newScript.setAttribute('src', `${src}${separator}sbAstroReload=${(scriptReloadToken += 1)}`);
+    }
 
     newScript.appendChild(document.createTextNode(oldScript.innerHTML));
     oldScript.parentNode?.replaceChild(newScript, oldScript);
