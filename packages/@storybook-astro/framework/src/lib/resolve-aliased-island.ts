@@ -1,6 +1,6 @@
 import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { parse } from 'tsconfck';
+import { getTsconfig } from 'get-tsconfig';
 
 // Islands embedded in `.astro` components are frequently imported through a
 // tsconfig path alias (e.g. `@/components/Counter`). The raw aliased specifier
@@ -47,15 +47,25 @@ export async function resolveAliasedIsland(
     return undefined;
   }
 
-  let result;
+  // getTsconfig walks up from `resolveFrom` to the nearest tsconfig and merges
+  // `extends` for us. We keep our own (deliberately lenient) path matching
+  // below rather than its strict `createPathsMatcher`, which rejects the
+  // non-relative-without-baseUrl paths that the Astro/Vite resolver accepts.
+  let found;
 
   try {
-    result = await parse(resolve(resolveFrom, 'tsconfig.json'));
+    found = getTsconfig(resolveFrom);
   } catch {
+    // Malformed tsconfig (bad JSON, circular extends). This is a last-resort
+    // resolver, so swallow it rather than crash hydration.
     return undefined;
   }
 
-  const compilerOptions = result.tsconfig?.compilerOptions ?? {};
+  if (!found) {
+    return undefined;
+  }
+
+  const compilerOptions = found.config.compilerOptions ?? {};
   const paths: Record<string, string[]> = compilerOptions.paths ?? {};
 
   if (Object.keys(paths).length === 0) {
@@ -63,10 +73,8 @@ export async function resolveAliasedIsland(
   }
 
   // tsconfig paths resolve relative to baseUrl when present, otherwise the
-  // tsconfig directory (which tsconfck gives us as the tsconfig file's dir).
-  const tsconfigDir = result.tsconfigFile
-    ? resolve(result.tsconfigFile, '..')
-    : resolveFrom;
+  // tsconfig directory (which get-tsconfig reports as `found.path`).
+  const tsconfigDir = resolve(found.path, '..');
   const root = compilerOptions.baseUrl
     ? resolve(tsconfigDir, compilerOptions.baseUrl)
     : tsconfigDir;
