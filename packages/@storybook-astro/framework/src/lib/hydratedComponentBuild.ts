@@ -46,7 +46,7 @@ export async function buildHydratedComponentAssets(
       (
         await Promise.all(
           resolvedComponentPaths.map((componentPath) =>
-            collectHydratedComponentPaths(componentPath)
+            collectHydratedComponentPaths(componentPath, options.resolveFrom)
           )
         )
       ).flat()
@@ -68,6 +68,10 @@ export async function buildHydratedComponentAssets(
     ...hydratedComponentPaths.map((componentPath, index) => [`component-${index}`, componentPath]),
     ...clientEntrypoints.map((entrypoint, index) => [`renderer-${index}`, entrypoint])
   ]);
+
+  // build.watch is not set, so result is always a build output, never a watcher.
+  type BuiltOutput = { output: (Rollup.OutputAsset | Rollup.OutputChunk)[] };
+
   const buildConfig = {
     root: options.resolveFrom,
     build: {
@@ -77,7 +81,7 @@ export async function buildHydratedComponentAssets(
       manifest: false,
       rollupOptions: {
         input: entryNames,
-        preserveEntrySignatures: 'strict',
+        preserveEntrySignatures: 'strict' as const,
         output: {
           entryFileNames: '_astro/[name]-[hash].js',
           chunkFileNames: '_astro/[name]-[hash].js',
@@ -93,10 +97,10 @@ export async function buildHydratedComponentAssets(
     'production',
     'build'
   );
-  const buildOutput = await build(finalConfig);
-  const output = Array.isArray(buildOutput)
-    ? buildOutput.flatMap((result) => result.output)
-    : buildOutput.output;
+  const buildResult = (await build(finalConfig)) as BuiltOutput | BuiltOutput[];
+  const output = Array.isArray(buildResult)
+    ? buildResult.flatMap((result) => result.output)
+    : buildResult.output;
   const chunksByFileName = new Map<string, Rollup.OutputChunk>();
 
   for (const item of output) {

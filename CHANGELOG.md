@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-06-19
+
+### Added
+- Default docs story height set in renderer for consistent documentation views
+
+### Fixed
+- Font CSS is now injected into the render response so fonts declared in `astro.config` load correctly in the browser
+- `@storybook/blocks` stubbed in SSR prerender to fix `document is not defined` errors
+- `*.astro` type shim now auto-applied via triple-slash reference in `dist/index.d.ts`
+- TypeScript errors across the framework package resolved
+- Default docs story height now applied to CSF-factory story previews
+- Replaced deprecated `tsconfck` dependency with `get-tsconfig`
+- Astro component scripts now re-run on story navigation
+
 ## [1.5.0] - 2026-06-13
 
 ### Changed

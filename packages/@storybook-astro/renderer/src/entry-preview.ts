@@ -2,7 +2,12 @@
 
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 
-export const parameters = { renderer: 'astro' };
+import { defaultPreviewParameters } from './preview-defaults.ts';
+
+export const parameters = {
+  renderer: 'astro',
+  ...defaultPreviewParameters,
+};
 
 function isAstroComponent(component: unknown): boolean {
   return (

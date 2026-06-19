@@ -108,9 +108,8 @@ export async function renderProductionStoryToHtml(options: {
   const componentPath = resolveProjectImportPath(options.story.componentPath, options.resolveFrom);
   const storyModule = await options.runtime.loadModule(storyModulePath);
   const defaultStoryMeta = isRecord(storyModule.default) ? storyModule.default : {};
-  const selectedStoryExport = isRecord(storyModule[options.story.exportName])
-    ? storyModule[options.story.exportName]
-    : {};
+  const rawStoryExport: unknown = storyModule[options.story.exportName];
+  const selectedStoryExport: Record<string, unknown> = isRecord(rawStoryExport) ? rawStoryExport : {};
 
   if (typeof defaultStoryMeta.component !== 'function') {
     throw new Error(

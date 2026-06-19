@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/renderer",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Client-side renderer for Storybook Astro framework",
   "module": "./dist/preset.js",
   "type": "module",
@@ -37,7 +37,11 @@
       "types": "./dist/types.d.ts",
       "import": "./dist/types.js"
     },
-    "./entry-preview": "./dist/entry-preview.js"
+    "./entry-preview": "./dist/entry-preview.js",
+    "./preview-defaults": {
+      "types": "./dist/preview-defaults.d.ts",
+      "import": "./dist/preview-defaults.js"
+    }
   },
   "scripts": {
     "build": "tsup",
