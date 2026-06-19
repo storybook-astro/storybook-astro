@@ -8,7 +8,9 @@ export type {
 } from 'storybook/internal/types';
 
 import { definePreview as definePreviewBase, type PreviewAddon, type InferTypes, type Preview as CsfPreview } from 'storybook/internal/csf';
+import { combineParameters } from 'storybook/internal/preview-api';
 import type { ArgsStoryFn, ProjectAnnotations, RenderContext, Renderer } from 'storybook/internal/types';
+import { defaultPreviewParameters } from '@storybook-astro/renderer/preview-defaults';
 import type { AstroRenderer } from './portable-stories.ts';
 
 // CSF4 consumers reach `definePreview` from the preview iframe; Node test setup
@@ -99,7 +101,14 @@ export function definePreview<Addons extends PreviewAddon<never>[] = []>(
 
   return definePreviewBase<AstroRenderer, Addons>({
     ...input,
-    parameters: { renderer: 'astro' as const, ...input.parameters },
+    // CSF-factory stories compose only this `definePreview` chain — they never
+    // see the renderer's entry-preview annotation that carries our default
+    // parameters (e.g. the Docs story height). Merge those defaults here, under
+    // the user's parameters so their overrides still win.
+    parameters: combineParameters(defaultPreviewParameters, {
+      renderer: 'astro' as const,
+      ...input.parameters
+    }),
     render: input.render ?? composedRender,
     renderToCanvas: input.renderToCanvas ?? composedRenderToCanvas
   });

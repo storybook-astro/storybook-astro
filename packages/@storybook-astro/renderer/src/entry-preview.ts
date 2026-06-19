@@ -2,14 +2,11 @@
 
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 
+import { defaultPreviewParameters } from './preview-defaults.ts';
+
 export const parameters = {
   renderer: 'astro',
-  docs: {
-    story: {
-      // Storybook's iframe default (150px) is too small for most components.
-      height: '400px',
-    },
-  },
+  ...defaultPreviewParameters,
 };
 
 function isAstroComponent(component: unknown): boolean {
