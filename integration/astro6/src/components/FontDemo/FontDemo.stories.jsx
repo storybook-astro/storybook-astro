@@ -7,7 +7,7 @@ export default {
     docs: {
       description: {
         component:
-          'Verifies the Astro 6 Font Provider integration. Renders text styled with `var(--font-inter)`, sourced from a Google-provided Inter family declared in `astro.config.mjs` and mirrored in `.storybook/main.js`.'
+          'Verifies the Astro 6 Font Provider integration. Renders text styled with `var(--font-inter)`, sourced from a Google-provided Inter family declared in `astro.config.mjs` (auto-loaded by Storybook — no mirror into `.storybook/main.js` required).'
       }
     }
   }

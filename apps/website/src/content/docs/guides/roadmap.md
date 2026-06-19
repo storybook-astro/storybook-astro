@@ -41,6 +41,20 @@ Enable Storybook's standard [decorator](https://storybook.js.org/docs/writing-st
 
 ## Medium Priority
 
+### Project Scaffold CLI
+
+📋 **To Do**
+
+A `create-storybook-astro` CLI that generates a new Astro project with Storybook pre-configured and ready to run. The goal is to reduce time-to-first-story from a multi-step setup guide to a single command.
+
+**Complexity**: Low-Medium
+
+**What this includes**:
+- `npm create storybook-astro@latest` (or `npx create-storybook-astro`) entry point
+- Scaffolded `.storybook/main.js` and `.storybook/preview.js` with sensible defaults
+- An example Astro component and its story file so the first `yarn storybook` renders something real
+- Optional prompts for framework integrations (React, Vue, Svelte, etc.) and TypeScript
+
 ### Enhanced Testing & Portable Stories
 
 🚧 **Partially Complete**
@@ -57,6 +71,25 @@ Expand testing capabilities for Astro components tested in isolation, including 
 - Integration with testing libraries (Testing Library, Vitest patterns)
 - Guidance on testing both server-rendered and client-side behavior
 
+### Play Functions for Astro Components
+
+📋 **To Do**
+
+Enable Storybook's [play functions](https://storybook.js.org/docs/writing-stories/play-function) for Astro component stories. Astro components are server-rendered to static HTML, which is a valid target for DOM interaction testing — play functions could drive `@testing-library/user-event` queries and assertions against that output the same way they do for React and Vue stories today.
+
+**Complexity**: Medium
+**Tracking**: See the existing [Play Functions support entry](#storybook-features) — currently framework components only.
+
+**What this enables**:
+- Writing interaction tests directly in story files for Astro components
+- Using the Interactions panel to step through and debug story interactions
+- Parity with framework component play function support
+
+**What this requires**:
+- Wiring the play function execution lifecycle to run after the server-rendered HTML is injected into the canvas
+- Ensuring `@testing-library/dom` queries resolve against the injected HTML
+- Handling re-renders with new args (Controls changes) between play function runs
+
 ### Code Panel Source for Astro Components
 
 📋 **To Do**
@@ -72,6 +105,28 @@ The Storybook Docs "Show code" / Code Panel currently falls back to displaying t
 - Parity with how `@storybook/react`, `@storybook/vue3`, and similar packages implement dynamic source for their template syntaxes
 
 **Workaround**: Set `parameters.docs.source.code` manually on any story where you want a specific snippet shown.
+
+### Astro Panel Addon
+
+📋 **To Do**
+
+A dedicated "Astro" panel tab in the Storybook UI (alongside Actions, Controls, etc.) that surfaces Astro-specific metadata for each story as it renders. The primary target is debugging: understanding exactly what the server produced and how long it took, without hunting through DevTools or adding `console.log` to `middleware.ts`.
+
+**Complexity**: Low-Medium
+
+**What the panel shows**:
+- **Raw HTML output** — the HTML string returned by the Astro Container before injection into the canvas, including scoped class names, slot output, and rendering artifacts
+- **SSR render time** — how long the server-side Container render took for the current story
+- **Rendering mode** — whether the story is using `static` (pre-rendered) or `server` (on-demand) mode
+- **Active framework integrations** — which integrations are loaded for this story (e.g. React, Solid)
+- **Scoped style modules** — which `?astro&type=style` sub-modules were loaded for the current component tree, helping diagnose missing child styles
+
+**What this requires**:
+- A Storybook addon with a panel registered via `manager.ts`
+- A channel event emitted from `render.tsx` after each render, carrying the metadata payload (render time, HTML string, active integrations)
+- The panel subscribing to those channel events and rendering the data
+
+The render time and HTML string are already available when `renderAstroComponent` resolves in `render.tsx` — this is mostly about emitting them over the addon channel rather than discarding them.
 
 ### Automatic Documentation Extraction from JSDoc
 
@@ -99,6 +154,17 @@ Enable automatic extraction of component descriptions and prop documentation fro
 **Workaround**: Manually define `argTypes` and descriptions in story files as shown in the integration examples.
 
 ## Future Enhancements
+
+### Render Performance
+
+Every story render in dev mode makes a round-trip from the browser through Vite HMR to the server-side Astro Container. On fast machines this is noticeable (a few seconds per render); on slower connections it is more pronounced.
+
+**Complexity**: High
+
+**Potential directions**:
+- Cache the Astro Container instance across renders rather than recreating it per request
+- Stream the HTML response rather than waiting for a full render to complete
+- Preload containers for visible stories during idle time
 
 ### Dynamic Astro Controls in Production Builds
 
@@ -244,7 +310,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Decorators | 📋 Planned | Wrapper components/HTML for stories. See roadmap item and [design doc](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) |
 | Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
 | Testing with Vitest | ✅ Supported | Test stories with `@storybook-astro/framework/testing` and Vitest |
-| Play Functions | ✅ Supported | Automated interaction testing (framework components only; Astro components are server-rendered HTML) |
+| Play Functions | 🚧 Partial | Supported for framework components. Astro component support planned — see roadmap item above |
 | Interactions Panel | ✅ Supported | Debug play function interactions |
 | Accessibility Addon | ✅ Supported | Automated accessibility testing with a11y addon |
 | Theming | ✅ Supported | Storybook UI theming and customization |

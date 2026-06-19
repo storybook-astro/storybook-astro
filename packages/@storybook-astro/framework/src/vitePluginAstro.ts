@@ -1,4 +1,4 @@
-import { mergeConfig, type InlineConfig } from 'vite';
+import { mergeConfig, type InlineConfig, type Plugin } from 'vite';
 import type { Integration } from './integrations/index.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import { loadUserAstroIntegrations } from './loadUserAstroConfig.ts';
@@ -58,13 +58,11 @@ export async function mergeWithAstroConfig(
     command
   });
 
-  const filteredPlugins = astroConfig
-    .plugins!.flat()
-    .filter(
-      (plugin) =>
-        plugin &&
-        'name' in plugin &&
-        !ASTRO_PLUGINS_THAT_ARE_SUPPOSEDLY_NOT_NEEDED_IN_STORYBOOK.includes(plugin.name)
+  const filteredPlugins = (astroConfig.plugins!.flat() as (Plugin | null | undefined | false)[])
+    .filter((plugin): plugin is Plugin =>
+      plugin != null &&
+      plugin !== false &&
+      !ASTRO_PLUGINS_THAT_ARE_SUPPOSEDLY_NOT_NEEDED_IN_STORYBOOK.includes(plugin.name)
     );
 
   return mergeConfig(config, {

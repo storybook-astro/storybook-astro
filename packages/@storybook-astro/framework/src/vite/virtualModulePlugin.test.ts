@@ -1,8 +1,8 @@
-import type { PluginOption } from 'vite';
+import type { Plugin, PluginOption } from 'vite';
 import { describe, expect, test, vi } from 'vitest';
 import { createVirtualModule } from './virtualModulePlugin.ts';
 
-function getPlugin(pluginOption: PluginOption) {
+function getPlugin(pluginOption: PluginOption): Plugin {
   if (Array.isArray(pluginOption)) {
     throw new Error('Expected a single plugin object, but got a plugin array.');
   }
@@ -11,10 +11,10 @@ function getPlugin(pluginOption: PluginOption) {
     throw new Error('Expected plugin option to be an object.');
   }
 
-  return pluginOption;
+  return pluginOption as Plugin;
 }
 
-function getHookHandler<T extends (...args: unknown[]) => unknown>(hook: unknown): T {
+function getHookHandler<T>(hook: unknown): T {
   if (typeof hook === 'function') {
     return hook as T;
   }
