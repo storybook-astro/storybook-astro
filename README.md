@@ -26,22 +26,7 @@ export default {
 };
 ```
 
-Disable sanitization explicitly:
-
-```javascript
-export default {
-  framework: {
-    name: '@storybook-astro/framework',
-    options: {
-      sanitization: { enabled: false },
-    },
-  },
-};
-```
-
-Sanitization is enabled by default with conservative HTML defaults. To disable it, set `sanitization.enabled` to `false`.
-
-You can also apply per-story rules for runtime setup and module replacements. If you want HTTP mocking with MSW, install `msw` in your own project and wire it up inside the rules file:
+You can apply per-story rules for runtime setup and module replacements. If you want HTTP mocking with MSW, install `msw` in your own project and wire it up inside the rules file:
 
 ```javascript
 export default {
@@ -98,8 +83,8 @@ export default defineStoryRules({
 
 Production builds support two Astro render modes:
 
-- `server` (default): builds `storybook-static` and a standalone Astro render server in `storybook-server`
-- `static`: pre-renders Astro stories into `astro-prerendered-stories.json` and serves without a render server
+- `static` (default): pre-renders Astro stories into `astro-prerendered-stories.json` and serves without a render server
+- `server`: builds `storybook-static` and a standalone Astro render server in `storybook-server`
 
 ```javascript
 export default {
@@ -123,26 +108,25 @@ For token-based auth in server mode, you can also use runtime env/global values:
 - `STORYBOOK_ASTRO_SERVER_TOKEN`
 - `STORYBOOK_ASTRO_SERVER_AUTH_HEADER`
 
-You can sanitize incoming story args and slots through framework options:
+Story args and slots are sanitized before they reach the Astro Container, using conservative HTML defaults. By default only **slots** are sanitized (`slots: ['**']`); args are left untouched unless you opt specific paths in. Configure this through framework options:
 
 ```javascript
-import { react, vue, svelte } from '@storybook-astro/framework/integrations';
-
 export default {
-  stories: ['../src/**/*.stories.@(js|jsx|ts|tsx)'],
   framework: {
     name: '@storybook-astro/framework',
     options: {
-      integrations: [react(), vue(), svelte()],
       sanitization: {
-        enabled: true,
+        // opt specific arg paths into sanitization
         args: ['content', 'items.*.description'],
+        // sanitize all slots (the default)
         slots: ['**'],
       },
     },
   },
 };
 ```
+
+To turn sanitization off entirely, set `sanitization: { enabled: false }`.
 
 To use non-Astro framework components (React, Vue, Svelte, etc.) inside your stories, add integrations:
 
@@ -315,17 +299,12 @@ node --version
    yarn workspace @storybook-astro/integration-astro6 build
    ```
 
-6. Serve the built output:
+5. Serve the built output:
    ```bash
    yarn workspace @storybook-astro/integration-astro6 serve
    ```
 
-5. Run tests:
-   ```bash
-   yarn test
-   ```
-
-5. Run tests (validates component rendering and framework integration health):
+6. Run tests (validates component rendering and framework integration health):
    ```bash
    yarn test
    ```
@@ -396,8 +375,8 @@ export default {
 ```
 storybook-astro/
 ├── packages/
-│   └── @storybook/
-│       ├── astro/              # Framework package
+│   └── @storybook-astro/
+│       ├── framework/          # Framework package
 │       │   ├── src/
 │       │   │   ├── integrations/                         # Framework integrations
 │       │   │   ├── middleware.ts                         # SSR handler + createAstro compat
@@ -411,7 +390,7 @@ storybook-astro/
 │       │   │   ├── viteStorybookAstroMiddlewarePlugin.ts # Render request handling (dev)
 │       │   │   └── viteStorybookRendererFallbackPlugin.ts
 │       │   └── package.json
-│       └── astro-renderer/     # Client renderer
+│       └── renderer/           # Client renderer
 │           ├── src/
 │           │   ├── render.tsx     # Rendering logic + framework delegation
 │           │   └── preset.ts      # Preview setup
