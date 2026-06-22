@@ -107,25 +107,23 @@ export async function renderProductionStoryToHtml(options: {
   const storyModulePath = resolveProjectImportPath(options.story.importPath, options.resolveFrom);
   const componentPath = resolveProjectImportPath(options.story.componentPath, options.resolveFrom);
   const storyModule = await options.runtime.loadModule(storyModulePath);
-  const defaultStoryMeta = isRecord(storyModule.default) ? storyModule.default : {};
-  const rawStoryExport: unknown = storyModule[options.story.exportName];
-  const selectedStoryExport: Record<string, unknown> = isRecord(rawStoryExport) ? rawStoryExport : {};
+  const { metaComponent, metaArgs, storyComponent, storyLevelArgs } = resolveStoryAnnotations(
+    storyModule,
+    options.story.exportName
+  );
 
-  if (typeof defaultStoryMeta.component !== 'function') {
+  if (typeof metaComponent !== 'function') {
     throw new Error(
-      `Unable to prerender story "${options.story.id}". Missing default export component in ${options.story.importPath}.`
+      `Unable to prerender story "${options.story.id}". Missing component in ${options.story.importPath}.`
     );
   }
 
   // Build-time prerender only supports stories that keep the meta-level Astro component.
-  if (selectedStoryExport.component && selectedStoryExport.component !== defaultStoryMeta.component) {
+  if (storyComponent && storyComponent !== metaComponent) {
     return undefined;
   }
 
-  const storyArgs = mergeMetaArgsWithStoryArgs(
-    toRecord(defaultStoryMeta.args),
-    toRecord(selectedStoryExport.args)
-  );
+  const storyArgs = mergeMetaArgsWithStoryArgs(metaArgs, storyLevelArgs);
   const { componentArgs, storySlots } = separateStorySlots(storyArgs);
 
   return options.runtime.renderAstroStory({
@@ -138,6 +136,43 @@ export async function renderProductionStoryToHtml(options: {
       name: options.story.name
     }
   });
+}
+
+/**
+ * Reads the meta- and story-level component and args for one story export,
+ * supporting both authoring styles:
+ *
+ * - CSF3: the meta is the module's default export and the named export holds the
+ *   story's own args/component.
+ * - CSF4 factories: there is no default export. The named export is a
+ *   `{ _tag: 'Story', input, meta }` object produced by `meta.story()`, where the
+ *   meta-level annotations live on `meta.input`.
+ */
+function resolveStoryAnnotations(storyModule: LoadedStoryModule, exportName: string) {
+  const rawStoryExport: unknown = storyModule[exportName];
+
+  if (isRecord(rawStoryExport) && rawStoryExport._tag === 'Story') {
+    const storyInput = toRecord(rawStoryExport.input) ?? {};
+    const meta = isRecord(rawStoryExport.meta) ? rawStoryExport.meta : {};
+    const metaInput = toRecord(meta.input) ?? {};
+
+    return {
+      metaComponent: metaInput.component,
+      metaArgs: toRecord(metaInput.args),
+      storyComponent: storyInput.component,
+      storyLevelArgs: toRecord(storyInput.args)
+    };
+  }
+
+  const defaultStoryMeta = isRecord(storyModule.default) ? storyModule.default : {};
+  const selectedStoryExport = isRecord(rawStoryExport) ? rawStoryExport : {};
+
+  return {
+    metaComponent: defaultStoryMeta.component,
+    metaArgs: toRecord(defaultStoryMeta.args),
+    storyComponent: selectedStoryExport.component,
+    storyLevelArgs: toRecord(selectedStoryExport.args)
+  };
 }
 
 function resolveProjectImportPath(importPath: string, resolveFrom: string) {
