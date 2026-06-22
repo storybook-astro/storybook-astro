@@ -9,6 +9,12 @@
 export const defaultPreviewParameters = {
   docs: {
     story: {
+      // Render Docs (autodocs) stories inline rather than in a nested iframe.
+      // Storybook's default (inline: false) embeds each story in an iframe, and
+      // the Docs Controls panel cannot live-update an iframe-embedded story — so
+      // changing controls there does nothing. Inline rendering drives our
+      // `renderToCanvas` directly on every args change, matching the Canvas tab.
+      inline: true,
       // Storybook's iframe default (150px) is too small for most components.
       height: '400px',
     },
