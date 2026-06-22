@@ -7,20 +7,21 @@ This document outlines the planned features and improvements for Storybook Astro
 
 ## High Priority
 
-### Support Astro Components as Props
+### Support Astro Components as Props and Slot Content
 
 📝 **In Planning**
 
-Enable composing Astro components by passing them as props to other Astro components in stories. This allows patterns like wrapping a Button inside a Link, or passing Icon components to other components.
+Enable composing Astro components by passing them as props *or slot content* to other Astro components in stories. This allows patterns like wrapping a Button inside a Link, passing Icon components to other components, or placing a child component into a parent's `<slot />` (similar to React's `children`).
 
-**Current Status**: Phase 1 complete (template nesting), Phase 2 in design (props-based nesting)
+**Current Status**: Phase 1 complete (template nesting), Phase 2 in design (props- and slot-based nesting)
 
-**Phase 2 — Props-based nesting**: Passing an Astro component factory as a story arg (e.g. `<Link Icon={MyIcon} />`) is not yet supported. See the [nested component support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/NESTED_COMPONENT_SUPPORT.md) for the proposed implementation strategy.
+**Phase 2 — Props- and slot-based nesting**: Passing an Astro component factory as a story arg is not yet supported. This covers both props (e.g. `<Link Icon={MyIcon} />`) and slot content (e.g. `slots: { default: ChildComponent }`). Today slot content must be an HTML string — passing a component reference is silently ignored. See the [nested component support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/NESTED_COMPONENT_SUPPORT.md) for the proposed implementation strategy.
 
 **Complexity**: Medium-High (Phase 2)
 
 **What Phase 2 will enable**:
 - Passing Astro components as props in story args
+- Passing Astro components as slot content in story args
 - Support in portable stories (testing API)
 
 ### Decorator Support
@@ -232,7 +233,7 @@ The `<Font>` component renders real `@font-face` CSS in dev and static builds, d
 
 Components whose templates use other Astro components (transitively) render correctly, including those that use `<Image>` from `astro:assets`. No story-side changes are required.
 
-**Next phase**: Props-based nesting (Phase 2) — see High Priority section above
+**Next phase**: Props- and slot-based nesting (Phase 2) — see High Priority section above
 
 ### Portable Stories Core APIs
 
@@ -262,7 +263,7 @@ This table tracks compatibility of Astro's built-in framework features with Stor
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Component Rendering | ✅ Supported | Core Astro component rendering in Storybook |
-| Props & Slots | ✅ Supported | Passing data and content to components |
+| Props & Slots (strings) | ✅ Supported | Passing data as props and HTML-string content to slots |
 | Scoped Styles | ✅ Supported | Component-scoped CSS (including Astro 6's style sub-module imports) |
 | UI Framework Components | ✅ Supported | Astro components and client-side UI components render together (React, Vue, Svelte, Preact, Solid, Alpine.js) |
 | Client Directives | ✅ Supported | `client:load`, `client:only`, etc. for framework components |
@@ -272,6 +273,7 @@ This table tracks compatibility of Astro's built-in framework features with Stor
 | Font Provider API | 🚧 Partial | `<Font>` component renders with provider-resolved URLs (Google, Bunny, Fontsource, local). Missing: preload links, Capsize fallback metrics, font file emission, server-build pipeline. [See Styling guide](/guides/styling/#astro-font-provider-api) |
 | Nested Components (Template) | ✅ Supported | Components using other Astro components in templates render correctly |
 | Nested Components (Props) | 📋 Planned | Passing Astro component factories as props (e.g. `<Link Icon={MyIcon} />`). See roadmap item above |
+| Nested Components (Slots) | 📋 Planned | Passing Astro component factories as slot content (e.g. `slots: { default: ChildComponent }`). Slot content currently must be an HTML string. See roadmap item above |
 | View Transitions | ❌ Not Supported | Astro's View Transitions API (`<ViewTransitions />`) |
 | Content Collections | ❌ Not Supported | `astro:content` module for type-safe content management |
 | Middleware | ❌ Not Supported | Astro's middleware system for request/response handling |
