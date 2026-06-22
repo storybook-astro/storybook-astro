@@ -114,6 +114,7 @@ The Storybook Docs "Show code" / Code Panel currently falls back to displaying t
 A dedicated "Astro" panel tab in the Storybook UI (alongside Actions, Controls, etc.) that surfaces Astro-specific metadata for each story as it renders. The primary target is debugging: understanding exactly what the server produced and how long it took, without hunting through DevTools or adding `console.log` to `middleware.ts`.
 
 **Complexity**: Low-Medium
+**Details**: See the [Astro panel addon design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/ASTRO_PANEL_ADDON.md) for the full implementation strategy across dev, server, and static render modes.
 
 **What the panel shows**:
 - **Raw HTML output** — the HTML string returned by the Astro Container before injection into the canvas, including scoped class names, slot output, and rendering artifacts
