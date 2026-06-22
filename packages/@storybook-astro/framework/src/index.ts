@@ -97,7 +97,14 @@ export function definePreview<Addons extends PreviewAddon<never>[] = []>(
 ): CsfPreview<AstroRenderer & InferTypes<Addons>> {
   // Kick off the renderer load eagerly so the impl is ready by the time
   // Storybook calls renderToCanvas — but don't await, so this stays sync.
-  void loadRendererEntryPreview();
+  // Only do this in a browser: the renderer's entry-preview imports browser-only
+  // modules (and the `virtual:storybook-astro-renderer` graph) that aren't
+  // available when `.storybook/preview.ts` is evaluated under Node during build
+  // prerendering. renderToCanvas never runs there, and the browser path still
+  // loads the renderer lazily via `composedRenderToCanvas`.
+  if (typeof document !== 'undefined') {
+    void loadRendererEntryPreview();
+  }
 
   return definePreviewBase<AstroRenderer, Addons>({
     ...input,
