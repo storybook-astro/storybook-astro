@@ -178,6 +178,39 @@ function isAstroComponent(element: unknown): element is AstroComponentFactory {
   );
 }
 
+// Slot content crosses the render boundary as JSON, so it must be an HTML
+// string — an Astro component reference (a factory function) can't be
+// serialized and the Astro Container expects string slots. Passing a component
+// today renders nothing at all, so warn loudly instead of failing silently.
+// Tracked for first-class support in NESTED_COMPONENT_SUPPORT.md (issue #128).
+function warnIfComponentPassedAsSlotContent(
+  slots: Record<string, unknown>,
+  componentArgs: Record<string, unknown>
+): void {
+  Object.entries(slots).forEach(([name, value]) => {
+    if (isAstroComponent(value)) {
+      console.warn(dedent`
+        Astro slot "${name}" received a component reference, which can't be rendered yet.
+        Slot content must be an HTML string, e.g. slots: { ${name}: '<span>...</span>' }.
+        Passing Astro components as slot content is on the roadmap (issue #128).
+      `);
+    }
+  });
+
+  // A component sitting at the top level of args (React "children" style) is
+  // read as a prop the template never uses, so the slot renders empty.
+  Object.entries(componentArgs).forEach(([name, value]) => {
+    if (isAstroComponent(value)) {
+      console.warn(dedent`
+        Arg "${name}" is an Astro component reference passed as a prop, so it is ignored.
+        To place it in a slot, nest it under args.slots — and note slot content must
+        currently be an HTML string, e.g. slots: { ${name}: '<span>...</span>' }.
+        Passing Astro components as slot content is on the roadmap (issue #128).
+      `);
+    }
+  });
+}
+
 async function renderAstroToCanvas(
   element: AstroComponentFactory,
   args: Record<string, unknown>,
@@ -189,6 +222,9 @@ async function renderAstroToCanvas(
   }
 
   const { slots = {}, ...componentArgs } = args;
+
+  warnIfComponentPassedAsSlotContent(slots, componentArgs);
+
   const response = await astroRenderer.render({
     component: element.moduleId,
     args: componentArgs,
