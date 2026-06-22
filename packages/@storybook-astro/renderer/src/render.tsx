@@ -178,6 +178,39 @@ function isAstroComponent(element: unknown): element is AstroComponentFactory {
   );
 }
 
+// Slot content crosses the render boundary as JSON, so it must be an HTML
+// string — an Astro component reference (a factory function) can't be
+// serialized and the Astro Container expects string slots. Passing a component
+// today renders nothing at all, so warn loudly instead of failing silently.
+// Tracked for first-class support in NESTED_COMPONENT_SUPPORT.md (issue #128).
+function warnIfComponentPassedAsSlotContent(
+  slots: Record<string, unknown>,
+  componentArgs: Record<string, unknown>
+): void {
+  Object.entries(slots).forEach(([name, value]) => {
+    if (isAstroComponent(value)) {
+      console.warn(dedent`
+        Astro slot "${name}" received a component reference, which can't be rendered yet.
+        Slot content must be an HTML string, e.g. slots: { ${name}: '<span>...</span>' }.
+        Passing Astro components as slot content is on the roadmap (issue #128).
+      `);
+    }
+  });
+
+  // A component sitting at the top level of args (React "children" style) is
+  // read as a prop the template never uses, so the slot renders empty.
+  Object.entries(componentArgs).forEach(([name, value]) => {
+    if (isAstroComponent(value)) {
+      console.warn(dedent`
+        Arg "${name}" is an Astro component reference passed as a prop, so it is ignored.
+        To place it in a slot, nest it under args.slots — and note slot content must
+        currently be an HTML string, e.g. slots: { ${name}: '<span>...</span>' }.
+        Passing Astro components as slot content is on the roadmap (issue #128).
+      `);
+    }
+  });
+}
+
 async function renderAstroToCanvas(
   element: AstroComponentFactory,
   args: Record<string, unknown>,
@@ -189,6 +222,9 @@ async function renderAstroToCanvas(
   }
 
   const { slots = {}, ...componentArgs } = args;
+
+  warnIfComponentPassedAsSlotContent(slots, componentArgs);
+
   const response = await astroRenderer.render({
     component: element.moduleId,
     args: componentArgs,
@@ -266,6 +302,15 @@ function cssEscape(value: string) {
   return value.replace(/(["\\])/g, '\\$1');
 }
 
+// Each story render re-injects the component's scripts. The browser executes a
+// given module URL at most once per realm, so re-inserting an external module
+// script (`<script type="module" src="…">` — what Astro compiles hoisted
+// `<script>` blocks into) is a silent no-op on story navigation: client setup
+// runs on the first view and never again until a full page reload. Bump a
+// unique query on the src so the browser re-imports and re-runs it against the
+// freshly rendered DOM. Inline and classic scripts already re-run on insertion.
+let scriptReloadToken = 0;
+
 function invokeScriptTags(element: HTMLElement) {
   Array.from<HTMLScriptElement>(element.querySelectorAll('script')).forEach((oldScript) => {
     const newScript = document.createElement('script');
@@ -273,6 +318,14 @@ function invokeScriptTags(element: HTMLElement) {
     Array.from(oldScript.attributes).forEach((attribute) => {
       newScript.setAttribute(attribute.name, attribute.value);
     });
+
+    const src = newScript.getAttribute('src');
+
+    if (src && newScript.type === 'module') {
+      const separator = src.includes('?') ? '&' : '?';
+
+      newScript.setAttribute('src', `${src}${separator}sbAstroReload=${(scriptReloadToken += 1)}`);
+    }
 
     newScript.appendChild(document.createTextNode(oldScript.innerHTML));
     oldScript.parentNode?.replaceChild(newScript, oldScript);

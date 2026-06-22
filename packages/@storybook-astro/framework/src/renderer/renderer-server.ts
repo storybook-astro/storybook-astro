@@ -1,5 +1,7 @@
 import type { RenderComponentInput, RenderResponseMessage } from '@storybook-astro/renderer/types';
 
+export const isStaticMode = false;
+
 type StorybookImportMetaEnv = ImportMeta & {
   env?: Record<string, string | undefined>;
 };

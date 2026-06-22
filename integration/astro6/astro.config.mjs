@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, fontProviders } from 'astro/config';
 import react from '@astrojs/react';
 import solid from '@astrojs/solid-js';
 import vue from '@astrojs/vue';
@@ -10,6 +10,14 @@ import alpinejs from '@astrojs/alpinejs';
 // https://astro.build/config
 export default defineConfig({
   output: 'static',
+  fonts: [
+    {
+      provider: fontProviders.google(),
+      name: 'Inter',
+      cssVariable: '--font-inter',
+      weights: [400, 700],
+    },
+  ],
   integrations: [
     react({
       include: ['**/react/**'],

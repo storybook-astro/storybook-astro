@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type {
   RenderComponentInput,
   RenderPromise,
@@ -6,6 +7,8 @@ import type {
 
 const pendingMessages = new Map<string, RenderPromise>();
 const ASTRO_SERVER_UNAVAILABLE_ERROR_NAME = 'AstroRenderServerUnavailableError';
+
+export const isStaticMode = false;
 
 export async function render(data: RenderComponentInput, timeoutMs = 5000) {
   // eslint-disable-next-line n/no-unsupported-features/node-builtins

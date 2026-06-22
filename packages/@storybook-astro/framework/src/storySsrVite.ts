@@ -4,9 +4,11 @@ import type { experimental_AstroContainer as AstroContainer } from 'astro/contai
 import { ensureAstroPassthroughImageService } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
+import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
-import { vitePluginAstroFontsFallback } from './vitePluginAstroFontsFallback.ts';
+import type { FrameworkOptions } from './types.ts';
+import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
@@ -16,6 +18,7 @@ export async function createStorySsrViteServer(options: {
   integrations: Integration[];
   trackedSpecifiers: Set<string>;
   resolveFrom: string;
+  fonts?: FrameworkOptions['fonts'];
 }) {
   const { getViteConfig, passthroughImageService } = await importAstroConfig(options.resolveFrom);
   const astroConfig = await getViteConfig(
@@ -44,12 +47,13 @@ export async function createStorySsrViteServer(options: {
     },
     plugins: [
       createProjectAstroResolutionPlugin(options.resolveFrom),
-      vitePluginAstroFontsFallback(),
+      vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }),
       vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
       vitePluginAstroRoutesFallback(),
       vitePluginStoryModuleMocks(),
-      createTrackedSpecifierStubPlugin(options.trackedSpecifiers)
+      createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
+      createStorybookBrowserStubPlugin()
     ]
   });
 
@@ -107,6 +111,7 @@ export async function createProductionAstroContainer(options: {
   integrations: Integration[];
   resolveClientModule: (specifier: string) => string | undefined;
   viteServer: ViteDevServer;
+  resolveFrom: string;
 }) {
   ensureAstroPassthroughImageService();
 
@@ -134,6 +139,15 @@ export async function createProductionAstroContainer(options: {
 
       if (resolution) {
         return resolution;
+      }
+
+      // Last resort: an island imported via a tsconfig path alias (e.g. `@/...`)
+      // never matches the static map under its raw specifier. Resolve the alias
+      // to an on-disk path and look that up in the built module map instead.
+      const abs = await resolveAliasedIsland(specifier, options.resolveFrom);
+
+      if (abs) {
+        return options.resolveClientModule(abs) ?? specifier;
       }
 
       return specifier;
@@ -237,4 +251,47 @@ function createTrackedSpecifierStubPlugin(trackedSpecifiers: Set<string>): Plugi
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+// Stubs Storybook's browser-only docs packages so a project's preview config
+// doesn't crash the SSR prerender. Stories import `@storybook/preview`, which
+// loads `.storybook/preview.ts`, which commonly registers the docs addon
+// (`import addonDocs from '@storybook/addon-docs'`). The docs addon pulls in
+// Storybook's UI kit, which reads `document.documentElement` at module load and
+// throws `document is not defined` under Node. The docs UI never runs during
+// prerendering — we only need each story's component and args — so replacing it
+// with a no-op is safe.
+//
+// `@storybook/addon-docs`'s default export is called as a function in preview
+// config (`addonDocs()`), so the stub exports a callable no-op. `blocks` are the
+// docs block components (used only inside MDX, which is not prerendered), and
+// `@storybook/blocks` is the pre-Storybook-10 path for those same blocks.
+function createStorybookBrowserStubPlugin(): Plugin {
+  const STUBBED_SPECIFIERS = new Set([
+    '@storybook/addon-docs',
+    '@storybook/addon-docs/blocks',
+    '@storybook/blocks'
+  ]);
+  const STUB_ID = '\0storybook-astro-browser-stub';
+
+  return {
+    name: 'storybook-astro:storybook-browser-stubs',
+    // Must run before Astro's resolvers, which would otherwise resolve these
+    // bare specifiers to their real (browser-only) files before we can stub them.
+    enforce: 'pre',
+    resolveId(id: string) {
+      if (STUBBED_SPECIFIERS.has(id)) {
+        return STUB_ID;
+      }
+
+      return null;
+    },
+    load(id: string) {
+      if (id === STUB_ID) {
+        return 'export default () => ({});';
+      }
+
+      return null;
+    }
+  } satisfies Plugin;
 }

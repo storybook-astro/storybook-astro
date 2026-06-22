@@ -3743,6 +3743,7 @@ __metadata:
     alpinejs: "npm:^3.14.9"
     astro: "npm:^6.4.0"
     eslint: "npm:^9.39.2"
+    get-tsconfig: "npm:^4.14.0"
     hono: "npm:^4.11.12"
     sanitize-html: "npm:^2.17.0"
     storybook-solidjs: "npm:^1.0.0-beta.7"
@@ -8206,6 +8207,15 @@ __metadata:
   dependencies:
     resolve-pkg-maps: "npm:^1.0.0"
   checksum: 10c0/6b908fc5d2abc937fca6938f5e9218238f49b11cd07362831383aa5815b25ce6f5fff36d4bcd70caa17778a54922b654745ce6c0b1bb19be8eac87da4e3fc087
+  languageName: node
+  linkType: hard
+
+"get-tsconfig@npm:^4.14.0":
+  version: 4.14.0
+  resolution: "get-tsconfig@npm:4.14.0"
+  dependencies:
+    resolve-pkg-maps: "npm:^1.0.0"
+  checksum: 10c0/abc2b9275468eb589079a0b7a95eb5107c14fdd0ca6dda1bff116fe774ea1f79975421dcb22a0c86b4f820fcc69a7655dddf9b6d6a8a2c06fcb59e19794c0724
   languageName: node
   linkType: hard
 

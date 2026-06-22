@@ -8,7 +8,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.6.0] - 2026-06-19
+
+### Added
+- Default docs story height set in renderer for consistent documentation views
+
+### Fixed
+- Font CSS is now injected into the render response so fonts declared in `astro.config` load correctly in the browser
+- `@storybook/blocks` stubbed in SSR prerender to fix `document is not defined` errors
+- `*.astro` type shim now auto-applied via triple-slash reference in `dist/index.d.ts`
+- TypeScript errors across the framework package resolved
+- Default docs story height now applied to CSF-factory story previews
+- Replaced deprecated `tsconfck` dependency with `get-tsconfig`
+- Astro component scripts now re-run on story navigation
+
+## [1.5.0] - 2026-06-13
+
+### Changed
+- Default `renderMode` is now `'static'` instead of `'server'`
+
+### Fixed
+- `AstroComponentFactory` type is now callable to match Astro language server shape
+- Child component scoped styles are now correctly loaded when rendering parent stories
+- Hybrid CSS injection approach resolves 'No Astro CSS' error in certain configurations
+
+## [1.4.0] - 2026-06-09
+
+### Added
+- Astro 6 Font Provider API — font providers declared in `astro.config` are now resolved and injected during Storybook SSR
+
+### Fixed
+- User `astro.config` integrations are now auto-loaded into Vite, so framework-specific plugins (e.g. `@astrojs/react`) no longer need manual configuration
+- Tsconfig path aliases (e.g. `@/components/...`) now resolve correctly for embedded island hydration
+- Renderer annotations are now composed into `definePreview` for CSF4 compatibility
+
+## [1.3.0] - 2026-06-06
+
+### Added
+- Factory story-rule mocks — `defineStoryRules` now supports factory functions for dynamic mock values
+
+### Fixed
+- Date props (e.g. `pubDate`) now survive JSON serialization across the render pipeline — previously caused `date.toISOString is not a function` errors in components like FormattedDate
+- Restored missing `./node` export dropped during dist migration
+- Removed preset re-export from index entry to prevent bundler conflicts and excluded framework from Vite `optimizeDeps`
+- Hydrated framework component styles now emitted correctly in static prerender builds
+- `defineStoryRules` and `StoryRule` types moved to the `./node` entry so they resolve in Node-only contexts
+- Scoped `hasDefaultExport` check to `.jsx/.tsx` files only in the hydratable component scan
+- Renderer now clears the canvas when switching between framework renderers, preventing stacked DOM from different frameworks
+- Suppressed unanalyzable dynamic import warning emitted by Vite during SSR
+- Restored built server hydration and interactive behavior for server-mode stories
+- Astro container now loaded via Vite SSR for correct slot class identity
+- Excluded `fsevents` and `preview-api` from `optimizeDeps` to prevent bundling errors
+
+### Changed
+- Unified Astro render pipeline and shared production render runtime across dev, static, and server modes
+- Simplified Vite plugin naming conventions
+- Integration examples now consume compiled package dist instead of source
+
+## [1.2.0] - 2026-05-09
+
+### Added
+- Controls panel is now automatically disabled for Astro stories in production (static Storybook) builds
+
+### Fixed
+- Resolved broken images and escaped slot HTML in static prerender
+- Alpine.js component detection no longer incorrectly includes plain `.ts`/`.js` files in the hydratable source scan
+- Svelte and Vue component chunks now emitted directly instead of through virtual modules, improving static build compatibility
+- Prevented `vite-plugin-svelte` from processing component virtual module stubs
+- Passthrough image service now correctly injected during Astro 6 build prerender
+- React plugin `include` filter in vitest configs now uses a RegExp for compatibility with more project setups
+- `setProjectAnnotations`, `composeStory`, and `composeStories` are now generic over renderer type for improved TypeScript support
+- Widened `@vitejs/plugin-vue` peer dep range to `^5.2.3 || ^6.0.0` and `@vitejs/plugin-vue-jsx` to `^4.1.2 || ^5.0.0` — fixes install conflict when using `@astrojs/vue@6`
 
 ## [1.1.1] - 2026-05-07
 

@@ -1,0 +1,15 @@
+name: Deploy website
+
+on:
+  push:
+    branches:
+      - website
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Trigger Cloudflare deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare deploy hook
+        run: curl -X POST "${{ secrets.CF_DEPLOY_HOOK_URL }}"

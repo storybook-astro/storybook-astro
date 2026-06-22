@@ -38,11 +38,25 @@ The website, integration examples, and component library are NOT versioned separ
 
 ### Branches
 
-- **`main`** — Stable, deployable. Package releases tagged here. Website deploys from here.
+- **`main`** — Stable, deployable. Package releases tagged here. All releases (including canary) merge here first to trigger the publish workflow.
+- **`website`** — What Cloudflare deploys to storybook-astro.org. Only stable releases and website-only changes reach this branch. Canary releases never touch it, so the website always reflects what's in the `latest` npm dist-tag.
 - **`develop`** — Integration branch for in-progress work. Features/fixes merge here first.
 - **`feature/*`** — New features, branched from `develop` (e.g., `feature/vue-slots`)
 - **`fix/*`** — Bug fixes, branched from `develop`
-- **`release/*`** — Release prep, branched from `develop`, merged to `main`
+- **`release/*`** — Release prep, branched from `develop`, merged to `main` and `website`
+
+### Deploy pipeline
+
+The Cloudflare Pages worker watches the `website` branch. This keeps the public website in sync with what's actually in the `latest` npm dist-tag:
+
+| Release type | Goes to `main`? | Goes to `website`? |
+|---|---|---|
+| Standard (beta/stable) | Yes | Yes |
+| Hotfix | Yes | Yes |
+| Canary / next / alpha / rc | Yes (publish trigger only) | **No** |
+| Website-only | Yes | Yes |
+
+Do not push website content changes (docs, changelog updates) to `main` as part of a canary release. Those changes live on `develop` until the next stable/beta release.
 
 ## Release Workflow
 
@@ -58,25 +72,13 @@ git checkout develop
 git pull origin develop
 ```
 
-**2. Cut release branch**
+**2. Bump versions and update changelogs on `develop`**
 
-Create a release branch from `develop` for this specific version:
+> **Important**: Version bumps, CHANGELOG.md, and the website changelog must all be committed to `develop` **before** cutting the release branch. This prevents merge conflicts with `main`, which may have changelog entries from previous releases that `develop` hasn't seen yet.
 
-```bash
-# Create and switch to release branch (e.g., release/0.1.0-beta.14)
-git checkout -b release/0.1.0-beta.14
-git push origin release/0.1.0-beta.14
-```
-
-> **Convention**: Release branches follow the pattern `release/X.Y.Z-beta.N` and allow for last-minute fixes without blocking `develop`.
-
-**3. Bump versions**
-
-Update BOTH package files:
+Update BOTH package files to the same version:
 - `packages/@storybook-astro/renderer/package.json`
 - `packages/@storybook-astro/framework/package.json`
-
-Use the same version for both (they're always released together):
 
 ```json
 {
@@ -84,9 +86,7 @@ Use the same version for both (they're always released together):
 }
 ```
 
-**4. Update CHANGELOG.md**
-
-Add a new section at the top with the version and date:
+Add a new section at the top of CHANGELOG.md with the version and date:
 
 ```markdown
 ## [0.1.0-beta.14] - 2026-03-15
@@ -111,37 +111,56 @@ Sections:
 - `Removed` — Removed features
 - `Security` — Security fixes
 
-**Website Changelog**: The [website changelog page](/reference/changelog/) mirrors the content from the root CHANGELOG.md file. After updating CHANGELOG.md in step 4, also update `apps/website/src/content/docs/reference/changelog.md` with the same changes. This keeps the website changelog in sync.
+**Website Changelog**: Also update `apps/website/src/content/docs/reference/changelog.md` with the same changes to keep the website changelog in sync.
 
-**5. Commit and push to release branch**
+Commit and push to `develop`:
 
 ```bash
-git add packages/*/package.json CHANGELOG.md
+git add packages/*/package.json CHANGELOG.md apps/website/src/content/docs/reference/changelog.md
 git commit -m "chore: release v0.1.0-beta.14"
+git push origin develop
+```
+
+**3. Cut release branch**
+
+Create a release branch from `develop`. Since changelogs and versions are already committed, the release branch only exists for any last-minute fixes before merging to `main`.
+
+```bash
+git checkout -b release/0.1.0-beta.14
 git push origin release/0.1.0-beta.14
 ```
 
-**6. Merge release branch into `main`**
+> **Convention**: Release branches follow the pattern `release/X.Y.Z` or `release/X.Y.Z-beta.N`.
+
+**4. Merge release branch into `main` and `website`**
 
 ```bash
 git checkout main
 git pull origin main
 git merge --no-ff release/0.1.0-beta.14
 git push origin main
+
+git checkout website
+git pull origin website
+git merge --no-ff release/0.1.0-beta.14
+git push origin website
 ```
 
-**7. Tag on `main` and push**
+The `website` branch is what Cloudflare deploys. Both branches get the same release commit.
+
+**5. Tag on `main` and push**
 
 Tags trigger the publish workflow:
 
 ```bash
+git checkout main
 git tag v0.1.0-beta.14
 git push origin v0.1.0-beta.14
 ```
 
 > **Convention**: Only tag on `main`. Tagging on `develop` or other branches would publish from an unreleased state.
 
-**8. Verify publish succeeded**
+**6. Verify publish succeeded**
 
 The `.github/workflows/publish.yml` workflow automatically:
 - Runs `yarn lint` and tests (both Astro 5 and 6)
@@ -163,7 +182,7 @@ The workflow should show a **✓** (success) status. If it shows an **X** (faile
 gh run view <RUN_ID> --repo storybook-astro/storybook-astro
 ```
 
-**9. Confirm packages on npm**
+**7. Confirm packages on npm**
 
 This is the final verification step. Confirm both packages are published with the correct version and latest dist-tag:
 
@@ -188,15 +207,17 @@ Expected output:
 
 If versions are missing or dist-tags are incorrect, refer to the **Manual Publish Fallback** section.
 
-**10. Merge `main` back to `develop` (optional)**
+**8. Merge `main` back to `develop`**
 
-If there are conflicts or just to keep branches in sync:
+Sync `main` back to `develop` so that changelog and version entries are present on both branches:
 
 ```bash
 git checkout develop
 git merge main
 git push origin develop
 ```
+
+> After a standard release, `main`, `website`, and `develop` should all be at the same commit (or `develop` may be ahead with in-progress work).
 
 ## Test/Preview Release Workflow
 
@@ -230,29 +251,26 @@ In both `packages/@storybook-astro/*/package.json`:
 }
 ```
 
-**2. Update CHANGELOG.md**
+**2. Commit and push — no changelog or website updates**
 
-Add an entry (same format as a normal release) under a section like `[0.1.0-next.1]`.
-
-**3. Commit and push**
-
-Do **not** add a CHANGELOG.md entry — test/preview releases are transient and the changes will be captured when the real beta ships.
+Canary/preview releases are transient. Changes will be captured in `CHANGELOG.md` and the website changelog when the real beta ships. Do not add a changelog entry and do not update `apps/website/`.
 
 ```bash
 git add packages/*/package.json
-git commit -m "chore: release v0.1.0-next.1 (test)"
+git commit -m "chore: release v0.1.0-next.1 (canary)"
 git push origin <branch>
 ```
 
-**4. Tag on `main` and push**
+**3. Merge to `main` only and tag**
 
-Same convention as a standard release — tag on `main` only:
+> **Important**: Do NOT merge to `website`. Merging canary content to `website` would deploy docs for features that are not yet in the `latest` npm dist-tag, making the website out of sync with what users actually install.
 
 ```bash
 git checkout main
+git pull origin main
 git merge --no-ff <branch>
-git tag v0.1.0-next.1
 git push origin main
+git tag v0.1.0-next.1
 git push origin v0.1.0-next.1
 ```
 
@@ -315,17 +333,17 @@ In both `package.json` files, increment patch:
 
 Add hotfix entry at top with current date.
 
-**5. Commit to both branches**
+**5. Commit and push**
 
 ```bash
-git add packages/*/package.json CHANGELOG.md
+git add packages/*/package.json CHANGELOG.md apps/website/src/content/docs/reference/changelog.md
 git commit -m "fix: critical bug fix
 
 Description of what was fixed."
 git push origin fix/critical-bug-name
 ```
 
-Open PR to `main` and `develop`, merge both after review.
+Open PRs to `main`, `website`, and `develop`; merge all three after review.
 
 **6. Tag on `main`**
 
@@ -373,10 +391,10 @@ Website-only changes (to `apps/website/`) do **not** require a release:
 
 ```
 Branch from: main
-Merge to: main
+Merge to: main AND website
 Version bump: NO
 npm publish: NO
-Deploy: Automatic via CloudFlare
+Deploy: Automatic via CloudFlare (from website branch)
 ```
 
 Examples:
@@ -385,11 +403,19 @@ Examples:
 - Navigation fixes
 - Copy updates
 
-Website deploys automatically when `main` is updated.
+```bash
+git checkout main
+git pull origin main
+git checkout -b website/describe-change
+# make changes
+git push origin website/describe-change
+gh pr create --base main    # merge to main first
+gh pr create --base website # then merge to website to deploy
+```
 
 ## Mixed Changes
 
-If a PR includes both package and website changes, follow the **standard release workflow**. Website updates will deploy when the release merges to `main`.
+If a PR includes both package and website changes, follow the **standard release workflow**. Website updates deploy when the release merges to `website`.
 
 ## Common Issues
 
@@ -488,28 +514,30 @@ git push origin v0.1.0-beta.14
 ### Standard release
 
 - [ ] All features/fixes on `develop` branch
-- [ ] Release branch created: `git checkout -b release/X.Y.Z-beta.N`
-- [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version
-- [ ] CHANGELOG.md updated with new version section and entries
-- [ ] Website changelog at `apps/website/src/content/docs/reference/changelog.md` updated with same version section and entries
+- [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version on `develop`
+- [ ] CHANGELOG.md updated with new version section and entries on `develop`
+- [ ] Website changelog at `apps/website/src/content/docs/reference/changelog.md` updated on `develop`
+- [ ] Version and changelog changes committed and pushed to `develop`
+- [ ] Release branch created from `develop`: `git checkout -b release/X.Y.Z`
 - [ ] `yarn lint` passes
 - [ ] `yarn test` passes (both Astro 5 and 6)
 - [ ] `yarn build:packages` succeeds (clean build — `rm -rf dist` first)
 - [ ] `yarn smoke` passes (tarball install + storybook build + tests on Astro 5 and 6)
-- [ ] Changes committed and pushed to release branch
 - [ ] Release branch merged into `main` and pushed
-- [ ] Tag created on `main`: `git tag vX.Y.Z-beta.N`
-- [ ] Tag pushed to remote: `git push origin vX.Y.Z-beta.N`
+- [ ] Release branch merged into `website` and pushed (triggers Cloudflare deploy)
+- [ ] Tag created on `main`: `git tag vX.Y.Z`
+- [ ] Tag pushed to remote: `git push origin vX.Y.Z`
 - [ ] Publish workflow completes successfully (includes automated smoke test)
 - [ ] `npm view @storybook-astro/framework versions --json` shows new version
 - [ ] `npm dist-tag ls @storybook-astro/framework` shows `latest` pointing to new version
+- [ ] `main` merged back to `develop`
 
 ### Test/preview release
 
 - [ ] Version uses a non-`beta` pre-release label: `next`, `alpha`, `canary`, `rc`, or `test`
 - [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version
-- [ ] Changes committed and pushed to branch (no CHANGELOG.md update)
-- [ ] Branch merged into `main`
+- [ ] **No** CHANGELOG.md or website changelog changes committed (those ship with the real beta)
+- [ ] Branch merged into `main` only — **do not merge to `website`**
 - [ ] Tag created on `main` and pushed: `git tag vX.Y.Z-<label>.N && git push origin vX.Y.Z-<label>.N`
 - [ ] Publish workflow completes successfully
 - [ ] `npm dist-tag ls @storybook-astro/framework` shows `<label>: X.Y.Z-<label>.N` but **not** `latest`

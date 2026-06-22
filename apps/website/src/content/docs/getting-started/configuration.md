@@ -39,18 +39,7 @@ export default {
 };
 ```
 
-Sanitization is enabled by default. To disable it explicitly:
-
-```javascript
-export default {
-  framework: {
-    name: '@storybook-astro/framework',
-    options: {
-      sanitization: { enabled: false },
-    },
-  },
-};
-```
+Story slots are sanitized by default with conservative HTML defaults, so most projects need no extra setup. To adjust which args and slots are sanitized — or to turn it off — see the [Sanitization guide](/guides/sanitization/).
 
 See the [Configuration Reference](/reference/configuration/) for all available options.
 
@@ -74,17 +63,19 @@ If your project uses global CSS, a CSS utility framework (UnoCSS, Tailwind CSS),
 
 ## 3. Add scripts to `package.json`
 
+Astro projects already use `dev` and `build` for `astro dev` and `astro build`. Use separate script names for Storybook to avoid conflicts:
+
 ```json
 "scripts": {
-  "dev": "storybook dev -p 6006",
-  "build": "storybook build"
+  "storybook": "storybook dev",
+  "build-storybook": "storybook build"
 }
 ```
 
 ## 4. Run Storybook
 
 ```bash
-npm run dev
+npm run storybook
 ```
 
-Storybook will open at [http://localhost:6006](http://localhost:6006). You're ready to start [writing stories](/writing-stories/).
+Storybook will open at `http://localhost:6006` by default. You're ready to start [writing stories](/writing-stories/).

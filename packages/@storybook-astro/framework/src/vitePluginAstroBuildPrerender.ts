@@ -16,6 +16,13 @@ import {
   renderProductionStoryToHtml,
   type ProductionStoryEntry
 } from './productionRenderRuntime.ts';
+import { buildHydratedComponentAssets } from './lib/hydratedComponentBuild.ts';
+import {
+  addStaticStylesheets,
+  rewriteBuiltModulePaths,
+  type StaticCssMap,
+  type StaticModuleMap
+} from './lib/staticHtmlRewriting.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import type { FrameworkOptions } from './types.ts';
 
@@ -88,7 +95,7 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
       _outputOptions: Rollup.NormalizedOutputOptions,
       bundle: Rollup.OutputBundle
     ) {
-      const staticModuleMap = buildStaticModuleMap(
+      const trackedModuleMap = buildStaticModuleMap(
         this,
         staticEntrypointRefs,
         componentEntrypointRefs
@@ -102,14 +109,36 @@ export function vitePluginAstroBuildPrerender(options: FrameworkOptions): Plugin
         return;
       }
 
+      const storyAstroComponentPaths = Array.from(
+        new Set(astroStories.map((story) => story.componentPath))
+      );
+      // Bundle the framework components hydrated inside Astro stories so the
+      // static preview has matching JS chunks and extracted CSS for them.
+      // Storybook's own iframe build skips these files when no per-framework
+      // .stories.* exists, which left CSS-module styling absent from the
+      // prerendered output.
+      const hydratedComponentAssets = await buildHydratedComponentAssets({
+        componentPaths: storyAstroComponentPaths,
+        integrations,
+        resolveFrom,
+        outDir
+      });
+      const staticModuleMap: StaticModuleMap = {
+        ...trackedModuleMap,
+        ...hydratedComponentAssets.staticModuleMap
+      };
+      const staticCssMap: StaticCssMap = hydratedComponentAssets.staticCssMap;
+
       const prerenderedStories = await prerenderAstroStories({
         astroStories,
         integrations,
         sanitization: options.sanitization,
         storyRulesConfigFilePath,
         staticModuleMap,
+        staticCssMap,
         trackedSpecifiers,
         resolveFrom,
+        fonts: options.fonts,
         bundle
       });
 
@@ -130,9 +159,11 @@ async function prerenderAstroStories(options: {
   integrations: Integration[];
   sanitization?: FrameworkOptions['sanitization'];
   storyRulesConfigFilePath?: string;
-  staticModuleMap: Record<string, string>;
+  staticModuleMap: StaticModuleMap;
+  staticCssMap: StaticCssMap;
   trackedSpecifiers: Set<string>;
   resolveFrom: string;
+  fonts?: FrameworkOptions['fonts'];
   bundle: Rollup.OutputBundle;
 }) {
   const runtime = await createProductionRenderRuntime({
@@ -141,7 +172,8 @@ async function prerenderAstroStories(options: {
     storyRulesConfigFilePath: options.storyRulesConfigFilePath,
     staticModuleMap: options.staticModuleMap,
     trackedSpecifiers: options.trackedSpecifiers,
-    resolveFrom: options.resolveFrom
+    resolveFrom: options.resolveFrom,
+    fonts: options.fonts
   });
   const assetPathMap = buildAssetPathMap(options.bundle);
 
@@ -155,9 +187,24 @@ async function prerenderAstroStories(options: {
         resolveFrom: options.resolveFrom
       });
 
-      if (html !== undefined) {
-        output[story.id] = rewriteAssetPaths(html, assetPathMap);
+      if (html === undefined) {
+        continue;
       }
+
+      // Image asset URLs from Vite SSR still point at /@fs/ paths, so rewrite
+      // them first; then rewrite hydrated framework component module paths and
+      // prepend their extracted CSS so the static preview matches dev styling.
+      const htmlWithAssetUrls = rewriteAssetPaths(html, assetPathMap);
+      const htmlWithBuiltModules = rewriteBuiltModulePaths(
+        htmlWithAssetUrls,
+        options.staticModuleMap
+      );
+      const htmlWithStylesheets = addStaticStylesheets(htmlWithBuiltModules, {
+        staticModuleMap: options.staticModuleMap,
+        staticCssMap: options.staticCssMap
+      });
+
+      output[story.id] = htmlWithStylesheets;
     }
 
     return output;

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -22,7 +22,7 @@ describe('collectHydratedComponentPaths', () => {
     await writeFile(astroFile, `---\nimport Helper from './Helper.tsx';\n---`);
     await writeFile(namedOnlyTsx, `export const Helper = () => <div />;`);
 
-    const result = await collectHydratedComponentPaths(astroFile);
+    const result = await collectHydratedComponentPaths(astroFile, tmpDir);
 
     expect(result).not.toContain(namedOnlyTsx.replace(/\\/g, '/'));
   });
@@ -34,7 +34,7 @@ describe('collectHydratedComponentPaths', () => {
     await writeFile(astroFile, `---\nimport Button from './Button.tsx';\n---`);
     await writeFile(defaultTsx, `export default function Button() { return <div />; }`);
 
-    const result = await collectHydratedComponentPaths(astroFile);
+    const result = await collectHydratedComponentPaths(astroFile, tmpDir);
 
     expect(result).toContain(defaultTsx.replace(/\\/g, '/'));
   });
@@ -48,7 +48,7 @@ describe('collectHydratedComponentPaths', () => {
     await writeFile(astroFile, `---\nimport Counter from './Counter.svelte';\n---`);
     await writeFile(svelteFile, `<script>\n  let count = 0;\n</script>\n<button>{count}</button>`);
 
-    const result = await collectHydratedComponentPaths(astroFile);
+    const result = await collectHydratedComponentPaths(astroFile, tmpDir);
 
     expect(result).toContain(svelteFile.replace(/\\/g, '/'));
   });
@@ -64,7 +64,7 @@ describe('collectHydratedComponentPaths', () => {
       `<script setup>\nconst count = ref(0);\n</script>\n<template><button>{{ count }}</button></template>`
     );
 
-    const result = await collectHydratedComponentPaths(astroFile);
+    const result = await collectHydratedComponentPaths(astroFile, tmpDir);
 
     expect(result).toContain(vueFile.replace(/\\/g, '/'));
   });
@@ -80,8 +80,27 @@ describe('collectHydratedComponentPaths', () => {
 
     // Don't write missingTsx — resolveLocalImportPath will not find it,
     // so it never reaches hasDefaultExport. Confirm the result is just empty.
-    const result = await collectHydratedComponentPaths(astroFile);
+    const result = await collectHydratedComponentPaths(astroFile, tmpDir);
 
     expect(result).not.toContain(missingTsx.replace(/\\/g, '/'));
+  });
+
+  test('includes a tsconfig-aliased island (the static build fix)', async () => {
+    // Islands imported via path aliases never matched the staticModuleMap because
+    // readLocalImportSpecifiers filtered them out before they could become Rollup
+    // inputs. This test confirms the alias is resolved and included.
+    await mkdir(join(tmpDir, 'src', 'components'), { recursive: true });
+    const counterFile = join(tmpDir, 'src', 'components', 'Counter.tsx');
+
+    await writeFile(counterFile, `export default function Counter() { return null; }`);
+    await writeFile(join(tmpDir, 'Island.astro'), `---\nimport Counter from '@/components/Counter';\n---\n<Counter client:visible />`);
+    await writeFile(
+      join(tmpDir, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { paths: { '@/*': ['src/*'] } } }, null, 2)
+    );
+
+    const result = await collectHydratedComponentPaths(join(tmpDir, 'Island.astro'), tmpDir);
+
+    expect(result).toContain(counterFile.replace(/\\/g, '/'));
   });
 });

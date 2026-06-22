@@ -9,7 +9,8 @@ export default {
       description: {
         component:
           'A composite card component that nests Card.astro and uses astro:assets <Image>. ' +
-          'Tests that template nesting and image rendering both work via the Container API.',
+          'Tests that template nesting and image rendering both work via the Container API, ' +
+          "and that the nested Card's scoped styles load in the browser (issue #114).",
       },
     },
   },
