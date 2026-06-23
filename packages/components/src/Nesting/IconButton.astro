@@ -1,0 +1,9 @@
+---
+// Parent that renders a component passed as a prop, via `<Icon />`.
+const { Icon, label = 'Click' } = Astro.props;
+
+---
+<button class="icon-button" data-testid="icon-button">
+  {Icon ? <Icon label="icon" /> : null}
+  <span>{label}</span>
+</button>

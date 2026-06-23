@@ -75,6 +75,42 @@ export const MultipleOpen = {
 };
 ```
 
+## Component props
+
+A prop can be another Astro component. The parent renders it from `Astro.props` with `<Comp />`, and Storybook resolves the real component so it renders natively:
+
+```astro
+---
+// IconButton.astro
+const { Icon, label } = Astro.props;
+---
+
+<button>
+  {Icon ? <Icon /> : null}
+  <span>{label}</span>
+</button>
+```
+
+```jsx
+// IconButton.stories.jsx
+import IconButton from './IconButton.astro';
+import StarIcon from './StarIcon.astro';
+
+export default {
+  title: 'Components/IconButton',
+  component: IconButton,
+};
+
+export const WithIcon = {
+  args: {
+    label: 'Favorite',
+    Icon: StarIcon,
+  },
+};
+```
+
+The component is passed as a bare reference and renders with its default props. To place a component inside a `<slot />` rather than a prop, see [Slots](/writing-stories/slots/#passing-a-component-as-slot-content).
+
 ## Shared default args
 
 Set default args at the metadata level so every story inherits them:

@@ -4920,7 +4920,7 @@ __metadata:
     "@types/react-dom": "npm:^18.3.6"
     "@vitest/ui": "npm:^4.0.18"
     alpinejs: "npm:^3.14.9"
-    astro: "npm:6.0.3"
+    astro: "npm:6.4.4"
     eslint: "npm:^9.39.2"
     happy-dom: "npm:^17.4.4"
     http-server: "npm:^14.1.1"

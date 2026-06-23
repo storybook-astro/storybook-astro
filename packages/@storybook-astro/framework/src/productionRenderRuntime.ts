@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
+import { separateStorySlots } from './lib/separate-story-slots.ts';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import type { FrameworkOptions } from './types.ts';
@@ -190,25 +191,6 @@ function mergeMetaArgsWithStoryArgs(
   return {
     ...(metaArgs ?? {}),
     ...(storyArgs ?? {})
-  };
-}
-
-function separateStorySlots(storyArgs: Record<string, unknown>) {
-  const componentArgs = { ...storyArgs };
-  const storySlots = componentArgs.slots;
-
-  delete componentArgs.slots;
-
-  if (!isRecord(storySlots)) {
-    return {
-      componentArgs,
-      storySlots: {}
-    };
-  }
-
-  return {
-    componentArgs,
-    storySlots: storySlots as Record<string, string>
   };
 }
 

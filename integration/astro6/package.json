@@ -23,7 +23,7 @@
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",
     "alpinejs": "^3.14.9",
-    "astro": "6.0.3",
+    "astro": "6.4.4",
     "preact": "^10.28.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

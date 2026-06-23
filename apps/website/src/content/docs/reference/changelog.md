@@ -8,19 +8,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- Astro 7 support — verified against Astro 7's Rust compiler (now the default) and Vite 8 (Rolldown). No configuration changes are required to move an Astro 6 setup to Astro 7.
-- New `integration/astro7` and `integration/astro7-server` example apps, plus an `astro7` smoke-test template. CI build, browser-test, smoke-test, and publish workflows now cover Astro 5, 6, and 7.
-
-### Changed
-- Peer dependency ranges widened to accept Astro 7 (`astro`, and the `@astrojs/*` framework integrations at their Astro 7 majors) and `@vitejs/plugin-react@6`.
-- `get-tsconfig` dependency aligned to the exact version Astro pins (`5.0.0-beta.4`), so Astro 6.4+/7 and the framework resolve a single deduped copy that exposes both `getTsconfig` and `readTsconfig`.
-
-### Fixed
-- `optimizeDeps.esbuildOptions` is now only set on Vite ≤7, removing the deprecation warning emitted under Vite 8 (the Rolldown optimizer reads `rolldownOptions`).
-
 ## [1.6.0] - 2026-06-19
 
 ### Added
