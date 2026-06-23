@@ -111,7 +111,9 @@ Sections:
 - `Removed` — Removed features
 - `Security` — Security fixes
 
-**Website Changelog**: Also update `apps/website/src/content/docs/reference/changelog.md` with the same changes to keep the website changelog in sync.
+**Website Changelog**: Also add the new `## [version] - date` section to `apps/website/src/content/docs/reference/changelog.md`.
+
+> **Convention — the website changelog lists released versions only.** It must **not** contain an `[Unreleased]` section. In-progress notes accumulate under `[Unreleased]` in the root `CHANGELOG.md` only. At release time those entries become the new versioned section: copy them into both files as `## [version] - date`, leave the (now-empty) `[Unreleased]` heading in the root `CHANGELOG.md` for the next cycle, and do **not** add an `[Unreleased]` heading to the website page.
 
 Commit and push to `develop`:
 
@@ -516,7 +518,7 @@ git push origin v0.1.0-beta.14
 - [ ] All features/fixes on `develop` branch
 - [ ] Both `packages/@storybook-astro/*/package.json` files updated to same version on `develop`
 - [ ] CHANGELOG.md updated with new version section and entries on `develop`
-- [ ] Website changelog at `apps/website/src/content/docs/reference/changelog.md` updated on `develop`
+- [ ] Website changelog at `apps/website/src/content/docs/reference/changelog.md` updated on `develop` (versioned section only — no `[Unreleased]` section on the website page)
 - [ ] Version and changelog changes committed and pushed to `develop`
 - [ ] Release branch created from `develop`: `git checkout -b release/X.Y.Z`
 - [ ] `yarn lint` passes
@@ -546,7 +548,7 @@ git push origin v0.1.0-beta.14
 
 - `docs/RELEASING.md` - Full release walkthrough (standard, hotfix, website-only)
 - `CHANGELOG.md` - Release history and change entries
-- `apps/website/src/content/docs/reference/changelog.md` - Website changelog reference page (links to GitHub CHANGELOG.md)
+- `apps/website/src/content/docs/reference/changelog.md` - Website changelog reference page (released versions only; no `[Unreleased]` section)
 - `packages/@storybook-astro/framework/package.json` - Framework package config
 - `packages/@storybook-astro/renderer/package.json` - Renderer package config
 - `.github/workflows/publish.yml` - Automated publish workflow
