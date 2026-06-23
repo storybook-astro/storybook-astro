@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Astro components can now be passed as **props** (`args: { Icon }`, rendered by the parent via `<Comp />`) and as **slot content** (`args.slots.default`, the React `children` pattern) — closes #128. Component slot content keeps its own rendered markup; plain-string slots are still sanitized.
 - Astro 7 support — verified against Astro 7's Rust compiler (now the default) and Vite 8 (Rolldown). No configuration changes are required to move an Astro 6 setup to Astro 7.
 - New `integration/astro7` and `integration/astro7-server` example apps, plus an `astro7` smoke-test template. CI build, browser-test, smoke-test, and publish workflows now cover Astro 5, 6, and 7.
 
