@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+import { version as viteVersion } from 'vite';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
@@ -205,8 +206,8 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   }
   // Mark integration virtual modules as external so the dep bundler doesn't
   // try to resolve them (they are Vite virtual modules with no real package).
-  // Set both esbuildOptions (Vite ≤7) and rolldownOptions (Vite 8+, Rolldown)
-  // so the correct key is populated regardless of Vite version.
+  // Vite ≤7 reads these from esbuildOptions; Vite 8+ uses Rolldown and reads
+  // them from rolldownOptions. We populate whichever key the running Vite uses.
   const integrationVirtualModules = [
     'virtual:@astrojs/vue/app',
     'virtual:astro:vue-app',
@@ -215,16 +216,21 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     'astro:toolbar:internal'
   ];
 
-  // Vite ≤7 (esbuild-based optimizer)
-  if (!finalConfig.optimizeDeps.esbuildOptions) {
-    finalConfig.optimizeDeps.esbuildOptions = {};
-  }
-  if (!finalConfig.optimizeDeps.esbuildOptions.external) {
-    finalConfig.optimizeDeps.esbuildOptions.external = [];
-  }
-  for (const mod of integrationVirtualModules) {
-    if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
-      finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
+  const viteMajor = Number.parseInt(viteVersion, 10);
+
+  // Vite ≤7 (esbuild-based optimizer). On Vite 8+ setting esbuildOptions logs a
+  // deprecation warning, so only touch it on older Vite.
+  if (viteMajor < 8) {
+    if (!finalConfig.optimizeDeps.esbuildOptions) {
+      finalConfig.optimizeDeps.esbuildOptions = {};
+    }
+    if (!finalConfig.optimizeDeps.esbuildOptions.external) {
+      finalConfig.optimizeDeps.esbuildOptions.external = [];
+    }
+    for (const mod of integrationVirtualModules) {
+      if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
+        finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
+      }
     }
   }
 

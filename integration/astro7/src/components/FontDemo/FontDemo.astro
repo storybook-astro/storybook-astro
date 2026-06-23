@@ -1,0 +1,26 @@
+---
+import { Font } from 'astro:assets';
+---
+
+<Font cssVariable="--font-inter" />
+
+<div class="font-demo" data-testid="font-demo">
+  <p class="sample">The quick brown fox jumps over the lazy dog.</p>
+  <p class="sample sample--bold">The quick brown fox jumps over the lazy dog.</p>
+</div>
+
+<style>
+  .font-demo {
+    font-family: var(--font-inter);
+    padding: 1.5rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+  .sample {
+    font-size: 1.25rem;
+    margin: 0.5rem 0;
+  }
+  .sample--bold {
+    font-weight: 700;
+  }
+</style>

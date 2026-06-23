@@ -80,7 +80,7 @@ export default defineConfig({
             { label: 'Dev Mode Rendering', slug: 'how-it-works/dev-mode' },
             { label: 'Static Builds', slug: 'how-it-works/static-builds' },
             { label: 'Framework Integration', slug: 'how-it-works/framework-integration' },
-            { label: 'Astro 6 Compatibility', slug: 'how-it-works/astro6-compat' },
+            { label: 'Version Compatibility', slug: 'how-it-works/version-compatibility' },
           ],
         },
         {

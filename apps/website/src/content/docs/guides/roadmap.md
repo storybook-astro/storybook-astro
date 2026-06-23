@@ -203,6 +203,14 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 ## Recently Completed
 
+### Astro 7 Support
+
+**Status**: Shipped (unreleased)
+
+Storybook Astro now supports Astro 7 alongside Astro 5 and 6. Astro 7's Rust compiler (now the default) and Vite 8 (Rolldown) are handled by the existing compatibility layers with no configuration changes — an Astro 6 setup moves to Astro 7 by bumping versions. Dedicated `integration/astro7` and `integration/astro7-server` examples are smoke-tested in CI on every release.
+
+**Documentation**: See [Version Compatibility](/how-it-works/version-compatibility/)
+
 ### Auto-load Astro Config into Storybook
 
 **Shipped in**: 1.4.0
