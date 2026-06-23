@@ -1,6 +1,6 @@
 # Integration Example — Astro 6
 
-Integration example for validating `@storybook-astro/framework` against **Astro 6**. Also deployed as the [live demo](https://demo.storybook-astro.org).
+Integration example for validating `@storybook-astro/framework` against **Astro 6**. Also deployed as the [Astro 6 demo](https://demo-astro6.storybook-astro.org).
 
 ## Pinned Versions
 
