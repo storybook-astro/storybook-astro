@@ -205,25 +205,41 @@ async function renderAstroToCanvas(
   });
 
   astroRenderer.applyStyles?.();
-  canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement.ownerDocument);
+  canvasElement.innerHTML = prepareServerRenderedHtml(
+    response.html,
+    canvasElement.ownerDocument,
+    storyContext?.viewMode
+  );
   invokeScriptTags(canvasElement);
 }
 
 /** Parses the server HTML response and hoists any stylesheet links into the iframe head. */
-function prepareServerRenderedHtml(html: string, document: Document) {
+function prepareServerRenderedHtml(html: string, document: Document, viewMode?: string) {
   const template = document.createElement('template');
 
   template.innerHTML = html;
 
   // Server mode returns stylesheet links in the HTML response. Keep those in
   // the iframe head so controls rerenders can reuse them instead of refetching.
-  syncServerRenderedStylesheets(template.content, document);
+  syncServerRenderedStylesheets(template.content, document, viewMode);
 
   return template.innerHTML;
 }
 
-/** Keeps server-rendered stylesheets in the iframe head across controls rerenders. */
-function syncServerRenderedStylesheets(fragment: DocumentFragment, document: Document) {
+/**
+ * Keeps server-rendered stylesheets in the iframe head across controls rerenders.
+ *
+ * In the Canvas (one story at a time) we drop links the current render no longer
+ * uses, so a previous story's stylesheets don't linger. On a Docs page every
+ * story renders into the *same* head, so dropping "stale" links would let each
+ * story strip the others' stylesheets (e.g. CodeTabs' per-framework CSS) — there
+ * we only add, letting all stories' stylesheets coexist.
+ */
+function syncServerRenderedStylesheets(
+  fragment: DocumentFragment,
+  document: Document,
+  viewMode?: string
+) {
   const nextHrefs = new Set<string>();
   const stylesheetLinks = Array.from(fragment.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'));
 
@@ -251,6 +267,12 @@ function syncServerRenderedStylesheets(fragment: DocumentFragment, document: Doc
 
     link.remove();
   });
+
+  // On a Docs page, multiple stories share one head — keep every story's
+  // stylesheets. Only the single-story Canvas prunes links it no longer needs.
+  if (viewMode === 'docs') {
+    return;
+  }
 
   Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[data-storybook-astro-style]')).forEach(
     (link) => {
