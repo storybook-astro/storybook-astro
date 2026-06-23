@@ -76,6 +76,7 @@ export default defineConfig({
         {
           label: 'How It Works',
           items: [
+            { label: 'Overview', slug: 'how-it-works' },
             { label: 'Architecture', slug: 'how-it-works/architecture' },
             { label: 'Dev Mode Rendering', slug: 'how-it-works/dev-mode' },
             { label: 'Static Builds', slug: 'how-it-works/static-builds' },
