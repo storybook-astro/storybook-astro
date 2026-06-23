@@ -79,5 +79,5 @@ This is useful for components that need to work with both local assets and remot
 
 ## Limitations
 
-- **Font optimization**: Astro's font virtual modules (`virtual:astro:assets/fonts/*`) are stubbed with no-op exports in Storybook. Components render correctly but without Astro's font optimization. See [Astro 6 Compatibility](/how-it-works/astro6-compat/) for details.
+- **Fonts**: Font families declared in your `astro.config.*` via Astro's Font Provider API are auto-loaded into Storybook's SSR context and their CSS variables are exposed to rendered components. See [Version Compatibility](/how-it-works/version-compatibility/) for details.
 - **Image optimization in dev mode**: Images are served as direct Vite asset URLs rather than going through Astro's image optimization pipeline. This means resizing, format conversion, and quality settings in `<Image>` props are not applied during Storybook dev mode.

@@ -17,8 +17,8 @@ The community-supported Storybook framework for Astro. Build, test, and document
 
 - **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+ (required for Storybook 10's ESM-only support)
 - **Storybook**: 10.0.0+
-- **Astro**: 5.5.3+ or 6.0.0+
-- **Vite**: 6.4.1+ (required by Astro 5+), 7.x, or 8.x
+- **Astro**: 5.5.3+, 6.x, or 7.x
+- **Vite**: 6.4.1+ (required by Astro 5), 7.x, or 8.x (Astro 7 uses Vite 8)
 
 ---
 
@@ -330,9 +330,9 @@ storybook-astro/
 │       │   │   ├── portable-stories.ts                   # composeStories for testing
 │       │   │   ├── testing.ts                             # Testing runtime APIs (composeStories, renderStory)
 │       │   │   ├── vitest/                                # Vitest config helpers (defineConfig)
-│       │   │   ├── vitePluginAstroComponentMarker.ts     # Astro 6 component detection
+│       │   │   ├── vitePluginAstroComponentMarker.ts     # Astro component detection (5–7)
 │       │   │   ├── vitePluginAstroBuildPrerender.ts      # Build-time pre-rendering
-│       │   │   ├── vitePluginAstroFontsFallback.ts       # Astro 6 font module stubs
+│       │   │   ├── vitePluginAstroFonts.ts               # Astro Font Provider resolution
 │       │   │   ├── viteStorybookAstroMiddlewarePlugin.ts # Render request handling (dev)
 │       │   │   └── viteStorybookRendererFallbackPlugin.ts
 │       │   └── package.json

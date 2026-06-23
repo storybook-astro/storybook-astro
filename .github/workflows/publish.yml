@@ -36,13 +36,16 @@ jobs:
           rm -rf packages/@storybook-astro/framework/dist
           yarn build:packages
 
+      - name: Run tests (Astro 7)
+        run: yarn workspace @storybook-astro/integration-astro7 test
+
       - name: Run tests (Astro 6)
         run: yarn workspace @storybook-astro/integration-astro6 test
 
       - name: Run tests (Astro 5)
         run: yarn workspace @storybook-astro/integration-astro5 test
 
-      - name: Smoke test (tarball / Astro 5 + 6)
+      - name: Smoke test (tarball / Astro 5 + 6 + 7)
         run: bash scripts/smoke-test.sh both fresh
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1

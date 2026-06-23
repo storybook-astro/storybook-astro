@@ -33,12 +33,12 @@ export function vitePluginAstroComponentMarker(): PluginOption {
       // Only process main .astro modules (not sub-modules like ?astro&type=style)
       if (!id.endsWith('.astro')) {return null;}
 
-      // Detect the Astro 6 client-side stub pattern.
-      // NOTE: If `experimental.rustCompiler` is enabled in the user's Astro config,
-      // the Rust compiler may emit a different stub text, causing this check to miss
-      // Astro components (they won't get `isAstroComponentFactory = true` and will
-      // render blank in Storybook). Verify this string against the Rust compiler output
-      // if/when `experimental.rustCompiler` becomes widely used.
+      // Detect the Astro client-side stub pattern. Astro 6's Go compiler and
+      // Astro 7's Rust compiler (now the default) both emit this same error
+      // string in the browser stub, so the single check covers Astro 5–7. If a
+      // future compiler changes this text, components will silently miss the
+      // `isAstroComponentFactory = true` marker and render blank — update the
+      // string here if that happens.
       if (!code.includes('Astro components cannot be used in the browser')) {return null;}
 
       const moduleId = id;

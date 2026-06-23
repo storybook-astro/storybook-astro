@@ -9,9 +9,9 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 **Status**: Experimental - not production-ready
 
 **Key Technologies**:
-- Astro 6+ (using Container API for SSR)
+- Astro 5.5.3+, 6, and 7 (using Container API for SSR)
 - Storybook 10+
-- Vite 6+ (7.x supported)
+- Vite 6+ (7.x and 8.x supported; Astro 7 uses Vite 8 / Rolldown)
 - TypeScript/JavaScript (ES modules only)
 - Multiple UI framework integrations (React, Vue, Svelte, Preact, Solid, Alpine.js)
 
@@ -32,8 +32,8 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 - `src/preset.ts` - Framework configuration, exports `viteFinal` and `core` config
 - `src/middleware.ts` - Creates Astro Container, exports `handlerFactory`, includes `patchCreateAstroCompat` for Astro compiler v2/v3 bridging
 - `src/viteStorybookAstroMiddlewarePlugin.ts` - Vite plugin that handles render requests via HMR
-- `src/vitePluginAstroComponentMarker.ts` - Patches Astro 6's client-side `.astro` stubs to set `isAstroComponentFactory` and preserve scoped CSS imports
-- `src/vitePluginAstroFontsFallback.ts` - Stubs Astro 6's font virtual modules (`virtual:astro:assets/fonts/*`)
+- `src/vitePluginAstroComponentMarker.ts` - Patches Astro's client-side `.astro` stubs (Astro 6+ and Astro 7's Rust compiler) to set `isAstroComponentFactory` and preserve scoped CSS imports
+- `src/vitePluginAstroFonts.ts` - Resolves Astro's Font Provider API in Storybook's SSR context and auto-loads fonts declared in `astro.config.*`
 - `src/portable-stories.ts` - `composeStories`/`composeStory` for testing outside Storybook
 - `src/integrations/` - Integration adapters for each supported framework
 
@@ -342,7 +342,7 @@ if (Component.isAstroComponentFactory) {
 }
 ```
 
-**Astro 6 note**: The client-side Vite transform of `.astro` files in Astro 6 no longer sets this flag. The `vitePluginAstroComponentMarker` plugin detects the Astro 6 stub pattern (which throws "Astro components cannot be used in the browser") and replaces it with a stub that sets `isAstroComponentFactory = true`, preserves `moduleId`, and imports scoped style sub-modules.
+**Astro 6+ note**: Since Astro 6, the client-side Vite transform of `.astro` files no longer sets this flag, and Astro 7's Rust compiler (now the default) behaves the same way. The `vitePluginAstroComponentMarker` plugin detects the stub pattern (which throws "Astro components cannot be used in the browser") and replaces it with a stub that sets `isAstroComponentFactory = true`, preserves `moduleId`, and imports scoped style sub-modules. The single detection string covers Astro 5–7.
 
 ### Framework Fallback
 Stories can specify a renderer to bypass Astro rendering:
@@ -358,7 +358,7 @@ export const MyStory = {
 
 ### Module Resolution Errors
 **Symptom**: `Cannot find module` or `Failed to resolve import`
-**Fix**: Check that file extensions are included in imports and that virtual modules are properly configured in Vite plugins. For Astro 6 font modules, check `vitePluginAstroFontsFallback.ts`.
+**Fix**: Check that file extensions are included in imports and that virtual modules are properly configured in Vite plugins. For Astro font modules, check `vitePluginAstroFonts.ts`.
 
 ### Styles Not Applying
 **Symptom**: Component renders but styles are missing
@@ -423,14 +423,15 @@ When asking for help from AI or humans:
 4. Include relevant code snippets with file paths
 5. Note whether the issue is server-side (Node/Vite) or client-side (browser)
 
-## Astro 6 Compatibility Layers
+## Astro Version Compatibility Layers
 
-These are the key adaptations for Astro 6. If Astro's APIs change in future releases, these are the places to update:
+These are the key adaptations that keep Astro 5, 6, and 7 working. If Astro's APIs change in future releases, these are the places to update. (The user-facing version of this is `apps/website/src/content/docs/how-it-works/version-compatibility.md`.)
 
-1. **`vitePluginAstroComponentMarker.ts`** — Detects the Astro 6 client-side stub pattern and replaces it. If Astro changes the stub text or reintroduces `isAstroComponentFactory`, this plugin may need updating or removal. **`experimental.rustCompiler` risk**: the Rust compiler (added in 6.0) may emit a different stub text than the JS compiler; if a user enables this flag and Astro components render blank, verify the stub string in this plugin matches what the Rust compiler produces.
-2. **`patchCreateAstroCompat()` in `middleware.ts`** — Bridges the 3-arg (compiler v2) and 2-arg (compiler v3/Astro 6) `createAstro` calling conventions. Can be removed once the compiler is updated to match the runtime.
-3. **`vitePluginAstroFontsFallback.ts`** — Stubs font virtual modules. Can be removed if Astro's font plugin properly handles the Storybook SSR context. **Astro 6.2 added** `virtual:astro:assets/fonts/runtime/font-file-url-resolver` (exports `runtimeFontFileUrlResolver` for `experimental_getFontFileURL`); the plugin stubs this too. If Astro adds more font virtual modules, add them here.
+1. **`vitePluginAstroComponentMarker.ts`** — Detects the client-side stub pattern and replaces it. Astro 6's Go compiler and Astro 7's Rust compiler (now the default) both emit the same `"Astro components cannot be used in the browser"` string, so one detection check covers Astro 5–7. If a future compiler changes the stub text or reintroduces `isAstroComponentFactory`, update the string here (components will render blank if it stops matching).
+2. **`patchCreateAstroCompat()` in `middleware.ts`** — Bridges the 3-arg and 2-arg `createAstro` calling conventions. It inspects the runtime argument count and adapts, so it handles whichever convention the compiler emits. Can be removed once every supported compiler matches the runtime.
+3. **`vitePluginAstroFonts.ts`** — Resolves Astro's Font Provider API in Storybook's SSR context and auto-loads fonts declared in `astro.config.*`. Can be simplified if Astro's font plugin handles the Storybook SSR context directly.
 4. **Framework delegation order in `render.tsx`** — `renderToCanvas()` delegates to framework renderers BEFORE calling `storyFn()`. Reordering this can break reactive framework rendering.
+5. **Vite 8 optimizer options in `preset.ts`** — `optimizeDeps.esbuildOptions` is set only on Vite ≤7; Vite 8 (Rolldown) reads `rolldownOptions`. The version is detected via `import { version } from 'vite'`.
 
 ## Future Considerations
 
@@ -441,5 +442,4 @@ These are the key adaptations for Astro 6. If Astro's APIs change in future rele
 - **Documentation**: API documentation and more usage examples
 - **Production Build**: Static build support (currently dev-only)
 - **Portable Stories**: Consider delegating to framework-specific composeStories when available
-- **Astro 7+**: Monitor for breaking changes in upcoming major releases and adjust compatibility layers accordingly
-- **Vite 8**: Astro 6.1 added Vite 8 detection support; verify `viteStorybookAstroMiddlewarePlugin.ts` and HMR event handling in `render.tsx` against Vite 8 when it becomes available
+- **Astro 8+**: Astro 5, 6, and 7 are supported today. Monitor for breaking changes in future major releases and adjust the compatibility layers above accordingly.

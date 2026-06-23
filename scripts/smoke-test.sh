@@ -4,12 +4,12 @@
 # Usage:
 #   bash scripts/smoke-test.sh [astro-version] [scenario]
 #
-#   astro-version : 5 | 6 | both  (default: both)
+#   astro-version : 5 | 6 | 7 | both  (default: both)
 #   scenario      : fresh | upgrade | both  (default: fresh)
 #
 # Examples:
-#   bash scripts/smoke-test.sh          # both versions, fresh install
-#   bash scripts/smoke-test.sh 6 fresh  # astro 6 only, fresh install
+#   bash scripts/smoke-test.sh          # all versions, fresh install
+#   bash scripts/smoke-test.sh 7 fresh  # astro 7 only, fresh install
 #   bash scripts/smoke-test.sh both upgrade
 #
 # The upgrade scenario installs the current @latest from npm first,
@@ -181,7 +181,7 @@ pack_packages
 
 versions=()
 if [ "$ASTRO_VERSION" = "both" ]; then
-  versions=(5 6)
+  versions=(5 6 7)
 else
   versions=("$ASTRO_VERSION")
 fi

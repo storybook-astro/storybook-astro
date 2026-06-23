@@ -145,7 +145,7 @@ Used internally for plugin communication:
 ### Compatibility Layers in Code
 1. **vitePluginAstroComponentMarker.ts** - Replaces Astro 6's runtime error stub with our own
 2. **patchCreateAstroCompat()** in middleware.ts - Bridges 3-arg (compiler v2) vs 2-arg (compiler v3/v6) `createAstro()`
-3. **vitePluginAstroFontsFallback.ts** - Stubs Astro 6's font virtual modules
+3. **vitePluginAstroFonts.ts** - Resolves Astro's Font Provider API in Storybook's SSR context
 
 ## Development Workflow
 

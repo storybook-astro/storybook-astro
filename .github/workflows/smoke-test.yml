@@ -11,7 +11,7 @@ on:
         required: false
         default: 'both'
         type: choice
-        options: [both, '5', '6']
+        options: [both, '5', '6', '7']
       scenario:
         description: 'Test scenario'
         required: false
@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        astro: ['5', '6']
+        astro: ['5', '6', '7']
         scenario: [fresh]
         # upgrade is excluded from the default matrix — it requires packages
         # to already be published on npm. Run manually via workflow_dispatch
