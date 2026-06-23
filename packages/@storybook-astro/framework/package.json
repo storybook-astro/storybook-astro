@@ -60,6 +60,7 @@
     "build": "tsup && node scripts/patch-shim-ref.mjs",
     "dev": "tsup --watch --no-clean",
     "lint": "eslint .",
+    "test": "vitest run",
     "prepublishOnly": "tsup && node scripts/patch-shim-ref.mjs"
   },
   "devDependencies": {
