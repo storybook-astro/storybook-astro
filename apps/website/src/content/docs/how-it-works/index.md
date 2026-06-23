@@ -9,7 +9,7 @@ This page explains, in plain terms, how Storybook Astro works and the main probl
 
 **Astro** is a framework for building websites. Its standout idea is that it sends mostly plain HTML to the browser instead of shipping a lot of JavaScript. To do that, Astro components are turned into finished HTML *ahead of time* — on a server or during the build — rather than running live in the visitor's browser.
 
-**Storybook** is a workshop for user-interface components. It lets you view, build, and document each component on its own, in isolation, so you can see exactly how it looks and behaves without running the whole app. Storybook does this work *inside the browser*.
+**Storybook** is a workshop for user-interface components. It lets you build, view, test, and document each component on its own, in isolation, so you can see exactly how it looks and behaves without running the whole app. Storybook does this work *inside the browser*.
 
 ## The challenge
 
