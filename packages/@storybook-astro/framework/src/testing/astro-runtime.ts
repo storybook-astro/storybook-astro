@@ -8,7 +8,7 @@ import { getComponentModuleId, isAstroComponentFactory, isStorybookAstroClientSt
 import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fallback.ts';
 import { separateStorySlots } from '../lib/separate-story-slots.ts';
 import { reconstructProps, reconstructSlots } from '../lib/reconstruct-component-args.ts';
-import { patchCreateAstroCompat } from '../astroRenderHandler.ts';
+import { patchCreateAstroCompat, markRawSlots } from '../astroRenderHandler.ts';
 import { serializeAstroComponentMarkers } from '@storybook-astro/renderer/types';
 import type { ComposedStory } from './types.ts';
 import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
@@ -202,7 +202,7 @@ async function renderAstroComponentToDom(
 
   const html = await container.renderToString(resolvedComponent, {
     props: reconstructedArgs,
-    slots: reconstructedSlots
+    slots: markRawSlots(reconstructedSlots)
   });
 
   return setRenderedHtml(html);

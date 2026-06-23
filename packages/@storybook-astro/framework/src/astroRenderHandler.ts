@@ -1,4 +1,5 @@
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import { markHTMLString } from 'astro/runtime/server/index.js';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { reviveDateStrings } from './lib/revive-dates.ts';
@@ -119,7 +120,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
             patchedComponent as Parameters<typeof options.container.renderToString>[0],
             {
               props: sanitizedPayload.args,
-              slots: renderedSlots
+              slots: markRawSlots(renderedSlots)
             }
           );
         }
@@ -135,6 +136,23 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
 
     return resultPromise;
   };
+}
+
+/**
+ * Marks each slot's HTML string as already-rendered so the Astro Container emits
+ * it raw instead of escaping it. Astro 5 and 7 render string slots raw anyway,
+ * but Astro 6 escapes an unmarked string slot — this normalizes all versions.
+ * `markHTMLString` tags the string via a global symbol, so it's recognized even
+ * across Astro module instances.
+ */
+export function markRawSlots(slots: Record<string, unknown>): Record<string, unknown> {
+  const marked: Record<string, unknown> = {};
+
+  for (const [name, value] of Object.entries(slots)) {
+    marked[name] = typeof value === 'string' ? markHTMLString(value) : value;
+  }
+
+  return marked;
 }
 
 export function patchCreateAstroCompat(component: unknown): AstroComponentFactory {
