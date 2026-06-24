@@ -86,9 +86,13 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
   return output;
 }
 
-// Tracks the renderer used in the previous renderToCanvas call so we can detect
-// framework switches and clear the canvas before the new framework mounts.
-let activeRenderer: string | undefined;
+// Tracks the renderer last used to render into a given canvas, so we can detect
+// framework switches and clear that canvas before the new framework mounts.
+// Keyed per canvas (not a single module global): the Docs page renders stories
+// into their own canvases, and a global would let a Docs render of one framework
+// suppress the cleanup when a different framework's story later reuses the shared
+// story canvas — stacking two components until a reload.
+const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
@@ -104,12 +108,13 @@ export async function renderToCanvas(
   // canvas container with it in docs view to preserve each component's own look.
   canvasElement.classList.toggle('sb-unstyled', storyContext?.viewMode === 'docs');
 
-  // When the framework changes, clear the canvas so the previous framework's DOM
-  // doesn't stack alongside the new one. Same-framework rerenders are unaffected.
-  if (renderer !== activeRenderer) {
+  // When this canvas's framework changes, clear it so the previous framework's
+  // DOM doesn't stack alongside the new one. Same-framework rerenders are
+  // unaffected.
+  if (renderer !== lastRendererByCanvas.get(canvasElement)) {
     canvasElement.innerHTML = '';
   }
-  activeRenderer = renderer;
+  lastRendererByCanvas.set(canvasElement, renderer);
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     showMain();
