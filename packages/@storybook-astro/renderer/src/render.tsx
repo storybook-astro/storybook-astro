@@ -102,6 +102,12 @@ export async function renderToCanvas(
   const renderer = ctx.storyContext.parameters?.renderer as string | undefined;
   const typedRenderers = renderers as RendererRegistry;
 
+  // On the Docs page a story renders inside `.sbdocs-content`, whose typography
+  // styles bleed into the rendered component (e.g. overriding an `<h2>`'s color).
+  // Storybook exempts `.sb-unstyled` descendants from that typography, so tag the
+  // canvas container with it in docs view to preserve each component's own look.
+  canvasElement.classList.toggle('sb-unstyled', storyContext?.viewMode === 'docs');
+
   // When this canvas's framework changes, clear it so the previous framework's
   // DOM doesn't stack alongside the new one. Same-framework rerenders are
   // unaffected.
