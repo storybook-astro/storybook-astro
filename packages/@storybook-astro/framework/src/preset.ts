@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+import { version as viteVersion } from 'vite';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
@@ -205,8 +206,8 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   }
   // Mark integration virtual modules as external so the dep bundler doesn't
   // try to resolve them (they are Vite virtual modules with no real package).
-  // Set both esbuildOptions (Vite ≤7) and rolldownOptions (Vite 8+, Rolldown)
-  // so the correct key is populated regardless of Vite version.
+  // Vite ≤7 reads these from esbuildOptions; Vite 8+ uses Rolldown and reads
+  // them from rolldownOptions. We populate whichever key the running Vite uses.
   const integrationVirtualModules = [
     'virtual:@astrojs/vue/app',
     'virtual:astro:vue-app',
@@ -215,16 +216,21 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     'astro:toolbar:internal'
   ];
 
-  // Vite ≤7 (esbuild-based optimizer)
-  if (!finalConfig.optimizeDeps.esbuildOptions) {
-    finalConfig.optimizeDeps.esbuildOptions = {};
-  }
-  if (!finalConfig.optimizeDeps.esbuildOptions.external) {
-    finalConfig.optimizeDeps.esbuildOptions.external = [];
-  }
-  for (const mod of integrationVirtualModules) {
-    if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
-      finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
+  const viteMajor = Number.parseInt(viteVersion, 10);
+
+  // Vite ≤7 (esbuild-based optimizer). On Vite 8+ setting esbuildOptions logs a
+  // deprecation warning, so only touch it on older Vite.
+  if (viteMajor < 8) {
+    if (!finalConfig.optimizeDeps.esbuildOptions) {
+      finalConfig.optimizeDeps.esbuildOptions = {};
+    }
+    if (!finalConfig.optimizeDeps.esbuildOptions.external) {
+      finalConfig.optimizeDeps.esbuildOptions.external = [];
+    }
+    for (const mod of integrationVirtualModules) {
+      if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
+        finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
+      }
     }
   }
 
@@ -236,6 +242,48 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     new Set([...(rolldownOpts.external ?? []), ...integrationVirtualModules])
   );
   optimizeDepsMut.rolldownOptions = rolldownOpts;
+
+  // Vite 8 dev-server compatibility (Astro 7+). Vite ≤7 (Astro 5/6) is unaffected.
+  if (configType === 'DEVELOPMENT' && viteMajor >= 8) {
+    // 1. Drop @vitejs/plugin-react's Vite 8 native Fast Refresh wrapper. Under
+    //    Vite 8 the plugin delegates Fast Refresh to a Rolldown builtin
+    //    (`builtin:vite-react-refresh-wrapper`) that throws
+    //    "Missing field `moduleType`" while transforming Storybook's iframe.html
+    //    inline bootstrap script — 500-ing every preview load. There is no
+    //    config opt-out, so we remove the plugin. React components still render;
+    //    only Fast Refresh is lost (component edits full-reload instead).
+    const stripReactRefreshWrapper = (plugins: unknown[]): unknown[] =>
+      plugins
+        .map((plugin) => (Array.isArray(plugin) ? stripReactRefreshWrapper(plugin) : plugin))
+        .filter(
+          (plugin) =>
+            !(
+              plugin &&
+              typeof plugin === 'object' &&
+              (plugin as { name?: string }).name === 'vite:react:refresh-wrapper'
+            )
+        );
+
+    finalConfig.plugins = stripReactRefreshWrapper(
+      finalConfig.plugins ?? []
+    ) as typeof finalConfig.plugins;
+
+    // 2. Exclude the Storybook renderer entry-previews from dependency
+    //    optimization. Some ship non-JS source (e.g. `@storybook/svelte`'s
+    //    `.svelte` files) that the esbuild dep scanner cannot load
+    //    ("No loader is configured for .svelte"), which fails optimization and
+    //    504s every renderer entry. Serving them as source lets the framework's
+    //    own Vite plugins transform them.
+    const entryPreviews = integrations
+      .map((integration) => integration.storybookEntryPreview)
+      .filter((specifier): specifier is string => Boolean(specifier));
+
+    for (const specifier of entryPreviews) {
+      if (!finalConfig.optimizeDeps.exclude.includes(specifier)) {
+        finalConfig.optimizeDeps.exclude.push(specifier);
+      }
+    }
+  }
 
   return finalConfig;
 };

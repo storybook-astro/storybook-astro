@@ -12,6 +12,8 @@ Two distinct nesting patterns were identified:
 
 ## Pattern B: Props-based nesting
 
+> **Status: Implemented.** A story can pass an Astro component as a prop (`args: { Icon }`) or as slot content (`args.slots.default`). The client serializes each component to a `{ __astroComponent: true, moduleId }` marker; the server reconstructs it. **Props** resolve back to the real component factory and pass through, so the parent template renders them with `<Comp />` (the Astro Container renders factory-valued props natively — the `<Fragment set:html>` workaround described below is **not** needed and was incorrect). **Slots** render the child to an HTML string, since the Container only accepts string slots; this happens *after* sanitization so a component's own markup isn't stripped, while plain-string slots still are. Implemented across `astroComponentMarker.ts` (renderer), `lib/reconstruct-component-args.ts`, `render.tsx`, `astroRenderHandler.ts`, and `testing/astro-runtime.ts`. Closes #128. The original analysis is kept below for context.
+
 When a story passes an Astro component as a prop (e.g. `<Link Icon={icon}>`), the middleware receives the parent component's `moduleId` but has no knowledge of the nested component — it arrives as a JSX element object, not an Astro component reference. The serialized JSON payload from the client to the server cannot carry live component factories.
 
 ### Proposed Solution

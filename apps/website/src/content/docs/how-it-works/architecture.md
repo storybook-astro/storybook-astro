@@ -22,8 +22,8 @@ The core framework implementation that integrates Astro with Storybook's build s
 - `src/integrations/` — Integration adapters for each supported framework
 - `src/viteStorybookAstroMiddlewarePlugin.ts` — Vite plugin for handling render requests (dev)
 - `src/vitePluginAstroBuildPrerender.ts` — Pre-renders Astro stories at build time
-- `src/vitePluginAstroComponentMarker.ts` — Patches Astro 6's client-side `.astro` stubs
-- `src/vitePluginAstroFontsFallback.ts` — Stubs Astro 6's font virtual modules
+- `src/vitePluginAstroComponentMarker.ts` — Patches Astro's client-side `.astro` stubs (Astro 6+ and Astro 7's Rust compiler)
+- `src/vitePluginAstroFonts.ts` — Resolves Astro's Font Provider API in Storybook's SSR context
 - `src/portable-stories.ts` — `composeStories`/`composeStory` for testing
 
 ### `@storybook-astro/renderer` (Client)
@@ -84,4 +84,4 @@ if (Component.isAstroComponentFactory) {
 }
 ```
 
-In Astro 6, the client-side Vite transform no longer sets this flag. The `vitePluginAstroComponentMarker` plugin patches the stub to restore it. See [Astro 6 Compatibility](/how-it-works/astro6-compat/) for details.
+Since Astro 6, the client-side Vite transform no longer sets this flag (Astro 7's Rust compiler behaves the same way). The `vitePluginAstroComponentMarker` plugin patches the stub to restore it. See [Version Compatibility](/how-it-works/version-compatibility/) for details.

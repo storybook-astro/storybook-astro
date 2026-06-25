@@ -243,6 +243,41 @@ If your project does not have a `src/env.d.ts`, create one with just that line, 
 
 ---
 
+### Slot content shows as raw HTML text (early Astro 6.0.x)
+
+**Symptom:**
+
+HTML passed as slot content via `args.slots` renders as visible, escaped text instead of markup — e.g. the story shows the literal `<strong>Hello</strong>` rather than a bold "Hello".
+
+```js
+export const Default = {
+  args: {
+    slots: { default: '<p>Welcome</p>' }, // renders "<p>Welcome</p>" as text
+  },
+};
+```
+
+**Cause:**
+
+Early Astro **6.0.x** releases (e.g. `6.0.3`) HTML-escape string slot content in the Container API. This was fixed in a later Astro 6.x release. **Astro 5 and Astro 7 are not affected.**
+
+**Solution:**
+
+Upgrade Astro to a recent 6.x (6.4.0 or newer):
+
+```bash
+npm install -D astro@^6.4.0
+```
+
+If an older version is already installed, do a clean install:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+---
+
 ## Known Limitations
 
 ### Vite 5 + Solid Integration

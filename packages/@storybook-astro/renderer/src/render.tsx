@@ -2,7 +2,8 @@ import { simulateDOMContentLoaded, simulatePageLoad } from 'storybook/internal/p
 import type { ArgsStoryFn, Renderer, RenderContext, StoryContext } from 'storybook/internal/types';
 import { dedent } from 'ts-dedent';
 import 'astro:scripts/page.js';
-import type { AstroComponentFactory, AstroRenderer } from './types';
+import type { AstroComponentFactory, AstroRenderer, SlotValue } from './types';
+import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -85,9 +86,13 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
   return output;
 }
 
-// Tracks the renderer used in the previous renderToCanvas call so we can detect
-// framework switches and clear the canvas before the new framework mounts.
-let activeRenderer: string | undefined;
+// Tracks the renderer last used to render into a given canvas, so we can detect
+// framework switches and clear that canvas before the new framework mounts.
+// Keyed per canvas (not a single module global): the Docs page renders stories
+// into their own canvases, and a global would let a Docs render of one framework
+// suppress the cleanup when a different framework's story later reuses the shared
+// story canvas — stacking two components until a reload.
+const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
@@ -97,12 +102,19 @@ export async function renderToCanvas(
   const renderer = ctx.storyContext.parameters?.renderer as string | undefined;
   const typedRenderers = renderers as RendererRegistry;
 
-  // When the framework changes, clear the canvas so the previous framework's DOM
-  // doesn't stack alongside the new one. Same-framework rerenders are unaffected.
-  if (renderer !== activeRenderer) {
+  // On the Docs page a story renders inside `.sbdocs-content`, whose typography
+  // styles bleed into the rendered component (e.g. overriding an `<h2>`'s color).
+  // Storybook exempts `.sb-unstyled` descendants from that typography, so tag the
+  // canvas container with it in docs view to preserve each component's own look.
+  canvasElement.classList.toggle('sb-unstyled', storyContext?.viewMode === 'docs');
+
+  // When this canvas's framework changes, clear it so the previous framework's
+  // DOM doesn't stack alongside the new one. Same-framework rerenders are
+  // unaffected.
+  if (renderer !== lastRendererByCanvas.get(canvasElement)) {
     canvasElement.innerHTML = '';
   }
-  activeRenderer = renderer;
+  lastRendererByCanvas.set(canvasElement, renderer);
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     showMain();
@@ -189,10 +201,11 @@ async function renderAstroToCanvas(
   }
 
   const { slots = {}, ...componentArgs } = args;
+
   const response = await astroRenderer.render({
     component: element.moduleId,
-    args: componentArgs,
-    slots: slots as Record<string, string>,
+    args: serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>,
+    slots: serializeAstroComponentMarkers(slots) as Record<string, SlotValue>,
     story: storyContext
       ? {
           id: storyContext.id,
@@ -203,25 +216,41 @@ async function renderAstroToCanvas(
   });
 
   astroRenderer.applyStyles?.();
-  canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement.ownerDocument);
+  canvasElement.innerHTML = prepareServerRenderedHtml(
+    response.html,
+    canvasElement.ownerDocument,
+    storyContext?.viewMode
+  );
   invokeScriptTags(canvasElement);
 }
 
 /** Parses the server HTML response and hoists any stylesheet links into the iframe head. */
-function prepareServerRenderedHtml(html: string, document: Document) {
+function prepareServerRenderedHtml(html: string, document: Document, viewMode?: string) {
   const template = document.createElement('template');
 
   template.innerHTML = html;
 
   // Server mode returns stylesheet links in the HTML response. Keep those in
   // the iframe head so controls rerenders can reuse them instead of refetching.
-  syncServerRenderedStylesheets(template.content, document);
+  syncServerRenderedStylesheets(template.content, document, viewMode);
 
   return template.innerHTML;
 }
 
-/** Keeps server-rendered stylesheets in the iframe head across controls rerenders. */
-function syncServerRenderedStylesheets(fragment: DocumentFragment, document: Document) {
+/**
+ * Keeps server-rendered stylesheets in the iframe head across controls rerenders.
+ *
+ * In the Canvas (one story at a time) we drop links the current render no longer
+ * uses, so a previous story's stylesheets don't linger. On a Docs page every
+ * story renders into the *same* head, so dropping "stale" links would let each
+ * story strip the others' stylesheets (e.g. CodeTabs' per-framework CSS) — there
+ * we only add, letting all stories' stylesheets coexist.
+ */
+function syncServerRenderedStylesheets(
+  fragment: DocumentFragment,
+  document: Document,
+  viewMode?: string
+) {
   const nextHrefs = new Set<string>();
   const stylesheetLinks = Array.from(fragment.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'));
 
@@ -249,6 +278,12 @@ function syncServerRenderedStylesheets(fragment: DocumentFragment, document: Doc
 
     link.remove();
   });
+
+  // On a Docs page, multiple stories share one head — keep every story's
+  // stylesheets. Only the single-story Canvas prunes links it no longer needs.
+  if (viewMode === 'docs') {
+    return;
+  }
 
   Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[data-storybook-astro-style]')).forEach(
     (link) => {

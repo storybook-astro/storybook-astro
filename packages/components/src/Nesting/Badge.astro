@@ -1,0 +1,17 @@
+---
+// Small child component used both as slot content and as a prop in the nesting stories.
+const { label = 'badge' } = Astro.props;
+
+---
+<span class="badge" data-testid="badge">{label}</span>
+
+<style>
+  .badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: #BF3FBF;
+    color: #fff;
+    font-size: 0.75rem;
+  }
+</style>

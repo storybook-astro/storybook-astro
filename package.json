@@ -7,7 +7,7 @@
     "node": ">=20.16.0 || >=22.19.0 || >=24.0.0"
   },
   "scripts": {
-    "dev": "yarn build:packages && yarn workspaces foreach -A --parallel --interlaced run dev",
+    "dev": "yarn build:packages && yarn workspaces foreach -A --parallel --interlaced --exclude '@storybook-astro/{integration-astro6-server,integration-astro7-server}' run dev",
     "dev:packages": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{framework,renderer}' run dev",
     "website": "yarn workspace @storybook-astro/website dev",
     "build": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced --exclude '@storybook-astro/{framework,renderer}' run build",
@@ -30,7 +30,7 @@
     "eslint-plugin-n": "^17.17.0",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-promise": "^7.2.1",
-    "eslint-plugin-storybook": "10.2.7",
+    "eslint-plugin-storybook": "10.4.6",
     "eslint-plugin-svelte": "^3.13.1",
     "eslint-plugin-vue": "^10.1.6",
     "eslint-plugin-workspaces": "^0.10.1",

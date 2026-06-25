@@ -253,17 +253,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-// Stubs Storybook's browser-only packages so story files that import docs
-// blocks (e.g. `import { Controls } from '@storybook/blocks'`) don't
-// trigger `document is not defined` during SSR prerendering. We only need
-// component/args from story modules — docs block components are never called.
+// Stubs Storybook's browser-only docs packages so a project's preview config
+// doesn't crash the SSR prerender. Stories import `@storybook/preview`, which
+// loads `.storybook/preview.ts`, which commonly registers the docs addon
+// (`import addonDocs from '@storybook/addon-docs'`). The docs addon pulls in
+// Storybook's UI kit, which reads `document.documentElement` at module load and
+// throws `document is not defined` under Node. The docs UI never runs during
+// prerendering — we only need each story's component and args — so replacing it
+// with a no-op is safe.
+//
+// `@storybook/addon-docs`'s default export is called as a function in preview
+// config (`addonDocs()`), so the stub exports a callable no-op. `blocks` are the
+// docs block components (used only inside MDX, which is not prerendered), and
+// `@storybook/blocks` is the pre-Storybook-10 path for those same blocks.
 function createStorybookBrowserStubPlugin(): Plugin {
+  const STUBBED_SPECIFIERS = new Set([
+    '@storybook/addon-docs',
+    '@storybook/addon-docs/blocks',
+    '@storybook/blocks'
+  ]);
   const STUB_ID = '\0storybook-astro-browser-stub';
 
   return {
     name: 'storybook-astro:storybook-browser-stubs',
+    // Must run before Astro's resolvers, which would otherwise resolve these
+    // bare specifiers to their real (browser-only) files before we can stub them.
+    enforce: 'pre',
     resolveId(id: string) {
-      if (id === '@storybook/blocks') {
+      if (STUBBED_SPECIFIERS.has(id)) {
         return STUB_ID;
       }
 
@@ -271,7 +288,7 @@ function createStorybookBrowserStubPlugin(): Plugin {
     },
     load(id: string) {
       if (id === STUB_ID) {
-        return 'export {};';
+        return 'export default () => ({});';
       }
 
       return null;
