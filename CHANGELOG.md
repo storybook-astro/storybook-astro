@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `optimizeDeps.esbuildOptions` is now only set on Vite ≤7, removing the deprecation warning emitted under Vite 8 (the Rolldown optimizer reads `rolldownOptions`).
+- Storybook dev server no longer hangs with a blank preview under Astro 7 / Vite 8. Two Vite 8-only issues are now handled in the dev config: `@vitejs/plugin-react`'s native Fast Refresh wrapper (a Rolldown builtin) threw ``Missing field `moduleType` `` while transforming the preview `iframe.html`, 500-ing every story; and the dependency optimizer failed on the Storybook renderer entry-previews that ship non-JS source (e.g. `@storybook/svelte`'s `.svelte` files), 504-ing every renderer. React components still render in dev; only React Fast Refresh is unavailable (component edits trigger a full reload).
 
 ## [1.6.0] - 2026-06-19
 
