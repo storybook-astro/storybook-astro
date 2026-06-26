@@ -103,4 +103,17 @@ describe('reviveDateStrings', () => {
     expect(result.date).toBeInstanceOf(Date);
     expect((result.date as Date).getTime()).toBe(original.getTime());
   });
+
+  // In the static-build path args aren't JSON-transported, so a real Date
+  // reaches reviveDateStrings directly. It must pass through untouched —
+  // recursing into it would flatten it to {} and break date formatting.
+  test('leaves an existing Date instance intact (including when nested)', () => {
+    const date = new Date('2022-04-04T05:00:00.000Z');
+    const result = reviveDateStrings({ post: { data: { date } } });
+
+    const preserved = (result.post as { data: { date: unknown } }).data.date;
+
+    expect(preserved).toBeInstanceOf(Date);
+    expect((preserved as Date).toISOString()).toBe('2022-04-04T05:00:00.000Z');
+  });
 });
