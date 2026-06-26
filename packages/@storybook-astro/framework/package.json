@@ -135,6 +135,9 @@
     "@storybook/vue3": {
       "optional": true
     },
+    "@vitejs/plugin-react": {
+      "optional": true
+    },
     "@vitejs/plugin-vue": {
       "optional": true
     },
