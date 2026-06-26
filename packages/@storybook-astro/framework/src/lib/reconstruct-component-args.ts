@@ -150,6 +150,15 @@ async function renderSlotComponent(
   }
 }
 
+// Only plain objects are walked for component references. Other object types
+// (Date, RegExp, ImageMetadata, class instances, …) are returned untouched so
+// their prototype/identity is preserved for the later arg processing.
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
 }

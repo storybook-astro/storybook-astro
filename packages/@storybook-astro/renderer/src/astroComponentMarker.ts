@@ -76,7 +76,11 @@ export function serializeAstroComponentMarkers(value: unknown, depth = 0): unkno
     return value.map((item) => serializeAstroComponentMarkers(item, depth + 1));
   }
 
-  if (value !== null && typeof value === 'object') {
+  // Only recurse into plain objects. Other object types (Date, RegExp, Map,
+  // class instances, …) can't hold an Astro factory and must pass through
+  // untouched — walking them with Object.entries would clobber a Date into an
+  // empty object, losing it when the args are JSON-serialized for transport.
+  if (isPlainObject(value)) {
     const out: Record<string, unknown> = {};
 
     for (const [key, nested] of Object.entries(value)) {
@@ -87,4 +91,14 @@ export function serializeAstroComponentMarkers(value: unknown, depth = 0): unkno
   }
 
   return value;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
 }
