@@ -176,6 +176,9 @@ async function prerenderAstroStories(options: {
     fonts: options.fonts
   });
   const assetPathMap = buildAssetPathMap(options.bundle);
+  // Astro's default public directory; its contents are copied to the output
+  // root, so a prerendered `/@fs/<root>/public/...` URL must become `/...`.
+  const publicDir = resolve(options.resolveFrom, 'public');
 
   try {
     const output: Record<string, string> = {};
@@ -194,7 +197,7 @@ async function prerenderAstroStories(options: {
       // Image asset URLs from Vite SSR still point at /@fs/ paths, so rewrite
       // them first; then rewrite hydrated framework component module paths and
       // prepend their extracted CSS so the static preview matches dev styling.
-      const htmlWithAssetUrls = rewriteAssetPaths(html, assetPathMap);
+      const htmlWithAssetUrls = rewriteAssetPaths(html, assetPathMap, publicDir);
       const htmlWithBuiltModules = rewriteBuiltModulePaths(
         htmlWithAssetUrls,
         options.staticModuleMap
@@ -274,18 +277,15 @@ function buildAssetPathMap(bundle: Rollup.OutputBundle): Map<string, string> {
 }
 
 /** Rewrites dev-only /@fs/ asset URLs in prerendered HTML to emitted build asset paths. */
-function rewriteAssetPaths(
+export function rewriteAssetPaths(
   html: string,
-  assetPathMap: ReturnType<typeof buildAssetPathMap>
+  assetPathMap: ReturnType<typeof buildAssetPathMap>,
+  publicDir: string
 ): string {
   const { exactMap, stemMap } = assetPathMap as unknown as {
     exactMap: Map<string, string>;
     stemMap: Map<string, string>;
   };
-
-  if (exactMap.size === 0 && stemMap.size === 0) {
-    return html;
-  }
 
   // Prerendering happens through a Vite SSR server, so image/style URLs can
   // still point at dev-only /@fs/ paths. Rewrite them to the emitted assets.
@@ -309,6 +309,13 @@ function rewriteAssetPaths(
 
     if (stemHit) {
       return stemHit;
+    }
+
+    // Files under the project's `public/` directory aren't bundle assets — the
+    // build copies them verbatim to the output root and serves them from `/`.
+    // Map e.g. `/@fs/<root>/public/images/x.png?…` to `/images/x.png`.
+    if (absolutePath.startsWith(`${publicDir}/`)) {
+      return absolutePath.slice(publicDir.length);
     }
 
     return match;
