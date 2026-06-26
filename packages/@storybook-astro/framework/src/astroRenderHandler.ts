@@ -185,7 +185,7 @@ export function patchCreateAstroCompat(component: unknown): AstroComponentFactor
   return wrapped;
 }
 
-async function processImageMetadata(
+export async function processImageMetadata(
   args: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   const processed: Record<string, unknown> = {};
@@ -237,6 +237,16 @@ function isImageMetadata(value: unknown): value is Record<string, unknown> {
   );
 }
 
+// Only plain objects are walked/rebuilt. Other object types (Date, RegExp,
+// class instances, …) are left intact — recursing into a Date with
+// Object.entries would flatten it to {}, which is how a story's Date arg ended
+// up as an invalid date during static prerendering.
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
 }
