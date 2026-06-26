@@ -4816,6 +4816,8 @@ __metadata:
       optional: true
     "@storybook/vue3":
       optional: true
+    "@vitejs/plugin-react":
+      optional: true
     "@vitejs/plugin-vue":
       optional: true
     "@vitejs/plugin-vue-jsx":

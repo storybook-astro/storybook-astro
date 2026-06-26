@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/renderer",
-  "version": "1.7.0-canary.1",
+  "version": "1.7.0-canary.2",
   "description": "Client-side renderer for Storybook Astro framework",
   "module": "./dist/preset.js",
   "type": "module",
