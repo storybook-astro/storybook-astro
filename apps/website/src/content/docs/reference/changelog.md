@@ -8,6 +8,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-06-26
+
+### Added
+- Astro components can now be passed as **props** (`args: { Icon }`, rendered by the parent via `<Comp />`) and as **slot content** (`args.slots.default`, the React `children` pattern) — closes #128. Component slot content keeps its own rendered markup; plain-string slots are still sanitized.
+- Astro 7 support — verified against Astro 7's Rust compiler (now the default) and Vite 8 (Rolldown). No configuration changes are required to move an Astro 6 setup to Astro 7.
+- New `integration/astro7` and `integration/astro7-server` example apps, plus an `astro7` smoke-test template. CI build, browser-test, smoke-test, and publish workflows now cover Astro 5, 6, and 7.
+
+### Changed
+- Peer dependency ranges widened to accept Astro 7 (`astro`, and the `@astrojs/*` framework integrations at their Astro 7 majors) and `@vitejs/plugin-react@6`.
+- `get-tsconfig` dependency aligned to the exact version Astro pins (`5.0.0-beta.4`), so Astro 6.4+/7 and the framework resolve a single deduped copy that exposes both `getTsconfig` and `readTsconfig`.
+
+### Fixed
+- Images served from the project's `public/` directory now render in the **static build** — `/@fs/<root>/public/...` URLs are now rewritten to their served root path (e.g. `/images/logo.png`).
+- `optimizeDeps.esbuildOptions` is now only set on Vite ≤7, removing the deprecation warning emitted under Vite 8.
+- Storybook dev server no longer hangs with a blank preview under Astro 7 / Vite 8.
+- `@vitejs/plugin-react` is now an **optional** peer dependency, fixing `ERESOLVE` on projects without React that use Vite 7.
+- `Date` story args are no longer corrupted before rendering — the arg serializer now only recurses into plain objects.
+- `Date` args also survive the **static build** (`renderMode: 'static'`) prerender path.
+
 ## [1.6.0] - 2026-06-19
 
 ### Added
