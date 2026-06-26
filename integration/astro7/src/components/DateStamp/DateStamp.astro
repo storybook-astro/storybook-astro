@@ -1,0 +1,14 @@
+---
+// Regression coverage: a Date passed as a story arg must reach the component as
+// a real Date through the static-build prerender path. Calling toISOString() on
+// a clobbered value ({}) throws, which is exactly the bug this guards against.
+interface Props {
+  publishedAt: Date;
+}
+
+const { publishedAt } = Astro.props;
+---
+
+<time datetime={publishedAt.toISOString()} data-testid="date-stamp">
+  Published: {publishedAt.toISOString()}
+</time>

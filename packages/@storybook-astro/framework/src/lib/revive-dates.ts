@@ -46,6 +46,15 @@ function reviveValue(value: unknown): unknown {
   return value;
 }
 
+// Only plain objects are walked. A real Date can reach this in the static-build
+// path (args aren't JSON-transported there), and recursing into it with
+// Object.entries would flatten it to {} — the opposite of reviving it.
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
 }
