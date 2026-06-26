@@ -1,0 +1,10 @@
+---
+// Parent with a default slot — the issue #128 repro target. Slot content may be
+// an HTML string or another Astro component.
+const { title = 'Panel' } = Astro.props;
+
+---
+<section class="panel" data-testid="panel">
+  <h2>{title}</h2>
+  <div class="panel-body"><slot /></div>
+</section>

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.7.0] - 2026-06-26
+
+### Added
+- Astro components can now be passed as **props** (`args: { Icon }`, rendered by the parent via `<Comp />`) and as **slot content** (`args.slots.default`, the React `children` pattern) — closes #128. Component slot content keeps its own rendered markup; plain-string slots are still sanitized.
+- Astro 7 support — verified against Astro 7's Rust compiler (now the default) and Vite 8 (Rolldown). No configuration changes are required to move an Astro 6 setup to Astro 7.
+- New `integration/astro7` and `integration/astro7-server` example apps, plus an `astro7` smoke-test template. CI build, browser-test, smoke-test, and publish workflows now cover Astro 5, 6, and 7.
+
+### Changed
+- Peer dependency ranges widened to accept Astro 7 (`astro`, and the `@astrojs/*` framework integrations at their Astro 7 majors) and `@vitejs/plugin-react@6`.
+- `get-tsconfig` dependency aligned to the exact version Astro pins (`5.0.0-beta.4`), so Astro 6.4+/7 and the framework resolve a single deduped copy that exposes both `getTsconfig` and `readTsconfig`.
+
+### Fixed
+- Images served from the project's `public/` directory now render in the **static build**. During prerender, Astro's `<Image>` emits a dev-only `/@fs/<root>/public/...` URL; for bundle assets the framework already rewrote these to their emitted paths, but public files (copied verbatim to the output root) were left pointing at the broken `/@fs/` path, so they 404'd. Such URLs are now rewritten to their served root path (e.g. `/images/logo.png`).
+- `optimizeDeps.esbuildOptions` is now only set on Vite ≤7, removing the deprecation warning emitted under Vite 8 (the Rolldown optimizer reads `rolldownOptions`).
+- Storybook dev server no longer hangs with a blank preview under Astro 7 / Vite 8. Two Vite 8-only issues are now handled in the dev config: `@vitejs/plugin-react`'s native Fast Refresh wrapper (a Rolldown builtin) threw ``Missing field `moduleType` `` while transforming the preview `iframe.html`, 500-ing every story; and the dependency optimizer failed on the Storybook renderer entry-previews that ship non-JS source (e.g. `@storybook/svelte`'s `.svelte` files), 504-ing every renderer. React components still render in dev; only React Fast Refresh is unavailable (component edits trigger a full reload).
+- `@vitejs/plugin-react` is now an **optional** peer dependency, matching the other framework integrations. It was the only integration peer not marked optional, so `npm install` in a project without React (e.g. an Astro 6 / Vite 7 content site) tried to satisfy it, picked `@vitejs/plugin-react@6` (which requires Vite 8), and failed with `ERESOLVE` against the project's Vite 7.
+- `Date` (and other non-plain object) story args are no longer corrupted before rendering. The client-side marker serializer added for component-as-prop/slot support walked every object with `Object.entries`, which flattened a `Date` to `{}` — so it never round-tripped to an ISO string and the component hit `date.toISOString is not a function`. The serializer (and the server-side prop reconstructor) now only recurse into plain objects, leaving `Date`, `RegExp`, `ImageMetadata`, etc. intact.
+- `Date` args also survive the **static build** (`renderMode: 'static'`) prerender path. There the args arrive as real `Date` objects (not transported as strings), so every arg-walking step had to leave them intact. Both `processImageMetadata` and `reviveDateStrings` previously recursed into a `Date` with `Object.entries`, flattening it to `{}` and producing `RangeError: Invalid time value` when a component formatted it. All arg walkers now only recurse into plain objects.
+
 ## [1.6.0] - 2026-06-19
 
 ### Added

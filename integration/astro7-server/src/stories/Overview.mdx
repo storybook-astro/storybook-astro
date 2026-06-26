@@ -1,0 +1,78 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Overview" />
+
+# Storybook Astro — Astro 7 Server Demo
+
+This demo showcases **server render mode** for Storybook Astro, where Astro components remain fully interactive in production builds with working Controls.
+
+## Versions
+
+- **Astro**: 7.0.0
+- **Storybook**: 10.4.6
+- **Framework**: @storybook-astro/framework (latest)
+
+## Server Render Mode
+
+Unlike static mode (which pre-renders all stories at build time), server mode deploys an HTTP render server that processes render requests on-demand. This keeps Astro component Controls fully functional in production.
+
+### How It Works
+
+1. **Build time**: Storybook generates a Hono-based render server (`storybook-server/index.js`)
+2. **Runtime**: API routes (`/api/storybook-astro/*`) forward requests to the Hono app
+3. **Rendering**: When Controls change, the preview iframe sends a render request; the server renders the updated component via Astro Container API
+
+### Server-Side Stories
+
+This demo includes three stories that fetch live data server-side:
+
+- **Npm Weekly Downloads** — Fetches npm download stats via Astro.fetch()
+- **GitHub Contributors** — Displays repository contributors with avatars
+- **GitHub Stars** — Shows star count and growth chart
+
+All three stories demonstrate server-side data fetching with interactive Controls.
+
+## Architecture
+
+```
+┌─────────────────┐
+│ Storybook UI    │
+│ (Controls)      │
+└────────┬────────┘
+         │ render request
+         ↓
+┌─────────────────────────────────┐
+│ API Route                       │
+│ /api/storybook-astro/[...path]  │
+└────────┬────────────────────────┘
+         │ handle(app)
+         ↓
+┌─────────────────────────────────┐
+│ Hono Render Server              │
+│ storybook-server/index.js       │
+└────────┬────────────────────────┘
+         │ renderToString()
+         ↓
+┌─────────────────────────────────┐
+│ Astro Container API             │
+│ (Server-side rendering)         │
+└─────────────────────────────────┘
+```
+
+## Deployment
+
+This demo requires a Node.js runtime environment that supports:
+- **Static Assets**: Storybook UI in `storybook-static/`
+- **API Routes**: Server-side rendering via `api/storybook-astro/[...path].js`
+- **Node.js APIs**: Vite, Astro Container, filesystem access
+
+Compatible platforms: Vercel, Netlify Functions, custom Node.js servers
+
+## Learn More
+
+- [Website](https://storybook-astro.org)
+- [Getting Started](https://storybook-astro.org/getting-started)
+- [Configuration Reference](https://storybook-astro.org/reference/configuration)
+- [Astro 5 Demo](https://demo-astro5.storybook-astro.org)
+- [Astro 6 Demo](https://demo-astro6.storybook-astro.org)
+- [GitHub](https://github.com/storybook-astro/storybook-astro)

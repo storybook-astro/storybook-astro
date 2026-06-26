@@ -1,4 +1,16 @@
 import type { WebRenderer } from 'storybook/internal/types';
+import type { AstroComponentMarker } from './astroComponentMarker';
+
+export {
+  ASTRO_COMPONENT_MARKER,
+  isAstroComponentMarker,
+  isAstroComponentFactory,
+  serializeAstroComponentMarkers
+} from './astroComponentMarker';
+export type { AstroComponentMarker } from './astroComponentMarker';
+
+/** Slot content: an HTML string, a serialized component reference, or a list of either. */
+export type SlotValue = string | AstroComponentMarker | Array<string | AstroComponentMarker>;
 
 /**
  * Mirrors the shape that the Astro language server gives to `.astro` imports:
@@ -26,7 +38,7 @@ export interface AstroRenderer extends WebRenderer {
 export type RenderComponentInput = {
   component: string;
   args: Record<string, unknown>;
-  slots: Record<string, string>;
+  slots: Record<string, SlotValue>;
   story?: {
     id: string;
     title?: string;

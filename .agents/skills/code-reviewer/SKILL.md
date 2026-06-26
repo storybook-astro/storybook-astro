@@ -248,7 +248,7 @@ export const vitePluginMyFramework: Plugin = {
 ### Astro 6 Compatibility
 - Check for use of `AstroContainer.create()` (correct for v6)
 - Verify `patchCreateAstroCompat()` usage if needed
-- Font virtual module handling via `vitePluginAstroFontsFallback`
+- Font Provider API handling via `vitePluginAstroFonts`
 - Component marker plugin for client stub replacement
 
 ### Astro 5 Compatibility

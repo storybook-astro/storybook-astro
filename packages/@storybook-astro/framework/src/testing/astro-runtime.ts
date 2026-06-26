@@ -6,6 +6,10 @@ import { resolveTestingProjectRoot } from './project-root.ts';
 import { runWithWorkingDirectory } from './working-directory.ts';
 import { getComponentModuleId, isAstroComponentFactory, isStorybookAstroClientStub } from './component-utils.ts';
 import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fallback.ts';
+import { separateStorySlots } from '../lib/separate-story-slots.ts';
+import { reconstructProps, reconstructSlots } from '../lib/reconstruct-component-args.ts';
+import { patchCreateAstroCompat, markRawSlots } from '../astroRenderHandler.ts';
+import { serializeAstroComponentMarkers } from '@storybook-astro/renderer/types';
 import type { ComposedStory } from './types.ts';
 import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
 
@@ -16,7 +20,13 @@ const astroSsrViteServerPromises = new Map<string, Promise<ViteDevServer>>();
 
 const astroSsrHandlerPromises = new Map<
   string,
-  Promise<(data: { component: string; args?: Record<string, unknown> }) => Promise<string>>
+  Promise<
+    (data: {
+      component: string;
+      args?: Record<string, unknown>;
+      slots?: Record<string, unknown>;
+    }) => Promise<string>
+  >
 >();
 
 const testingIntegrationsCache = new Map<string, StorybookAstroIntegration[]>();
@@ -115,6 +125,14 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
   return resolvedComponent;
 }
 
+function setRenderedHtml(html: string) {
+  if (typeof document !== 'undefined') {
+    document.body.innerHTML = html;
+  }
+
+  return html;
+}
+
 async function renderAstroComponentToDom(
   component: unknown,
   args: Record<string, unknown>,
@@ -122,21 +140,26 @@ async function renderAstroComponentToDom(
 ) {
   const moduleId = getComponentModuleId(component);
 
+  // Split slot content from props, then serialize any Astro component passed as
+  // a prop or slot into a moduleId marker. The handler reconstructs each marker —
+  // loading the real server component by moduleId — so a story can nest Astro
+  // components without the unrenderable client stub leaking through.
+  const { componentArgs, storySlots } = separateStorySlots(args);
+  const serializedArgs = serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>;
+  const serializedSlots = serializeAstroComponentMarkers(storySlots) as Record<string, unknown>;
+
   if (moduleId) {
     try {
       // Fast path: reuse a single shared SSR daemon instead of spinning SSR in each worker.
       const html = await renderViaTestingRendererDaemon({
         resolveFrom,
         component: moduleId,
-        args
+        args: serializedArgs,
+        slots: serializedSlots
       });
 
       if (typeof html === 'string') {
-        if (typeof document !== 'undefined') {
-          document.body.innerHTML = html;
-        }
-
-        return html;
+        return setRenderedHtml(html);
       }
     } catch {
       // Fall back to in-worker rendering below when daemon render fails.
@@ -146,14 +169,11 @@ async function renderAstroComponentToDom(
       const handler = await getAstroSsrHandler(resolveFrom);
       const html = await handler({
         component: moduleId,
-        args
+        args: serializedArgs,
+        slots: serializedSlots
       });
 
-      if (typeof document !== 'undefined') {
-        document.body.innerHTML = html;
-      }
-
-      return html;
+      return setRenderedHtml(html);
     } catch {
       // Fall back to direct Container rendering below
     }
@@ -161,20 +181,31 @@ async function renderAstroComponentToDom(
 
   const resolvedComponent = await resolveAstroComponent(component, resolveFrom);
   const container = await getAstroContainer();
-  
+
   if (!container) {
     throw new Error('Failed to initialize Astro container for rendering');
   }
-  
-  const html = await container.renderToString(resolvedComponent, {
-    props: args
+
+  // The direct fallback has no handler, so reconstruct nested components here:
+  // load each marker's real server module by id and render slot markers to HTML.
+  const loadComponent = async (id: string) => {
+    const viteServer = await getAstroSsrViteServer(resolveFrom);
+    const mod = (await ssrLoadModuleWithFsFallback(viteServer, id)) as Record<string, unknown>;
+
+    return patchCreateAstroCompat(mod.default);
+  };
+  const reconstructedArgs = await reconstructProps(serializedArgs, { loadComponent });
+  const reconstructedSlots = await reconstructSlots(serializedSlots, {
+    loadComponent,
+    renderToHtml: (child) => container.renderToString(child, {})
   });
 
-  if (typeof document !== 'undefined') {
-    document.body.innerHTML = html;
-  }
+  const html = await container.renderToString(resolvedComponent, {
+    props: reconstructedArgs,
+    slots: markRawSlots(reconstructedSlots)
+  });
 
-  return html;
+  return setRenderedHtml(html);
 }
 
 async function renderComposedStory(story: ComposedStory) {

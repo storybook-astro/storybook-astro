@@ -39,18 +39,7 @@ export default {
 };
 ```
 
-Sanitization is enabled by default. To disable it explicitly:
-
-```javascript
-export default {
-  framework: {
-    name: '@storybook-astro/framework',
-    options: {
-      sanitization: { enabled: false },
-    },
-  },
-};
-```
+Story slots are sanitized by default with conservative HTML defaults, so most projects need no extra setup. To adjust which args and slots are sanitized — or to turn it off — see the [Sanitization guide](/guides/sanitization/).
 
 See the [Configuration Reference](/reference/configuration/) for all available options.
 

@@ -15,7 +15,7 @@
     "@fontsource/inter": "^5.2.8",
     "@storybook-astro/components": "workspace:*",
     "@storybook-astro/framework": "workspace:*",
-    "astro": "^6.0.5",
+    "astro": "^6.4.0",
     "preact": "^10.28.1"
   },
   "devDependencies": {

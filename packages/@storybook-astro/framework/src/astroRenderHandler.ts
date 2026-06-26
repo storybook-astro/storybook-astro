@@ -1,7 +1,9 @@
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import { markHTMLString } from 'astro/runtime/server/index.js';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { reviveDateStrings } from './lib/revive-dates.ts';
+import { reconstructProps, reconstructSlots } from './lib/reconstruct-component-args.ts';
 import { runWithStoryRules, type ResolveRulesConfigModule } from './storyRulesRuntime.ts';
 import type { RenderStoryInput } from './types.ts';
 
@@ -86,7 +88,13 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
             data.component,
             selectedRules.moduleMocks.size === 0
           );
-          const processedArgs = await processImageMetadata(data.args ?? {});
+          // Resolve Astro components passed as props back to real factories
+          // before the other arg processing (factories pass through those
+          // untouched), so the parent template can render them with `<Comp />`.
+          const reconstructedArgs = await reconstructProps(data.args ?? {}, {
+            loadComponent: (moduleId) => loadPatchedComponent(moduleId)
+          });
+          const processedArgs = await processImageMetadata(reconstructedArgs);
           const revivedArgs = reviveDateStrings(processedArgs);
           const sanitizedPayload = sanitizeRenderPayload(
             {
@@ -96,11 +104,23 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
             sanitizationOptions
           );
 
+          // Render component slots to HTML *after* sanitization so a component's
+          // own markup isn't stripped by the slot allowlist (string slots above
+          // still are). Markers pass through sanitization untouched.
+          const renderedSlots = await reconstructSlots(sanitizedPayload.slots, {
+            loadComponent: (moduleId) => loadPatchedComponent(moduleId),
+            renderToHtml: (component) =>
+              options.container.renderToString(
+                component as Parameters<typeof options.container.renderToString>[0],
+                {}
+              )
+          });
+
           return options.container.renderToString(
             patchedComponent as Parameters<typeof options.container.renderToString>[0],
             {
               props: sanitizedPayload.args,
-              slots: sanitizedPayload.slots
+              slots: markRawSlots(renderedSlots)
             }
           );
         }
@@ -116,6 +136,23 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
 
     return resultPromise;
   };
+}
+
+/**
+ * Marks each slot's HTML string as already-rendered so the Astro Container emits
+ * it raw instead of escaping it. Astro 5 and 7 render string slots raw anyway,
+ * but Astro 6 escapes an unmarked string slot — this normalizes all versions.
+ * `markHTMLString` tags the string via a global symbol, so it's recognized even
+ * across Astro module instances.
+ */
+export function markRawSlots(slots: Record<string, unknown>): Record<string, unknown> {
+  const marked: Record<string, unknown> = {};
+
+  for (const [name, value] of Object.entries(slots)) {
+    marked[name] = typeof value === 'string' ? markHTMLString(value) : value;
+  }
+
+  return marked;
 }
 
 export function patchCreateAstroCompat(component: unknown): AstroComponentFactory {
@@ -148,7 +185,7 @@ export function patchCreateAstroCompat(component: unknown): AstroComponentFactor
   return wrapped;
 }
 
-async function processImageMetadata(
+export async function processImageMetadata(
   args: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   const processed: Record<string, unknown> = {};
@@ -200,6 +237,16 @@ function isImageMetadata(value: unknown): value is Record<string, unknown> {
   );
 }
 
+// Only plain objects are walked/rebuilt. Other object types (Date, RegExp,
+// class instances, …) are left intact — recursing into a Date with
+// Object.entries would flatten it to {}, which is how a story's Date arg ended
+// up as an invalid date during static prerendering.
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
 }

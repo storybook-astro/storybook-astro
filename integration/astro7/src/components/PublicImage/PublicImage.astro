@@ -1,0 +1,24 @@
+---
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+
+// Regression coverage for public-directory images rendered through Astro's
+// <Image>. In the static build these resolve to dev-only `/@fs/.../public/...`
+// URLs during prerender; the framework must rewrite them to their served root
+// path (e.g. `/images/sample.png`) or the image 404s. Mirrors a common
+// theme pattern (glob `public/images`, pass the imported asset to <Image>).
+interface Props {
+  src: string;
+  alt: string;
+}
+
+const { src, alt } = Astro.props;
+const lookup = `/public${src}`;
+const images = import.meta.glob<{ default: ImageMetadata }>(
+  "/public/images/**/*.{jpeg,jpg,png,gif,svg}"
+);
+const image = images[lookup];
+
+---
+
+{image && <Image src={image()} alt={alt} width={200} height={200} format="png" />}
