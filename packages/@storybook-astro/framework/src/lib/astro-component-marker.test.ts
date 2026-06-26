@@ -4,6 +4,7 @@ import {
   isAstroComponentMarker,
   serializeAstroComponentMarkers
 } from '@storybook-astro/renderer/types';
+import { reviveDateStrings } from './revive-dates.ts';
 
 const factory = (moduleId: string | undefined) =>
   Object.assign(() => undefined, { isAstroComponentFactory: true as const, moduleId });
@@ -45,4 +46,28 @@ test('serializeAstroComponentMarkers drops a factory with no moduleId and report
 
 test('serializeAstroComponentMarkers leaves non-component values untouched', () => {
   expect(serializeAstroComponentMarkers({ a: 1, b: 'x', c: null })).toEqual({ a: 1, b: 'x', c: null });
+});
+
+test('serializeAstroComponentMarkers preserves Date instances instead of clobbering them to {}', () => {
+  const date = new Date('2025-04-12T00:00:00.000Z');
+  const result = serializeAstroComponentMarkers({ pubDate: date }) as Record<string, unknown>;
+
+  expect(result.pubDate).toBeInstanceOf(Date);
+  expect(result.pubDate).toBe(date);
+});
+
+test('a Date nested in args survives serialize + JSON transport + revive (PostFeed regression)', () => {
+  // Mirrors the PostFeed story: posts[].data.pubDate. The client serializer must
+  // not flatten the Date so JSON.stringify can emit an ISO string the server revives.
+  const args = {
+    posts: [{ id: 'a', data: { title: 'A', pubDate: new Date('2025-04-12T00:00:00.000Z') } }]
+  };
+
+  const transported = JSON.parse(JSON.stringify(serializeAstroComponentMarkers(args)));
+  const revived = reviveDateStrings(transported as Record<string, unknown>);
+
+  const pubDate = (revived.posts as Array<{ data: { pubDate: unknown } }>)[0].data.pubDate;
+
+  expect(pubDate).toBeInstanceOf(Date);
+  expect((pubDate as Date).toISOString()).toBe('2025-04-12T00:00:00.000Z');
 });
