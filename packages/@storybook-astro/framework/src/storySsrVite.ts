@@ -253,26 +253,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-// Stubs Storybook's browser-only docs packages so a project's preview config
-// doesn't crash the SSR prerender. Stories import `@storybook/preview`, which
-// loads `.storybook/preview.ts`, which commonly registers the docs addon
-// (`import addonDocs from '@storybook/addon-docs'`). The docs addon pulls in
-// Storybook's UI kit, which reads `document.documentElement` at module load and
-// throws `document is not defined` under Node. The docs UI never runs during
-// prerendering — we only need each story's component and args — so replacing it
-// with a no-op is safe.
+// Stubs Storybook's browser-only modules so a project's preview config doesn't
+// crash the SSR prerender.
 //
-// `@storybook/addon-docs`'s default export is called as a function in preview
-// config (`addonDocs()`), so the stub exports a callable no-op. `blocks` are the
-// docs block components (used only inside MDX, which is not prerendered), and
-// `@storybook/blocks` is the pre-Storybook-10 path for those same blocks.
-function createStorybookBrowserStubPlugin(): Plugin {
+// CSF4 stories import `@storybook/preview` and build their meta with
+// `preview.meta(...).story(...)`. The real `@storybook/preview` re-exports the
+// project's `.storybook/preview.ts`, which registers addons (docs, a11y, themes,
+// …) whose UI kit reads `document` at module load and throws
+// `document is not defined` under Node. Those addons pull `storybook/internal/...`
+// in as externalized native imports, so a per-package stub can't reliably catch
+// every DOM-touching module they reach.
+//
+// Prerendering only needs each story's component and args, never preview-level
+// decorators/parameters or any addon. So we replace `@storybook/preview` with a
+// minimal CSF4 factory: `meta(input)` returns `{ input }` and `meta.story(input)`
+// returns the `{ _tag: 'Story', input, meta }` shape `resolveStoryAnnotations`
+// reads. This sidesteps the project preview and its entire addon graph.
+//
+// The docs-package stubs remain as defense in depth for any path that still loads
+// `.storybook/preview.ts` directly. `@storybook/addon-docs`'s default export is
+// called as a function in preview config, so it stubs to a callable no-op;
+// `blocks` are the docs block components (used only inside MDX, never prerendered)
+// and `@storybook/blocks` is the pre-Storybook-10 path for those same blocks.
+export function createStorybookBrowserStubPlugin(): Plugin {
   const STUBBED_SPECIFIERS = new Set([
     '@storybook/addon-docs',
     '@storybook/addon-docs/blocks',
     '@storybook/blocks'
   ]);
   const STUB_ID = '\0storybook-astro-browser-stub';
+  const PREVIEW_SPECIFIER = '@storybook/preview';
+  const PREVIEW_STUB_ID = '\0storybook-astro-preview-stub';
+  const PREVIEW_STUB_SOURCE = [
+    'const preview = {',
+    '  meta(input = {}) {',
+    '    const meta = { input };',
+    "    meta.story = (storyInput = {}) => ({ _tag: 'Story', input: storyInput, meta });",
+    '    return meta;',
+    '  }',
+    '};',
+    'export default preview;'
+  ].join('\n');
 
   return {
     name: 'storybook-astro:storybook-browser-stubs',
@@ -280,6 +301,10 @@ function createStorybookBrowserStubPlugin(): Plugin {
     // bare specifiers to their real (browser-only) files before we can stub them.
     enforce: 'pre',
     resolveId(id: string) {
+      if (id === PREVIEW_SPECIFIER) {
+        return PREVIEW_STUB_ID;
+      }
+
       if (STUBBED_SPECIFIERS.has(id)) {
         return STUB_ID;
       }
@@ -287,6 +312,10 @@ function createStorybookBrowserStubPlugin(): Plugin {
       return null;
     },
     load(id: string) {
+      if (id === PREVIEW_STUB_ID) {
+        return PREVIEW_STUB_SOURCE;
+      }
+
       if (id === STUB_ID) {
         return 'export default () => ({});';
       }
