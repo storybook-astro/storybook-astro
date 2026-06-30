@@ -109,10 +109,13 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           // still are). Markers pass through sanitization untouched.
           const renderedSlots = await reconstructSlots(sanitizedPayload.slots, {
             loadComponent: (moduleId) => loadPatchedComponent(moduleId),
-            renderToHtml: (component) =>
+            renderToHtml: (component, props, slots) =>
               options.container.renderToString(
                 component as Parameters<typeof options.container.renderToString>[0],
-                {}
+                {
+                  props: props ?? {},
+                  slots: markRawSlots(slots ?? {})
+                }
               )
           });
 

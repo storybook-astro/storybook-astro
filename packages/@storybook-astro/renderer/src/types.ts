@@ -5,12 +5,28 @@ export {
   ASTRO_COMPONENT_MARKER,
   isAstroComponentMarker,
   isAstroComponentFactory,
+  isAstroComponentSlot,
   serializeAstroComponentMarkers
 } from './astroComponentMarker';
 export type { AstroComponentMarker } from './astroComponentMarker';
 
-/** Slot content: an HTML string, a serialized component reference, or a list of either. */
-export type SlotValue = string | AstroComponentMarker | Array<string | AstroComponentMarker>;
+/**
+ * A child component placed in a slot together with its own props and slots — the
+ * "configured component" slot value. After crossing the render boundary
+ * `component` is a marker; in the testing/portable path it's a real factory. Its
+ * `slots` are themselves {@link SlotValue}s, so configured components nest.
+ */
+export type AstroComponentSlot = {
+  component: AstroComponentMarker | AstroComponentFactory;
+  props?: Record<string, unknown>;
+  slots?: Record<string, SlotValue>;
+};
+
+/** One slot entry: an HTML string, a component reference, or a configured component. */
+type SingleSlotValue = string | AstroComponentMarker | AstroComponentFactory | AstroComponentSlot;
+
+/** Slot content: a single entry, or a list of entries concatenated into one slot. */
+export type SlotValue = SingleSlotValue | SingleSlotValue[];
 
 /**
  * Mirrors the shape that the Astro language server gives to `.astro` imports:

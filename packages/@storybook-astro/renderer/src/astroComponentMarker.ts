@@ -9,9 +9,10 @@
  * Only the `moduleId` needs to cross the boundary — the server loads the
  * component from it exactly like it loads the top-level story component.
  *
- * Scope: a marker carries a bare component reference, not per-instance props or
- * slots. Passing a "configured" child (with its own props/slots) or a non-Astro
- * framework component as a slot/prop is not supported yet.
+ * Scope: a marker carries a bare component reference. To give a child its own
+ * props and slot content, wrap it in a configured-component slot descriptor
+ * ({@link isAstroComponentSlot}). Passing a non-Astro framework component as a
+ * slot/prop is not supported yet.
  */
 export const ASTRO_COMPONENT_MARKER = '__astroComponent';
 
@@ -45,6 +46,27 @@ export function isAstroComponentFactory(value: unknown): boolean {
     'isAstroComponentFactory' in value &&
     (value as { isAstroComponentFactory?: unknown }).isAstroComponentFactory === true
   );
+}
+
+/**
+ * Detects a "configured" component slot: a plain object that names a child
+ * `component` (a marker or a factory) plus optional `props` and `slots` of its
+ * own. This lets a story drop a child component *with its own content* into a
+ * parent's slot, mixed freely with plain strings and bare component references.
+ *
+ * Only objects whose `component` is itself a recognized Astro reference match,
+ * so an ordinary plain-object slot value is never mistaken for a descriptor.
+ */
+export function isAstroComponentSlot(
+  value: unknown
+): value is { component: unknown; props?: Record<string, unknown>; slots?: Record<string, unknown> } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const component = (value as { component?: unknown }).component;
+
+  return isAstroComponentMarker(component) || isAstroComponentFactory(component);
 }
 
 /**
