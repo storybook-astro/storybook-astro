@@ -26,6 +26,8 @@ Storybook Astro renders each Astro component the same way Astro itself would —
 3. That HTML is handed back and dropped into Storybook's preview, so you see the genuine, production-like result.
 4. The component's styling and any interactive scripts come along too, so it looks and behaves correctly.
 
+This is possible because Astro itself ships a tool for exactly this purpose — the **Container API**. It lets you render a single Astro component to HTML on demand, without needing a whole website or build process around it. Storybook Astro uses that tool under the hood to produce each story's HTML.
+
 The upshot: you get to develop and document Astro components in Storybook just like any other component, while still seeing true Astro output. As a bonus, the same setup lets Astro components live side by side with React, Vue, Svelte, Preact, Solid, and Alpine.js components in a single Storybook.
 
 ## Want the details?
