@@ -87,6 +87,9 @@ export function defineConfig(options: TestingDefineConfig) {
     ? globalSetupTsPath
     : fileURLToPath(new URL('./global-setup.js', import.meta.url));
   const testConfig = {
+    // The shared SSR render daemon's cold start can exceed Vitest's 5000ms
+    // default on a cold cache; callers can still override this.
+    testTimeout: 15000,
     ...rest.test,
     globalSetup: normalizeGlobalSetup(rest.test?.globalSetup, globalSetupFilePath)
   };
