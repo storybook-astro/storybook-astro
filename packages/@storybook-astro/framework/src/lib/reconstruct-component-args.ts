@@ -1,4 +1,8 @@
-import { isAstroComponentFactory, isAstroComponentMarker } from '@storybook-astro/renderer/types';
+import {
+  isAstroComponentFactory,
+  isAstroComponentMarker,
+  isAstroComponentSlot
+} from '@storybook-astro/renderer/types';
 
 /**
  * Resolves Astro component references that a story passed as props or slot
@@ -19,7 +23,11 @@ import { isAstroComponentFactory, isAstroComponentMarker } from '@storybook-astr
  * (where factories are already in hand).
  */
 type LoadComponent = (moduleId: string) => Promise<unknown>;
-type RenderToHtml = (component: unknown) => Promise<string>;
+type RenderToHtml = (
+  component: unknown,
+  props?: Record<string, unknown>,
+  slots?: Record<string, unknown>
+) => Promise<string>;
 
 // Guards against pathological/cyclic arg objects. Component references are leaf
 // replacements, so real nesting is shallow; this is just insurance.
@@ -45,6 +53,14 @@ export async function reconstructProps(
  * HTML allowlist, while plain-string slots still are.
  */
 export async function reconstructSlots(
+  slots: Record<string, unknown>,
+  callbacks: { loadComponent: LoadComponent; renderToHtml: RenderToHtml }
+): Promise<Record<string, unknown>> {
+  return resolveSlotRecord(slots, callbacks);
+}
+
+/** Resolves every entry in a slots record to its rendered HTML (or pass-through string). */
+async function resolveSlotRecord(
   slots: Record<string, unknown>,
   callbacks: { loadComponent: LoadComponent; renderToHtml: RenderToHtml }
 ): Promise<Record<string, unknown>> {
@@ -132,6 +148,11 @@ async function resolveSlotValue(
     return renderSlotComponent(name, value, callbacks);
   }
 
+  // A configured child: the component plus its own props and slot content.
+  if (isAstroComponentSlot(value)) {
+    return renderConfiguredSlotComponent(name, value, callbacks);
+  }
+
   // Plain HTML string (or anything else) passes through unchanged.
   return value;
 }
@@ -143,6 +164,36 @@ async function renderSlotComponent(
 ): Promise<string> {
   try {
     return await callbacks.renderToHtml(component);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    throw new Error(`Failed to render Astro component passed to slot "${name}": ${message}`);
+  }
+}
+
+/**
+ * Renders a configured child component — the component together with its own
+ * props and slots — to an HTML string. The child's props get the same
+ * component-reference resolution as top-level props, and its slots are
+ * reconstructed recursively, so a configured child can itself contain
+ * components, strings, and further configured children.
+ */
+async function renderConfiguredSlotComponent(
+  name: string,
+  descriptor: { component: unknown; props?: Record<string, unknown>; slots?: Record<string, unknown> },
+  callbacks: { loadComponent: LoadComponent; renderToHtml: RenderToHtml }
+): Promise<string> {
+  const component = isAstroComponentMarker(descriptor.component)
+    ? await callbacks.loadComponent(descriptor.component.moduleId)
+    : descriptor.component;
+
+  const props = descriptor.props
+    ? ((await resolvePropValue(descriptor.props, callbacks, 0)) as Record<string, unknown>)
+    : {};
+  const slots = descriptor.slots ? await resolveSlotRecord(descriptor.slots, callbacks) : {};
+
+  try {
+    return await callbacks.renderToHtml(component, props, slots);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 

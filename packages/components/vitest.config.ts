@@ -30,6 +30,13 @@ const vitestConfig = defineConfig({
     setupFiles: ['vitest.setup.ts'],
     name: 'components',
     environment: 'happy-dom',
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          disableJavaScriptFileLoading: true
+        }
+      }
+    },
     include: ['src/**/*.test.ts']
   }
 });

@@ -1,5 +1,6 @@
 import sanitizeHtml from 'sanitize-html';
 import type { IOptions } from 'sanitize-html';
+import { isAstroComponentSlot } from '@storybook-astro/renderer/types';
 
 type SanitizationPayload = {
   args: Record<string, unknown>;
@@ -273,6 +274,20 @@ function sanitizeValue(
 
       return sanitizeValue(item, nextPath, patterns, options);
     });
+  }
+
+  // A configured component slot ({ component, props, slots }): only its `slots`
+  // are slot content. Leave `component` (a reference) and `props` alone —
+  // sanitizing props as HTML would corrupt values like "A & B" into "A &amp; B".
+  if (isAstroComponentSlot(value)) {
+    if (!value.slots) {
+      return value;
+    }
+
+    return {
+      ...value,
+      slots: sanitizeValue(value.slots, `${currentPath}.slots`, patterns, options)
+    };
   }
 
   if (isRecord(value)) {

@@ -48,7 +48,7 @@ export const Warning = {
 };
 ```
 
-Slot content can be an **HTML string** (any valid HTML — elements, nested markup, inline styles) or an **Astro component** (see [Passing a component as slot content](#passing-a-component-as-slot-content)).
+Slot content can be an **HTML string** (any valid HTML — elements, nested markup, inline styles), an **Astro component** (see [Passing a component as slot content](#passing-a-component-as-slot-content)), a **configured component** with its own props and slots, or an **array** mixing any of these.
 
 ## Named slots
 
@@ -134,11 +134,60 @@ export const WithComponent = {
 
 The component is server-rendered and its markup is placed into the slot, with its scoped styles intact. This also works for named slots.
 
-A component passed this way renders with its **default props** — the bare component reference is what's placed in the slot. To render slot content with specific props or text, use an HTML string instead.
+A bare component reference renders with its **default props** and no slot content of its own. To give the child its own props and slot content, use a configured component (next section).
 
 :::note
 Component slot content keeps its own rendered markup as-is. Plain **string** slot content is still run through HTML [sanitization](/guides/sanitization/), which strips attributes outside the allowlist (e.g. `data-*`).
 :::
+
+## Passing a configured component (with its own props and slots)
+
+To place a child component that has its **own props and slot content**, pass a configured-component object — `{ component, props, slots }` — instead of the bare reference:
+
+```jsx
+// Panel.stories.jsx
+import Panel from './Panel.astro';
+import Badge from './Badge.astro';
+
+export const WithConfiguredComponent = {
+  args: {
+    title: 'Status',
+    slots: {
+      default: {
+        component: Badge,
+        props: { variant: 'success' },
+        slots: { default: 'Shipped' },
+      },
+    },
+  },
+};
+```
+
+Only `component` is required; `props` and `slots` are optional. A configured component's `slots` are themselves slot values, so they can contain plain strings, more components, and further configured components — nesting to any depth.
+
+### Mixing HTML and components in one slot
+
+A slot value can be an **array**, letting you interleave plain HTML strings with (configured) components in a single slot. Each entry is rendered and concatenated in order:
+
+```jsx
+export const MixedContent = {
+  args: {
+    slots: {
+      default: [
+        '<p>Before the child</p>',
+        { component: Badge, slots: { default: 'In the middle' } },
+        '<p>After the child</p>',
+      ],
+    },
+  },
+};
+```
+
+:::caution
+Astro component **tags written inside a string** (e.g. `default: '<Badge>hi</Badge>'`) are **not** compiled to components. A string is rendered as raw HTML, so `<Badge>` would be an inert custom element — and HTML [sanitization](/guides/sanitization/) discards unknown tags by default, leaving only their inner content. Astro has no runtime equivalent of JSX: to render a component, pass the imported reference (a configured component or a bare reference), never its tag name in a string.
+:::
+
+A configured component's `props` are passed to the child untouched — they are **not** HTML-sanitized (so values like `"A & B"` survive verbatim). Its `slots` are sanitized like any other string slot content.
 
 ## Combining props and slots
 
@@ -161,7 +210,7 @@ export const Default = {
 
 ## Tips
 
-- **Slot content is an HTML string or a component** — write raw HTML strings (not JSX or Astro template syntax), or pass an imported Astro component.
+- **Slot content is an HTML string, a component, or a list** — write raw HTML strings (not JSX or Astro template syntax), pass an imported Astro component (bare or configured with `{ component, props, slots }`), or an array mixing them. Component **tags inside a string are not compiled** — always pass the imported reference.
 - **Multi-line content** — Use template literals (backtick strings) for readable multi-line slot content.
 - **No slot fallback in stories** — If you don't provide a `slots` entry, the component's `<slot>` fallback content (if any) will render.
 - **Static in builds** — Like other Astro component args, slot content is pre-rendered at build time. It's fully interactive in dev mode.

@@ -23,7 +23,7 @@
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",
     "alpinejs": "^3.14.9",
-    "astro": "6.4.4",
+    "astro": "6.4.8",
     "preact": "^10.28.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -43,9 +43,9 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/prop-types": "^15.7.14",
-    "@vitest/ui": "^4.0.18",
+    "@vitest/ui": "^4.1.9",
     "eslint": "^9.39.2",
-    "happy-dom": "^17.4.4",
+    "happy-dom": "^20.10.6",
     "http-server": "^14.1.1",
     "msw": "^2.12.10",
     "prop-types": "^15.8.1",
@@ -53,6 +53,6 @@
     "storybook": "10.4.6",
     "storybook-solidjs-vite": "^10.0.9",
     "vite": "^7.3.1",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.9"
   }
 }
