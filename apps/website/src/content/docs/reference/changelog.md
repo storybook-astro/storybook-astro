@@ -8,6 +8,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-07-02
+
+### Added
+- Configured-component slots: a `slots` entry can now be a `{ component, props, slots }` object, placing a child component in a parent's slot **with its own props and slot content** — and slot entries can be arrays that mix plain HTML strings with (configured) components (#146). This extends the bare component-as-slot support from #128, which rendered the child with default props and no slots. A configured component's `props` are passed through untouched (not HTML-sanitized); its `slots` are sanitized like any other string slot. Component tags written inside a *string* are still not compiled — pass the imported component reference.
+
+## [1.7.1] - 2026-06-27
+
+### Fixed
+- `storybook build` no longer fails with `ReferenceError: document is not defined` during the static prerender for **CSF4** projects that register addons whose UI kit touches the DOM (e.g. `@storybook/addon-a11y`, `@storybook/addon-themes`) (#145). CSF4 stories import `@storybook/preview`, which re-exports the project's `.storybook/preview.ts` and pulls those addons — and through them `storybook/internal/components`, which reads `document` at module load under Node. The prerender now stubs `@storybook/preview` with a minimal CSF4 factory (it only needs each story's component and args), sidestepping the project preview and its entire addon graph. This generalizes the earlier per-package docs stubs (#121, #130), which only covered `@storybook/addon-docs`/`@storybook/blocks`.
+
 ## [1.7.0] - 2026-06-26
 
 ### Added

@@ -25,6 +25,35 @@ describe('sanitization', () => {
     expect(payload.slots.default).toBe('<p>Hello</p>');
   });
 
+  test('sanitizes a configured component slot’s nested slots but leaves its props', () => {
+    const options = resolveSanitizationOptions();
+
+    const payload = sanitizeRenderPayload(
+      {
+        args: {},
+        slots: {
+          default: {
+            component: { __astroComponent: true, moduleId: '/Card.astro' },
+            // Props are not HTML — they must survive verbatim (no entity-encoding).
+            props: { title: 'Tom & Jerry < Co' },
+            slots: { default: '<p>safe<script>alert(1)</script></p>' }
+          }
+        }
+      },
+      options
+    );
+
+    const descriptor = payload.slots.default as {
+      component: unknown;
+      props: { title: string };
+      slots: { default: string };
+    };
+
+    expect(descriptor.props.title).toBe('Tom & Jerry < Co');
+    expect(descriptor.slots.default).toBe('<p>safe</p>');
+    expect(descriptor.component).toEqual({ __astroComponent: true, moduleId: '/Card.astro' });
+  });
+
   test('sanitizes only configured arg paths', () => {
     const options = resolveSanitizationOptions({
       args: ['content'],

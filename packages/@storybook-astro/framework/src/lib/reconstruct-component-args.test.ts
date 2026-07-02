@@ -88,6 +88,87 @@ test('reconstructSlots concatenates an array slot into one HTML string', async (
   expect(result.default).toBe('<i>c</i> and <u>d</u>');
 });
 
+test('reconstructSlots renders a configured component with its own props and slots', async () => {
+  const loaded = factory('/Card.astro');
+  const loadComponent = vi.fn().mockResolvedValue(loaded);
+  const renderToHtml = vi.fn().mockResolvedValue('<div class="card">inner</div>');
+
+  const result = await reconstructSlots(
+    {
+      default: {
+        component: marker('/Card.astro'),
+        props: { title: 'Hello' },
+        slots: { default: '<p>inside</p>' }
+      }
+    },
+    { loadComponent, renderToHtml }
+  );
+
+  expect(loadComponent).toHaveBeenCalledWith('/Card.astro');
+  expect(renderToHtml).toHaveBeenCalledWith(loaded, { title: 'Hello' }, { default: '<p>inside</p>' });
+  expect(result.default).toBe('<div class="card">inner</div>');
+});
+
+test('reconstructSlots renders a configured component nested in an array beside strings', async () => {
+  const renderToHtml = vi.fn().mockResolvedValue('<b>child</b>');
+
+  const result = await reconstructSlots(
+    {
+      default: [
+        '<p>before</p>',
+        { component: factory('/Box.astro'), slots: { default: '<p>inside</p>' } },
+        '<p>after</p>'
+      ]
+    },
+    { loadComponent: vi.fn(), renderToHtml }
+  );
+
+  expect(result.default).toBe('<p>before</p><b>child</b><p>after</p>');
+});
+
+test('reconstructSlots reconstructs components inside a configured child’s slots', async () => {
+  const loadComponent = vi.fn(async (id: string) => factory(id));
+  const renderToHtml = vi
+    .fn()
+    .mockResolvedValueOnce('<span>grandchild</span>') // inner BoxChild rendered first
+    .mockResolvedValueOnce('<div>parent[<span>grandchild</span>]</div>');
+
+  const result = await reconstructSlots(
+    {
+      default: {
+        component: marker('/Parent.astro'),
+        slots: { default: marker('/Child.astro') }
+      }
+    },
+    { loadComponent, renderToHtml }
+  );
+
+  // The child component's own slot is rendered to HTML before the parent renders.
+  expect(renderToHtml).toHaveBeenNthCalledWith(1, expect.anything());
+  expect(renderToHtml).toHaveBeenNthCalledWith(
+    2,
+    expect.anything(),
+    {},
+    { default: '<span>grandchild</span>' }
+  );
+  expect(result.default).toBe('<div>parent[<span>grandchild</span>]</div>');
+});
+
+test('reconstructSlots resolves a component reference passed in a configured child’s props', async () => {
+  const loadComponent = vi.fn(async (id: string) => factory(id));
+  const renderToHtml = vi.fn().mockResolvedValue('<div>ok</div>');
+
+  await reconstructSlots(
+    { default: { component: factory('/Card.astro'), props: { Icon: marker('/Icon.astro') } } },
+    { loadComponent, renderToHtml }
+  );
+
+  const passedProps = renderToHtml.mock.calls[0][1] as { Icon: { moduleId?: string } };
+
+  expect(loadComponent).toHaveBeenCalledWith('/Icon.astro');
+  expect(passedProps.Icon.moduleId).toBe('/Icon.astro');
+});
+
 test('reconstructSlots wraps a render failure with the slot name', async () => {
   const renderToHtml = vi.fn().mockRejectedValue(new Error('boom'));
 
