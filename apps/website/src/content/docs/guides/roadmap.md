@@ -55,6 +55,21 @@ Expand testing capabilities for Astro components tested in isolation, including 
 - Integration with testing libraries (Testing Library, Vitest patterns)
 - Guidance on testing both server-rendered and client-side behavior
 
+### Storybook Test Addon (`@storybook/addon-vitest`) Support
+
+🚫 **Blocked (Upstream)**
+
+Storybook's official "Storybook Test" runner (`@storybook/addon-vitest`) runs stories as Vitest browser tests. It currently crashes when combined with Astro's `getViteConfig` — this is an upstream Astro bug, not a storybook-astro issue.
+
+**Complexity**: Unknown — depends on what surfaces once the upstream fix lands
+**Tracking**: [withastro/astro#16275](https://github.com/withastro/astro/issues/16275) (fix verified, merge pending via [PR #17248](https://github.com/withastro/astro/pull/17248))
+
+**What's blocking it**: Vitest's browser-mode module evaluator doesn't implement `wrapDynamicImport`, and Astro's `configureServer` hook unconditionally boots dev-server middleware even inside Vitest, causing `TypeError: Cannot read properties of undefined (reading 'wrapDynamicImport')`. A fix has been verified upstream but is not yet merged or released.
+
+**What this requires once unblocked**:
+- Verifying `@storybook/addon-vitest`'s browser-mode test runner actually renders Astro components correctly through storybook-astro's SSR pipeline (this is untested — distinct from the portable-stories/`composeStories` testing API, which already works)
+- Documentation covering setup alongside the existing Testing guide
+
 ### Play Functions for Astro Components
 
 📋 **To Do**
@@ -311,7 +326,8 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Source Code Display | 🚧 Partial | Shows story file source; doesn't generate component usage syntax (e.g. `<Component prop="value" />`). See roadmap item above |
 | Decorators | 📋 Planned | Wrapper components/HTML for stories. See roadmap item and [design doc](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) |
 | Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
-| Testing with Vitest | ✅ Supported | Test stories with `@storybook-astro/framework/testing` and Vitest |
+| Portable Stories Testing (Vitest) | ✅ Supported | Test stories with `@storybook-astro/framework/testing`'s `composeStories`/`renderStory` and Vitest, outside Storybook |
+| Storybook Test Addon (`@storybook/addon-vitest`) | 🚫 Blocked | Runs stories as Vitest browser tests. Blocked by an upstream Astro bug — see roadmap item above |
 | Play Functions | 🚧 Partial | Supported for framework components. Astro component support planned — see roadmap item above |
 | Interactions Panel | ✅ Supported | Debug play function interactions |
 | Accessibility Addon | ✅ Supported | Automated accessibility testing with a11y addon |
@@ -321,7 +337,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Hot Module Replacement | ✅ Supported | Live updates during development |
 | Static Build | ✅ Supported | Build static documentation site with `storybook build` |
 
-**Legend**: ✅ Supported | 🚧 Partial/Manual | 📋 Planned | ❌ Not Supported
+**Legend**: ✅ Supported | 🚧 Partial/Manual | 📋 Planned | ❌ Not Supported | 🚫 Blocked (Upstream)
 
 ## Contributing
 
