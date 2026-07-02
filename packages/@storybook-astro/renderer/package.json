@@ -50,7 +50,7 @@
     "prepublishOnly": "tsup"
   },
   "devDependencies": {
-    "astro": "^6.4.0",
+    "astro": "^6.4.8",
     "eslint": "^9.39.2",
     "tsup": "^8.5.1"
   },
