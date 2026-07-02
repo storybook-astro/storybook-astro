@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-07-02
+
+### Added
+- Configured-component slots: a `slots` entry can now be a `{ component, props, slots }` object, placing a child component in a parent's slot **with its own props and slot content** — and slot entries can be arrays that mix plain HTML strings with (configured) components (#146). This extends the bare component-as-slot support from #128, which rendered the child with default props and no slots. A configured component's `props` are passed through untouched (not HTML-sanitized); its `slots` are sanitized like any other string slot. Component tags written inside a *string* are still not compiled — pass the imported component reference.
+
 ## [1.7.1] - 2026-06-27
 
 ### Fixed
