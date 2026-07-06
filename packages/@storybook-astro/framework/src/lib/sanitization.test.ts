@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { resolveSanitizationOptions, sanitizeRenderPayload } from './sanitization.ts';
+import { reconstructSlots } from './reconstruct-component-args.ts';
 
 describe('sanitization', () => {
   test('enables sanitization and sanitizes all slots by default', () => {
@@ -257,5 +258,82 @@ describe('sanitization', () => {
     );
 
     expect((payload.args.meta as Record<string, unknown>).html).toBe('<p>Safe</p>');
+  });
+
+  test('keeps a tag balanced when its open and close are split across array entries around a component', () => {
+    const options = resolveSanitizationOptions();
+
+    const payload = sanitizeRenderPayload(
+      {
+        args: {},
+        slots: {
+          default: [
+            '<div class="wrapper">',
+            {
+              component: { __astroComponent: true, moduleId: '/Child.astro' },
+              slots: { default: 'inside' }
+            },
+            '</div>'
+          ]
+        }
+      },
+      options
+    );
+
+    // A per-entry sanitize pass would auto-close '<div class="wrapper">' on its
+    // own and discard the orphan '</div>' — this proves the entries are parsed
+    // as one balanced document instead.
+    expect(payload.slots.default).toEqual([
+      '<div class="wrapper">',
+      { component: { __astroComponent: true, moduleId: '/Child.astro' }, slots: { default: 'inside' } },
+      '</div>'
+    ]);
+  });
+
+  test('renders a component wrapped by a tag split across array entries end-to-end', async () => {
+    const options = resolveSanitizationOptions();
+
+    const payload = sanitizeRenderPayload(
+      {
+        args: {},
+        slots: {
+          default: [
+            '<div class="wrapper">',
+            { component: { __astroComponent: true, moduleId: '/Child.astro' } },
+            '</div>'
+          ]
+        }
+      },
+      options
+    );
+
+    const rendered = await reconstructSlots(payload.slots, {
+      loadComponent: async () =>
+        Object.assign(() => undefined, { isAstroComponentFactory: true as const, moduleId: '/Child.astro' }),
+      renderToHtml: async () => '<b>child</b>'
+    });
+
+    expect(rendered.default).toBe('<div class="wrapper"><b>child</b></div>');
+  });
+
+  test('drops a component entry whose surrounding tag is fully discarded by sanitization', () => {
+    const options = resolveSanitizationOptions();
+
+    const payload = sanitizeRenderPayload(
+      {
+        args: {},
+        slots: {
+          default: [
+            '<script>',
+            { component: { __astroComponent: true, moduleId: '/Child.astro' } },
+            '</script>',
+            '<p>after</p>'
+          ]
+        }
+      },
+      options
+    );
+
+    expect(payload.slots.default).toEqual(['<p>after</p>']);
   });
 });

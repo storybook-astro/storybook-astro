@@ -3,7 +3,7 @@ import { test, expect } from 'vitest';
 import { composeStories, renderStory } from '@storybook-astro/framework/testing';
 import * as stories from './SlotBox.stories.jsx';
 
-const { ConfiguredChild, MixedContent } = composeStories(stories);
+const { ConfiguredChild, MixedContent, WrappedChild } = composeStories(stories);
 
 test('renders a configured child component with its own props and slot content', async () => {
   await renderStory(ConfiguredChild);
@@ -24,4 +24,18 @@ test('renders plain HTML and a configured child mixed in one slot', async () => 
   expect(screen.getByTestId('box-child')).toBeInTheDocument();
   expect(screen.getByText('Inside the child')).toBeInTheDocument();
   expect(screen.getByText('After the child')).toBeInTheDocument();
+});
+
+test('renders a configured child nested inside a wrapper tag split across array entries', async () => {
+  await renderStory(WrappedChild);
+
+  // The wrapper's opening and closing tags are separate array entries with the
+  // child sandwiched between them — the child must end up nested inside the
+  // wrapper, not rendered as its sibling after a self-closed wrapper div.
+  const wrapper = document.querySelector('.Wrapper');
+  const child = screen.getByTestId('box-child');
+
+  expect(wrapper).toBeInTheDocument();
+  expect(wrapper).toContainElement(child);
+  expect(screen.getByText('Inside the wrapper')).toBeInTheDocument();
 });

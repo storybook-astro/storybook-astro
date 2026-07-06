@@ -189,6 +189,24 @@ Astro component **tags written inside a string** (e.g. `default: '<Badge>hi</Bad
 
 A configured component's `props` are passed to the child untouched — they are **not** HTML-sanitized (so values like `"A & B"` survive verbatim). Its `slots` are sanitized like any other string slot content.
 
+An array entry's HTML string doesn't need to be a self-contained fragment — a wrapper tag's opening and closing halves can live in separate entries, with a component sandwiched between them:
+
+```jsx
+export const WrappedChild = {
+  args: {
+    slots: {
+      default: [
+        '<div class="Panel">',
+        { component: Badge, slots: { default: 'Shipped' } },
+        '</div>',
+      ],
+    },
+  },
+};
+```
+
+The array's string entries are sanitized together as one HTML document (not each entry on its own), so the `<div>` opened in the first entry stays open until the matching `</div>` in the last entry — the component renders nested inside it, not as a sibling after a self-closed wrapper.
+
 ## Combining props and slots
 
 Props and slots are passed together in the same `args` object. Regular properties become `Astro.props`, and the `slots` property is handled separately by the renderer:
