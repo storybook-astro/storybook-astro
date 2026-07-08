@@ -1,0 +1,59 @@
+name: Chromatic
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Cancel superseded runs on the same ref to save snapshots
+concurrency:
+  group: chromatic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual-regression:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - astro: '5'
+            workingDir: integration/astro5
+            token: CHROMATIC_PROJECT_TOKEN_ASTRO5
+          - astro: '6'
+            workingDir: integration/astro6
+            token: CHROMATIC_PROJECT_TOKEN_ASTRO6
+          - astro: '7'
+            workingDir: integration/astro7
+            token: CHROMATIC_PROJECT_TOKEN_ASTRO7
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Chromatic needs full history for baselines/TurboSnap
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Build packages
+        run: yarn build:packages
+
+      - name: Run Chromatic (Astro ${{ matrix.astro }})
+        uses: chromaui/action@latest
+        with:
+          projectToken: ${{ secrets[matrix.token] }}
+          workingDir: ${{ matrix.workingDir }}
+          buildScriptName: build
+          exitZeroOnChanges: true
+          onlyChanged: false
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
