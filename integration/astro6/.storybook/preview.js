@@ -4,7 +4,7 @@ import { h } from 'vue';
 
 // Global decorators apply to EVERY story in this Storybook, including Astro
 // component stories — which don't support decorators yet (docs/DECORATOR_SUPPORT.md).
-// Astro stories never set `parameters.renderer`, so each decorator below guards
+// Astro stories default `parameters.renderer` to 'astro', so each decorator below guards
 // on the framework it targets and is a strict pass-through otherwise, per
 // Decision 3 in that doc. Covers issue #40, Step 1.
 const wrapReactStoryInGlobalDecorator = (Story, ctx) => {
