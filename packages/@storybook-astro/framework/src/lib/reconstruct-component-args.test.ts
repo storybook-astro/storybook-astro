@@ -1,5 +1,5 @@
 import { test, expect, vi } from 'vitest';
-import { reconstructProps, reconstructSlots } from './reconstruct-component-args.ts';
+import { assertValidSlotValue, reconstructProps, reconstructSlots } from './reconstruct-component-args.ts';
 
 const marker = (moduleId: string) => ({ __astroComponent: true as const, moduleId });
 
@@ -175,4 +175,82 @@ test('reconstructSlots wraps a render failure with the slot name', async () => {
   await expect(
     reconstructSlots({ header: factory('/C.astro') }, { loadComponent: vi.fn(), renderToHtml })
   ).rejects.toThrow(/slot "header".*boom/);
+});
+
+test('reconstructSlots runs a configured child’s props through processProps when supplied', async () => {
+  const renderToHtml = vi.fn().mockResolvedValue('<div>ok</div>');
+  const processProps = vi.fn().mockResolvedValue({ processed: true });
+
+  await reconstructSlots(
+    { default: { component: factory('/Card.astro'), props: { title: 'Hi' } } },
+    { loadComponent: vi.fn(), renderToHtml, processProps }
+  );
+
+  expect(processProps).toHaveBeenCalledWith({ title: 'Hi' });
+  expect(renderToHtml).toHaveBeenCalledWith(expect.anything(), { processed: true }, {});
+});
+
+test('reconstructSlots without processProps falls back to bare component-reference resolution', async () => {
+  const renderToHtml = vi.fn().mockResolvedValue('<div>ok</div>');
+
+  await reconstructSlots(
+    { default: { component: factory('/Card.astro'), props: { Icon: marker('/Icon.astro') } } },
+    { loadComponent: vi.fn(async (id: string) => factory(id)), renderToHtml }
+  );
+
+  const props = renderToHtml.mock.calls[0][1] as { Icon: { moduleId?: string } };
+
+  expect(props.Icon.moduleId).toBe('/Icon.astro');
+});
+
+test('reconstructSlots fails loudly instead of silently truncating past the maximum depth', async () => {
+  const renderToHtml = vi.fn().mockResolvedValue('<div>ok</div>');
+
+  // 11 levels of component-in-slot nesting, one more than MAX_DEPTH (10).
+  let slotValue: unknown = factory('/Leaf.astro');
+
+  for (let level = 0; level < 11; level += 1) {
+    slotValue = { component: factory(`/Wrapper${level}.astro`), slots: { default: slotValue } };
+  }
+
+  await expect(
+    reconstructSlots({ default: slotValue }, { loadComponent: vi.fn(), renderToHtml })
+  ).rejects.toThrow(/maximum depth/);
+});
+
+test('assertValidSlotValue accepts a string, a marker, a descriptor, and an array of those', () => {
+  expect(() => assertValidSlotValue('<p>hi</p>', 'node')).not.toThrow();
+  expect(() => assertValidSlotValue(marker('/A.astro'), 'node')).not.toThrow();
+  expect(() => assertValidSlotValue(factory('/A.astro'), 'node')).not.toThrow();
+  expect(() =>
+    assertValidSlotValue(
+      { component: marker('/A.astro'), props: { title: 'hi' }, slots: { default: '<p>x</p>' } },
+      'node'
+    )
+  ).not.toThrow();
+  expect(() => assertValidSlotValue(['<p>a</p>', marker('/A.astro'), '<p>b</p>'], 'node')).not.toThrow();
+});
+
+test('assertValidSlotValue rejects a value that is none of the supported shapes', () => {
+  expect(() => assertValidSlotValue(42, 'node')).toThrow(/not a valid decorator node/);
+  expect(() => assertValidSlotValue({ label: 'plain object' }, 'node')).toThrow(/not a valid decorator node/);
+});
+
+test('assertValidSlotValue rejects a descriptor whose props or slots are not plain objects', () => {
+  expect(() => assertValidSlotValue({ component: marker('/A.astro'), props: 'nope' }, 'node')).toThrow(
+    /props must be a plain object/
+  );
+  expect(() => assertValidSlotValue({ component: marker('/A.astro'), slots: 'nope' }, 'node')).toThrow(
+    /slots must be a plain object/
+  );
+});
+
+test('assertValidSlotValue rejects nesting past the maximum depth', () => {
+  let node: unknown = marker('/Leaf.astro');
+
+  for (let level = 0; level < 11; level += 1) {
+    node = { component: marker(`/Wrapper${level}.astro`), slots: { default: node } };
+  }
+
+  expect(() => assertValidSlotValue(node, 'node')).toThrow(/exceeds the maximum node depth/);
 });

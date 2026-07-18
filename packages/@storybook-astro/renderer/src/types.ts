@@ -44,17 +44,27 @@ export type AstroComponentFactory = {
  * Storybook renderer type for Astro components.
  *
  * Astro components are server-side rendered, so storyResult can be an Astro component
- * factory (routed to SSR), a string (HTML), or an HTMLElement (DOM node).
+ * factory (routed to SSR), a string (HTML), an HTMLElement (DOM node), or — once
+ * `applyDecorators` has composed a decorator chain around it — any other SlotValue
+ * shape (an `AstroComponentSlot` wrapper, or an array mixing wrapper strings with
+ * nested nodes). See docs/DECORATOR_SUPPORT.md.
  */
 export interface AstroRenderer extends WebRenderer {
   component: AstroComponentFactory | string | HTMLElement | ((...args: unknown[]) => unknown);
-  storyResult: AstroComponentFactory | string | HTMLElement;
+  storyResult: HTMLElement | SlotValue;
 }
 
 export type RenderComponentInput = {
   component: string;
   args: Record<string, unknown>;
   slots: Record<string, SlotValue>;
+  /**
+   * The serialized decorator tree (Step 3), sent alongside the undecorated
+   * `component`/`args`/`slots` above so an older server that doesn't know about
+   * `node` can still render the story undecorated instead of erroring — graceful
+   * version skew (see docs/DECORATOR_SUPPORT.md, "Known Limitations").
+   */
+  node?: SlotValue;
   story?: {
     id: string;
     title?: string;

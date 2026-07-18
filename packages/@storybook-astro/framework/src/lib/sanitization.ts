@@ -145,20 +145,33 @@ export function sanitizeRenderPayload(
     return payload;
   }
 
-  const sanitizedArgs =
-    options.args.length > 0
-      ? sanitizeRecord(payload.args, options.args, options.sanitizeHtml)
-      : payload.args;
-
   const sanitizedSlots =
     options.slots.length > 0
       ? sanitizeRecord(payload.slots, options.slots, options.sanitizeHtml)
       : payload.slots;
 
   return {
-    args: sanitizedArgs,
+    args: sanitizeArgs(payload.args, options),
     slots: sanitizedSlots
   };
+}
+
+/**
+ * Applies the `args`-side sanitization patterns to a record of args-like values.
+ * Extracted from {@link sanitizeRenderPayload} so a decorator descriptor's
+ * `props` — user-authored, args-like values (Decorator Support, Step 3) — can be
+ * run through the exact same treatment top-level story args get, wherever in the
+ * decorator tree the descriptor sits.
+ */
+export function sanitizeArgs(
+  args: Record<string, unknown>,
+  options: ResolvedSanitizationOptions
+): Record<string, unknown> {
+  if (!options.enabled || options.args.length === 0) {
+    return args;
+  }
+
+  return sanitizeRecord(args, options.args, options.sanitizeHtml);
 }
 
 export function serializeSanitizationOptions(options?: SanitizationOptions): string {

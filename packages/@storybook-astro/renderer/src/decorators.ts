@@ -92,11 +92,7 @@ export function applyDecorators(
       return decorateFrameworkStory(context);
     }
 
-    // The cast bridges a type Step 3 will close: `storyResult` doesn't yet
-    // admit `AstroComponentSlot`/array trees, but `render.tsx` can't consume
-    // them yet either (Step 3), so nothing downstream relies on the wider
-    // shape until then.
-    return composeAstroTree(storyFn(context), decorators, context) as AstroRenderer['storyResult'];
+    return composeAstroTree(storyFn(context), decorators, context);
   };
 }
 
