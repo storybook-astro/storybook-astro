@@ -177,8 +177,18 @@ type ContainerRenderToString = Awaited<ReturnType<typeof AstroContainer.create>>
  *    bare leaf (wherever a decorator placed `Story()`), not a configured
  *    descriptor, so it carries no props of its own — its args arrived on the
  *    request's separate top-level `args`/`slots` fields and were already fully
- *    processed above. `renderToHtml` recognizes that leaf by moduleId and feeds
- *    it those already-processed values instead of rendering it with nothing.
+ *    processed above. `renderToHtml` needs to recognize that leaf and feed it
+ *    those already-processed values instead of rendering it with nothing.
+ *
+ *    It can't do that by comparing the *loaded* component's own `.moduleId` to
+ *    `ctx.storyComponentId`: in server mode, `loadComponent` loads from a
+ *    deployed snapshot at a different path than the original project
+ *    (`resolveSnapshotComponentPath` in `server/index.ts`), and Astro's compiler
+ *    embeds `.moduleId` from wherever the file was actually compiled — the
+ *    snapshot path, not the original id the client sent as `storyComponentId`.
+ *    Comparing loaded-component identity instead (`storyComponentInstances`,
+ *    populated by the `moduleId` the marker itself carried *before* loading)
+ *    survives that remapping.
  * 2. **The full args pipeline for every descriptor's props.** A decorator's own
  *    `props` (e.g. `{ theme: ctx.globals.theme }`) are user-authored, args-like
  *    values, so `processProps` runs them through the same
@@ -206,14 +216,25 @@ async function renderDecoratedRoot(
     ctx.sanitizationOptions
   ).slots;
 
+  // Tracks which *loaded* component instances came from `ctx.storyComponentId`,
+  // keyed by object identity rather than `.moduleId` (see the function doc above).
+  const storyComponentInstances = new WeakSet<AstroComponentFactory>();
+  const loadComponent = async (moduleId: string) => {
+    const component = await ctx.loadComponent(moduleId);
+
+    if (moduleId === ctx.storyComponentId) {
+      storyComponentInstances.add(component);
+    }
+
+    return component;
+  };
+
   const resolved = await reconstructSlots(
     { root: sanitizedNode },
     {
-      loadComponent: ctx.loadComponent,
+      loadComponent,
       renderToHtml: (component, props, slots) => {
-        const moduleId = (component as AstroComponentFactory).moduleId;
-
-        if (props === undefined && moduleId === ctx.storyComponentId) {
+        if (props === undefined && storyComponentInstances.has(component as AstroComponentFactory)) {
           return ctx.renderToString(component as Parameters<ContainerRenderToString>[0], {
             props: ctx.storyProps,
             slots: markRawSlots(ctx.storySlots)
@@ -226,7 +247,7 @@ async function renderDecoratedRoot(
         });
       },
       processProps: async (props) => {
-        const reconstructed = await reconstructProps(props, { loadComponent: ctx.loadComponent });
+        const reconstructed = await reconstructProps(props, { loadComponent });
         const imaged = await processImageMetadata(reconstructed);
         const revived = reviveDateStrings(imaged);
 

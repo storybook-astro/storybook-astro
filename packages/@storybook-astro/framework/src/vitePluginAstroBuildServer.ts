@@ -23,7 +23,16 @@ const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '.');
 // packageRoot works regardless of whether this file is running from src/ or dist/
 const packageRoot = resolve(moduleRoot, '..');
 
-export function vitePluginAstroBuildServer(options: FrameworkOptions) {
+export function vitePluginAstroBuildServer(
+  options: FrameworkOptions,
+  // Every `.astro` file the iframe build's client graph reached (collected by
+  // `vitePluginAstroComponentMarker` in the same build, wired up in preset.ts).
+  // Union this into the snapshot so a component referenced only from
+  // `.storybook/preview.*` (a decorator's Wrapper.astro) or only via a slot/prop
+  // marker still reaches the deployed snapshot (docs/DECORATOR_SUPPORT.md, Step 4,
+  // Gap B) — today only story components make it into the snapshot.
+  clientAstroComponentIds: Set<string> = new Set()
+) {
   const integrations = options.integrations ?? [];
   const resolveFrom = options.resolveFrom ?? process.cwd();
   const trackedSpecifiers = collectTrackedSpecifiers(integrations);
@@ -65,11 +74,17 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
       const snapshotDirName = 'project';
       const astroStories = await collectAstroStories(storybookStaticOutDir, resolveFrom);
       const storyAstroComponentPaths = Array.from(new Set(astroStories.map((story) => story.componentPath)));
-      const componentPathMap = buildComponentPathMap(storyAstroComponentPaths, resolveFrom, snapshotDirName);
+      // Union in every client-imported .astro id the marker plugin saw during
+      // this same build — story components are already a subset of this list,
+      // and the union additionally covers decorator/slot/prop-only components.
+      const allAstroComponentPaths = Array.from(
+        new Set([...storyAstroComponentPaths, ...clientAstroComponentIds])
+      );
+      const componentPathMap = buildComponentPathMap(allAstroComponentPaths, resolveFrom, snapshotDirName);
       const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
       const trackedModuleMap = buildStaticModuleMap(this, staticEntrypointRefs, new Map());
       const hydratedComponentAssets = await buildHydratedComponentAssets({
-        componentPaths: storyAstroComponentPaths,
+        componentPaths: allAstroComponentPaths,
         integrations,
         resolveFrom,
         outDir: storybookStaticOutDir
@@ -105,7 +120,7 @@ export function vitePluginAstroBuildServer(options: FrameworkOptions) {
         resolveFrom,
         snapshotRoot: resolve(serverOutDir, snapshotDirName),
         snapshotDirName,
-        astroComponents: storyAstroComponentPaths,
+        astroComponents: allAstroComponentPaths,
         storyRulesConfigFilePath
       });
     }

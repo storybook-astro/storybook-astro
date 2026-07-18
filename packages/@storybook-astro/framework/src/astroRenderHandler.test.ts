@@ -189,6 +189,43 @@ describe('createAstroRenderHandler — resolving a decorator root node', () => {
     // content, not structural equality.
     expect(String(storySlots.footer)).toBe('<p>footer</p>');
   });
+
+  // Server mode loads components from a deployed snapshot at a different path
+  // than the client-sent moduleId (`resolveSnapshotComponentPath` in
+  // `server/index.ts`), so Astro's compiler embeds `.moduleId` from the
+  // *snapshot* path on the loaded factory — not the original id the request
+  // carries as `component`/the marker's `moduleId`. The story leaf must still
+  // be recognized by *which load it came from*, not by comparing that embedded
+  // `.moduleId` string against the request's `component`.
+  test('recognizes the story leaf even when the loaded component reports a different moduleId (server-mode snapshot remap)', async () => {
+    // The loaded factory's own `.moduleId` (as Astro's compiler embedded it while
+    // compiling the snapshot copy) deliberately differs from the request's
+    // `component`/marker moduleId, simulating `resolveSnapshotComponentPath`.
+    const snapshotStoryFactory = fakeComponent('/snapshot/project/Story.astro');
+    const loadModule = vi.fn(async (id: string) => ({
+      default: id === 'Wrapper.astro' ? fakeComponent('Wrapper.astro') : snapshotStoryFactory
+    }));
+    const renderToString = vi.fn(defaultRenderToString);
+    const handler = createAstroRenderHandler({
+      container: { renderToString } as unknown as Parameters<typeof createAstroRenderHandler>[0]['container'],
+      loadModule
+    });
+
+    const node = { component: marker('Wrapper.astro'), slots: { default: marker('Story.astro') } };
+
+    await handler({
+      component: 'Story.astro',
+      args: { title: 'Hello' },
+      slots: {},
+      node
+    });
+
+    const storyCall = renderToString.mock.calls.find(
+      ([component]) => (component as { moduleId?: string }).moduleId === snapshotStoryFactory.moduleId
+    );
+
+    expect(storyCall?.[1].props).toEqual({ title: 'Hello' });
+  });
 });
 
 describe('createAstroRenderHandler — decorator security boundary', () => {
