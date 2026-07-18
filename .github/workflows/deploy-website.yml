@@ -12,4 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Cloudflare deploy hook
-        run: curl -X POST "${{ secrets.CF_DEPLOY_HOOK_URL }}"
+        run: |
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "${{ secrets.CF_DEPLOY_HOOK_URL }}")
+          echo "Response: $RESPONSE"
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Deploy hook failed with status $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Deploy hook triggered successfully (HTTP $HTTP_STATUS)"
