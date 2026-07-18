@@ -269,11 +269,7 @@ function sanitizeValue(
   }
 
   if (Array.isArray(value)) {
-    return value.map((item, index) => {
-      const nextPath = `${currentPath}.${index}`;
-
-      return sanitizeValue(item, nextPath, patterns, options);
-    });
+    return sanitizeArrayValue(value, currentPath, patterns, options);
   }
 
   // A configured component slot ({ component, props, slots }): only its `slots`
@@ -303,6 +299,71 @@ function sanitizeValue(
   }
 
   return value;
+}
+
+/**
+ * Sanitizes an array slot's string entries as **one** HTML document instead
+ * of each entry in isolation. A per-entry pass would auto-close a tag opened
+ * in one entry (e.g. `'<div>'`) and discard an orphan closing tag in a later
+ * entry (e.g. `'</div>'`) before the array is ever joined — breaking the
+ * common pattern of wrapping a component entry in a container element.
+ * Every entry that isn't a sanitizable string (components, nested
+ * descriptors, excluded paths) is swapped for a unique placeholder so the
+ * parser sees one balanced tree, then the sanitized document is split back
+ * apart on those placeholders.
+ */
+function sanitizeArrayValue(
+  items: unknown[],
+  currentPath: string,
+  patterns: string[],
+  options: IOptions
+): unknown[] {
+  const sanitizableIndexes = new Set<number>();
+
+  items.forEach((item, index) => {
+    if (typeof item === 'string' && shouldSanitizePath(`${currentPath}.${index}`, patterns)) {
+      sanitizableIndexes.add(index);
+    }
+  });
+
+  if (sanitizableIndexes.size === 0) {
+    return items.map((item, index) => sanitizeValue(item, `${currentPath}.${index}`, patterns, options));
+  }
+
+  const nonce = Math.random().toString(36).slice(2);
+  const placeholderFor = (index: number) => `astro-slot-array-item-${nonce}-${index}`;
+
+  const document = items
+    .map((item, index) => (sanitizableIndexes.has(index) ? (item as string) : placeholderFor(index)))
+    .join('');
+
+  let remaining = sanitizeHtml(document, options);
+  const result: unknown[] = [];
+
+  items.forEach((item, index) => {
+    if (sanitizableIndexes.has(index)) {
+      return;
+    }
+
+    const placeholder = placeholderFor(index);
+    const placeholderIndex = remaining.indexOf(placeholder);
+
+    // A missing placeholder means its surrounding tag was disallowed and
+    // discarded along with its contents — there is nothing to splice in.
+    if (placeholderIndex === -1) {
+      return;
+    }
+
+    result.push(remaining.slice(0, placeholderIndex));
+    result.push(
+      typeof item === 'string' ? item : sanitizeValue(item, `${currentPath}.${index}`, patterns, options)
+    );
+    remaining = remaining.slice(placeholderIndex + placeholder.length);
+  });
+
+  result.push(remaining);
+
+  return result;
 }
 
 function shouldSanitizePath(path: string, patterns: string[]): boolean {

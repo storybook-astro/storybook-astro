@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-18
+
+### Fixed
+- An array slot's string entries are now sanitized together as one HTML document instead of each entry in isolation, so a wrapper tag's opening and closing halves can live in separate array entries around a component (#149). Previously, sanitization auto-closed an entry like `'<div>'` on its own and discarded a lone `'</div>'` in a later entry, so the component ended up rendered as a sibling after a self-closed wrapper instead of nested inside it.
+
+### Changed
+- Storybook updated to 10.5.2 (#151).
+
 ## [1.8.0] - 2026-07-02
 
 ### Added

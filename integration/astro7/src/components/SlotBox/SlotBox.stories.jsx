@@ -36,3 +36,19 @@ export const MixedContent = {
     },
   },
 };
+
+// A wrapper tag's opening and closing halves live in separate array entries,
+// with the configured child sandwiched between them — issue #146's follow-up
+// report. Sanitization must parse the whole array as one document so the
+// child ends up nested inside the wrapper instead of the tag self-closing.
+export const WrappedChild = {
+  args: {
+    slots: {
+      default: [
+        '<div class="Wrapper">',
+        { component: BoxChild, slots: { default: '<p>Inside the wrapper</p>' } },
+        '</div>',
+      ],
+    },
+  },
+};
