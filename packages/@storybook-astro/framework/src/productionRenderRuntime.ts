@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ViteDevServer } from 'vite';
-import { applyDecorators } from '@storybook-astro/renderer/decorators';
 import { isAstroComponentSlot, serializeAstroComponentMarkers, type SlotValue } from '@storybook-astro/renderer/types';
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
 import { separateStorySlots } from './lib/separate-story-slots.ts';
@@ -135,10 +134,12 @@ export async function createProductionRenderRuntime(
         return undefined;
       }
 
+      // `composeStory` (portable-stories.ts) merges in `applyDecorators` by
+      // default, same as `render` — no need to pass it explicitly here.
       const composedStory = composeStory(
         rawStoryExport as never,
         meta as never,
-        { ...previewProjectAnnotations, applyDecorators } as never,
+        previewProjectAnnotations as never,
         exportName
       );
       const tree: unknown = await composedStory();

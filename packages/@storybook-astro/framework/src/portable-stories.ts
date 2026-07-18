@@ -14,6 +14,7 @@ import {
   composeStories as originalComposeStories,
   setProjectAnnotations as originalSetProjectAnnotations,
 } from 'storybook/internal/preview-api';
+import { applyDecorators } from '@storybook-astro/renderer/decorators';
 
 // Define the AstroRenderer type to match other frameworks
 export interface AstroRenderer extends WebRenderer {
@@ -129,14 +130,18 @@ export function composeStory<TArgs extends Args = Args, R extends AstroRenderer 
   projectAnnotations?: ProjectAnnotations<R>,
   exportsName?: string
 ) {
-  // Merge project annotations with Astro renderer
+  // Merge in the Astro-aware `render` and `applyDecorators` (the renderer's
+  // decorator composition, Decorator Support Step 5) — a project's own
+  // annotations still win when it supplies either.
   const mergedProjectAnnotations: any = projectAnnotations ? {
     ...projectAnnotations,
-    render: projectAnnotations.render || render
+    render: projectAnnotations.render || render,
+    applyDecorators: projectAnnotations.applyDecorators || applyDecorators
   } : {
-    render
+    render,
+    applyDecorators
   };
-  
+
   return originalComposeStory<AstroRenderer, TArgs>(
     story as any,
     componentAnnotations as any,
@@ -173,13 +178,17 @@ export function composeStories<TModule extends Record<string, any>, R extends As
   storiesImport: TModule,
   projectAnnotations?: ProjectAnnotations<R>
 ): { [K in keyof Omit<TModule, 'default'>]: any } {
-  // Merge project annotations with Astro renderer
+  // Merge in the Astro-aware `render` and `applyDecorators` (the renderer's
+  // decorator composition, Decorator Support Step 5) — a project's own
+  // annotations still win when it supplies either.
   const mergedProjectAnnotations: any = projectAnnotations ? {
     ...projectAnnotations,
-    render: projectAnnotations.render || render
+    render: projectAnnotations.render || render,
+    applyDecorators: projectAnnotations.applyDecorators || applyDecorators
   } : {
-    render
+    render,
+    applyDecorators
   };
-  
+
   return originalComposeStories(storiesImport as any, mergedProjectAnnotations as any) as { [K in keyof Omit<TModule, 'default'>]: any };
 }

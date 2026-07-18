@@ -9,7 +9,13 @@ import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fall
 import { separateStorySlots } from '../lib/separate-story-slots.ts';
 import { reconstructProps, reconstructSlots } from '../lib/reconstruct-component-args.ts';
 import { patchCreateAstroCompat, markRawSlots } from '../astroRenderHandler.ts';
-import { serializeAstroComponentMarkers } from '@storybook-astro/renderer/types';
+import {
+  ASTRO_COMPONENT_MARKER,
+  isAstroComponentSlot,
+  serializeAstroComponentMarkers,
+  type SlotValue
+} from '@storybook-astro/renderer/types';
+import { isDecoratedTree } from '@storybook-astro/renderer/decoratedTree';
 import type { ComposedStory } from './types.ts';
 import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
 
@@ -25,6 +31,7 @@ const astroSsrHandlerPromises = new Map<
       component: string;
       args?: Record<string, unknown>;
       slots?: Record<string, unknown>;
+      node?: SlotValue;
     }) => Promise<string>
   >
 >();
@@ -133,10 +140,62 @@ function setRenderedHtml(html: string) {
   return html;
 }
 
+/**
+ * Serializes a decorator-composed tree (Decorator Support, Step 5) for the
+ * daemon/handler `node` field, forcing the story leaf — wherever a decorator
+ * placed it — to carry the exact `moduleId` the top-level `component` field
+ * uses.
+ *
+ * This matters because `astroRenderHandler.ts`'s story-leaf detection matches
+ * by exact string equality between a loaded marker's `moduleId` and
+ * `data.component`, so that it knows to apply the story's own already-merged
+ * args instead of empty props (see the WeakSet note in `renderDecoratedRoot`).
+ * A plain `serializeAstroComponentMarkers` pass alone isn't enough: it would
+ * serialize the story leaf using the factory's own raw `.moduleId`, which can
+ * differ from the stripped value `getComponentModuleId` computes for
+ * `data.component` (e.g. a query/hash suffix) — a mismatch would silently
+ * lose the story's args. Marking the leaf explicitly first guarantees the
+ * two strings are identical, regardless of what the raw `.moduleId` looked
+ * like.
+ */
+function serializeDecoratedTree(tree: SlotValue, storyComponent: unknown, storyModuleId: string): SlotValue {
+  return serializeAstroComponentMarkers(markStoryLeaf(tree, storyComponent, storyModuleId)) as SlotValue;
+}
+
+/** Walks a decorated tree, replacing every occurrence of `storyComponent` with an explicit marker. */
+function markStoryLeaf(value: SlotValue, storyComponent: unknown, storyModuleId: string): SlotValue {
+  if ((value as unknown) === storyComponent) {
+    return { [ASTRO_COMPONENT_MARKER]: true, moduleId: storyModuleId } as unknown as SlotValue;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => markStoryLeaf(entry, storyComponent, storyModuleId)) as SlotValue;
+  }
+
+  if (isAstroComponentSlot(value)) {
+    const slots = value.slots as Record<string, SlotValue> | undefined;
+
+    if (!slots) {
+      return value;
+    }
+
+    const markedSlots: Record<string, SlotValue> = {};
+
+    for (const [name, slotValue] of Object.entries(slots)) {
+      markedSlots[name] = markStoryLeaf(slotValue, storyComponent, storyModuleId);
+    }
+
+    return { ...value, slots: markedSlots };
+  }
+
+  return value;
+}
+
 async function renderAstroComponentToDom(
   component: unknown,
   args: Record<string, unknown>,
-  resolveFrom: string
+  resolveFrom: string,
+  decoratedTree?: SlotValue
 ) {
   const moduleId = getComponentModuleId(component);
 
@@ -147,6 +206,9 @@ async function renderAstroComponentToDom(
   const { componentArgs, storySlots } = separateStorySlots(args);
   const serializedArgs = serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>;
   const serializedSlots = serializeAstroComponentMarkers(storySlots) as Record<string, unknown>;
+  const node = decoratedTree && moduleId
+    ? serializeDecoratedTree(decoratedTree, component, moduleId)
+    : undefined;
 
   if (moduleId) {
     try {
@@ -155,7 +217,8 @@ async function renderAstroComponentToDom(
         resolveFrom,
         component: moduleId,
         args: serializedArgs,
-        slots: serializedSlots
+        slots: serializedSlots,
+        node
       });
 
       if (typeof html === 'string') {
@@ -170,7 +233,8 @@ async function renderAstroComponentToDom(
       const html = await handler({
         component: moduleId,
         args: serializedArgs,
-        slots: serializedSlots
+        slots: serializedSlots,
+        node
       });
 
       return setRenderedHtml(html);
@@ -186,6 +250,10 @@ async function renderAstroComponentToDom(
     throw new Error('Failed to initialize Astro container for rendering');
   }
 
+  // This last-resort fallback (no moduleId, or both the daemon and the
+  // in-worker handler failed) renders the undecorated story only — decorators
+  // need the handler's `node` resolution, which this path doesn't have.
+  //
   // The direct fallback has no handler, so reconstruct nested components here:
   // load each marker's real server module by id and render slot markers to HTML.
   const loadComponent = async (id: string) => {
@@ -213,18 +281,24 @@ async function renderComposedStory(story: ComposedStory) {
   const storyExport = story.__storybookAstroStoryExport;
   let component = meta?.component ?? story.component;
 
-  if (!isAstroComponentFactory(component)) {
-    const maybeRendered = await story();
+  // Invoking the composed story runs its (possibly decorator-composed)
+  // storyFn — the only way to find out whether global/meta/story-level
+  // decorators wrapped it in a renderable tree (Decorator Support, Step 5).
+  // For an undecorated Astro story this just returns the bare component
+  // factory below, same as before — no server round trip either way.
+  const rendered = await story();
 
-    if (isAstroComponentFactory(maybeRendered)) {
-      component = maybeRendered;
+  if (!isAstroComponentFactory(component)) {
+    if (isAstroComponentFactory(rendered)) {
+      component = rendered;
     } else if (
-      typeof maybeRendered === 'object' &&
-      maybeRendered !== null &&
-      'component' in maybeRendered &&
-      isAstroComponentFactory((maybeRendered as { component: unknown }).component)
+      typeof rendered === 'object' &&
+      rendered !== null &&
+      !isDecoratedTree(rendered) &&
+      'component' in rendered &&
+      isAstroComponentFactory((rendered as { component: unknown }).component)
     ) {
-      component = (maybeRendered as { component: unknown }).component;
+      component = (rendered as { component: unknown }).component;
     }
   }
 
@@ -239,8 +313,9 @@ async function renderComposedStory(story: ComposedStory) {
   };
 
   const resolveFrom = await resolveTestingProjectRoot(component);
+  const decoratedTree = isDecoratedTree(rendered) ? (rendered as SlotValue) : undefined;
 
-  return renderAstroComponentToDom(component, args, resolveFrom);
+  return renderAstroComponentToDom(component, args, resolveFrom, decoratedTree);
 }
 
 export async function renderStory(story: ComposedStory) {

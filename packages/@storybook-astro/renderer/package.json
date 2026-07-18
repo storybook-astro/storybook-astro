@@ -45,6 +45,10 @@
     "./decorators": {
       "types": "./dist/decorators.d.ts",
       "import": "./dist/decorators.js"
+    },
+    "./decoratedTree": {
+      "types": "./dist/decoratedTree.d.ts",
+      "import": "./dist/decoratedTree.js"
     }
   },
   "scripts": {
