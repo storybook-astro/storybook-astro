@@ -120,3 +120,18 @@ test('Astro Counter Default is unaffected by the app global decorators', async (
   expect(screen.getByTestId('vanilla-counter')).toHaveTextContent('Astro counter: 1');
   expect(screen.queryByTestId('decorator-global')).not.toBeInTheDocument();
 });
+
+// The Astro-specific counterpart of the two React/Vue tests above
+// (docs/DECORATOR_SUPPORT.md, Step 6): this app's `.storybook/preview.js` also
+// declares a real global decorator for Astro stories (GlobalWrapper.astro,
+// guarded on `parameters.renderer === 'astro'`), so every Astro story —
+// including this one — renders inside it.
+test('Astro Counter Default is wrapped by the app global Astro decorator', async () => {
+  const { Default } = composeAstroStories(astroCounterStories);
+
+  await renderStory(Default);
+
+  const globalWrapper = screen.getByTestId('global-astro-decorator');
+
+  expect(within(globalWrapper).getByTestId('vanilla-counter')).toHaveTextContent('Astro counter: 1');
+});

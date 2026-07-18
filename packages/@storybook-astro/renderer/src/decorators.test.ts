@@ -131,6 +131,30 @@ describe('applyDecorators — Astro composition', () => {
     });
   });
 
+  // Regression test (docs/DECORATOR_SUPPORT.md, Step 6 finding): Storybook's
+  // `prepareStory` never hands `applyDecorators` the raw `decorators` array —
+  // `applyHooks` (storybook/internal/preview-api) first replaces every entry,
+  // bare components included, with a `hookify()`-wrapped function so it can
+  // track Storybook preview hooks per decorator. That wrapper stashes the
+  // original value at `.originalFn` but otherwise looks like a generic
+  // function, with no `isAstroComponentFactory` marker of its own. Composing
+  // a bare-component decorator through the real Storybook pipeline (any real
+  // Storybook, portable-stories, or CSF4 usage) hits this every time — only
+  // calling `applyDecorators` directly, like the test above, skips it. Fixed
+  // by unwrapping `.originalFn` before the `isAstroComponentFactory` check.
+  test('a bare Astro component wrapped by Storybook\'s own hookify() is still recognized as sugar', () => {
+    const Wrapper = fakeAstroComponent('/src/Wrapper.astro');
+    const hookifiedWrapper = Object.assign((..._args: unknown[]) => undefined, { originalFn: Wrapper });
+
+    const composed = applyDecorators(baseStoryFn, [hookifiedWrapper as unknown as AstroDecorator]);
+
+    expect(composed(storyContext())).toEqual({
+      component: Wrapper,
+      props: undefined,
+      slots: { default: baseComponent }
+    });
+  });
+
   test('two decorators compose inside-out: the first wraps the story, the second wraps that', () => {
     const Inner = fakeAstroComponent('/src/Inner.astro');
     const Outer = fakeAstroComponent('/src/Outer.astro');

@@ -117,15 +117,40 @@ function composeAstroTree(
     const Story = (() => handle) as unknown as PartialStoryFn<AstroRenderer>;
 
     // Sugar: a bare Astro component in the decorators array wraps the story
-    // in its default slot without needing a decorator function at all.
-    const result = isAstroComponentFactory(decorator)
-      ? { component: decorator as AstroComponentFactory }
+    // in its default slot without needing a decorator function at all. Every
+    // decorator reaching this function has already been run through
+    // Storybook's own `hookify()` (`applyHooks` in
+    // storybook/internal/preview-api, wired in by `prepareStory` before it
+    // ever calls our `applyDecorators`) — which replaces each array entry,
+    // bare components included, with a fresh wrapper function so it can track
+    // Storybook preview hooks per decorator. That wrapper carries none of the
+    // original value's own properties, so `isAstroComponentFactory` must be
+    // checked against `unwrapHookifiedDecorator(decorator)` — the original
+    // value `hookify` stashes at `.originalFn` — not `decorator` itself, or a
+    // bare-component decorator is misread as a decorator *function* and
+    // called directly, throwing the "cannot be used in the browser" stub
+    // error instead of wrapping the story.
+    const rawDecorator = unwrapHookifiedDecorator(decorator);
+    const result = isAstroComponentFactory(rawDecorator)
+      ? { component: rawDecorator as AstroComponentFactory }
       : (decorator as DecoratorFunction<AstroRenderer>)(Story, context);
 
     tree = normalizeDecoratorResult(result, handle, tree);
   }
 
   return tree;
+}
+
+/**
+ * Undoes Storybook's `hookify()` wrapping (see the comment above) so a bare
+ * Astro component decorator can still be recognized by
+ * `isAstroComponentFactory`. Falls back to the value itself when it was never
+ * hookified — e.g. when `applyDecorators` is called directly, as
+ * `decorators.test.ts` and the CSF4 preview tests do, bypassing
+ * `prepareStory` entirely.
+ */
+function unwrapHookifiedDecorator(decorator: AstroDecorator): unknown {
+  return (decorator as { originalFn?: unknown }).originalFn ?? decorator;
 }
 
 /** Turns one decorator's return value into the next layer of the tree. */

@@ -142,10 +142,20 @@ export function composeStory<TArgs extends Args = Args, R extends AstroRenderer 
     applyDecorators
   };
 
+  // `originalComposeStory`'s real signature is `(story, component, project,
+  // defaultConfig, exportsName)` — five params, with `defaultConfig` (not
+  // `exportsName`) fourth. Passing `undefined` there (rather than omitting the
+  // arg and letting `exportsName` land in that slot) is what makes its `??
+  // globalThis.globalProjectAnnotations` fallback actually apply: internally,
+  // `defaultConfig ?? globalThis.globalProjectAnnotations ?? {}` only reaches
+  // that fallback when `defaultConfig` is nullish, which is how
+  // `setProjectAnnotations` (see its own doc comment above) is meant to reach
+  // a composed story that isn't given explicit `projectAnnotations` here.
   return originalComposeStory<AstroRenderer, TArgs>(
     story as any,
     componentAnnotations as any,
     mergedProjectAnnotations as any,
+    undefined,
     exportsName as any
   );
 }
@@ -190,5 +200,19 @@ export function composeStories<TModule extends Record<string, any>, R extends As
     applyDecorators
   };
 
-  return originalComposeStories(storiesImport as any, mergedProjectAnnotations as any) as { [K in keyof Omit<TModule, 'default'>]: any };
+  // The default `composeStoryFn` Storybook's own `composeStories` falls back
+  // to (when a third argument isn't given) hardcodes `defaultConfig` to `{}`
+  // for every story, which — like the `composeStory` bug fixed above — blocks
+  // its `?? globalThis.globalProjectAnnotations` fallback from ever running.
+  // That silently drops whatever `setProjectAnnotations` recorded (e.g. a real
+  // `.storybook/preview.js`'s global `decorators`) for every caller that
+  // doesn't ALSO pass `projectAnnotations` to this function directly — which
+  // defeats the entire point of calling `setProjectAnnotations` once in a test
+  // setup file. Passing `undefined` here instead restores that fallback.
+  return originalComposeStories(
+    storiesImport as any,
+    mergedProjectAnnotations as any,
+    (story: any, component: any, project: any, exportsName: any) =>
+      originalComposeStory(story, component, project, undefined, exportsName)
+  ) as { [K in keyof Omit<TModule, 'default'>]: any };
 }

@@ -1,0 +1,15 @@
+---
+// Named-slot decorator target (docs/DECORATOR_SUPPORT.md, Decorator Contract:
+// "Named slots are supported explicitly"). Renders both a default slot and a
+// second, named `sidebar` slot, so a decorator descriptor can place the story
+// in one and unrelated content in the other:
+// `(Story) => ({ component: LayoutWithSlots, slots: { default: Story(), sidebar: '...' } })`.
+---
+<div data-testid="layout-with-slots">
+  <div data-testid="layout-main">
+    <slot />
+  </div>
+  <div data-testid="layout-sidebar">
+    <slot name="sidebar" />
+  </div>
+</div>
