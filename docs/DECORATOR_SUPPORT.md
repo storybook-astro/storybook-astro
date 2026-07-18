@@ -59,6 +59,8 @@ Therefore:
 
 **Decision 3 — Framework stories keep default composition.** Our `applyDecorators` branches at call time: stories with `parameters.renderer` get `defaultDecorateStory` behavior so React/Vue/Svelte decorators behave natively through the delegated renderer; only Astro-rendered stories get the tree composition.
 
+> **Step 1 finding**: `defaultDecorateStory` is *not* fully equivalent to each framework's own composition. React's JSX decorators work, but Vue's documented `(story) => ({ components: { story }, template })` shape depends on `@storybook/vue3`'s own `decorateStory` normalization and renders as stringified function text under generic composition. Vue decorators must use the render-function form `(story) => () => h('div', attrs, [h(story())])` (see `integration/*/.storybook/preview.js`). Step 2 should either route `parameters.renderer` stories through the *framework's* `applyDecorators`/`decorateStory` when available (fixing the descriptor shape), or keep `defaultDecorateStory` and document the `h()`-form requirement for Vue.
+
 ## Decorator Contract
 
 ### Supported decorator shapes (Astro stories)
