@@ -13,7 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `setProjectAnnotations` is no longer silently ignored by `composeStories`/`composeStory` in the testing API (#40). Both functions previously passed an effectively-empty `defaultConfig` into Storybook's internal composition helpers, which blocked their `?? globalThis.globalProjectAnnotations` fallback from ever running — so a test's `setProjectAnnotations([preview])` never actually reached a story composed without an explicit `projectAnnotations` argument. Any global `decorators`, `parameters`, etc. set that way are now applied as expected.
 - Bare Astro components used as decorators (`decorators: [Wrapper]`) now work through real Storybook story preparation, not just direct calls to `applyDecorators` (#40). Storybook wraps every decorator entry in a generic hook-tracking function before handing it to the renderer, which previously made a bare-component decorator get invoked as if it were a decorator function, throwing the "Astro components cannot be used in the browser" stub error instead of wrapping the story.
-- An array slot's string entries are now sanitized together as one HTML document instead of each entry in isolation, so a wrapper tag's opening and closing halves can live in separate array entries around a component (#146). Previously, sanitization auto-closed an entry like `'<div>'` on its own and discarded a lone `'</div>'` in a later entry, so the component ended up rendered as a sibling after a self-closed wrapper instead of nested inside it.
+
+## [1.9.0] - 2026-07-18
+
+### Fixed
+- An array slot's string entries are now sanitized together as one HTML document instead of each entry in isolation, so a wrapper tag's opening and closing halves can live in separate array entries around a component (#149). Previously, sanitization auto-closed an entry like `'<div>'` on its own and discarded a lone `'</div>'` in a later entry, so the component ended up rendered as a sibling after a self-closed wrapper instead of nested inside it.
+
+### Changed
+- Storybook updated to 10.5.2 (#151).
 
 ## [1.8.0] - 2026-07-02
 
