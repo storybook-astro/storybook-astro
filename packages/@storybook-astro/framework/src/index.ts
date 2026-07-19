@@ -11,6 +11,7 @@ import { definePreview as definePreviewBase, type PreviewAddon, type InferTypes,
 import { combineParameters } from 'storybook/internal/preview-api';
 import type { ArgsStoryFn, ProjectAnnotations, RenderContext, Renderer } from 'storybook/internal/types';
 import { defaultPreviewParameters } from '@storybook-astro/renderer/preview-defaults';
+import { applyDecorators } from '@storybook-astro/renderer/decorators';
 import type { AstroRenderer } from './portable-stories.ts';
 
 // CSF4 consumers reach `definePreview` from the preview iframe; Node test setup
@@ -117,6 +118,7 @@ export function definePreview<Addons extends PreviewAddon<never>[] = []>(
       ...input.parameters
     }),
     render: input.render ?? composedRender,
-    renderToCanvas: input.renderToCanvas ?? composedRenderToCanvas
+    renderToCanvas: input.renderToCanvas ?? composedRenderToCanvas,
+    applyDecorators: input.applyDecorators ?? applyDecorators
   });
 }

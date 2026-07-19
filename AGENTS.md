@@ -31,6 +31,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 **Important Files**:
 - `src/preset.ts` - Framework configuration, exports `viteFinal` and `core` config
 - `src/middleware.ts` - Creates Astro Container, exports `handlerFactory`, includes `patchCreateAstroCompat` for Astro compiler v2/v3 bridging
+- `src/astroRenderHandler.ts` - `createAstroRenderHandler`, the shared handler `handlerFactory` and the standalone server both call into. Resolves slot trees (`reconstructSlots`) and, when a render request carries a decorator tree (`node`), resolves it the same way via `renderDecoratedRoot`
 - `src/viteStorybookAstroMiddlewarePlugin.ts` - Vite plugin that handles render requests via HMR
 - `src/vitePluginAstroComponentMarker.ts` - Patches Astro's client-side `.astro` stubs (Astro 6+ and Astro 7's Rust compiler) to set `isAstroComponentFactory` and preserve scoped CSS imports
 - `src/vitePluginAstroFonts.ts` - Resolves Astro's Font Provider API in Storybook's SSR context and auto-loads fonts declared in `astro.config.*`
@@ -49,6 +50,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 **Important Files**:
 - `src/render.tsx` - Exports `render()` and `renderToCanvas()` functions
 - `src/preset.ts` - Defines preview annotations
+- `src/decorators.ts` - `applyDecorators`, the renderer's `applyDecorators` project annotation. Composes a story's `decorators` array into a `SlotValue` tree for Astro stories (Decision 2 in `docs/DECORATOR_SUPPORT.md`), or defers to Storybook's `defaultDecorateStory` for framework-delegated stories (`parameters.renderer` set)
 
 ### Data Flow
 
@@ -56,16 +58,19 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 ```
 Story File (.stories.jsx)
     ↓
+@storybook-astro/renderer (decorators.ts)
+    ↓ [applyDecorators composes the story's decorators into a SlotValue tree]
 @storybook-astro/renderer (render.tsx)
     ↓ [detects isAstroComponentFactory flag]
-    ↓ [sends render request via Vite HMR]
-@storybook-astro/framework (middleware.ts)
+    ↓ [serializes the tree and sends ONE render request via Vite HMR, tree on the `node` field]
+@storybook-astro/framework (middleware.ts → astroRenderHandler.ts)
     ↓ [patchCreateAstroCompat wraps component]
+    ↓ [reconstructSlots/renderDecoratedRoot resolves the tree depth-first, story leaf gets the full args pipeline]
     ↓ [Astro Container API renders to HTML]
 @storybook-astro/renderer (render.tsx)
     ↓ [injects HTML into canvas]
     ↓ [applies scoped styles, executes client scripts]
-Storybook Canvas (rendered component)
+Storybook Canvas (rendered component, decorators included)
 ```
 
 **Framework components** (React, Solid, Vue, etc. — delegated):

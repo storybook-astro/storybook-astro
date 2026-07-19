@@ -41,18 +41,28 @@
     "./preview-defaults": {
       "types": "./dist/preview-defaults.d.ts",
       "import": "./dist/preview-defaults.js"
+    },
+    "./decorators": {
+      "types": "./dist/decorators.d.ts",
+      "import": "./dist/decorators.js"
+    },
+    "./decoratedTree": {
+      "types": "./dist/decoratedTree.d.ts",
+      "import": "./dist/decoratedTree.js"
     }
   },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch --no-clean",
     "lint": "eslint .",
+    "test": "vitest run",
     "prepublishOnly": "tsup"
   },
   "devDependencies": {
     "astro": "^6.4.8",
     "eslint": "^9.39.2",
-    "tsup": "^8.5.1"
+    "tsup": "^8.5.1",
+    "vitest": "^4.1.9"
   },
   "peerDependencies": {
     "@storybook/react": "^10.0.0",

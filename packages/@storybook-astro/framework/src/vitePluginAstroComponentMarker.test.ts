@@ -33,8 +33,11 @@ type TransformablePlugin = {
   transform: (code: string, id: string) => { code: string } | null;
 };
 
-function createPlugin(command: 'serve' | 'build' = 'serve') {
-  const plugin = vitePluginAstroComponentMarker() as unknown as TransformablePlugin;
+function createPlugin(
+  command: 'serve' | 'build' = 'serve',
+  options?: { onClientAstroModuleId?: (moduleId: string) => void }
+) {
+  const plugin = vitePluginAstroComponentMarker(options) as unknown as TransformablePlugin;
 
   plugin.configResolved({ command });
 
@@ -56,6 +59,33 @@ describe('vitePluginAstroComponentMarker transform', () => {
 
     expect(result?.code).toContain('isAstroComponentFactory = true');
     expect(result?.code).toContain(JSON.stringify(filePath));
+  });
+
+  // Server-mode snapshots need every client-imported .astro id, not just story
+  // components (docs/DECORATOR_SUPPORT.md, Step 4, Gap B) — vitePluginAstroBuildServer
+  // collects them through this callback.
+  test('reports every marked module id via onClientAstroModuleId', () => {
+    const filePath = writeAstroFile('Wrapper.astro', '<div><slot /></div>');
+    const seenModuleIds: string[] = [];
+    const plugin = createPlugin('serve', {
+      onClientAstroModuleId: (moduleId) => seenModuleIds.push(moduleId)
+    });
+
+    plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    expect(seenModuleIds).toEqual([filePath]);
+  });
+
+  test('does not report modules that are not the Astro browser stub', () => {
+    const filePath = writeAstroFile('Untouched.astro', '<div>Hello</div>');
+    const seenModuleIds: string[] = [];
+    const plugin = createPlugin('serve', {
+      onClientAstroModuleId: (moduleId) => seenModuleIds.push(moduleId)
+    });
+
+    plugin.transform('export default {};', filePath);
+
+    expect(seenModuleIds).toEqual([]);
   });
 
   test('inlines CSS for own <style> blocks in dev mode (hybrid approach)', () => {

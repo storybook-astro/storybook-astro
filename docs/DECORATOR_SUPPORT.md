@@ -59,6 +59,8 @@ Therefore:
 
 **Decision 3 — Framework stories keep default composition.** Our `applyDecorators` branches at call time: stories with `parameters.renderer` get `defaultDecorateStory` behavior so React/Vue/Svelte decorators behave natively through the delegated renderer; only Astro-rendered stories get the tree composition.
 
+> **Step 1 finding**: `defaultDecorateStory` is *not* fully equivalent to each framework's own composition. React's JSX decorators work, but Vue's documented `(story) => ({ components: { story }, template })` shape depends on `@storybook/vue3`'s own `decorateStory` normalization and renders as stringified function text under generic composition. Vue decorators must use the render-function form `(story) => () => h('div', attrs, [h(story())])` (see `integration/*/.storybook/preview.js`). Step 2 should either route `parameters.renderer` stories through the *framework's* `applyDecorators`/`decorateStory` when available (fixing the descriptor shape), or keep `defaultDecorateStory` and document the `h()`-form requirement for Vue.
+
 ## Decorator Contract
 
 ### Supported decorator shapes (Astro stories)
@@ -127,6 +129,8 @@ Handled entirely by the delegated framework renderer with default Storybook comp
 - **Reactive / runtime decorators.** Astro is SSR-first; decorators run at render time. Interactive wrapper behavior belongs in the decorator component's own `<script>` or islands.
 
 ## Implementation Plan
+
+> **Status (2026-07-18)**: Steps 1–6 are implemented and committed on `feature/decorator-support`. Step 7 (this documentation pass) is in progress; no release steps have run yet — the feature is unreleased.
 
 Each step lands with its tests and is independently shippable (canary releases through `develop`, per `docs/RELEASING.md`).
 
@@ -199,5 +203,7 @@ Concrete examples + tests exercising every authoring position and mode:
 
 - Decorators on Astro stories produce SSR output only; decorator props can read `context` (globals, args, parameters) at render time but cannot react to client-side state changes. In **static** builds, decorators see `initialGlobals` frozen at build time — toolbar changes will not re-render prerendered stories.
 - Component wrappers must be Astro components; framework wrappers (e.g. React `ThemeProvider`) go inside the decorator's Astro component as an island.
-- HTML-string decorators are sanitized in server mode under the project's sanitization config — wrapper markup is limited to the allowed tags/attributes there (dev mode applies the same config, default-on).
+- HTML-string decorators are sanitized in server mode under the project's sanitization config — wrapper markup is limited to the allowed tags/attributes there (dev mode applies the same config, default-on). The **default allowlist** (`lib/sanitization.ts`) has no `<nav>`, `<aside>`, `<header>`, or `<footer>`, and no `data-*` attributes on any tag — a decorator's wrapper markup should stick to `<div>`/`<span>` with `class`/`id`, or use a component descriptor instead of a string when richer markup is needed.
 - Version skew: a new renderer talking to an old framework server renders stories undecorated (graceful, but silent — upgrade both packages together).
+- CSF4 (`definePreview`) portable-stories caveats, confirmed empirically against Storybook 10.5.2 (Step 6): `composeStory` (singular) must be called with the CSF4 story's `meta.input` — not the `meta` wrapper object itself — as its component annotations argument; passing `meta` throws "component annotation is missing from the default export". The CSF4 story's own `.run()` isn't a Node-testable alternative either — it always renders through `definePreview`'s production `render`, which needs a browser (`document is not defined` outside one).
+- `setProjectAnnotations` was previously **silently ignored** by `composeStories`/`composeStory` in `portable-stories.ts` — both hardcoded (or defaulted to) an empty `defaultConfig` object when calling into Storybook's `originalComposeStory`/`originalComposeStories`, which blocked those functions' own `?? globalThis.globalProjectAnnotations` fallback from ever running. A test calling `setProjectAnnotations([preview])` and then `composeStories(stories)` (no explicit `projectAnnotations` argument) never actually got the real `preview.js` decorators/parameters. Fixed in Step 6 by passing `undefined` instead of `{}` so the fallback engages — worth a CHANGELOG entry since it silently affected any existing portable-stories test relying on `setProjectAnnotations` alone.
