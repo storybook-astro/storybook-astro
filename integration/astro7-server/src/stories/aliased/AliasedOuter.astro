@@ -1,0 +1,12 @@
+---
+import { brand } from '~/stories/aliased/tokens';
+import AliasedInner from './AliasedInner.astro';
+
+const { label = 'aliased outer' } = Astro.props;
+
+---
+
+<div style={`border: 1px solid ${brand}; padding: 8px;`}>
+  <p>{label}</p>
+  <AliasedInner />
+</div>

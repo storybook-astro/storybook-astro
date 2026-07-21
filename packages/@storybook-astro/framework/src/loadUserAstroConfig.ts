@@ -1,4 +1,4 @@
-import { loadConfigFromFile, type Plugin } from 'vite';
+import { loadConfigFromFile, type AliasOptions, type Plugin } from 'vite';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { AstroIntegration } from 'astro';
@@ -15,12 +15,14 @@ interface UserAstroConfigData {
   integrations: AstroIntegration[];
   fonts: StorybookFontFamily[];
   vitePlugins: Plugin[];
+  viteResolveAlias: AliasOptions | undefined;
 }
 
 const EMPTY: UserAstroConfigData = {
   integrations: [],
   fonts: [],
-  vitePlugins: []
+  vitePlugins: [],
+  viteResolveAlias: undefined
 };
 
 // Cache by resolveFrom — config rarely changes during a Storybook session and
@@ -66,13 +68,14 @@ async function readUserAstroConfig(resolveFrom: string): Promise<UserAstroConfig
     const config = result.config as {
       integrations?: unknown;
       fonts?: unknown;
-      vite?: { plugins?: unknown };
+      vite?: { plugins?: unknown; resolve?: { alias?: unknown } };
     };
 
     return {
       integrations: extractIntegrations(config.integrations),
       fonts: extractFonts(config.fonts),
-      vitePlugins: extractVitePlugins(config.vite?.plugins)
+      vitePlugins: extractVitePlugins(config.vite?.plugins),
+      viteResolveAlias: extractViteResolveAlias(config.vite?.resolve?.alias)
     };
   } catch (err) {
     console.warn(
@@ -111,6 +114,20 @@ function extractFonts(raw: unknown): StorybookFontFamily[] {
       typeof (f as { cssVariable?: unknown }).cssVariable === 'string' &&
       typeof (f as { provider?: unknown }).provider === 'object'
   );
+}
+
+function extractViteResolveAlias(raw: unknown): AliasOptions | undefined {
+  // Vite accepts an object map or an array of { find, replacement } entries —
+  // pass either through untouched and reject everything else.
+  if (Array.isArray(raw)) {
+    return raw.length > 0 ? (raw as AliasOptions) : undefined;
+  }
+
+  if (raw && typeof raw === 'object') {
+    return Object.keys(raw).length > 0 ? (raw as AliasOptions) : undefined;
+  }
+
+  return undefined;
 }
 
 function extractVitePlugins(raw: unknown): Plugin[] {
@@ -157,4 +174,35 @@ export async function loadUserAstroFonts(resolveFrom: string): Promise<Storybook
  */
 export async function loadUserAstroVitePlugins(resolveFrom: string): Promise<Plugin[]> {
   return (await loadUserAstroConfigData(resolveFrom)).vitePlugins;
+}
+
+/**
+ * Loads `vite.resolve.alias` from the user's astro.config.* so alias-based
+ * module resolution also works in the story SSR server, which is built with
+ * `configFile: false` and would otherwise silently drop it (issue #136).
+ */
+export async function loadUserAstroViteResolveAlias(
+  resolveFrom: string
+): Promise<AliasOptions | undefined> {
+  return (await loadUserAstroConfigData(resolveFrom)).viteResolveAlias;
+}
+
+/**
+ * Combines the framework's own integrations with those declared in the
+ * user's astro.config.*, dropping user duplicates by name. Shared by the dev
+ * SSR server and the production render runtime so both load the same set —
+ * previously only dev did, leaving server-mode renders without user
+ * integrations.
+ */
+export async function mergeFrameworkAndUserIntegrations(
+  frameworkIntegrations: AstroIntegration[],
+  resolveFrom: string
+): Promise<AstroIntegration[]> {
+  const userIntegrations = await loadUserAstroIntegrations(resolveFrom);
+  const frameworkNames = new Set(frameworkIntegrations.map((integration) => integration.name));
+
+  return [
+    ...frameworkIntegrations,
+    ...userIntegrations.filter((integration) => !frameworkNames.has(integration.name))
+  ];
 }

@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   loadUserAstroFonts,
   loadUserAstroIntegrations,
-  loadUserAstroVitePlugins
+  loadUserAstroVitePlugins,
+  loadUserAstroViteResolveAlias,
+  mergeFrameworkAndUserIntegrations
 } from './loadUserAstroConfig.ts';
 
 let tmpDir: string;
@@ -145,5 +147,77 @@ describe('loadUserAstroIntegrations (regression)', () => {
     const integrations = await loadUserAstroIntegrations(tmpDir);
 
     expect(integrations.map((i) => i.name)).toEqual(['astro-icon', 'unocss/astro']);
+  });
+});
+
+describe('loadUserAstroViteResolveAlias', () => {
+  test('returns the vite.resolve.alias object from astro.config.*', async () => {
+    await writeConfig(`
+      export default {
+        vite: { resolve: { alias: { '~': '/repo/src' } } }
+      };
+    `);
+
+    expect(await loadUserAstroViteResolveAlias(tmpDir)).toEqual({ '~': '/repo/src' });
+  });
+
+  test('passes through the array form untouched', async () => {
+    await writeConfig(`
+      export default {
+        vite: { resolve: { alias: [{ find: '~', replacement: '/repo/src' }] } }
+      };
+    `);
+
+    expect(await loadUserAstroViteResolveAlias(tmpDir)).toEqual([
+      { find: '~', replacement: '/repo/src' }
+    ]);
+  });
+
+  test('returns undefined when no alias is configured', async () => {
+    await writeConfig(`export default { vite: {} };`);
+
+    expect(await loadUserAstroViteResolveAlias(tmpDir)).toBeUndefined();
+  });
+
+  test('returns undefined for an empty alias object', async () => {
+    await writeConfig(`export default { vite: { resolve: { alias: {} } } };`);
+
+    expect(await loadUserAstroViteResolveAlias(tmpDir)).toBeUndefined();
+  });
+});
+
+describe('mergeFrameworkAndUserIntegrations', () => {
+  test('appends user integrations that the framework did not already load', async () => {
+    await writeConfig(`
+      export default {
+        integrations: [
+          { name: 'astro-icon', hooks: {} },
+          { name: '@astrojs/preact', hooks: {} }
+        ]
+      };
+    `);
+
+    const frameworkIntegrations = [{ name: '@astrojs/preact', hooks: {} }];
+    const merged = await mergeFrameworkAndUserIntegrations(
+      frameworkIntegrations as never[],
+      tmpDir
+    );
+
+    expect(merged.map((integration) => integration.name)).toEqual([
+      '@astrojs/preact',
+      'astro-icon'
+    ]);
+    // The framework's instance wins over the user's duplicate.
+    expect(merged[0]).toBe(frameworkIntegrations[0]);
+  });
+
+  test('returns only framework integrations when no astro.config.* exists', async () => {
+    const frameworkIntegrations = [{ name: '@astrojs/react', hooks: {} }];
+    const merged = await mergeFrameworkAndUserIntegrations(
+      frameworkIntegrations as never[],
+      tmpDir
+    );
+
+    expect(merged).toEqual(frameworkIntegrations);
   });
 });

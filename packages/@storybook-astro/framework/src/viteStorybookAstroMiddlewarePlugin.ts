@@ -14,7 +14,7 @@ import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.t
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
-import { loadUserAstroIntegrations } from './loadUserAstroConfig.ts';
+import { mergeFrameworkAndUserIntegrations } from './loadUserAstroConfig.ts';
 
 export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptions) {
   // The internal Vite server is created lazily inside configureServer (dev-only).
@@ -179,15 +179,16 @@ export async function createViteServer(
     safeIntegrations.map((integration) => integration.loadIntegration(resolveFrom))
   );
 
-  const userIntegrations = await loadUserAstroIntegrations(resolveFrom);
-  const frameworkNames = new Set(frameworkIntegrations.map(i => i.name));
-  const extraIntegrations = userIntegrations.filter(i => !frameworkNames.has(i.name));
+  const mergedIntegrations = await mergeFrameworkAndUserIntegrations(
+    frameworkIntegrations,
+    resolveFrom
+  );
 
   const config = await getViteConfig(
     { root: resolveFrom },
     {
       configFile: false,
-      integrations: [...frameworkIntegrations, ...extraIntegrations],
+      integrations: mergedIntegrations,
       // Use the passthrough image service so nested components that use <Image>
       // from astro:assets render as plain <img> tags without triggering image
       // optimization (which fails in the Storybook SSR context).

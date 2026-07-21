@@ -8,6 +8,8 @@ const componentsRoot = getAbsolutePath('@storybook-astro/components');
 const config = {
   stories: [
     '../src/stories/Overview.mdx',
+    // Regression fixture for issue #136 — tsconfig `~/*` aliases in server mode.
+    '../src/stories/aliased/AliasedOuter.stories.js',
     `${componentsRoot}/src/NpmWeeklyDownloads/astro/NpmWeeklyDownloads.stories.js`,
     `${componentsRoot}/src/GithubContributors/astro/GithubContributors.stories.js`,
     `${componentsRoot}/src/GithubStars/astro/GithubStars.stories.js`,

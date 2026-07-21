@@ -4,6 +4,10 @@ import type { experimental_AstroContainer as AstroContainer } from 'astro/contai
 import { ensureAstroPassthroughImageService } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
+import {
+  loadUserAstroViteResolveAlias,
+  mergeFrameworkAndUserIntegrations
+} from './loadUserAstroConfig.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
@@ -13,6 +17,7 @@ import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegra
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
+import { vitePluginTsconfigAliases } from './vitePluginTsconfigAliases.ts';
 
 export async function createStorySsrViteServer(options: {
   integrations: Integration[];
@@ -21,25 +26,53 @@ export async function createStorySsrViteServer(options: {
   fonts?: FrameworkOptions['fonts'];
 }) {
   const { getViteConfig, passthroughImageService } = await importAstroConfig(options.resolveFrom);
+  const frameworkIntegrations = await Promise.all(
+    options.integrations.map((integration) => integration.loadIntegration(options.resolveFrom))
+  );
+  // Match the dev SSR server: integrations declared only in the user's
+  // astro.config.* must also apply to production/server-mode renders.
+  const integrations = await mergeFrameworkAndUserIntegrations(
+    frameworkIntegrations,
+    options.resolveFrom
+  );
+  const userResolveAlias = await loadUserAstroViteResolveAlias(options.resolveFrom);
+
   const astroConfig = await getViteConfig(
     { root: options.resolveFrom },
     {
       configFile: false,
-      integrations: await Promise.all(
-        options.integrations.map((integration) => integration.loadIntegration(options.resolveFrom))
-      ),
-      image: { service: passthroughImageService() }
+      integrations,
+      image: { service: passthroughImageService() },
+      // The render server is headless; the toolbar plugin also breaks the
+      // Vite dep-optimizer build under vitest ("Not implemented" in
+      // astro:strip-toolbar-sourcemap generateBundle).
+      devToolbar: { enabled: false }
     }
   )({
     mode: 'production',
     command: 'serve'
   });
 
+  // Astro registers its dev-toolbar plugins even with the toolbar disabled.
+  // They are useless in a headless render server, and on Vite 8 the
+  // `astro:strip-toolbar-sourcemap` generateBundle hook crashes the rolldown
+  // dep-optimizer build ("Not implemented").
+  astroConfig.plugins = (astroConfig.plugins ?? [])
+    .flat(Infinity as 1)
+    .filter(
+      (plugin) =>
+        !(plugin && typeof plugin === 'object' && 'name' in plugin) ||
+        !String(plugin.name).includes('toolbar')
+    );
+
   const config = mergeConfig(astroConfig, {
     appType: 'custom',
     server: {
       middlewareMode: true
     },
+    // `configFile: false` drops the user's astro.config `vite.resolve.alias`;
+    // re-apply it so aliased imports resolve like they do in a real Astro build.
+    ...(userResolveAlias ? { resolve: { alias: userResolveAlias } } : {}),
     ssr: {
       // Keep Astro runtime classes in the Vite SSR graph so containers and
       // components share SlotString/HTMLString instances during prerendering.
@@ -47,6 +80,7 @@ export async function createStorySsrViteServer(options: {
     },
     plugins: [
       createProjectAstroResolutionPlugin(options.resolveFrom),
+      vitePluginTsconfigAliases(options.resolveFrom),
       vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }),
       vitePluginAstroIntegrationOptsFallback(),
       vitePluginAstroVueFallback(),
