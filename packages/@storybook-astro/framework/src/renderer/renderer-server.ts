@@ -22,7 +22,11 @@ const ASTRO_SERVER_UNAVAILABLE_ERROR_NAME = 'AstroRenderServerUnavailableError';
 
 export function createServerRenderer(defaults: ServerRendererDefaults = {}) {
   return {
-    render(data: RenderComponentInput, timeoutMs = 5000) {
+    // Serverless render endpoints boot a full Vite SSR runtime on cold start
+    // (~10-15s on Vercel), so the server-mode timeout is far above the HMR
+    // renderer's — an aborted first render would just retry into another
+    // cold start.
+    render(data: RenderComponentInput, timeoutMs = 60_000) {
       return renderWithHttp(data, timeoutMs, defaults);
     },
     init() {

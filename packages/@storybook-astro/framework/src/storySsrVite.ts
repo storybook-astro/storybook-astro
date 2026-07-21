@@ -76,7 +76,13 @@ export async function createStorySsrViteServer(options: {
     ssr: {
       // Keep Astro runtime classes in the Vite SSR graph so containers and
       // components share SlotString/HTMLString instances during prerendering.
-      noExternal: /^astro(\/.+)?$/
+      // Renderer packages (@astrojs/preact etc.) must also stay in the graph:
+      // since Astro 7 / @astrojs/preact 6 their server entrypoints import
+      // integration-provided virtuals (astro:preact:opts) that only resolve
+      // through Vite — externalized, node imports them directly and crashes
+      // with ERR_UNSUPPORTED_ESM_URL_SCHEME. Astro's own explicit `external`
+      // entries (e.g. @astrojs/compiler) still win over this pattern.
+      noExternal: [/^astro(\/.+)?$/, /^@astrojs\//]
     },
     plugins: [
       createProjectAstroResolutionPlugin(options.resolveFrom),
