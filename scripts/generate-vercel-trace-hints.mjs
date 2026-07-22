@@ -25,7 +25,22 @@ const VITE_RESOLVED_PACKAGES = [
   'preact',
   'preact-render-to-string',
   '@astrojs/preact',
-  'msw'
+  'msw',
+  // Not every server app depends on every framework integration — missing
+  // packages are skipped (see resolvePackageDir's caller) rather than failing
+  // the build.
+  '@astrojs/react',
+  'react',
+  'react-dom',
+  '@astrojs/vue',
+  'vue',
+  '@vue/server-renderer',
+  '@astrojs/svelte',
+  'svelte',
+  '@astrojs/solid-js',
+  'solid-js',
+  '@astrojs/alpinejs',
+  'alpinejs'
 ];
 
 const RUNTIME_FILE_RE = /\.(?:m?js|cjs|json|node|css|wasm)$/;
@@ -75,7 +90,15 @@ const lines = [
 ];
 
 for (const packageName of VITE_RESOLVED_PACKAGES) {
-  const packageDir = resolvePackageDir(packageName);
+  let packageDir;
+
+  try {
+    packageDir = resolvePackageDir(packageName);
+  } catch (error) {
+    console.warn(`[trace-hints] skipping ${packageName}: not installed in this app (${error.message})`);
+    continue;
+  }
+
   const files = listRuntimeFiles(packageDir);
 
   lines.push(`  // ${packageName} (${files.length} files)`);
@@ -90,6 +113,6 @@ for (const packageName of VITE_RESOLVED_PACKAGES) {
 lines.push('}', '');
 
 writeFileSync(outputFile, lines.join('\n'));
-console.log(
+console.warn(
   `[trace-hints] wrote ${outputFile} (${lines.length - 6} file references)`
 );

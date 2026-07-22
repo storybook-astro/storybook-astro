@@ -47,4 +47,17 @@ export async function __nftTraceHints() {
   await import('preact');
   await import('preact-render-to-string');
   await import('msw/node');
+  // Framework integrations exercised by the copied local component stories
+  // and @storybook-astro/components framework variants (Accordion, Counter,
+  // CodeTabs, ...).
+  await import('@astrojs/react');
+  await import('react');
+  await import('react-dom/server');
+  await import('@astrojs/vue');
+  await import('vue');
+  await import('@vue/server-renderer');
+  await import('@astrojs/svelte');
+  await import('@astrojs/solid-js');
+  await import('solid-js/web');
+  await import('@astrojs/alpinejs');
 }
