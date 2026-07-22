@@ -37,6 +37,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 - `src/vitePluginAstroFonts.ts` - Resolves Astro's Font Provider API in Storybook's SSR context and auto-loads fonts declared in `astro.config.*`
 - `src/portable-stories.ts` - `composeStories`/`composeStory` for testing outside Storybook
 - `src/integrations/` - Integration adapters for each supported framework
+- `src/vitePluginAstroBuildServer.ts` - Server-mode production build (`renderMode: 'server'`). Alongside the usual `storybook-static/` UI, emits a sibling `storybook-server/` directory: `src/server/index.ts`'s Hono app plus a source snapshot of every Astro story component and its transitive (including tsconfig-aliased) imports. Story rules are compiled directly into the server bundle rather than loaded from the snapshot at runtime, since deployed hosts often strip or transpile `.ts` sources; a snapshot module alias map is resolved against the deploy host's filesystem at boot rather than baked in from the build machine. Each integration app wires the built server up with a per-app `api/` wrapper (Vercel) or a `preview-storybook.mjs` script (any Node host) — see `apps/website/src/content/docs/guides/deployment.md`. A CI server-mode job builds the `*-server` integration apps and runs Playwright against their local previews.
 
 #### 2. `packages/@storybook-astro/renderer` (Client)
 **Purpose**: Client-side rendering logic in Storybook's preview iframe
@@ -445,6 +446,6 @@ These are the key adaptations that keep Astro 5, 6, and 7 working. If Astro's AP
 - **Testing**: Expand test coverage for edge cases and error scenarios
 - **Error Handling**: Better error messages and recovery
 - **Documentation**: API documentation and more usage examples
-- **Production Build**: Static build support (currently dev-only)
+- **Production Build**: Both build-time static pre-rendering (`renderMode: 'static'`, default) and on-demand server-mode rendering (`renderMode: 'server'`) work in production. Server mode is confirmed working on Vercel and any Node.js server/container; Cloudflare Workers/Pages Functions are not supported (no Node `fs`/child processes) — see the Deployment guide on the docs site for the full platform matrix.
 - **Portable Stories**: Consider delegating to framework-specific composeStories when available
 - **Astro 8+**: Astro 5, 6, and 7 are supported today. Monitor for breaking changes in future major releases and adjust the compatibility layers above accordingly.
