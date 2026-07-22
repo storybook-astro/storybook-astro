@@ -4469,6 +4469,7 @@ __metadata:
   dependencies:
     "@astrojs/preact": "npm:^4.0.8"
     "@hono/node-server": "npm:^1.19.6"
+    "@playwright/test": "npm:^1.49.0"
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.5.2"
@@ -4536,6 +4537,7 @@ __metadata:
   dependencies:
     "@astrojs/preact": "npm:5.0.0"
     "@hono/node-server": "npm:^1.19.6"
+    "@playwright/test": "npm:^1.49.0"
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.5.2"
@@ -4607,6 +4609,7 @@ __metadata:
     "@astrojs/svelte": "npm:9.0.0"
     "@astrojs/vue": "npm:7.0.0"
     "@hono/node-server": "npm:^1.19.6"
+    "@playwright/test": "npm:^1.49.0"
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.5.2"
