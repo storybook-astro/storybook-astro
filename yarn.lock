@@ -4463,6 +4463,25 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@storybook-astro/integration-astro5-server@workspace:integration/astro5-server":
+  version: 0.0.0-use.local
+  resolution: "@storybook-astro/integration-astro5-server@workspace:integration/astro5-server"
+  dependencies:
+    "@astrojs/preact": "npm:^4.0.8"
+    "@hono/node-server": "npm:^1.19.6"
+    "@storybook-astro/components": "workspace:*"
+    "@storybook-astro/framework": "workspace:*"
+    "@storybook/addon-docs": "npm:10.5.2"
+    astro: "npm:5.17.2"
+    eslint: "npm:^9.39.2"
+    hono: "npm:^4.11.12"
+    msw: "npm:^2.12.10"
+    preact: "npm:^10.28.1"
+    storybook: "npm:10.5.2"
+    vite: "npm:^6.2.5"
+  languageName: unknown
+  linkType: soft
+
 "@storybook-astro/integration-astro5@workspace:integration/astro5":
   version: 0.0.0-use.local
   resolution: "@storybook-astro/integration-astro5@workspace:integration/astro5"

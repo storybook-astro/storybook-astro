@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "cd ../.. && yarn build:packages && cd - && yarn build",
+  "outputDirectory": "storybook-static",
+  "functions": {
+    "api/storybook-astro/[...path].js": {
+      "includeFiles": "storybook-server/**",
+      "maxDuration": 60,
+      "memory": 1769
+    }
+  }
+}
