@@ -1,4 +1,7 @@
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createServer, mergeConfig, type Plugin, type ViteDevServer } from 'vite';
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { ensureAstroPassthroughImageService } from './astroImageService.ts';
@@ -67,6 +70,14 @@ export async function createStorySsrViteServer(options: {
 
   const config = mergeConfig(astroConfig, {
     appType: 'custom',
+    // Vite and some plugins (e.g. @sveltejs/vite-plugin-svelte's optimizer
+    // metadata) write into cacheDir at boot. The default node_modules/.vite
+    // lives on a read-only filesystem on serverless hosts, so keep the cache
+    // in the OS temp dir instead.
+    cacheDir: join(
+      tmpdir(),
+      `storybook-astro-vite-${createHash('sha1').update(options.resolveFrom).digest('hex').slice(0, 8)}`
+    ),
     server: {
       middlewareMode: true
     },
