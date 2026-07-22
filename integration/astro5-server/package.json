@@ -7,7 +7,8 @@
     "dev": "storybook dev -p 6014",
     "build": "storybook build && node ../../scripts/generate-vercel-trace-hints.mjs",
     "serve": "node ./preview-storybook.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@astrojs/preact": "^4.0.8",
@@ -19,6 +20,7 @@
     "preact": "^10.28.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@storybook-astro/framework": "workspace:*",
     "@storybook/addon-docs": "10.5.2",
     "eslint": "^9.39.2",
