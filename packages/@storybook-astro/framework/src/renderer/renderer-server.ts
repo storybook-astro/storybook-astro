@@ -30,7 +30,17 @@ export function createServerRenderer(defaults: ServerRendererDefaults = {}) {
       return renderWithHttp(data, timeoutMs, defaults);
     },
     init() {
-      return;
+      // Fire-and-forget warmup at preview startup: any request boots the
+      // serverless function and its Vite SSR runtime while the Storybook UI
+      // is still loading, hiding most of the ~10-15s cold start that would
+      // otherwise land on the first story render. GET /render is unrouted
+      // (Hono 404s it) but still initializes the function module.
+      try {
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins
+        fetch(`${resolveServerUrl(defaults)}/render`, { method: 'GET' }).catch(() => {});
+      } catch {
+        // Never let warmup break preview startup.
+      }
     },
     applyStyles() {
       return;
