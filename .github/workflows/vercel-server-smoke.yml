@@ -1,0 +1,55 @@
+name: Vercel server-mode smoke test
+
+# Vercel posts a `deployment_status` event for every deployment it creates
+# (preview and production). Once a server-mode deployment goes live, probe
+# its render endpoint so a missing/misconfigured serverless function (404)
+# is caught right away instead of silently breaking Storybook's Astro
+# rendering for whoever opens that deployment next.
+on:
+  deployment_status
+
+jobs:
+  smoke-test:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      (contains(github.event.deployment_status.environment, 'server') ||
+       contains(github.event.deployment_status.environment_url, 'server') ||
+       contains(github.event.deployment_status.target_url, 'server'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Probe the render endpoint
+        env:
+          DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          IS_PRODUCTION: ${{ github.event.deployment_status.environment == 'production' }}
+        run: |
+          set -u
+
+          if [ -z "$DEPLOYMENT_URL" ]; then
+            echo "::notice::deployment_status event had no URL to probe — skipping."
+            exit 0
+          fi
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS "${DEPLOYMENT_URL%/}/api/storybook-astro/render")
+          echo "OPTIONS ${DEPLOYMENT_URL%/}/api/storybook-astro/render -> HTTP $HTTP_STATUS"
+
+          # Vercel preview deployments are commonly gated behind deployment
+          # protection, which intercepts the request before it ever reaches
+          # the function — that is not a function-missing failure.
+          if [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "303" ]; then
+            echo "::notice::Deployment is behind Vercel preview protection (HTTP $HTTP_STATUS) — skipping."
+            exit 0
+          fi
+
+          if [ "$HTTP_STATUS" = "404" ]; then
+            if [ "$IS_PRODUCTION" = "true" ]; then
+              echo "::error::Render function missing on production deployment (HTTP 404)."
+              exit 1
+            fi
+
+            echo "::warning::Render function missing on this preview deployment (HTTP 404) — not failing the build for a non-production deployment."
+            exit 0
+          fi
+
+          echo "Render function responded with HTTP $HTTP_STATUS (not 404) — function is present."

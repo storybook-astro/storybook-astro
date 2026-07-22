@@ -13,6 +13,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -42,17 +43,17 @@ jobs:
         run: yarn test
 
       - name: Build Storybook (Astro 7)
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro7 build --test || test $? -eq 124
+        run: yarn workspace @storybook-astro/integration-astro7 build --test
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 6)
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build --test || test $? -eq 124
+        run: yarn workspace @storybook-astro/integration-astro6 build --test
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 5)
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build --test || test $? -eq 124
+        run: yarn workspace @storybook-astro/integration-astro5 build --test
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
@@ -71,5 +72,45 @@ jobs:
 
       - name: Browser tests (Astro 5 static)
         run: yarn workspace @storybook-astro/integration-astro5 test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+  server-mode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Build packages
+        run: yarn build:packages
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests (Astro 7 server)
+        run: yarn workspace @storybook-astro/integration-astro7-server test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Browser tests (Astro 6 server)
+        run: yarn workspace @storybook-astro/integration-astro6-server test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Browser tests (Astro 5 server)
+        run: yarn workspace @storybook-astro/integration-astro5-server test:browser
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
