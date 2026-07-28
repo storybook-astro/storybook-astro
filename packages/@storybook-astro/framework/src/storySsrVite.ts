@@ -11,6 +11,7 @@ import {
   loadUserAstroViteResolveAlias,
   mergeFrameworkAndUserIntegrations
 } from './loadUserAstroConfig.ts';
+import { FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
@@ -81,9 +82,16 @@ export async function createStorySsrViteServer(options: {
     server: {
       middlewareMode: true
     },
-    // `configFile: false` drops the user's astro.config `vite.resolve.alias`;
-    // re-apply it so aliased imports resolve like they do in a real Astro build.
-    ...(userResolveAlias ? { resolve: { alias: userResolveAlias } } : {}),
+    resolve: {
+      // Same same-instance constraint as the dev SSR server and preview build:
+      // one physical copy of each framework runtime in this SSR graph, or a
+      // duplicate (e.g. an app-local preact under yarn hoistingLimits) breaks
+      // hooks with "Cannot read properties of undefined (reading '__H')".
+      dedupe: FRAMEWORK_RUNTIME_PACKAGES,
+      // `configFile: false` drops the user's astro.config `vite.resolve.alias`;
+      // re-apply it so aliased imports resolve like they do in a real Astro build.
+      ...(userResolveAlias ? { alias: userResolveAlias } : {})
+    },
     ssr: {
       // Keep Astro runtime classes in the Vite SSR graph so containers and
       // components share SlotString/HTMLString instances during prerendering.

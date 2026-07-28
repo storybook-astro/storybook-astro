@@ -15,6 +15,7 @@ import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import { mergeFrameworkAndUserIntegrations } from './loadUserAstroConfig.ts';
+import { FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 
 export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptions) {
   // The internal Vite server is created lazily inside configureServer (dev-only).
@@ -199,6 +200,18 @@ export async function createViteServer(
   const viteServer = await createServer({
     configFile: false,
     ...config,
+    resolve: {
+      ...config.resolve,
+      // Story components and renderer glue can resolve physically different
+      // copies of a framework runtime in this SSR graph — an app-local preact
+      // under yarn hoistingLimits: "workspaces" vs the hoisted copy
+      // packages/components sees. Two copies break hooks ("Cannot read
+      // properties of undefined (reading '__H')"), so force one instance each.
+      // Storybook's preview build and the island asset build apply the same list.
+      dedupe: Array.from(
+        new Set([...(config.resolve?.dedupe ?? []), ...FRAMEWORK_RUNTIME_PACKAGES])
+      )
+    },
     customLogger: createSsrServerLogger(),
     plugins: [
       projectAstroResolutionPlugin,
