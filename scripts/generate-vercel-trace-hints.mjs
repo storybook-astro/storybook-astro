@@ -43,7 +43,13 @@ const VITE_RESOLVED_PACKAGES = [
   'alpinejs'
 ];
 
-const RUNTIME_FILE_RE = /\.(?:m?js|cjs|json|node|css|wasm)$/;
+// `.astro` is here because `astro:assets` re-exports `<Image>`/`<Picture>` from
+// real `astro/components/*.astro` files, which the render server compiles through
+// Vite at request time. Without shipping them, image stories 500 in production
+// with "Cannot find module 'astro/components/Image.astro'". These files are only
+// referenced (never imported/executed) by the generated hints, same as the
+// `.css`/`.wasm` entries.
+const RUNTIME_FILE_RE = /\.(?:m?js|cjs|json|node|css|wasm|astro)$/;
 
 const appDir = process.cwd();
 const outputFile = resolve(appDir, 'api/storybook-astro/_vercel-trace-hints.js');
