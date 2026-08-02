@@ -8,6 +8,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-08-02
+
+### Added
+- Decorator support (#40): Storybook's decorator API now works for Astro component stories — global (`.storybook/preview.js`), component-level, and story-level decorators all compose into the story's server-rendered tree in a single request, reusing the configured-component slot machinery. Three decorator shapes are supported: a component descriptor (`{ component, props?, slots? }`, with the story auto-placed in the default slot), an HTML string built around `` Story() `` (e.g. `` (Story) => `<div>${Story()}</div>` ``), and a bare Astro component (`decorators: [Wrapper]`) as sugar for the descriptor form. Works in dev mode, server mode, static prerender (decorators run at build time against `initialGlobals`), and the portable-stories testing API (`composeStories`/`composeStory`/`renderStory`). Framework component stories (React, Vue, etc.) keep Storybook's own decorator composition; Vue decorators need the render-function form (`(story) => () => h(...)`), not the documented `{ components, template }` shape — see the Decorators guide for details.
+
+### Fixed
+- `setProjectAnnotations` is no longer silently ignored by `composeStories`/`composeStory` in the testing API (#40). Any global `decorators`, `parameters`, etc. registered via `setProjectAnnotations([preview])` are now applied as expected.
+- Bare Astro components used as decorators (`decorators: [Wrapper]`) now work through real Storybook story preparation instead of throwing an "Astro components cannot be used in the browser" stub error (#40).
+- Imported SVG files are now correctly passed as Astro `SvgComponent` args (#154). Previously, an SVG imported as `import StarIcon from './star.svg'` was treated as a plain object rather than detected as an Astro SVG component.
+
 ## [1.9.0] - 2026-07-18
 
 ### Fixed
