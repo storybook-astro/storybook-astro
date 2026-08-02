@@ -5,6 +5,7 @@ import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewa
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
 import { viteStorybookAstroRendererPlugin } from './viteStorybookAstroRendererPlugin.ts';
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
+import { vitePluginAstroSvgComponentMarker } from './vitePluginAstroSvgComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
 import { vitePluginAstroBuildServer } from './vitePluginAstroBuildServer.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
@@ -67,6 +68,17 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   const { vitePlugin: storybookAstroMiddlewarePlugin, viteConfig } =
     await vitePluginStorybookAstroMiddleware(options);
 
+  // Every `.astro` file the iframe build's client graph reaches — story
+  // components, and anything imported only from `.storybook/preview.*` like a
+  // decorator's Wrapper.astro — passes through the marker plugin's `transform`
+  // hook. Server-mode builds need that full list to snapshot decorator/slot-only
+  // components the story index never mentions (docs/DECORATOR_SUPPORT.md, Step 4,
+  // Gap B), so collect it here and hand it to `vitePluginAstroBuildServer` below.
+  const clientAstroComponentIds = new Set<string>();
+  const componentMarkerPlugin = vitePluginAstroComponentMarker({
+    onClientAstroModuleId: (moduleId) => clientAstroComponentIds.add(moduleId)
+  });
+
   config.plugins.push(
     viteStorybookRendererFallbackPlugin(integrations),
     viteStorybookAstroRendererPlugin({
@@ -75,7 +87,8 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
       server: options.server
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vitePluginAstroComponentMarker() as any,
+    componentMarkerPlugin as any,
+    vitePluginAstroSvgComponentMarker(),
     vitePluginAstroIntegrationOptsFallback(),
     vitePluginAstroToolbarFallback(),
     vitePluginAstroVueFallback()
@@ -88,7 +101,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     config.plugins.push(vitePluginAstroBuildPrerender(options) as any);
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    config.plugins.push(vitePluginAstroBuildServer(options) as any);
+    config.plugins.push(vitePluginAstroBuildServer(options, clientAstroComponentIds) as any);
   }
 
   if (configType !== 'DEVELOPMENT') {

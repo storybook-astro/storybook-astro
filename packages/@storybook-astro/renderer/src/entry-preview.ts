@@ -49,3 +49,4 @@ export const argTypesEnhancers = astroRenderer.isStaticMode
   : [];
 
 export { renderToCanvas, render } from './render.tsx';
+export { applyDecorators } from './decorators.ts';

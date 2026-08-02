@@ -18,7 +18,17 @@ import type { PluginOption } from 'vite';
  * so style sub-module imports would fail. Instead, raw CSS is extracted directly from the
  * .astro source and inlined.
  */
-export function vitePluginAstroComponentMarker(): PluginOption {
+export function vitePluginAstroComponentMarker(options?: {
+  /**
+   * Called with the module id of every client-imported `.astro` file this
+   * plugin marks. Server-mode builds use this to learn about `.astro`
+   * components that never appear in the story index — e.g. a decorator's
+   * `Wrapper.astro` imported only from `.storybook/preview.*` — so they can
+   * still be copied into the deployed snapshot (docs/DECORATOR_SUPPORT.md,
+   * Step 4, Gap B).
+   */
+  onClientAstroModuleId?: (moduleId: string) => void;
+}): PluginOption {
   let isBuild = false;
 
   return {
@@ -42,6 +52,8 @@ export function vitePluginAstroComponentMarker(): PluginOption {
       if (!code.includes('Astro components cannot be used in the browser')) {return null;}
 
       const moduleId = id;
+
+      options?.onClientAstroModuleId?.(moduleId);
 
       // In Storybook's Vite 6 setup with separate client/SSR environments, Astro's
       // CSS cache isn't populated for client-side transforms. CSS sub-module imports

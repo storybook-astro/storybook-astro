@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { HandlerProps } from '../astroRenderHandler.ts';
+import { assertValidSlotValue } from '../lib/reconstruct-component-args.ts';
 import { createProductionRenderRuntime } from '../productionRenderRuntime.ts';
 import {
   addStaticStylesheets,
@@ -41,11 +42,24 @@ app.post('/render', async (context) => {
   }
 
   const input = (await context.req.json()) as Partial<HandlerProps>;
+
+  // `createAstroRenderHandler` validates `node` too, but that happens inside the
+  // render queue — reject a malformed decorator tree here so a bad request gets
+  // a plain 400 instead of surfacing as a queued render failure.
+  if (input.node !== undefined) {
+    try {
+      assertValidSlotValue(input.node, 'node');
+    } catch (error) {
+      return context.text(error instanceof Error ? error.message : String(error), 400);
+    }
+  }
+
   const renderAstroStory = await renderAstroStoryPromise;
   const html = await renderAstroStory({
     component: input.component ?? '',
     args: input.args ?? {},
     slots: input.slots ?? {},
+    node: input.node,
     story: input.story
   });
 

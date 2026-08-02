@@ -232,3 +232,7 @@ export const Default = {
 - **Multi-line content** — Use template literals (backtick strings) for readable multi-line slot content.
 - **No slot fallback in stories** — If you don't provide a `slots` entry, the component's `<slot>` fallback content (if any) will render.
 - **Static in builds** — Like other Astro component args, slot content is pre-rendered at build time. It's fully interactive in dev mode.
+
+## See also
+
+- [Decorators](/writing-stories/decorators/) — decorators wrap a story using the same configured-component tree described here (a decorator's `{ component, props, slots }` descriptor is resolved the same way a slot's is).

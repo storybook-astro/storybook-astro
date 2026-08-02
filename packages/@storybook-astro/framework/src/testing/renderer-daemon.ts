@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'node:http';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { ViteDevServer } from 'vite';
+import type { SlotValue } from '@storybook-astro/renderer/types';
 import { createViteServer } from '../viteStorybookAstroMiddlewarePlugin.ts';
 import { resolveTestingIntegrationsForRoot } from './integration-config.ts';
 import { runWithWorkingDirectory } from './working-directory.ts';
@@ -17,12 +18,15 @@ type RenderPayload = {
   component: string;
   args?: Record<string, unknown>;
   slots?: Record<string, unknown>;
+  /** A decorator tree to resolve around the story (Decorator Support, Step 5) — same field as the dev/server transports. */
+  node?: SlotValue;
 };
 
 type RenderHandler = (data: {
   component: string;
   args?: Record<string, unknown>;
   slots?: Record<string, unknown>;
+  node?: SlotValue;
 }) => Promise<string>;
 
 type RunningDaemon = {
@@ -81,6 +85,14 @@ function assertRenderPayload(payload: unknown): asserts payload is RenderPayload
     (typeof record.slots !== 'object' || record.slots === null || Array.isArray(record.slots))
   ) {
     throw createBadRequest('Render payload field slots must be an object when provided.');
+  }
+
+  // A node is a SlotValue: a string, a component marker, a configured
+  // descriptor, or an array of those — unlike args/slots it may legitimately
+  // be an array, so only null is rejected here. The handler validates its
+  // shape in full (`assertValidSlotValue`).
+  if ('node' in record && typeof record.node !== 'undefined' && record.node === null) {
+    throw createBadRequest('Render payload field node must not be null when provided.');
   }
 }
 
@@ -175,7 +187,8 @@ export async function startTestingRendererDaemon(): Promise<RunningDaemon> {
       const html = await handler({
         component: payload.component,
         args: payload.args,
-        slots: payload.slots
+        slots: payload.slots,
+        node: payload.node
       });
 
       response.statusCode = 200;

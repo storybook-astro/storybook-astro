@@ -58,6 +58,7 @@ export default defineConfig({
             { label: 'Story Basics', slug: 'writing-stories' },
             { label: 'Props', slug: 'writing-stories/props' },
             { label: 'Slots', slug: 'writing-stories/slots' },
+            { label: 'Decorators', slug: 'writing-stories/decorators' },
             { label: 'Controls & ArgTypes', slug: 'writing-stories/controls' },
             { label: 'Framework Components', slug: 'writing-stories/framework-components' },
           ],

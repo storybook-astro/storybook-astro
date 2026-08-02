@@ -198,6 +198,20 @@ export async function createViteServer(
   const viteServer = await createServer({
     configFile: false,
     ...config,
+    // Astro's own runtime (e.g. `astro/assets/runtime`'s `createSvgComponent`,
+    // used to reconstruct an `.svg`-as-component arg — issue #154) reads
+    // `import.meta.env.DEV`. SSR-externalized deps load through Node's native
+    // `import()`, bypassing Vite's SSR transform entirely, so `import.meta.env`
+    // is never populated and that read throws. Keep `astro` in Vite's SSR graph
+    // so it gets the transform instead — the same setting `storySsrVite.ts`
+    // already uses for the static/server-mode build's prerender server.
+    ssr: {
+      ...config.ssr,
+      noExternal: [
+        ...(Array.isArray(config.ssr?.noExternal) ? config.ssr.noExternal : []),
+        /^astro(\/.+)?$/
+      ]
+    },
     customLogger: createSsrServerLogger(),
     plugins: [
       projectAstroResolutionPlugin,
