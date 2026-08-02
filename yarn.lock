@@ -4987,6 +4987,7 @@ __metadata:
     astro: "npm:^6.4.8"
     eslint: "npm:^9.39.2"
     tsup: "npm:^8.5.1"
+    vitest: "npm:^4.1.9"
   peerDependencies:
     "@storybook/react": ^10.0.0
     astro: ^5.5.3 || ^6.0.0 || ^7.0.0

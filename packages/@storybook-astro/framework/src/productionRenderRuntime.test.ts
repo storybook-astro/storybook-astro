@@ -21,7 +21,10 @@ function ButtonAstro() {
   return '';
 }
 
-function createRuntime(storyModule: Record<string, unknown>): {
+function createRuntime(
+  storyModule: Record<string, unknown>,
+  composeDecoratedTree: ProductionRenderRuntime['composeDecoratedTree'] = async () => undefined
+): {
   runtime: ProductionRenderRuntime;
   renderAstroStory: ReturnType<typeof vi.fn>;
 } {
@@ -31,6 +34,7 @@ function createRuntime(storyModule: Record<string, unknown>): {
     runtime: {
       loadModule: async () => storyModule,
       renderAstroStory,
+      composeDecoratedTree,
       close: async () => {}
     },
     renderAstroStory
@@ -93,5 +97,61 @@ describe('renderProductionStoryToHtml', () => {
 
     expect(html).toBeUndefined();
     expect(renderAstroStory).not.toHaveBeenCalled();
+  });
+
+  test('an undecorated story omits `node` entirely, keeping today\'s render call unchanged', async () => {
+    const { runtime, renderAstroStory } = createRuntime({
+      default: { component: ButtonAstro, args: { label: 'Meta' } },
+      Primary: {}
+    });
+
+    await renderProductionStoryToHtml({ story, runtime, resolveFrom });
+
+    const callArgs = renderAstroStory.mock.calls[0][0] as Record<string, unknown>;
+
+    expect('node' in callArgs).toBe(false);
+  });
+
+  test('a decorated story forwards the composed tree as `node` alongside the existing args/slots', async () => {
+    const wrapperTree = { component: ButtonAstro, props: { label: 'Wrapper' }, slots: { default: ButtonAstro } };
+    const { runtime, renderAstroStory } = createRuntime(
+      {
+        default: { component: ButtonAstro, args: { label: 'Meta', size: 'lg' } },
+        Primary: { args: { label: 'Primary' } }
+      },
+      async () => wrapperTree
+    );
+
+    const html = await renderProductionStoryToHtml({ story, runtime, resolveFrom });
+
+    expect(html).toBe('<button>rendered</button>');
+    expect(renderAstroStory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        component: '/project/src/Button.astro',
+        args: { label: 'Primary', size: 'lg' },
+        node: wrapperTree
+      })
+    );
+  });
+
+  test('drops the story (and logs why) when decorator composition throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { runtime, renderAstroStory } = createRuntime(
+      {
+        default: { component: ButtonAstro },
+        Primary: {}
+      },
+      async () => {
+        throw new Error('boom');
+      }
+    );
+
+    const html = await renderProductionStoryToHtml({ story, runtime, resolveFrom });
+
+    expect(html).toBeUndefined();
+    expect(renderAstroStory).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('boom'));
+
+    warnSpy.mockRestore();
   });
 });

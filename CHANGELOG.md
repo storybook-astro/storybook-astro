@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-02
+
+### Added
+- Decorator support (#40): Storybook's decorator API now works for Astro component stories — global (`.storybook/preview.js`), component-level, and story-level decorators all compose into the story's server-rendered tree in a single request, reusing the configured-component slot machinery. Three decorator shapes are supported: a component descriptor (`{ component, props?, slots? }`, with the story auto-placed in the default slot), an HTML string built around `` Story() `` (e.g. `` (Story) => `<div>${Story()}</div>` ``), and a bare Astro component (`decorators: [Wrapper]`) as sugar for the descriptor form. Works in dev mode, server mode, static prerender (decorators run at build time against `initialGlobals`), and the portable-stories testing API (`composeStories`/`composeStory`/`renderStory`). Framework component stories (React, Vue, etc.) keep Storybook's own decorator composition; Vue decorators need the render-function form (`(story) => () => h(...)`), not the documented `{ components, template }` shape — see the Decorators guide for details.
+
+### Fixed
+- `setProjectAnnotations` is no longer silently ignored by `composeStories`/`composeStory` in the testing API (#40). Both functions previously passed an effectively-empty `defaultConfig` into Storybook's internal composition helpers, which blocked their `?? globalThis.globalProjectAnnotations` fallback from ever running — so a test's `setProjectAnnotations([preview])` never actually reached a story composed without an explicit `projectAnnotations` argument. Any global `decorators`, `parameters`, etc. set that way are now applied as expected.
+- Bare Astro components used as decorators (`decorators: [Wrapper]`) now work through real Storybook story preparation, not just direct calls to `applyDecorators` (#40). Storybook wraps every decorator entry in a generic hook-tracking function before handing it to the renderer, which previously made a bare-component decorator get invoked as if it were a decorator function, throwing the "Astro components cannot be used in the browser" stub error instead of wrapping the story.
+- Imported SVG files are now correctly passed as Astro `SvgComponent` args (#154). Previously, an SVG imported as `import StarIcon from './star.svg'` was treated as a plain object and rendered as markup, rather than detected as an Astro SVG component and rendered via the component pipeline.
+
 ## [1.9.0] - 2026-07-18
 
 ### Fixed

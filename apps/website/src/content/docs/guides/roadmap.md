@@ -5,24 +5,6 @@ description: Planned features and improvements for Storybook Astro, categorized 
 
 This document outlines the planned features and improvements for Storybook Astro. Items are categorized by priority and implementation phase.
 
-## High Priority
-
-### Decorator Support
-
-📝 **In Planning**
-
-Enable Storybook's standard [decorator](https://storybook.js.org/docs/writing-stories/decorators) API for both Astro component stories and framework component stories (React, Vue, etc.).
-
-**Complexity**: Medium
-**Tracking**: [Issue #40 — Unable to use decorators](https://github.com/storybook-astro/storybook-astro/issues/40)
-**Details**: See the [decorator support design](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) for full analysis and implementation strategy.
-
-**What this enables**:
-- Global decorators in `.storybook/preview.js` (layout wrappers, theme providers)
-- Component-level and story-level decorators
-- HTML string decorators for Astro component stories
-- Framework-native decorators (JSX, etc.) for React/Vue/Svelte component stories
-
 ## Medium Priority
 
 ### Project Scaffold CLI
@@ -201,6 +183,14 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 ## Recently Completed
 
+### Decorator Support
+
+**Status**: Shipped (unreleased)
+
+Storybook's [decorator](https://storybook.js.org/docs/writing-stories/decorators) API now works for both Astro component stories and framework component stories (React, Vue, etc.) — global (`.storybook/preview.js`), component-level, and story-level decorators are all supported, in dev mode, static builds, server-mode builds, and the portable-stories testing API.
+
+**Documentation**: See the [Decorators guide](/writing-stories/decorators/) and the [design doc](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md)
+
 ### Support Astro Components as Props and Slot Content
 
 **Shipped in**: 1.7.0
@@ -324,7 +314,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Component Description | 🚧 Manual | Component descriptions must be set manually via `parameters.docs.description.component` (automatic extraction from JSDoc planned) |
 | ArgTypes Documentation | 🚧 Manual | Prop documentation must be set manually via `argTypes[].description` (automatic extraction from JSDoc planned) |
 | Source Code Display | 🚧 Partial | Shows story file source; doesn't generate component usage syntax (e.g. `<Component prop="value" />`). See roadmap item above |
-| Decorators | 📋 Planned | Wrapper components/HTML for stories. See roadmap item and [design doc](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) |
+| Decorators | ✅ Supported | Wrapper components/HTML for stories, in global/component/story positions. See [Decorators guide](/writing-stories/decorators/) and [design doc](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) |
 | Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
 | Portable Stories Testing (Vitest) | ✅ Supported | Test stories with `@storybook-astro/framework/testing`'s `composeStories`/`renderStory` and Vitest, outside Storybook |
 | Storybook Test Addon (`@storybook/addon-vitest`) | 🚫 Blocked | Runs stories as Vitest browser tests. Blocked by an upstream Astro bug — see roadmap item above |

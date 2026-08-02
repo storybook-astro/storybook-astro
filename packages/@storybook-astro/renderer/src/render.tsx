@@ -2,8 +2,9 @@ import { simulateDOMContentLoaded, simulatePageLoad } from 'storybook/internal/p
 import type { ArgsStoryFn, Renderer, RenderContext, StoryContext } from 'storybook/internal/types';
 import { dedent } from 'ts-dedent';
 import 'astro:scripts/page.js';
-import type { AstroComponentFactory, AstroRenderer, SlotValue } from './types';
+import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
 import { serializeAstroComponentMarkers } from './astroComponentMarker';
+import { isDecoratedTree } from './decoratedTree';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -131,7 +132,7 @@ export async function renderToCanvas(
 
   showMain();
 
-  if (isAstroComponent(element)) {
+  if (isAstroComponent(element) || isDecoratedTree(element)) {
     try {
       await renderAstroToCanvas(element, storyContext.args, canvasElement, storyContext);
     } catch (error) {
@@ -191,21 +192,32 @@ function isAstroComponent(element: unknown): element is AstroComponentFactory {
 }
 
 async function renderAstroToCanvas(
-  element: AstroComponentFactory,
+  element: AstroComponentFactory | AstroComponentSlot | SlotValue[],
   args: Record<string, unknown>,
   canvasElement: HTMLElement,
   storyContext?: StoryContext<AstroRenderer>
 ): Promise<void> {
-  if (!element.moduleId) {
+  // An undecorated story's root moduleId is `element` itself. A decorated tree
+  // carries the story leaf somewhere inside it instead (wherever a decorator
+  // placed `Story()`), so its moduleId comes from the story's own meta
+  // component — set independently of decoration, same as the plain `render()`
+  // path above.
+  const rootComponent = isAstroComponent(element)
+    ? element
+    : (storyContext?.component as AstroComponentFactory | undefined);
+
+  if (!rootComponent?.moduleId) {
     throw new Error('Astro component missing moduleId');
   }
 
   const { slots = {}, ...componentArgs } = args;
+  const decoratedTree = isDecoratedTree(element) ? element : undefined;
 
   const response = await astroRenderer.render({
-    component: element.moduleId,
+    component: rootComponent.moduleId,
     args: serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>,
     slots: serializeAstroComponentMarkers(slots) as Record<string, SlotValue>,
+    ...(decoratedTree ? { node: serializeAstroComponentMarkers(decoratedTree) as SlotValue } : {}),
     story: storyContext
       ? {
           id: storyContext.id,

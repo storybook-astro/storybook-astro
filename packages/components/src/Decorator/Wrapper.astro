@@ -1,0 +1,30 @@
+---
+// Component-level decorator target (docs/DECORATOR_SUPPORT.md, Decorator
+// Contract form 1 — "Descriptor returning an Astro component"). Wraps whatever
+// the decorator places in its default slot, plus an optional label so the
+// wrapper is visually obvious in the rendered story.
+const { label = 'Decorated' } = Astro.props;
+
+---
+<div class="decorator-wrapper" data-testid="decorator-wrapper">
+  <p class="decorator-wrapper__label">{label}</p>
+  <div class="decorator-wrapper__body">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .decorator-wrapper {
+    border: 2px dashed #6366f1;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .decorator-wrapper__label {
+    margin: 0 0 0.75rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6366f1;
+  }
+</style>
