@@ -73,21 +73,37 @@ export function isAstroComponentSlot(
  * Recursively replaces Astro component factories in an args/slots value with
  * serializable {@link AstroComponentMarker}s so the value can cross the JSON
  * render boundary. Walks arrays and nested objects. A factory missing its
- * `moduleId` can't be rendered server-side, so it's dropped with an error.
+ * `moduleId` can't be turned into a reference, so it's dropped with an error —
+ * unless it's an SVG-as-component factory (see below), which is passed through
+ * as-is instead.
  */
 export function serializeAstroComponentMarkers(value: unknown, depth = 0): unknown {
   if (isAstroComponentFactory(value)) {
     const moduleId = (value as { moduleId?: unknown }).moduleId;
 
-    if (typeof moduleId !== 'string') {
-      console.error(
-        '[storybook-astro] An Astro component passed in args has no moduleId and cannot be rendered.'
-      );
-
-      return undefined;
+    if (typeof moduleId === 'string') {
+      return { [ASTRO_COMPONENT_MARKER]: true, moduleId } satisfies AstroComponentMarker;
     }
 
-    return { [ASTRO_COMPONENT_MARKER]: true, moduleId } satisfies AstroComponentMarker;
+    // Astro's `.svg`-as-component factories (`astro/assets/runtime`'s
+    // `createSvgComponent`) never get a moduleId — Astro merges the image
+    // metadata directly onto the factory function instead. This only reaches
+    // here in the Vitest/portable-stories path (a real Vite SSR environment,
+    // where a bare `.svg` import already resolves to the real factory); the
+    // browser never produces one (it gets plain `ImageMetadata`, which
+    // `vitePluginAstroSvgComponentMarker` tags with a moduleId marker instead —
+    // see that file's docstring for the full round trip). Since the factory
+    // here is already real and same-process, pass it through unchanged rather
+    // than trying to serialize a reference to it.
+    if (typeof (value as { src?: unknown }).src === 'string') {
+      return value;
+    }
+
+    console.error(
+      '[storybook-astro] An Astro component passed in args has no moduleId and cannot be rendered.'
+    );
+
+    return undefined;
   }
 
   if (depth >= 10) {

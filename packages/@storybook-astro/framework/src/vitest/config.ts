@@ -6,6 +6,7 @@ import type { InlineConfig, PluginOption } from 'vite';
 import type { Integration } from '../integrations/base.ts';
 import { importAstroConfig } from '../importAstroConfig.ts';
 import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarker.ts';
+import { vitePluginAstroSvgComponentMarker } from '../vitePluginAstroSvgComponentMarker.ts';
 import { registerTestingIntegrationsForRoot } from '../testing/integration-config.ts';
 import { cjsInteropPlugin, vitestPatchForSolidJs } from './vite-plugins.ts';
 
@@ -106,6 +107,7 @@ export function defineConfig(options: TestingDefineConfig) {
       cjsInteropPlugin(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vitePluginAstroComponentMarker() as any,
+      vitePluginAstroSvgComponentMarker(),
       ...plugins
     ]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

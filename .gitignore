@@ -22,6 +22,7 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+.env.local
 .envrc
 
 # macOS-specific files
@@ -45,3 +46,7 @@ pnpm-debug.log*
 !.yarn/releases
 **/storybook-static/
 **/storybook-server/
+
+# Vercel CLI project link + build output (scratch deploys/smoke tests)
+.vercel/
+_vercel-trace-hints.js
