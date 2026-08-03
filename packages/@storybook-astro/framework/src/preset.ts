@@ -5,6 +5,7 @@ import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewa
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
 import { viteStorybookAstroRendererPlugin } from './viteStorybookAstroRendererPlugin.ts';
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
+import { vitePluginAstroSvgComponentMarker } from './vitePluginAstroSvgComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
 import { vitePluginAstroBuildServer } from './vitePluginAstroBuildServer.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
@@ -100,6 +101,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     componentMarkerPlugin as any,
+    vitePluginAstroSvgComponentMarker(),
     vitePluginAstroIntegrationOptsFallback(),
     vitePluginAstroToolbarFallback(),
     vitePluginAstroVueFallback()

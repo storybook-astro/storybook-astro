@@ -1,0 +1,32 @@
+---
+import type { SvgComponent } from 'astro/types';
+
+interface Props {
+  label: string;
+  Icon: SvgComponent;
+}
+
+const { label, Icon } = Astro.props;
+
+---
+
+<div class="svg-icon-prop" data-testid="svg-icon-prop">
+  <Icon />
+  <span>{label}</span>
+</div>
+
+<style>
+  .svg-icon-prop {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .svg-icon-prop svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    /* The icon's path fill is `currentColor` — set an explicit color here so
+       it's visible against both light and dark Storybook backgrounds. */
+    color: #f5b301;
+  }
+</style>
