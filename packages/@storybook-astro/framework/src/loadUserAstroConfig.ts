@@ -1,4 +1,4 @@
-import { loadConfigFromFile, type Plugin } from 'vite';
+import { loadConfigFromFile, type Plugin, type PluginOption } from 'vite';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { AstroIntegration } from 'astro';
@@ -157,4 +157,41 @@ export async function loadUserAstroFonts(resolveFrom: string): Promise<Storybook
  */
 export async function loadUserAstroVitePlugins(resolveFrom: string): Promise<Plugin[]> {
   return (await loadUserAstroConfigData(resolveFrom)).vitePlugins;
+}
+
+/**
+ * Appends user Vite plugins (from `loadUserAstroVitePlugins`) to a Vite
+ * config, skipping any plugin whose name is already registered.  Every render
+ * pipeline — the main Storybook build, the static prerender's SSR server, the
+ * hydrated-island asset build and the dev-mode internal SSR server — must
+ * receive these plugins, otherwise components that rely on one of them (e.g.
+ * `vite-svg-loader`'s `.svg?component` imports) resolve differently between
+ * pipelines.  Returns the plugins that were actually appended so callers can
+ * log them.
+ */
+export function appendUserVitePlugins(
+  config: { plugins?: PluginOption[] },
+  userVitePlugins: Plugin[]
+): Plugin[] {
+  if (userVitePlugins.length === 0) {
+    return [];
+  }
+
+  const existingNames = new Set<string>();
+
+  for (const plugin of ((config.plugins ?? []) as unknown[]).flat(Infinity) as Array<{
+    name?: string;
+  }>) {
+    if (plugin && typeof plugin === 'object' && typeof plugin.name === 'string') {
+      existingNames.add(plugin.name);
+    }
+  }
+
+  const newPlugins = userVitePlugins.filter((plugin) => !existingNames.has(plugin.name));
+
+  if (newPlugins.length > 0) {
+    config.plugins = [...(config.plugins ?? []), ...newPlugins];
+  }
+
+  return newPlugins;
 }
