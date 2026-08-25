@@ -192,7 +192,7 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 Storybook's [decorator](https://storybook.js.org/docs/writing-stories/decorators) API now works for both Astro component stories and framework component stories (React, Vue, etc.) — global (`.storybook/preview.js`), component-level, and story-level decorators are all supported, in dev mode, static builds, server-mode builds, and the portable-stories testing API.
 
-**Documentation**: See the [Decorators guide](/writing-stories/decorators/) and the [design doc](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md)
+**Documentation**: See the [Decorators guide](/writing-stories/decorators/)
 
 ### Support Astro Components as Props and Slot Content
 
@@ -317,7 +317,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Component Description | 🚧 Manual | Component descriptions must be set manually via `parameters.docs.description.component` (automatic extraction from JSDoc planned) |
 | ArgTypes Documentation | 🚧 Manual | Prop documentation must be set manually via `argTypes[].description` (automatic extraction from JSDoc planned) |
 | Source Code Display | 🚧 Partial | Shows story file source; doesn't generate component usage syntax (e.g. `<Component prop="value" />`). See roadmap item above |
-| Decorators | ✅ Supported | Wrapper components/HTML for stories, in global/component/story positions. See [Decorators guide](/writing-stories/decorators/) and [design doc](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/DECORATOR_SUPPORT.md) |
+| Decorators | ✅ Supported | Wrapper components/HTML for stories, in global/component/story positions. See [Decorators guide](/writing-stories/decorators/) |
 | Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
 | Portable Stories Testing (Vitest) | ✅ Supported | Test stories with `@storybook-astro/framework/testing`'s `composeStories`/`renderStory` and Vitest, outside Storybook |
 | Storybook Test Addon (`@storybook/addon-vitest`) | 🚧 Partial | Runs stories as Vitest browser tests. Upstream Astro bug fixed for Astro 7.0.6+ only; Astro 5/6 remain blocked — see roadmap item above |

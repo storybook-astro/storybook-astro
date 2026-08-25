@@ -50,7 +50,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 **Important Files**:
 - `src/render.tsx` - Exports `render()` and `renderToCanvas()` functions
 - `src/preset.ts` - Defines preview annotations
-- `src/decorators.ts` - `applyDecorators`, the renderer's `applyDecorators` project annotation. Composes a story's `decorators` array into a `SlotValue` tree for Astro stories (Decision 2 in `docs/DECORATOR_SUPPORT.md`), or defers to Storybook's `defaultDecorateStory` for framework-delegated stories (`parameters.renderer` set)
+- `src/decorators.ts` - `applyDecorators`, the renderer's `applyDecorators` project annotation. Composes a story's `decorators` array into a `SlotValue` tree for Astro stories (see `apps/website/src/content/docs/writing-stories/decorators.md`), or defers to Storybook's `defaultDecorateStory` for framework-delegated stories (`parameters.renderer` set)
 
 ### Data Flow
 
