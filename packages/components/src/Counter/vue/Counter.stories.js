@@ -43,7 +43,7 @@ const decoratorLabelStyle = {
 // { story }, template }` descriptor shape. That shape needs Vue 3's own
 // `decorateStory` to normalize it into a mountable tree, but our
 // `applyDecorators` routes framework-delegated stories through Storybook's
-// generic `defaultDecorateStory` (docs/DECORATOR_SUPPORT.md, Decision 3),
+// generic `defaultDecorateStory` (docs/specs/decorators.md#framework-delegation),
 // which skips that normalization and would render the descriptor as a
 // stringified function instead of a nested component. A render function that
 // calls `h()` directly matches the shape Vue 3's own base `render()` already

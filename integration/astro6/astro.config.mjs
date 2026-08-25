@@ -6,10 +6,14 @@ import vue from '@astrojs/vue';
 import preact from '@astrojs/preact';
 import svelte from '@astrojs/svelte';
 import alpinejs from '@astrojs/alpinejs';
+import { projectBanner } from './vite-plugin-project-banner.mjs';
 
 // https://astro.build/config
 export default defineConfig({
   output: 'static',
+  vite: {
+    plugins: [projectBanner()],
+  },
   fonts: [
     {
       provider: fontProviders.google(),

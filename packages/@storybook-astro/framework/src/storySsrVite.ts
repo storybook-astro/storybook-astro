@@ -8,6 +8,8 @@ import { ensureAstroPassthroughImageService } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
 import {
+  appendUserVitePlugins,
+  loadUserAstroVitePlugins,
   loadUserAstroViteResolveAlias,
   mergeFrameworkAndUserIntegrations
 } from './loadUserAstroConfig.ts';
@@ -115,6 +117,12 @@ export async function createStorySsrViteServer(options: {
       createStorybookBrowserStubPlugin()
     ]
   });
+
+  // The main Storybook build auto-loads `vite.plugins` from the user's
+  // astro.config (see preset.ts). The prerender SSR server must receive the
+  // same plugins, or components relying on one of them (e.g. vite-svg-loader's
+  // `.svg?component` imports) resolve differently in the static output.
+  appendUserVitePlugins(config, await loadUserAstroVitePlugins(options.resolveFrom));
 
   const viteServer = await createServer(config);
 

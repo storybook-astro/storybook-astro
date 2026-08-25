@@ -47,7 +47,7 @@ export type AstroComponentFactory = {
  * factory (routed to SSR), a string (HTML), an HTMLElement (DOM node), or — once
  * `applyDecorators` has composed a decorator chain around it — any other SlotValue
  * shape (an `AstroComponentSlot` wrapper, or an array mixing wrapper strings with
- * nested nodes). See docs/DECORATOR_SUPPORT.md.
+ * nested nodes). See docs/specs/decorators.md.
  */
 export interface AstroRenderer extends WebRenderer {
   component: AstroComponentFactory | string | HTMLElement | ((...args: unknown[]) => unknown);
@@ -62,7 +62,7 @@ export type RenderComponentInput = {
    * The serialized decorator tree (Step 3), sent alongside the undecorated
    * `component`/`args`/`slots` above so an older server that doesn't know about
    * `node` can still render the story undecorated instead of erroring — graceful
-   * version skew (see docs/DECORATOR_SUPPORT.md, "Known Limitations").
+   * version skew (see docs/specs/decorators.md#known-limitations).
    */
   node?: SlotValue;
   story?: {

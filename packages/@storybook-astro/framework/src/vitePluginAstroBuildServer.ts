@@ -30,8 +30,9 @@ export function vitePluginAstroBuildServer(
   // `vitePluginAstroComponentMarker` in the same build, wired up in preset.ts).
   // Union this into the snapshot so a component referenced only from
   // `.storybook/preview.*` (a decorator's Wrapper.astro) or only via a slot/prop
-  // marker still reaches the deployed snapshot (docs/DECORATOR_SUPPORT.md, Step 4,
-  // Gap B) — today only story components make it into the snapshot.
+  // marker still reaches the deployed snapshot
+  // (docs/specs/decorators.md#server-snapshot) — today only story
+  // components make it into the snapshot.
   clientAstroComponentIds: Set<string> = new Set()
 ) {
   const integrations = options.integrations ?? [];

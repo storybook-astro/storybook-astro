@@ -11,7 +11,7 @@ const config = {
     `${componentsRoot}/src/NpmWeeklyDownloads/astro/NpmWeeklyDownloads.stories.js`,
     `${componentsRoot}/src/GithubContributors/astro/GithubContributors.stories.js`,
     `${componentsRoot}/src/GithubStars/astro/GithubStars.stories.js`,
-    // Component-level Astro decorator (docs/DECORATOR_SUPPORT.md, Step 4):
+    // Component-level Astro decorator (docs/specs/decorators.md#server-snapshot):
     // Wrapper.astro is only ever referenced from this story file, so it also
     // exercises the server-mode snapshot picking up a decorator-only component.
     `${componentsRoot}/src/Decorator/Decorator.stories.jsx`

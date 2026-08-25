@@ -19,7 +19,10 @@ const config = {
     // Pulls in the alpine/preact/react/solid/svelte/vue framework variants for
     // Accordion and Counter, the Decorator suite, Nesting, and the three
     // server-work Astro components (NpmWeeklyDownloads, GithubContributors,
-    // GithubStars) — mirrors astro7's own componentsRoot globs.
+    // GithubStars) — mirrors astro7's own componentsRoot globs. The Decorator
+    // suite matters here beyond coverage: Wrapper.astro is only ever referenced
+    // from its story file, so it exercises the server-mode snapshot picking up
+    // a decorator-only component (docs/specs/decorators.md#server-snapshot).
     `${componentsRoot}/src/*.mdx`,
     `${componentsRoot}/src/**/*.stories.@(js|jsx|mjs|ts|tsx)`
   ],

@@ -2,7 +2,9 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import type { Plugin, PluginOption } from 'vite';
 import {
+  appendUserVitePlugins,
   loadUserAstroFonts,
   loadUserAstroIntegrations,
   loadUserAstroVitePlugins,
@@ -130,6 +132,87 @@ describe('loadUserAstroVitePlugins', () => {
     const plugins = await loadUserAstroVitePlugins(tmpDir);
 
     expect(plugins.map((p) => p.name)).toEqual(['real']);
+  });
+});
+
+describe('appendUserVitePlugins', () => {
+  function pluginNames(plugins: PluginOption[] | undefined): string[] {
+    return (((plugins ?? []) as unknown[]).flat(Infinity) as Plugin[]).map((p) => p.name);
+  }
+
+  test('appends plugins loaded from astro.config to a pipeline Vite config', async () => {
+    await writeConfig(`
+      export default {
+        vite: {
+          plugins: [{ name: 'vite-svg-loader' }]
+        }
+      };
+    `);
+
+    const config: { plugins?: PluginOption[] } = { plugins: [{ name: 'astro:build' }] };
+    const appended = appendUserVitePlugins(config, await loadUserAstroVitePlugins(tmpDir));
+
+    expect(appended.map((p) => p.name)).toEqual(['vite-svg-loader']);
+    expect(pluginNames(config.plugins)).toEqual(['astro:build', 'vite-svg-loader']);
+  });
+
+  test('skips plugins already registered under the same name, even in nested arrays', () => {
+    const config: { plugins?: PluginOption[] } = {
+      plugins: [[{ name: 'vite-svg-loader' }], { name: 'astro:build' }]
+    };
+
+    const appended = appendUserVitePlugins(config, [
+      { name: 'vite-svg-loader' },
+      { name: 'my-i18n-plugin' }
+    ]);
+
+    expect(appended.map((p) => p.name)).toEqual(['my-i18n-plugin']);
+    expect(pluginNames(config.plugins)).toEqual([
+      'vite-svg-loader',
+      'astro:build',
+      'my-i18n-plugin'
+    ]);
+  });
+
+  test('initializes plugins when the config has none', () => {
+    const config: { plugins?: PluginOption[] } = {};
+
+    appendUserVitePlugins(config, [{ name: 'vite-svg-loader' }]);
+
+    expect(pluginNames(config.plugins)).toEqual(['vite-svg-loader']);
+  });
+
+  test('leaves the config untouched when there are no user plugins', () => {
+    const plugins: PluginOption[] = [{ name: 'astro:build' }];
+    const config = { plugins };
+
+    expect(appendUserVitePlugins(config, [])).toEqual([]);
+    expect(config.plugins).toBe(plugins);
+  });
+});
+
+describe('loadUserAstroVitePlugins', () => {
+  test('hands every render pipeline its own plugin instances', async () => {
+    // Each pipeline registers these plugins with a different Vite instance,
+    // and in dev two of those servers are live at once. Sharing one stateful
+    // plugin object between them lets whichever server resolved last win.
+    await writeConfig(`
+      export default {
+        vite: {
+          plugins: [{ name: 'vite-svg-loader', cache: new Map() }]
+        }
+      };
+    `);
+
+    const [forDevServer] = await loadUserAstroVitePlugins(tmpDir);
+    const [forIslandBuild] = await loadUserAstroVitePlugins(tmpDir);
+
+    expect(forDevServer.name).toBe('vite-svg-loader');
+    expect(forIslandBuild.name).toBe('vite-svg-loader');
+    expect(forIslandBuild).not.toBe(forDevServer);
+    expect(
+      (forIslandBuild as unknown as { cache: Map<string, string> }).cache
+    ).not.toBe((forDevServer as unknown as { cache: Map<string, string> }).cache);
   });
 });
 

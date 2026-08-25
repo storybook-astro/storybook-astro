@@ -27,8 +27,9 @@ globalThis.SVGElement ??= class SVGElement {} as unknown as typeof SVGElement;
 // itself (see AGENTS.md, "Framework fallback").
 //
 // `ctx.storyFn` is decorated using Storybook's generic `defaultDecorateStory`,
-// because @storybook-astro/framework doesn't supply a custom `applyDecorators`
-// yet (docs/DECORATOR_SUPPORT.md, Step 2). That's a *different*, less
+// because our `applyDecorators` deliberately defers to it for stories with
+// `parameters.renderer` (docs/specs/decorators.md#framework-delegation).
+// That's a *different*, less
 // forgiving composition path than each framework's own portable-stories
 // `composeStories` (which uses that framework's own `decorateStory`/
 // `applyDecorators`) — so these tests reconstruct the generic path directly:
@@ -107,7 +108,7 @@ test('Vue Counter WithDecorator composes the global and story-level decorators t
   }
 });
 
-// Critical subtlety (docs/DECORATOR_SUPPORT.md): the global decorators above
+// Critical subtlety (docs/specs/decorators.md): the global decorators above
 // must be a strict pass-through for Astro stories, which never set
 // `parameters.renderer`. Prove the existing local Astro story still renders
 // exactly as its own Counter.test.ts expects, and that no decorator wrapper
@@ -122,7 +123,7 @@ test('Astro Counter Default is unaffected by the app global decorators', async (
 });
 
 // The Astro-specific counterpart of the two React/Vue tests above
-// (docs/DECORATOR_SUPPORT.md, Step 6): this app's `.storybook/preview.js` also
+// (docs/specs/decorators.md#global-decorators): this app's `.storybook/preview.js` also
 // declares a real global decorator for Astro stories (GlobalWrapper.astro,
 // guarded on `parameters.renderer === 'astro'`), so every Astro story —
 // including this one — renders inside it.

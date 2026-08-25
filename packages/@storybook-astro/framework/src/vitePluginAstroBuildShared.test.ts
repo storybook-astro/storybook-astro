@@ -85,6 +85,50 @@ describe('collectHydratedComponentPaths', () => {
     expect(result).not.toContain(missingTsx.replace(/\\/g, '/'));
   });
 
+  test('collects an island declared inside a nested .astro component', async () => {
+    // A story's .astro component can compose other .astro components that own
+    // the actual islands. Without recursing into nested .astro imports, those
+    // islands never become build inputs and their `component-url` stays a raw
+    // filesystem path in the prerendered static output (404, no hydration).
+    const storyAstro = join(tmpDir, 'Page.astro');
+    const nestedAstro = join(tmpDir, 'Section.astro');
+    const vueFile = join(tmpDir, 'Counter.vue');
+
+    await writeFile(storyAstro, `---\nimport Section from './Section.astro';\n---\n<Section />`);
+    await writeFile(
+      nestedAstro,
+      `---\nimport Counter from './Counter.vue';\n---\n<Counter client:visible />`
+    );
+    await writeFile(
+      vueFile,
+      `<script setup>\nconst count = ref(0);\n</script>\n<template><button>{{ count }}</button></template>`
+    );
+
+    const result = await collectHydratedComponentPaths(storyAstro, tmpDir);
+
+    expect(result).toContain(vueFile.replace(/\\/g, '/'));
+  });
+
+  test('does not loop on circular .astro imports', async () => {
+    const firstAstro = join(tmpDir, 'First.astro');
+    const secondAstro = join(tmpDir, 'Second.astro');
+    const vueFile = join(tmpDir, 'Counter.vue');
+
+    await writeFile(
+      firstAstro,
+      `---\nimport Second from './Second.astro';\n---\n<Second />`
+    );
+    await writeFile(
+      secondAstro,
+      `---\nimport First from './First.astro';\nimport Counter from './Counter.vue';\n---\n<Counter client:visible />`
+    );
+    await writeFile(vueFile, `<template><button>hi</button></template>`);
+
+    const result = await collectHydratedComponentPaths(firstAstro, tmpDir);
+
+    expect(result).toContain(vueFile.replace(/\\/g, '/'));
+  });
+
   test('includes a tsconfig-aliased island (the static build fix)', async () => {
     // Islands imported via path aliases never matched the staticModuleMap because
     // readLocalImportSpecifiers filtered them out before they could become Rollup

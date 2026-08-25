@@ -24,8 +24,7 @@ export function vitePluginAstroComponentMarker(options?: {
    * plugin marks. Server-mode builds use this to learn about `.astro`
    * components that never appear in the story index — e.g. a decorator's
    * `Wrapper.astro` imported only from `.storybook/preview.*` — so they can
-   * still be copied into the deployed snapshot (docs/DECORATOR_SUPPORT.md,
-   * Step 4, Gap B).
+   * still be copied into the deployed snapshot (docs/specs/decorators.md#server-snapshot).
    */
   onClientAstroModuleId?: (moduleId: string) => void;
 }): PluginOption {

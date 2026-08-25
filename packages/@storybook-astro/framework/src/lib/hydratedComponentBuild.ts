@@ -4,6 +4,7 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build, type Rollup } from 'vite';
 import type { Integration } from '../integrations/index.ts';
+import { appendUserVitePlugins, loadUserAstroVitePlugins } from '../loadUserAstroConfig.ts';
 import { mergeWithAstroConfig } from '../vitePluginAstro.ts';
 import { collectHydratedComponentPaths } from '../vitePluginAstroBuildShared.ts';
 import type { StaticCssMap, StaticModuleMap } from './staticHtmlRewriting.ts';
@@ -116,6 +117,13 @@ export async function buildHydratedComponentAssets(
     'production',
     'build'
   );
+
+  // The main Storybook build auto-loads `vite.plugins` from the user's
+  // astro.config (see preset.ts). The island asset build must receive the same
+  // plugins, or hydrated components relying on one of them (e.g.
+  // vite-svg-loader's `.svg?component` imports) fail to bundle correctly.
+  appendUserVitePlugins(finalConfig, await loadUserAstroVitePlugins(options.resolveFrom));
+
   const buildResult = (await build(finalConfig)) as BuiltOutput | BuiltOutput[];
   const output = Array.isArray(buildResult)
     ? buildResult.flatMap((result) => result.output)

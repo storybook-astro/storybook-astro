@@ -12,8 +12,9 @@
     "website": "yarn workspace @storybook-astro/website dev",
     "build": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced --exclude '@storybook-astro/{framework,renderer}' run build",
     "serve": "yarn workspaces foreach -A --parallel --interlaced run serve",
-    "lint": "yarn workspaces foreach -A --parallel --interlaced run lint",
+    "lint": "eslint scripts eslint.config.js prettier.config.js && yarn workspaces foreach -A --parallel --interlaced run lint",
     "lint:fix": "eslint . --fix",
+    "lint:links": "node scripts/check-doc-links.mjs",
     "test": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced run test",
     "build:packages": "yarn workspaces foreach -A --topological --include '@storybook-astro/{framework,renderer}' run build",
     "smoke": "bash scripts/smoke-test.sh"

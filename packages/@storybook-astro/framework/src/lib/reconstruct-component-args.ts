@@ -35,8 +35,8 @@ type RenderToHtml = (
  * reference resolution only, via {@link resolvePropValue}) is unchanged for
  * existing slot callers; the decorator root resolution (`astroRenderHandler.ts`)
  * passes the full top-level args pipeline instead, uniformly for every
- * descriptor in the tree — see the "Props pipeline" note in
- * docs/DECORATOR_SUPPORT.md.
+ * descriptor in the tree — see the props-pipeline note in
+ * docs/specs/decorators.md#the-renderable-tree.
  */
 type ProcessProps = (props: Record<string, unknown>) => Promise<Record<string, unknown>>;
 

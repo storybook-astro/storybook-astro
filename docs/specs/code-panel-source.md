@@ -48,7 +48,7 @@ Stories delegated via `parameters.renderer` render through the framework's `rend
 
 **Decision 3 — Idiomatic Astro output, frontmatter included.** The snippet shows what a user would actually paste into a `.astro` file: a frontmatter block with the component import (and `const` declarations for complex prop values, mirroring Vue's script-setup convention), then the component tag. Astro's expression syntax is JSX-like, so attribute serialization is straightforward (see spec below).
 
-**Decision 4 — Generate from context, not from output.** Source comes from `ctx.component` + `ctx.args`. This makes the decorator order-independent and immune to the decorator-support feature (`docs/DECORATOR_SUPPORT.md`): when `storyFn()` starts returning renderable trees, the source decorator still passes the value through untouched and the snippet still shows the undecorated component usage — which is the desired behavior (parity with `excludeDecorators` defaults elsewhere).
+**Decision 4 — Generate from context, not from output.** Source comes from `ctx.component` + `ctx.args`. This makes the decorator order-independent and immune to the decorator-support feature (`docs/specs/decorators.md`): when `storyFn()` starts returning renderable trees, the source decorator still passes the value through untouched and the snippet still shows the undecorated component usage — which is the desired behavior (parity with `excludeDecorators` defaults elsewhere).
 
 **Decision 5 — Component name resolution order.** `component.__docgenInfo.displayName` (future-proofing for issue #110) → basename of `component.moduleId` without `.astro` → last segment of `ctx.title`. Import path: `moduleId` relative to `dirname(parameters.fileName)` when both are available, else `./<Name>.astro`.
 

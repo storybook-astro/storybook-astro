@@ -131,7 +131,7 @@ describe('applyDecorators — Astro composition', () => {
     });
   });
 
-  // Regression test (docs/DECORATOR_SUPPORT.md, Step 6 finding): Storybook's
+  // Regression test (docs/specs/decorators.md#renderer-composition): Storybook's
   // `prepareStory` never hands `applyDecorators` the raw `decorators` array —
   // `applyHooks` (storybook/internal/preview-api) first replaces every entry,
   // bare components included, with a `hookify()`-wrapped function so it can

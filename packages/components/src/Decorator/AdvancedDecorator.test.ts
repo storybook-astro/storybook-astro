@@ -5,7 +5,7 @@ import * as stories from './AdvancedDecorator.stories.jsx';
 
 const { TwoDecoratorChain, HtmlStringWrapped, BareComponentWrapped, NamedSlotWrapped } = composeStories(stories);
 
-// Two-decorator chain (docs/DECORATOR_SUPPORT.md): the last array entry ends
+// Two-decorator chain (docs/specs/decorators.md): the last array entry ends
 // up outermost.
 test('a two-decorator chain nests with the last array entry outermost', async () => {
   await renderStory(TwoDecoratorChain);

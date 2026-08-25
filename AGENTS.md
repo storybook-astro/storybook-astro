@@ -51,7 +51,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 **Important Files**:
 - `src/render.tsx` - Exports `render()` and `renderToCanvas()` functions
 - `src/preset.ts` - Defines preview annotations
-- `src/decorators.ts` - `applyDecorators`, the renderer's `applyDecorators` project annotation. Composes a story's `decorators` array into a `SlotValue` tree for Astro stories (Decision 2 in `docs/DECORATOR_SUPPORT.md`), or defers to Storybook's `defaultDecorateStory` for framework-delegated stories (`parameters.renderer` set)
+- `src/decorators.ts` - `applyDecorators`, the renderer's `applyDecorators` project annotation. Composes a story's `decorators` array into a `SlotValue` tree for Astro stories (Decision 2 in `docs/specs/decorators.md#design-decisions`), or defers to Storybook's `defaultDecorateStory` for framework-delegated stories (`parameters.renderer` set)
 
 ### Data Flow
 
@@ -115,7 +115,7 @@ import { handlerFactory } from './middleware';
 
 ### Documentation
 
-Never commit AI planning documents, speculative implementation plans, or proposal docs unless explicitly asked. Prefer implementing the feature, updating real user-facing docs, or leaving planning notes in the conversation instead of adding files to the repo.
+Never commit AI planning documents, speculative implementation plans, or proposal docs unless explicitly asked. `docs/specs/` is the exception and is not a planning area: it holds design records for features that have shipped — behavior contracts and the rationale behind them. Source comments cite those files by anchor (`docs/specs/decorators.md#server-snapshot`), so renaming a heading there breaks references; `yarn lint:links` checks them. Prefer implementing the feature, updating real user-facing docs, or leaving planning notes in the conversation instead of adding files to the repo.
 
 ### Readability
 
