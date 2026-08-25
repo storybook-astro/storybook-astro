@@ -189,6 +189,31 @@ describe('appendUserVitePlugins', () => {
   });
 });
 
+describe('loadUserAstroVitePlugins', () => {
+  test('hands every render pipeline its own plugin instances', async () => {
+    // Each pipeline registers these plugins with a different Vite instance,
+    // and in dev two of those servers are live at once. Sharing one stateful
+    // plugin object between them lets whichever server resolved last win.
+    await writeConfig(`
+      export default {
+        vite: {
+          plugins: [{ name: 'vite-svg-loader', cache: new Map() }]
+        }
+      };
+    `);
+
+    const [forDevServer] = await loadUserAstroVitePlugins(tmpDir);
+    const [forIslandBuild] = await loadUserAstroVitePlugins(tmpDir);
+
+    expect(forDevServer.name).toBe('vite-svg-loader');
+    expect(forIslandBuild.name).toBe('vite-svg-loader');
+    expect(forIslandBuild).not.toBe(forDevServer);
+    expect(
+      (forIslandBuild as unknown as { cache: Map<string, string> }).cache
+    ).not.toBe((forDevServer as unknown as { cache: Map<string, string> }).cache);
+  });
+});
+
 describe('loadUserAstroIntegrations (regression)', () => {
   test('still picks up integrations after the refactor', async () => {
     await writeConfig(`
