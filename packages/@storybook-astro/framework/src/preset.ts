@@ -13,7 +13,11 @@ import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
-import { loadUserAstroFonts, loadUserAstroVitePlugins } from './loadUserAstroConfig.ts';
+import {
+  appendUserVitePlugins,
+  loadUserAstroFonts,
+  loadUserAstroVitePlugins
+} from './loadUserAstroConfig.ts';
 
 export const core = {
   builder: '@storybook/builder-vite',
@@ -148,24 +152,12 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   // than Astro integrations (e.g. `@tailwindcss/vite`, `unocss/vite`) which
   // the integration auto-loader does not pick up.
   const userVitePlugins = await loadUserAstroVitePlugins(options.resolveFrom);
+  const newPlugins = appendUserVitePlugins(finalConfig, userVitePlugins);
 
-  if (userVitePlugins.length > 0) {
-    const existingNames = new Set<string>();
-
-    for (const plugin of (finalConfig.plugins ?? []).flat(Infinity) as Array<{ name?: string }>) {
-      if (plugin && typeof plugin === 'object' && typeof plugin.name === 'string') {
-        existingNames.add(plugin.name);
-      }
-    }
-
-    const newPlugins = userVitePlugins.filter((plugin) => !existingNames.has(plugin.name));
-
-    if (newPlugins.length > 0) {
-      console.warn(
-        `[storybook-astro] Auto-loaded ${newPlugins.length} vite plugin${newPlugins.length === 1 ? '' : 's'} from astro.config: ${newPlugins.map((p) => p.name).join(', ')}`
-      );
-      finalConfig.plugins = [...(finalConfig.plugins ?? []), ...newPlugins];
-    }
+  if (newPlugins.length > 0) {
+    console.warn(
+      `[storybook-astro] Auto-loaded ${newPlugins.length} vite plugin${newPlugins.length === 1 ? '' : 's'} from astro.config: ${newPlugins.map((p) => p.name).join(', ')}`
+    );
   }
 
   // Exclude Astro integration packages from dependency optimization because

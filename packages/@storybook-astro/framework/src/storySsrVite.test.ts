@@ -1,5 +1,8 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
-import { createStorybookBrowserStubPlugin } from './storySsrVite.ts';
+import { createStorybookBrowserStubPlugin, createStorySsrViteServer } from './storySsrVite.ts';
 
 type HookFn = (id: string) => unknown;
 
@@ -9,6 +12,42 @@ function callHook(hook: unknown, id: string) {
 
   return handler.call({}, id);
 }
+
+describe('createStorySsrViteServer', () => {
+  test('receives vite plugins declared in the project astro.config', async () => {
+    // The fixture must live inside the package (not the OS tmpdir) so that
+    // `importAstroConfig` can resolve `astro/config` by walking up from it.
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default { vite: { plugins: [{ name: 'user-test-plugin' }] } };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        const pluginNames = viteServer.config.plugins.map((plugin) => plugin.name);
+
+        expect(pluginNames).toContain('user-test-plugin');
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+});
 
 describe('createStorybookBrowserStubPlugin', () => {
   test('stubs @storybook/preview with a working CSF4 factory', async () => {
