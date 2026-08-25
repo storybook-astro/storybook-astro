@@ -28,6 +28,9 @@ const EMPTY: UserAstroConfigData = {
 // promise so concurrent callers share the same load.
 const configCache = new Map<string, Promise<UserAstroConfigData>>();
 
+// Config files that already produced a load failure warning.
+const warnedConfigFiles = new Set<string>();
+
 async function loadUserAstroConfigData(resolveFrom: string): Promise<UserAstroConfigData> {
   let cached = configCache.get(resolveFrom);
 
@@ -75,10 +78,16 @@ async function readUserAstroConfig(resolveFrom: string): Promise<UserAstroConfig
       vitePlugins: extractVitePlugins(config.vite?.plugins)
     };
   } catch (err) {
-    console.warn(
-      '[storybook-astro] Could not load astro.config to discover integrations / fonts / vite plugins:',
-      err instanceof Error ? err.message : String(err)
-    );
+    // Vite plugins are read once per render pipeline (see
+    // loadUserAstroVitePlugins), so a broken config would otherwise repeat
+    // the same warning several times per session.
+    if (!warnedConfigFiles.has(configFile)) {
+      warnedConfigFiles.add(configFile);
+      console.warn(
+        '[storybook-astro] Could not load astro.config to discover integrations / fonts / vite plugins:',
+        err instanceof Error ? err.message : String(err)
+      );
+    }
 
     return EMPTY;
   }
@@ -154,9 +163,17 @@ export async function loadUserAstroFonts(resolveFrom: string): Promise<Storybook
  * registered through Astro's integration API so `loadUserAstroIntegrations`
  * does not pick them up; this loader fills the gap so CSS frameworks added
  * as raw Vite plugins work in Storybook without `viteFinal`.
+ *
+ * Deliberately skips the config cache: a Vite plugin is a stateful object
+ * (it captures the resolved config in `configResolved`, caches in
+ * `buildStart`) and every caller registers the result with a different Vite
+ * instance — in dev the Storybook server and the internal SSR server are even
+ * live at the same time.  Re-reading the config runs the config module again
+ * and hands each pipeline its own instances.  Integrations and fonts are
+ * plain data and keep using the cache.
  */
 export async function loadUserAstroVitePlugins(resolveFrom: string): Promise<Plugin[]> {
-  return (await loadUserAstroConfigData(resolveFrom)).vitePlugins;
+  return (await readUserAstroConfig(resolveFrom)).vitePlugins;
 }
 
 /**
