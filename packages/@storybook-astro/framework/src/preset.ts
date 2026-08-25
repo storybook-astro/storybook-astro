@@ -72,8 +72,9 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   // components, and anything imported only from `.storybook/preview.*` like a
   // decorator's Wrapper.astro — passes through the marker plugin's `transform`
   // hook. Server-mode builds need that full list to snapshot decorator/slot-only
-  // components the story index never mentions (docs/DECORATOR_SUPPORT.md, Step 4,
-  // Gap B), so collect it here and hand it to `vitePluginAstroBuildServer` below.
+  // components the story index never mentions
+  // (docs/specs/decorators.md#server-snapshot), so collect it here and hand it
+  // to `vitePluginAstroBuildServer` below.
   const clientAstroComponentIds = new Set<string>();
   const componentMarkerPlugin = vitePluginAstroComponentMarker({
     onClientAstroModuleId: (moduleId) => clientAstroComponentIds.add(moduleId)

@@ -2,7 +2,7 @@
 // story function, via the `applyDecorators` hook (`DecoratorApplicator` in
 // `storybook/internal/csf`) — the same mechanism `@storybook/vue3` and
 // `@storybook/svelte` use to normalize decorator return values for their own
-// render pipelines. See docs/DECORATOR_SUPPORT.md for the full design.
+// render pipelines. See docs/specs/decorators.md for the full design.
 //
 // Kept free of virtual-module imports (like preview-defaults.ts) so Node test
 // processes and the framework package can import it directly without pulling
@@ -158,7 +158,7 @@ function normalizeDecoratorResult(result: unknown, handle: StoryHandle, innerTre
   if (result === null || result === undefined) {
     throw new Error(
       '[storybook-astro] A decorator returned nothing. Return `Story()`, a string built from it, ' +
-        'or a component descriptor — see docs/DECORATOR_SUPPORT.md.'
+        'or a component descriptor — see docs/specs/decorators.md.'
     );
   }
 

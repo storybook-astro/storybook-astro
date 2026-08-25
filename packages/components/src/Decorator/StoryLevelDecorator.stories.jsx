@@ -2,8 +2,9 @@ import Card from '../Card/astro/Card.astro';
 import Wrapper from './Wrapper.astro';
 
 // Isolates the story-level and global (project-annotations) decorator
-// positions from Decorator.stories.jsx's meta-level one (docs/DECORATOR_SUPPORT.md,
-// Step 5) — this file's default export carries no decorators of its own.
+// positions from Decorator.stories.jsx's meta-level one
+// (docs/specs/decorators.md#portable-stories) — this file's default export
+// carries no decorators of its own.
 export default {
   title: 'Astro/Decorators/StoryLevel',
   component: Card,

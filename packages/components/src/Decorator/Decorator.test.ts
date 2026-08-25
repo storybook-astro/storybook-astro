@@ -11,7 +11,7 @@ const { Undecorated: GloballyWrapped } = composeStories(storyLevelStories, {
   decorators: [(_Story) => ({ component: Wrapper, props: { label: 'Global' } })],
 });
 
-// Meta-level decorator (docs/DECORATOR_SUPPORT.md): a `decorators` array on
+// Meta-level decorator (docs/specs/decorators.md): a `decorators` array on
 // Decorator.stories.jsx's default export wraps every story in that file.
 test('a meta-level decorator wraps the story in Wrapper.astro', async () => {
   await renderStory(Decorated);

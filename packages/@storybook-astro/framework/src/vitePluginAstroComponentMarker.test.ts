@@ -62,7 +62,7 @@ describe('vitePluginAstroComponentMarker transform', () => {
   });
 
   // Server-mode snapshots need every client-imported .astro id, not just story
-  // components (docs/DECORATOR_SUPPORT.md, Step 4, Gap B) — vitePluginAstroBuildServer
+  // components (docs/specs/decorators.md#static-prerender, Gap B) — vitePluginAstroBuildServer
   // collects them through this callback.
   test('reports every marked module id via onClientAstroModuleId', () => {
     const filePath = writeAstroFile('Wrapper.astro', '<div><slot /></div>');

@@ -32,6 +32,9 @@ jobs:
       - name: Lint code
         run: yarn lint
 
+      - name: Check doc references
+        run: yarn lint:links
+
       - name: Build packages
         run: yarn build:packages
 
