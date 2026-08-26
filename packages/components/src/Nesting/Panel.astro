@@ -1,6 +1,14 @@
 ---
-// Parent with a default slot — the issue #128 repro target. Slot content may be
-// an HTML string or another Astro component.
+/**
+ * A titled section whose default slot accepts either an HTML string or another
+ * Astro component.
+ */
+// Nesting repro target for issue #128.
+interface Props {
+  /** Heading shown above the slot content. */
+  title?: string;
+}
+
 const { title = 'Panel' } = Astro.props;
 
 ---

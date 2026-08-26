@@ -53,6 +53,7 @@ Only React ships a provider in 10.5; Vue 3 and Angular added theirs during 10.6-
 - `get-tsconfig` is a dependency, used in `src/lib/resolve-aliased-island.ts`.
 - `typescript` is **not** a dependency of the framework package.
 - `docs/specs/code-panel-source.md` already anticipates this work: its component-name resolution order starts with `component.__docgenInfo.displayName`.
+- The extraction cache is in-memory only. A filesystem cache (`createFileSystemCache` from `storybook/internal/common`) would make cold restarts free and is the obvious next optimisation.
 
 ### Prior art
 
@@ -186,11 +187,14 @@ Default values are read from the top-level `Astro.props` destructuring, includin
 
 - `types.ts` — the output shape from Decision 2, and `AstroDocgenOptions`.
 - `tsProject.ts` — the shared `LanguageService`, `DocumentRegistry` and host from Decision 3.
-- `virtualFile.ts` — offset-preserving blanking, the conditional heritage rewrite, the `__SB_PROPS__` probe.
-- `extract.ts` — pure `(checker, sourceFile, astroFilePath)`: instantiation, union merge, description precedence, filtering.
+- `virtualFile.ts` — frontmatter scanning, offset-preserving blanking, and the `Props` probes.
+- `propsDeclaration.ts` — the conditional heritage rewrite and the union-constituent split.
+- `description.ts` — the precedence order, and splitting block tags out of the description.
 - `defaultValues.ts` — the `Astro.props` destructuring walker, ported closely from the prior art.
 - `propFilter.ts` — the Decision 7 default plus overrides.
-- `cache.ts` — content-hash memory cache plus `createFileSystemCache` from `storybook/internal/common`.
+- `extract.ts` — orchestration: instantiation, union merge, prop building, filtering.
+- `index.ts` — the runtime: the guarded TypeScript import, tsconfig discovery, the
+  extraction cache, and trimming absolute paths out of anything bound for the bundle.
 
 Add `typescript` as an optional peer dependency and to `tsup.config.ts` `external`.
 

@@ -1,8 +1,9 @@
 ---
-// A child component with its own slot. Used to prove a configured-component slot
-// (a child placed in a parent's slot *with its own props and slot content*)
-// renders as a real Astro component — issue #146.
+/** A labelled box with its own default slot, for nesting inside another box. */
+// Proves a configured-component slot (a child placed in a parent's slot *with its
+// own props and slot content*) renders as a real Astro component — issue #146.
 interface Props {
+  /** Caption shown above the slot content. */
   label?: string;
 }
 

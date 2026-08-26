@@ -1,8 +1,10 @@
 ---
+/** Renders a publication date as a machine-readable `<time>` element. */
 // Regression coverage: a Date passed as a story arg must reach the component as
 // a real Date through the static-build prerender path. Calling toISOString() on
 // a clobbered value ({}) throws, which is exactly the bug this guards against.
 interface Props {
+  /** Date to display. Must arrive as a real Date, not a serialised stand-in. */
   publishedAt: Date;
 }
 
