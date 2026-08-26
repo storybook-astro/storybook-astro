@@ -6,9 +6,16 @@ import {
   normalizeGithubRepository,
 } from '../../ProjectStats/astro/projectStatsData.ts';
 
+/**
+ * Fetches star counts on the Astro server, then hydrates a Preact component
+ * that counts from 0 to the latest value.
+ */
 interface Props {
+  /** GitHub repository in `owner/name` format. */
   repository?: string;
+  /** Small label displayed above the animated number. */
   label?: string;
+  /** Count shown when the GitHub API is unavailable or rate-limited. */
   fallbackStars?: number;
 }
 

@@ -6,24 +6,6 @@ export default {
   args: {
     framework: 'react',
   },
-  parameters: {
-    docs: {
-      description: {
-        component: 'Code snippet tabs rendered by Astro, implemented by framework components. React/Solid/Preact/Svelte/Vue are hydrated with `client:load`; Alpine uses runtime directives.',
-      },
-    },
-  },
-  argTypes: {
-    framework: {
-      description: 'Client framework implementation mounted under Astro.',
-      control: { type: 'select' },
-      options: ['react', 'solid', 'preact', 'svelte', 'vue', 'alpine'],
-      table: {
-        type: { summary: "'react' | 'solid' | 'preact' | 'svelte' | 'vue' | 'alpine'" },
-        defaultValue: { summary: 'react' },
-      },
-    },
-  },
 };
 
 export const Default = {};

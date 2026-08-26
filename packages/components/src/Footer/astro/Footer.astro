@@ -1,11 +1,18 @@
 ---
+/**
+ * A site footer with configurable links and license text. Responsive layout —
+ * links stack vertically on mobile and align horizontally with dot separators
+ * on desktop.
+ */
 interface FooterLink {
   label: string;
   href: string;
 }
 
 interface Props {
+  /** Footer links. Each item has a `label` and `href`. */
   links?: FooterLink[];
+  /** License notice displayed below the links. */
   licenseText?: string;
 }
 

@@ -81,7 +81,8 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   // to `vitePluginAstroBuildServer` below.
   const clientAstroComponentIds = new Set<string>();
   const componentMarkerPlugin = vitePluginAstroComponentMarker({
-    onClientAstroModuleId: (moduleId) => clientAstroComponentIds.add(moduleId)
+    onClientAstroModuleId: (moduleId) => clientAstroComponentIds.add(moduleId),
+    docgen: await createDocgenIfEnabled(options, resolveFrom, storybookOptions)
   });
 
   config.plugins.push(
@@ -301,4 +302,32 @@ function mergeEnvPrefixes(
   const prefixes = Array.isArray(existing) ? existing : existing ? [existing] : [];
 
   return Array.from(new Set([...prefixes, additionalPrefix]));
+}
+
+/**
+ * Builds the docgen runtime for the props table and description autodocs shows,
+ * or returns undefined when extraction shouldn't run at all.
+ *
+ * Skipped when the user opted out, when the docs addon isn't installed (nothing
+ * would render the output), and when Storybook is building for tests — docgen
+ * costs a type check per component and none of those need it.
+ */
+async function createDocgenIfEnabled(
+  options: FrameworkOptions,
+  projectRoot: string,
+  storybookOptions: Parameters<NonNullable<StorybookConfigVite['viteFinal']>>[1]
+) {
+  if (options.docgen === false || storybookOptions.build?.test?.disableDocgen) {
+    return undefined;
+  }
+
+  const docsConfig = await storybookOptions.presets.apply('docs', {}, storybookOptions);
+
+  if (Object.keys(docsConfig ?? {}).length === 0) {
+    return undefined;
+  }
+
+  const { createAstroDocgen } = await import('./docgen/index.ts');
+
+  return createAstroDocgen({ projectRoot, ...options.docgen });
 }

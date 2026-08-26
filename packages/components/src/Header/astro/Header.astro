@@ -1,12 +1,22 @@
 ---
+/**
+ * A responsive site header with logo, navigation links, and a mobile hamburger
+ * menu. The active link is highlighted based on `currentPath`.
+ */
 interface NavItem {
   label: string;
   href: string;
 }
 
 interface Props {
+  /** Logo text displayed in the top-left. */
   logoText?: string;
+  /** Navigation links. Each item has a `label` and `href`. */
   navItems?: NavItem[];
+  /**
+   * Current URL path used to highlight the active nav link.
+   * @default Astro.url.pathname
+   */
   currentPath?: string;
 }
 

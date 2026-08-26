@@ -1,10 +1,18 @@
 ---
+/**
+ * An unstyled passthrough that wraps every Astro story in the demo apps,
+ * tagging the output with the active theme.
+ */
 // Global Astro decorator target (docs/specs/decorators.md#global-decorators). Installed
-// in every app's `.storybook/preview.js` global `decorators` array, so it
-// wraps EVERY Astro story in that app. Deliberately has no `<style>` block and
-// sets no classes — any visible styling here would change every Astro
-// story's rendered appearance at once, breaking Chromatic snapshots and any
-// test asserting exact markup. Keep it a plain, unstyled passthrough.
+// in every app's `.storybook/preview.js` global `decorators` array. Deliberately has
+// no `<style>` block and sets no classes — any visible styling here would change every
+// Astro story's appearance at once, breaking Chromatic snapshots and any test asserting
+// exact markup. Keep it a plain, unstyled passthrough.
+interface Props {
+  /** Theme name written to `data-theme` on the wrapper. */
+  theme?: string;
+}
+
 const { theme } = Astro.props;
 
 ---

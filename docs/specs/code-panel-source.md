@@ -30,7 +30,7 @@ The decorator is delivered as a **docs-only preview annotation**: `@storybook/vu
 ### What we have
 
 - `packages/@storybook-astro/renderer/src/preset.ts` appends only `entry-preview` to `previewAnnotations`. No docs annotation exists.
-- For Astro stories, `ctx.component` is the client stub produced by `vitePluginAstroComponentMarker` — a function carrying `moduleId` (the absolute path of the `.astro` file). There is no docgen info yet (JSDoc extraction is tracked separately as issue #110).
+- For Astro stories, `ctx.component` is the client stub produced by `vitePluginAstroComponentMarker` — a function carrying `moduleId` (the absolute path of the `.astro` file). Since the docgen work landed, the stub also carries `__docgenInfo` with the component's extracted description and props (`docs/specs/docgen.md`).
 - Story args follow one convention worth preserving in snippets: `args.slots` is a map of slot name → HTML string (`default` plus named slots), and everything else is a prop.
 - Storybook sets `parameters.fileName` to the story file's path, which lets us compute a realistic relative import path for the frontmatter.
 - CSF1–3 and CSF4 (`definePreview`) both load preview annotations the same way, so one annotation file covers both.
@@ -50,7 +50,7 @@ Stories delegated via `parameters.renderer` render through the framework's `rend
 
 **Decision 4 — Generate from context, not from output.** Source comes from `ctx.component` + `ctx.args`. This makes the decorator order-independent and immune to the decorator-support feature (`docs/specs/decorators.md`): when `storyFn()` starts returning renderable trees, the source decorator still passes the value through untouched and the snippet still shows the undecorated component usage — which is the desired behavior (parity with `excludeDecorators` defaults elsewhere).
 
-**Decision 5 — Component name resolution order.** `component.__docgenInfo.displayName` (future-proofing for issue #110) → basename of `component.moduleId` without `.astro` → last segment of `ctx.title`. Import path: `moduleId` relative to `dirname(parameters.fileName)` when both are available, else `./<Name>.astro`.
+**Decision 5 — Component name resolution order.** `component.__docgenInfo.displayName` (populated by the docgen extractor, `docs/specs/docgen.md`) → basename of `component.moduleId` without `.astro` → last segment of `ctx.title`. Import path: `moduleId` relative to `dirname(parameters.fileName)` when both are available, else `./<Name>.astro`.
 
 ## Source Generation Spec
 
@@ -125,6 +125,6 @@ const author = { name: "Ada", role: "Engineer" };
 
 - **Decorators are not reflected** in the snippet — it intentionally shows the undecorated component usage.
 - **Framework component stories** (`parameters.renderer`) keep the raw-source fallback; per-framework dynamic source is a possible follow-up.
-- **Complex objects** render as hoisted `const` literals; values that aren't plausibly literal (class instances, `ImageMetadata` from imported images) serialize as plain object literals rather than recovering the original `import img from '…'` form. Revisit alongside JSDoc/docgen work (issue #110).
+- **Complex objects** render as hoisted `const` literals; values that aren't plausibly literal (class instances, `ImageMetadata` from imported images) serialize as plain object literals rather than recovering the original `import img from '…'` form. Revisit alongside `docs/specs/docgen.md` — the extractor already records each prop's declaring file, which is a starting point for recovering an original `import` form.
 - **Slot HTML is echoed verbatim** from `args.slots` — it is not reformatted or validated.
 - Stories whose `render` returns template strings or DOM nodes are skipped (no component to attribute the source to), matching `__isArgsStory` semantics in other renderers.

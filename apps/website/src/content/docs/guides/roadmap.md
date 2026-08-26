@@ -115,28 +115,23 @@ The render time and HTML string are already available when `renderAstroComponent
 
 ### Automatic Documentation Extraction from JSDoc
 
-📋 **To Do**
+✅ **Done**
 
-Enable automatic extraction of component descriptions and prop documentation from JSDoc comments in Astro components, similar to how React/Vue frameworks extract documentation via docgen tools.
+Component descriptions and prop documentation are extracted from JSDoc in a
+component's `.astro` frontmatter, so autodocs pages populate without any
+`argTypes` boilerplate in story files.
 
-**Complexity**: Medium-High
-**Tracking**: [Issue #110 — Storybook Astro is unable to parse documentation from the component's JSDocs](https://github.com/storybook-astro/storybook-astro/issues/110)
+**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110)
 
-**Current behavior**: Users must manually duplicate all documentation in story files via `argTypes` and `parameters.docs.description.component`.
+**What you get**:
+- Component description from a JSDoc block in the frontmatter
+- Per-prop descriptions, types and defaults in the properties table
+- Select controls for literal union props
+- Inherited DOM attributes filtered out, while props you destructure are kept
+- Types imported from other files, including through tsconfig `paths` aliases
 
-**What this requires**:
-- Parser for Astro component frontmatter to extract TypeScript `Props` interface and JSDoc comments
-- Implementation of `docs.extractArgTypes` and `docs.extractComponentDescription` functions in the framework preset
-- Integration with TypeScript Compiler API (similar to `react-docgen-typescript`) to read type information and JSDoc tags from `.astro` files
-- Handling Astro-specific syntax where the `Props` interface is embedded in frontmatter rather than standalone `.ts` files
-
-**What this enables**:
-- Automatic component descriptions from top-level JSDoc comments
-- Automatic prop documentation in the properties table from interface JSDoc
-- Reduced boilerplate in story files
-- Consistency with how other Storybook frameworks handle documentation
-
-**Workaround**: Manually define `argTypes` and descriptions in story files as shown in the integration examples.
+See [Controls & ArgTypes](/writing-stories/controls/) for the conventions and the
+`docgen` framework option.
 
 ## Future Enhancements
 
@@ -308,7 +303,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Stories (CSF) | ✅ Supported | Component Story Format for defining stories |
 | Args & Controls | ✅ Supported | Interactive controls for component props (dev only for Astro components; pre-rendered in static builds) |
 | Actions | ✅ Supported | Log user interactions and events |
-| Docs (Autodocs) | ✅ Supported | Automatic documentation pages for components |
+| Docs (Autodocs) | ✅ Supported | Automatic documentation pages, with props tables generated from frontmatter JSDoc |
 | Docs (MDX) | ✅ Supported | Custom documentation pages with MDX |
 | Docs Blocks | ✅ Supported | Pre-built documentation components (Description, Primary, Controls, Stories, etc.) |
 | Viewports | ✅ Supported | Responsive design testing with different viewport sizes |
