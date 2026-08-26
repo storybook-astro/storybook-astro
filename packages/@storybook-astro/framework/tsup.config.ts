@@ -34,6 +34,9 @@ export default defineConfig({
     'astro',
     'storybook',
     'storybook/internal/types',
+    // Optional peer, loaded through a guarded dynamic import so docgen degrades
+    // to a no-op when a project has no TypeScript (docs/specs/docgen.md#failure-modes).
+    'typescript',
     'vite',
     'react',
     'react-dom',
