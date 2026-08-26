@@ -7,6 +7,7 @@
 // `definePreview` merges them for CSF-factory consumers, who otherwise bypass
 // the entry-preview annotation entirely (see framework/src/index.ts).
 import { extractComponentDescription } from 'storybook/internal/docs-tools';
+
 import { extractArgTypes } from './extractArgTypes.ts';
 
 export const defaultPreviewParameters = {

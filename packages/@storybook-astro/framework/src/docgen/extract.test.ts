@@ -210,12 +210,30 @@ describe('the component from issue #110', () => {
 });
 
 describe('description precedence', () => {
-  test('a JSDoc above an import documents the import, not the component', () => {
+  test('a leading block still counts when an import follows it', () => {
+    // Astro frontmatter puts imports first, so a component description written
+    // at the top of the file lands on one. PageCard.astro is shaped this way.
     const docgen = docgenFor(
       astro(
         [
-          '/** Not the component description. */',
+          '/** Renders a page card. */',
           "import type { HTMLTag } from 'astro/types';",
+          'interface Props { a?: HTMLTag }',
+          'const { a } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(docgen?.description).toBe('Renders a page card.');
+  });
+
+  test('a JSDoc buried mid-file is not mistaken for the description', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          "import type { HTMLTag } from 'astro/types';",
+          '/** A helper, not the component. */',
+          'const helper = 1;',
           'interface Props { a?: HTMLTag }',
           'const { a } = Astro.props;'
         ].join('\n')

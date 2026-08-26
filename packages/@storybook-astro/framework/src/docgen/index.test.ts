@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, test } from 'vitest';
@@ -154,6 +154,107 @@ describe('failures never take rendering down', () => {
     const { docgen } = createDocgen();
 
     await expect(docgen.warmUp()).resolves.toBeUndefined();
+
+    docgen.dispose();
+  });
+});
+
+describe('what reaches the browser bundle', () => {
+  test('declaring paths are project-relative, not absolute machine paths', async () => {
+    writeFileSync(
+      join(projectRoot, 'trim-types.ts'),
+      'export interface Trimmed {\n  /** Declared elsewhere. */\n  elsewhere?: string;\n}\n'
+    );
+
+    const { docgen } = createDocgen();
+    const source = [
+      '---',
+      "import type { Trimmed } from './trim-types.ts';",
+      'interface Props extends Trimmed {}',
+      'const { elsewhere } = Astro.props;',
+      '---',
+      '<div />'
+    ].join('\n');
+
+    const result = await docgen.extract(join(projectRoot, 'Trim.astro'), source);
+    const parentFile = result?.props.elsewhere?.parent?.fileName ?? '';
+
+    // A published static Storybook is public; whoever built it shouldn't be
+    // shipping their home directory in it.
+    expect(parentFile).toBe('trim-types.ts');
+    expect(JSON.stringify(result)).not.toContain(projectRoot);
+
+    docgen.dispose();
+  });
+
+  test('a type from a sibling package stays relative rather than absolute', async () => {
+    // The monorepo case: the app root is integration/astroN while the component
+    // and its types live in packages/components, so the declaring file is above
+    // the root. Climbing out with `../` beats shipping a home directory.
+    const nestedRoot = join(projectRoot, 'app');
+
+    mkdirSync(nestedRoot, { recursive: true });
+    writeFileSync(
+      join(projectRoot, 'outside-types.ts'),
+      'export interface Outside {\n  /** Declared above the app root. */\n  outer?: string;\n}\n'
+    );
+
+    const { docgen } = createDocgen({ projectRoot: nestedRoot });
+    const source = [
+      '---',
+      "import type { Outside } from '../outside-types.ts';",
+      'interface Props extends Outside {}',
+      'const { outer } = Astro.props;',
+      '---',
+      '<div />'
+    ].join('\n');
+
+    const result = await docgen.extract(join(nestedRoot, 'Nested.astro'), source);
+
+    expect(result?.props.outer?.parent?.fileName).toBe('../outside-types.ts');
+    expect(JSON.stringify(result)).not.toContain(packageDir);
+
+    docgen.dispose();
+  });
+
+  test('server-only declaration data is not shipped', async () => {
+    const { docgen } = createDocgen();
+    const result = await docgen.extract(join(projectRoot, 'NoDecls.astro'), CARD);
+
+    expect(result?.props.title).toBeDefined();
+    expect(JSON.stringify(result)).not.toContain('declarations');
+
+    docgen.dispose();
+  });
+
+  test('an optional literal union still becomes a select control under strict', async () => {
+    writeFileSync(
+      join(projectRoot, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { strict: true, moduleResolution: 'Bundler' } })
+    );
+
+    const { docgen } = createDocgen();
+    const source = [
+      '---',
+      "type Tone = 'solid' | 'outline';",
+      'interface Props {',
+      '  /** Visual treatment. */',
+      '  tone?: Tone;',
+      '}',
+      "const { tone = 'solid' } = Astro.props;",
+      '---',
+      '<div />'
+    ].join('\n');
+
+    const result = await docgen.extract(join(projectRoot, 'Strict.astro'), source);
+
+    // Under `strict` an optional prop's type includes `undefined`, which would
+    // otherwise disqualify most real unions from becoming a select.
+    expect(result?.props.tone.type.name).toBe('enum');
+    expect(result?.props.tone.type.value?.map((each) => each.value)).toEqual([
+      '"solid"',
+      '"outline"'
+    ]);
 
     docgen.dispose();
   });

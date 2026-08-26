@@ -1,11 +1,21 @@
 ---
+/**
+ * A collapsible section list with vanilla JS toggle behavior. Renders
+ * server-side with no framework runtime — interactivity uses an inline
+ * `<script>` tag.
+ */
 interface AccordionItem {
   title: string;
   content: string;
 }
 
 interface Props {
+  /** Sections to render. Each item has a `title` (header text) and `content` (body text). */
   items?: AccordionItem[];
+  /**
+   * When true, multiple sections can be open at the same time. When false,
+   * opening one section closes the others.
+   */
   allowMultiple?: boolean;
 }
 

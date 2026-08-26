@@ -129,9 +129,11 @@ Net effect on that component: roughly nine meaningful rows instead of three or t
 **Decision 8 — Resolve descriptions through the AST, and strip non-standard tags.** A "floating" JSDoc block is not floating — TypeScript attaches it to the following statement, so `ts.getJSDocCommentsAndTags` finds it reliably. Precedence, first non-empty winning:
 
 1. The first frontmatter statement whose JSDoc carries `@component` or `@description` — using the tag's text if present, otherwise the block's free text.
-2. `propsSymbol.getDocumentationComment(checker)`, which survives declaration merging and re-exports in a way text scraping does not.
-3. The file's leading `/** */` block, but only when it is the first trivia **and** is not attached to an import declaration.
+2. JSDoc on the `Props` declaration.
+3. The frontmatter's leading `/** */` block, whatever statement it attaches to.
 4. Empty.
+
+Rule 3 deliberately does not exclude blocks attached to an import. Astro frontmatter puts imports first, so a description written at the top of a file usually lands on one — `PageCard.astro` in this repo is shaped exactly that way, and excluding imports silently dropped its description. What keeps the rule honest is that the block must be the *first* thing in the frontmatter; a JSDoc on the third import or on some mid-file constant is not a component description.
 
 The prior art takes the first `/** */` in the file by regex, which happily picks up a license header or a JSDoc on an import.
 

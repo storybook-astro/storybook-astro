@@ -6,9 +6,16 @@ import {
   normalizeGithubRepository,
 } from '../../ProjectStats/astro/projectStatsData.ts';
 
+/**
+ * Fetches contributors on the Astro server and renders a compact avatar list
+ * with a total count.
+ */
 interface Props {
+  /** GitHub repository in `owner/name` format. */
   repository?: string;
+  /** Small label shown above the count and avatars. */
   label?: string;
+  /** Maximum number of avatars to render before showing `+X`. */
   visibleContributors?: number;
 }
 

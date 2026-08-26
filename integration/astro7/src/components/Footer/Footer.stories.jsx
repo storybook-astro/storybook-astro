@@ -5,29 +5,6 @@ export default {
   component: Footer,
   parameters: {
     layout: 'fullscreen',
-    docs: {
-      description: {
-        component: 'A site footer with configurable links and license text. Responsive layout — links stack vertically on mobile and align horizontally with dot separators on desktop.',
-      },
-    },
-  },
-  argTypes: {
-    links: {
-      description: 'Footer links. Each item has a `label` and `href`.',
-      control: 'object',
-      table: {
-        type: { summary: '{ label: string, href: string }[]' },
-        defaultValue: { summary: 'Storybook feature request, framework docs, Container API' },
-      },
-    },
-    licenseText: {
-      description: 'License notice displayed below the links.',
-      control: 'text',
-      table: {
-        type: { summary: 'string' },
-        defaultValue: { summary: "'Licensed under MIT'" },
-      },
-    },
   },
 };
 

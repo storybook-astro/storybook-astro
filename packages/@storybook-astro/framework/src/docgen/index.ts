@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { dirname } from 'node:path';
+import { dirname, relative } from 'node:path';
 import { getTsconfig } from 'get-tsconfig';
 import type ts from 'typescript';
 import { extractAstroDocgen } from './extract.ts';
@@ -82,13 +82,15 @@ export function createAstroDocgen(setup: AstroDocgenSetup): AstroDocgen {
       let docgen: AstroDocgenInfo | null = null;
 
       try {
-        docgen = extractAstroDocgen(
+        const extracted = extractAstroDocgen(
           active.typescript,
           active.project,
           astroFilePath,
           astroSource,
           setup
         );
+
+        docgen = extracted && forPublishing(extracted, setup.projectRoot);
       } catch (error) {
         warn(`Could not read documentation from ${astroFilePath}: ${messageOf(error)}`);
       }
@@ -111,6 +113,46 @@ export function createAstroDocgen(setup: AstroDocgenSetup): AstroDocgen {
       session = undefined;
     }
   };
+}
+
+/**
+ * Strips what shouldn't ship to a browser.
+ *
+ * Docgen goes into the preview bundle, and a published static Storybook is
+ * public — so declaring-file paths get trimmed to project-relative rather than
+ * carrying whatever absolute path the machine that built it happened to use.
+ * `declarations` is dropped entirely: only the prop filter reads it, and that
+ * already ran server-side (docs/specs/docgen.md#prop-filtering).
+ */
+function forPublishing(docgen: AstroDocgenInfo, projectRoot: string): AstroDocgenInfo {
+  const props = Object.fromEntries(
+    Object.entries(docgen.props).map(([name, prop]) => {
+      const { declarations: _serverOnly, parent, ...rest } = prop;
+
+      return [
+        name,
+        parent ? { ...rest, parent: { ...parent, fileName: trim(parent.fileName, projectRoot) } } : rest
+      ];
+    })
+  );
+
+  return { ...docgen, props };
+}
+
+function trim(fileName: string, projectRoot: string): string {
+  // Dependency types are more recognisable by package than by path depth.
+  const installed = fileName.lastIndexOf('node_modules/');
+
+  if (installed !== -1) {
+    return fileName.slice(installed + 'node_modules/'.length);
+  }
+
+  const fromRoot = relative(projectRoot, fileName);
+
+  // Relative even when it climbs out of the app — in a monorepo the declaring
+  // file usually lives in a sibling package, and `../../packages/…` is worth a
+  // few extra segments to keep an absolute home directory out of a public build.
+  return fromRoot || fileName;
 }
 
 interface Session {

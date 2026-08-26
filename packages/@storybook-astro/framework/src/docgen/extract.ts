@@ -20,6 +20,11 @@ const INTERFACE_EXTENDS_NON_OBJECT = 2312;
 /** Guards against `Tag extends HTMLTag = HTMLTag` expanding to every element. */
 const MAX_UNION_CONSTITUENTS = 8;
 
+// ts.TypeFlags.Undefined / ts.TypeFlags.Null, inlined so this module keeps
+// importing TypeScript as a type only.
+const TS_UNDEFINED_FLAG = 32768;
+const TS_NULL_FLAG = 65536;
+
 /**
  * Extracts docgen for one `.astro` component.
  *
@@ -236,10 +241,13 @@ function describeType(
     return { name };
   }
 
-  const literals = type.types.filter((constituent) => constituent.isLiteral());
+  // An optional prop's type includes `undefined` under `strict`, which would
+  // otherwise disqualify every optional literal union — i.e. most of them —
+  // from becoming a select control.
+  const meaningful = type.types.filter((constituent) => !isNullish(constituent));
+  const literals = meaningful.filter((constituent) => constituent.isLiteral());
 
-  // A union of literals drives a select control, so surface the options.
-  if (literals.length === 0 || literals.length !== type.types.length) {
+  if (literals.length === 0 || literals.length !== meaningful.length) {
     return { name, raw };
   }
 
@@ -248,6 +256,13 @@ function describeType(
     raw: name,
     value: literals.map((constituent) => ({ value: checker.typeToString(constituent) }))
   };
+}
+
+/** `undefined` and `null` say nothing about which control a prop should get. */
+function isNullish(type: ts.Type): boolean {
+  return (
+    (type.flags & (TS_UNDEFINED_FLAG | TS_NULL_FLAG)) !== 0
+  );
 }
 
 function declarationRefOf(

@@ -16,10 +16,14 @@ export interface ComponentDescription {
  *
  * 1. the first statement whose JSDoc carries `@component` or `@description`
  * 2. JSDoc on the `Props` declaration
- * 3. the file's leading block, if it isn't attached to an import
+ * 3. the frontmatter's leading block, whatever statement it attaches to
  *
- * The prior art takes the first `/** *\/` in the file by regex, which happily
- * picks up a license header or a JSDoc written above an import.
+ * Rule 3 deliberately does not care that the leading block usually attaches to
+ * an import: Astro frontmatter puts imports first, so a component description
+ * written at the top of the file almost always lands on one. What keeps this
+ * honest is that the block must be the *first* thing in the frontmatter — the
+ * prior art takes the first block found anywhere by regex, so a JSDoc on the
+ * third import or on some mid-file constant becomes the component description.
  */
 export function readComponentDescription(
   typescript: typeof ts,
@@ -56,8 +60,7 @@ export function readComponentDescription(
 
   const [leading] = blocks;
 
-  // A JSDoc above an import documents the import, not the component.
-  if (leading?.text && !typescript.isImportDeclaration(leading.statement)) {
+  if (leading?.text) {
     return { text: leading.text, tags: tagsOrUndefined(leading.tags) };
   }
 
