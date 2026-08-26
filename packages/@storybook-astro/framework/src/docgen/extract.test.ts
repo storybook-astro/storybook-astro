@@ -209,6 +209,51 @@ describe('the component from issue #110', () => {
   });
 });
 
+describe('components do not leak props into each other', () => {
+  // Frontmatter with no import or export is a global script, so `Props` is a
+  // *global* declaration — and every component shares one TypeScript program.
+  // Two plain components would otherwise collide and the first would win.
+  const plain = (prop: string, doc: string) =>
+    astro(
+      [
+        'interface Props {',
+        `  /** ${doc} */`,
+        `  ${prop}?: string;`,
+        '}',
+        `const { ${prop} } = Astro.props;`
+      ].join('\n')
+    );
+
+  test('two components with no imports each keep their own props', () => {
+    const first = docgenFor(plain('alpha', 'Belongs to Alpha.'), 'Alpha');
+    const second = docgenFor(plain('beta', 'Belongs to Beta.'), 'Beta');
+
+    expect(Object.keys(first!.props)).toEqual(['alpha']);
+    expect(Object.keys(second!.props)).toEqual(['beta']);
+    expect(second!.props.beta.description).toBe('Belongs to Beta.');
+  });
+
+  test('a component with imports does not absorb a plain one', () => {
+    docgenFor(plain('gamma', 'Belongs to Gamma.'), 'Gamma');
+
+    const withImport = docgenFor(
+      astro(
+        [
+          "import type { HTMLTag } from 'astro/types';",
+          'interface Props {',
+          '  /** Belongs to Delta. */',
+          '  delta?: HTMLTag;',
+          '}',
+          'const { delta } = Astro.props;'
+        ].join('\n')
+      ),
+      'Delta'
+    );
+
+    expect(Object.keys(withImport!.props)).toEqual(['delta']);
+  });
+});
+
 describe('description precedence', () => {
   test('a leading block still counts when an import follows it', () => {
     // Astro frontmatter puts imports first, so a component description written

@@ -111,5 +111,10 @@ export function appendPropsProbes(
     return `declare const ${name}: Props${typeArguments ? `<${typeArguments}>` : ''};`;
   });
 
-  return { source: `${virtualSource}\n${declarations.join('\n')}\n`, names };
+  // `export {}` is load-bearing. Frontmatter without an import or export is a
+  // global script, not a module, so its `Props` and these probes would be
+  // *global* declarations — and every component shares one TypeScript program.
+  // Without this, two components that both declare `Props` collide and the
+  // first one wins, so a component silently inherits another's props table.
+  return { source: `${virtualSource}\n${declarations.join('\n')}\nexport {};\n`, names };
 }
