@@ -1,10 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  appendPropsProbe,
-  buildVirtualSource,
-  PROPS_PROBE_NAME,
-  virtualFilePathFor
-} from './virtualFile.ts';
+import { appendPropsProbes, buildVirtualSource, virtualFilePathFor } from './virtualFile.ts';
 
 describe('the virtual file sits beside the component', () => {
   test('so relative imports and path aliases resolve from the component folder', () => {
@@ -87,22 +82,31 @@ describe('components with nothing to extract are skipped', () => {
   });
 });
 
-describe('the Props probe applies generic defaults', () => {
+describe('the Props probes apply generic defaults', () => {
   test('declares a value of type Props so the checker instantiates it', () => {
-    const virtual = appendPropsProbe('interface Props { a?: string }');
+    const { source, names } = appendPropsProbes('interface Props { a?: string }');
 
-    expect(virtual).toContain(`declare const ${PROPS_PROBE_NAME}: Props;`);
+    expect(names).toHaveLength(1);
+    expect(source).toContain(`declare const ${names[0]}: Props;`);
   });
 
-  test('accepts explicit type arguments for the union-constituent pass', () => {
-    expect(appendPropsProbe('type Props<T> = { as: T }', "'a'")).toContain(
-      `${PROPS_PROBE_NAME}: Props<'a'>;`
-    );
+  test('one probe per union constituent, so per-element props are not lost', () => {
+    const { source, names } = appendPropsProbes('type Props<T> = { as: T }', ["'a'", "'button'"]);
+
+    expect(names).toHaveLength(2);
+    expect(source).toContain(`${names[0]}: Props<'a'>;`);
+    expect(source).toContain(`${names[1]}: Props<'button'>;`);
+  });
+
+  test('probe names do not collide', () => {
+    const { names } = appendPropsProbes('type Props<T> = { as: T }', ["'a'", "'b'", "'c'"]);
+
+    expect(new Set(names).size).toBe(3);
   });
 
   test('is appended past the original content so no offset moves', () => {
     const original = 'interface Props { a?: string }';
 
-    expect(appendPropsProbe(original).startsWith(original)).toBe(true);
+    expect(appendPropsProbes(original).source.startsWith(original)).toBe(true);
   });
 });

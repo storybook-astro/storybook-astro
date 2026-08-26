@@ -77,17 +77,39 @@ function blankOut(text: string): string {
 }
 
 /**
- * Appends a declaration whose type is `Props` with its type arguments defaulted.
+ * Appends declarations whose type is `Props`, so the checker instantiates it.
  *
  * Reading `getDeclaredTypeOfSymbol` on a generic `Props` hands back `Props<Tag>`
- * with the parameter unapplied; reading the type of this declaration applies the
- * defaults instead (docs/specs/docgen.md#heritage-rewrite, Decision 6). Appended
- * past the end of the original file so no existing offset moves.
+ * with the parameter unapplied; reading the type of a declaration applies the
+ * defaults instead (docs/specs/docgen.md#heritage-rewrite, Decision 6).
+ *
+ * More than one probe is emitted when the default is a union of string
+ * literals. `keyof (A | B)` is the *intersection* of keys, so a polymorphic
+ * `Props<'a' | 'button'>` drops `href` and `type` — the props only exist on one
+ * constituent each. Instantiating per constituent and merging recovers them.
+ *
+ * Everything is appended past the end of the original file, so no offset moves.
  */
-export const PROPS_PROBE_NAME = '__SB_ASTRO_PROPS__';
+const PROBE_PREFIX = '__SB_ASTRO_PROPS_';
 
-export function appendPropsProbe(virtualSource: string, typeArguments?: string): string {
-  const args = typeArguments ? `<${typeArguments}>` : '';
+export interface PropsProbes {
+  source: string;
+  /** Declaration names to read types from, in merge order. */
+  names: string[];
+}
 
-  return `${virtualSource}\ndeclare const ${PROPS_PROBE_NAME}: Props${args};\n`;
+export function appendPropsProbes(
+  virtualSource: string,
+  typeArgumentSets: ReadonlyArray<string | undefined> = [undefined]
+): PropsProbes {
+  const names: string[] = [];
+  const declarations = typeArgumentSets.map((typeArguments, index) => {
+    const name = `${PROBE_PREFIX}${index}__`;
+
+    names.push(name);
+
+    return `declare const ${name}: Props${typeArguments ? `<${typeArguments}>` : ''};`;
+  });
+
+  return { source: `${virtualSource}\n${declarations.join('\n')}\n`, names };
 }
