@@ -4195,7 +4195,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@playwright/test@npm:^1.49.0":
+"@playwright/test@npm:1.60.0":
   version: 1.60.0
   resolution: "@playwright/test@npm:1.60.0"
   dependencies:
@@ -5323,7 +5323,7 @@ __metadata:
     "@astrojs/svelte": "npm:^7.0.9"
     "@astrojs/vue": "npm:^5.0.9"
     "@chromatic-com/storybook": "npm:^5.0.0"
-    "@playwright/test": "npm:^1.49.0"
+    "@playwright/test": "npm:1.60.0"
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.5.2"
@@ -5392,7 +5392,7 @@ __metadata:
     "@astrojs/svelte": "npm:8.0.0"
     "@astrojs/vue": "npm:6.0.0"
     "@chromatic-com/storybook": "npm:^5.0.0"
-    "@playwright/test": "npm:^1.49.0"
+    "@playwright/test": "npm:1.60.0"
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.5.2"
@@ -5460,7 +5460,7 @@ __metadata:
     "@astrojs/svelte": "npm:9.0.0"
     "@astrojs/vue": "npm:7.0.0"
     "@chromatic-com/storybook": "npm:^5.0.0"
-    "@playwright/test": "npm:^1.49.0"
+    "@playwright/test": "npm:1.60.0"
     "@storybook-astro/components": "workspace:*"
     "@storybook-astro/framework": "workspace:*"
     "@storybook/addon-docs": "npm:10.5.2"
