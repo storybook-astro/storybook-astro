@@ -276,6 +276,30 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+### Storybook Test addon: "Vitest failed to find the current suite"
+
+**Symptom:** Running stories through `@storybook/addon-vitest` fails to collect
+tests, sometimes alongside `Failed to run dependency scan. Skipping dependency
+pre-bundling` or a `TypeError: Illegal invocation` from `userEvent`.
+
+**Cause:** Vite could not pre-bundle a dependency up front, so it discovered one
+mid-run and reloaded the test page during collection.
+
+**Fix:** Upgrade to a Storybook Astro version that teaches Vite's dependency
+scanner to read `.astro` files. If it persists, a dependency of your own is being
+discovered late — add it to `optimizeDeps.include` in your Vitest config and
+open an issue so it can be handled by default.
+
+### Storybook Test addon: some stories are never tested
+
+**Symptom:** The run passes, but stories from another package never appear.
+
+**Cause:** `@storybook/addon-vitest` resolves each `stories` entry against your
+`.storybook` directory, so an absolute path silently matches nothing.
+
+**Fix:** Make the glob relative — see
+[Story globs must be relative](/guides/testing/#story-globs-must-be-relative).
+
 ---
 
 ## Known Limitations

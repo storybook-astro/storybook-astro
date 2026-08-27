@@ -9,7 +9,8 @@
     "serve": "http-server storybook-static -p 6008 -s",
     "test": "vitest",
     "test:browser": "playwright test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:storybook": "vitest --config vitest.storybook.config.ts --run"
   },
   "dependencies": {
     "@astrojs/alpinejs": "1.0.0",
@@ -23,7 +24,7 @@
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",
     "alpinejs": "^3.14.9",
-    "astro": "7.0.0",
+    "astro": "7.2.8",
     "preact": "^10.28.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -43,11 +44,14 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/prop-types": "^15.7.14",
+    "@vitest/browser": "4.1.9",
+    "@vitest/browser-playwright": "4.1.9",
     "@vitest/ui": "^4.1.9",
     "eslint": "^9.39.2",
     "happy-dom": "^20.10.6",
     "http-server": "^14.1.1",
     "msw": "^2.12.10",
+    "playwright": "^1.49.0",
     "prop-types": "^15.8.1",
     "solid-js": "^1.9.10",
     "storybook": "10.5.2",

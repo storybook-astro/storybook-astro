@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+import { createRequire } from 'node:module';
 import { version as viteVersion } from 'vite';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
@@ -13,6 +14,10 @@ import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
+import {
+  astroDepScanEsbuildPlugin,
+  astroDepScanRolldownPlugin
+} from './vitePluginAstroDepScan.ts';
 import {
   appendUserVitePlugins,
   loadUserAstroFonts,
@@ -211,6 +216,31 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
       finalConfig.optimizeDeps.exclude.push(pkg);
     }
   }
+  // `@storybook-astro/renderer` is excluded from pre-bundling just above, and
+  // `optimizeDeps.exclude` also stops the dependency scanner from crawling into
+  // it — so the packages it imports are never found at scan time. Vite then
+  // discovers them once the preview is already running and reloads the page to
+  // swap in the newly optimized deps. That reload is invisible in Storybook dev,
+  // but under `@storybook/addon-vitest` it lands mid test-collection and fails
+  // the run. Listing them here gets them pre-bundled up front.
+  // `storybook/internal/preview-api` is deliberately absent: it stays excluded
+  // for the duplicate-injectQuery reason above.
+  if (!finalConfig.optimizeDeps.include) {
+    finalConfig.optimizeDeps.include = [];
+  }
+  const scannerBlindDeps = [
+    'storybook/internal/csf',
+    'storybook/internal/docs-tools',
+    'ts-dedent',
+    ...integrations.flatMap((integration) => integration.clientOptimizeDeps ?? [])
+  ];
+
+  for (const pkg of scannerBlindDeps) {
+    if (!finalConfig.optimizeDeps.include.includes(pkg)) {
+      finalConfig.optimizeDeps.include.push(pkg);
+    }
+  }
+
   // Mark integration virtual modules as external so the dep bundler doesn't
   // try to resolve them (they are Vite virtual modules with no real package).
   // Vite ≤7 reads these from esbuildOptions; Vite 8+ uses Rolldown and reads
@@ -223,7 +253,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     'astro:toolbar:internal'
   ];
 
-  const viteMajor = Number.parseInt(viteVersion, 10);
+  const viteMajor = resolveProjectViteMajor(resolveFrom);
 
   // Vite ≤7 (esbuild-based optimizer). On Vite 8+ setting esbuildOptions logs a
   // deprecation warning, so only touch it on older Vite.
@@ -239,26 +269,38 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
         finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
       }
     }
+
+    if (!finalConfig.optimizeDeps.esbuildOptions.plugins) {
+      finalConfig.optimizeDeps.esbuildOptions.plugins = [];
+    }
+    finalConfig.optimizeDeps.esbuildOptions.plugins.push(astroDepScanEsbuildPlugin());
   }
 
   // Vite 8+ uses Rolldown for dependency optimization.
   const optimizeDepsMut = finalConfig.optimizeDeps as Record<string, unknown>;
-  const rolldownOpts = (optimizeDepsMut.rolldownOptions ?? {}) as { external?: string[] };
+  const rolldownOpts = (optimizeDepsMut.rolldownOptions ?? {}) as {
+    external?: string[];
+    plugins?: unknown[];
+  };
 
   rolldownOpts.external = Array.from(
     new Set([...(rolldownOpts.external ?? []), ...integrationVirtualModules])
   );
+
+  if (viteMajor >= 8) {
+    rolldownOpts.plugins = [...(rolldownOpts.plugins ?? []), astroDepScanRolldownPlugin()];
+  }
   optimizeDepsMut.rolldownOptions = rolldownOpts;
 
   // Vite 8 dev-server compatibility (Astro 7+). Vite ≤7 (Astro 5/6) is unaffected.
   if (configType === 'DEVELOPMENT' && viteMajor >= 8) {
-    // 1. Drop @vitejs/plugin-react's Vite 8 native Fast Refresh wrapper. Under
-    //    Vite 8 the plugin delegates Fast Refresh to a Rolldown builtin
-    //    (`builtin:vite-react-refresh-wrapper`) that throws
-    //    "Missing field `moduleType`" while transforming Storybook's iframe.html
-    //    inline bootstrap script — 500-ing every preview load. There is no
-    //    config opt-out, so we remove the plugin. React components still render;
-    //    only Fast Refresh is lost (component edits full-reload instead).
+    // Drop @vitejs/plugin-react's Vite 8 native Fast Refresh wrapper. Under
+    // Vite 8 the plugin delegates Fast Refresh to a Rolldown builtin
+    // (`builtin:vite-react-refresh-wrapper`) that throws
+    // "Missing field `moduleType`" while transforming Storybook's iframe.html
+    // inline bootstrap script — 500-ing every preview load. There is no
+    // config opt-out, so we remove the plugin. React components still render;
+    // only Fast Refresh is lost (component edits full-reload instead).
     const stripReactRefreshWrapper = (plugins: unknown[]): unknown[] =>
       plugins
         .map((plugin) => (Array.isArray(plugin) ? stripReactRefreshWrapper(plugin) : plugin))
@@ -275,12 +317,14 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
       finalConfig.plugins ?? []
     ) as typeof finalConfig.plugins;
 
-    // 2. Exclude the Storybook renderer entry-previews from dependency
-    //    optimization. Some ship non-JS source (e.g. `@storybook/svelte`'s
-    //    `.svelte` files) that the esbuild dep scanner cannot load
-    //    ("No loader is configured for .svelte"), which fails optimization and
-    //    504s every renderer entry. Serving them as source lets the framework's
-    //    own Vite plugins transform them.
+  }
+
+  // Exclude the Storybook renderer entry-previews from dependency optimization.
+  // Some ship non-JS source (e.g. `@storybook/svelte`'s `.svelte` files) that
+  // the dep scanner cannot load ("No loader is configured for .svelte"), which
+  // fails optimization and 504s every renderer entry. Serving them as source
+  // lets the framework's own Vite plugins transform them.
+  if (configType === 'DEVELOPMENT') {
     const entryPreviews = integrations
       .map((integration) => integration.storybookEntryPreview)
       .filter((specifier): specifier is string => Boolean(specifier));
@@ -330,4 +374,22 @@ async function createDocgenIfEnabled(
   const { createAstroDocgen } = await import('./docgen/index.ts');
 
   return createAstroDocgen({ projectRoot, ...options.docgen });
+}
+
+/**
+ * The Vite major the *project* runs on — not the copy hoisted next to this
+ * package. In a monorepo those diverge (an Astro 6 app on Vite 7 alongside a
+ * hoisted Vite 8), and every version gate above is about the app's Vite: which
+ * optimizer it uses, and which dev-server workarounds it needs.
+ */
+function resolveProjectViteMajor(resolveFrom: string): number {
+  const require = createRequire(import.meta.url);
+
+  try {
+    const pkgPath = require.resolve('vite/package.json', { paths: [resolveFrom] });
+
+    return Number.parseInt(require(pkgPath).version, 10);
+  } catch {
+    return Number.parseInt(viteVersion, 10);
+  }
 }

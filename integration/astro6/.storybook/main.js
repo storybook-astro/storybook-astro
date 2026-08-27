@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
+import { dirname, relative } from 'node:path';
 // This file has been automatically migrated to valid ESM format by Storybook.
 import {
   react,
@@ -15,10 +15,14 @@ const config = {
   stories: [
     '../src/**/*.mdx',
     '../src/**/*.stories.@(js|jsx|mjs|ts|tsx)',
-    getAbsolutePath('@storybook-astro/components') + '/src/*.mdx',
-    getAbsolutePath('@storybook-astro/components') + '/src/**/*.stories.@(js|jsx|mjs|ts|tsx)'
+    relativeToConfig('@storybook-astro/components') + '/src/*.mdx',
+    relativeToConfig('@storybook-astro/components') + '/src/**/*.stories.@(js|jsx|mjs|ts|tsx)'
   ],
-  addons: [getAbsolutePath('@chromatic-com/storybook'), getAbsolutePath('@storybook/addon-docs')],
+  addons: [
+    getAbsolutePath('@chromatic-com/storybook'),
+    getAbsolutePath('@storybook/addon-docs'),
+    getAbsolutePath('@storybook/addon-vitest')
+  ],
   framework: {
     name: '@storybook-astro/framework',
     options: {
@@ -49,4 +53,13 @@ export default config;
 function getAbsolutePath(value) {
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
   return dirname(fileURLToPath(import.meta.resolve(`${value}/package.json`)));
+}
+
+// `@storybook/addon-vitest` builds its test globs with `join(configDir, ...)`,
+// which mangles an absolute story path into `.storybook/Users/...` and silently
+// matches nothing. Resolving the package the portable way and then making the
+// result relative to this config dir keeps both Storybook and the test runner
+// pointed at the same files.
+function relativeToConfig(value) {
+  return relative(dirname(fileURLToPath(import.meta.url)), getAbsolutePath(value));
 }

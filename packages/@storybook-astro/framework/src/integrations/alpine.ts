@@ -12,6 +12,7 @@ export class AlpineIntegration implements Integration {
   ];
   readonly options: Options;
   readonly renderer = {};
+  readonly clientOptimizeDeps = ['alpinejs'];
 
   constructor(options: Options = {}) {
     this.options = options;
