@@ -35,10 +35,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -46,7 +46,7 @@ jobs:
         run: corepack enable
 
       - name: Install workspace dependencies
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Run smoke test
         run: bash scripts/smoke-test.sh ${{ matrix.astro }} ${{ matrix.scenario }}
