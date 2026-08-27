@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-08-27
+
 ### Added
 - Component descriptions and prop documentation are extracted from JSDoc in a component's `.astro` frontmatter, so autodocs pages populate without `argTypes` boilerplate in story files (#163, #110). Covers per-prop descriptions, types and defaults, select controls for literal union props, and types imported from other files including through tsconfig `paths` aliases. Inherited DOM attributes are filtered out while destructured props are kept. Opt out with the `docgen` framework option.
 - `@storybook/addon-vitest` support: Storybook's official test runner now runs Astro component stories as Vitest browser tests on Astro 5, 6 and 7 (#159). Stories render through the same server-side pipeline the canvas uses, and play functions run against the resulting DOM. This was previously believed to require `astro@7.0.6`; it does not — the upstream crash ([withastro/astro#16275](https://github.com/withastro/astro/issues/16275)) originates in Astro's `astro:server` Vite plugin, which the framework already strips from the Storybook Vite config, so no version guard is needed. Note that `@storybook/addon-vitest` resolves each `stories` entry against your `.storybook` directory, so absolute story globs silently match nothing — keep them relative.
