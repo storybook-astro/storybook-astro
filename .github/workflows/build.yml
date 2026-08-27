@@ -76,3 +76,18 @@ jobs:
         run: yarn workspace @storybook-astro/integration-astro5 test:browser
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Storybook Test addon (Astro 7)
+        run: yarn workspace @storybook-astro/integration-astro7 test:storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Storybook Test addon (Astro 6)
+        run: yarn workspace @storybook-astro/integration-astro6 test:storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Storybook Test addon (Astro 5)
+        run: yarn workspace @storybook-astro/integration-astro5 test:storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1

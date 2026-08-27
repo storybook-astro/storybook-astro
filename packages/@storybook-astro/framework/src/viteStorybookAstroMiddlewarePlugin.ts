@@ -108,6 +108,14 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
           } satisfies RenderResponseMessage['data']);
         }
       });
+    },
+    // The internal Astro SSR server owns a file watcher and an HTTP server, so
+    // leaving it running keeps the whole process alive after Storybook or Vitest
+    // is done. Vite calls this when the parent server closes. During builds
+    // `configureServer` never ran, so there is nothing to close.
+    async closeBundle() {
+      await viteServer?.close();
+      viteServer = null;
     }
   } satisfies PluginOption;
 

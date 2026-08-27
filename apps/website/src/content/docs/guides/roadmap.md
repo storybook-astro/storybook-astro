@@ -37,41 +37,19 @@ Expand testing capabilities for Astro components tested in isolation, including 
 - Integration with testing libraries (Testing Library, Vitest patterns)
 - Guidance on testing both server-rendered and client-side behavior
 
-### Storybook Test Addon (`@storybook/addon-vitest`) Support
-
-🚧 **Partially Unblocked** — Astro 7.0.6+ only
-
-Storybook's official "Storybook Test" runner (`@storybook/addon-vitest`) runs stories as Vitest browser tests. It previously crashed when combined with Astro's `getViteConfig` — this was an upstream Astro bug, not a storybook-astro issue.
-
-**Complexity**: Unknown — depends on what surfaces during verification
-**Tracking**: [withastro/astro#16275](https://github.com/withastro/astro/issues/16275) — fixed via [PR #17248](https://github.com/withastro/astro/pull/17248), merged and released in `astro@7.0.6`
-
-**What was blocking it**: Vitest's browser-mode module evaluator doesn't implement `wrapDynamicImport`, and Astro's `configureServer` hook unconditionally booted dev-server middleware even inside Vitest, causing `TypeError: Cannot read properties of undefined (reading 'wrapDynamicImport')`.
-
-**Astro 5 / 6 are not fixed**: The fix is absent from every `astro@5.x` and `astro@6.x` release — the last published versions on those lines (`5.18.2`, `6.4.8`) predate the fix merge, and neither line has shipped since. Since Storybook Astro supports Astro 5.5.3+, 6.x, and 7.x uniformly, this feature is version-gated by an upstream constraint outside our control. Astro 5/6 users hitting this today still get the raw `wrapDynamicImport` crash.
-
-**What this requires now that it's unblocked (for Astro 7.0.6+)**:
-- A runtime version guard that detects Astro <7.0.6 and surfaces a clear error ("requires Astro 7.0.6+; use `composeStories` on Astro 5/6") instead of the cryptic crash
-- Verifying `@storybook/addon-vitest`'s browser-mode test runner actually renders Astro components correctly through storybook-astro's SSR pipeline on Astro 7 (this is untested — distinct from the portable-stories/`composeStories` testing API, which already works on all supported majors)
-- Documentation covering setup and the Astro 7.0.6+ requirement alongside the existing Testing guide, pointing Astro 5/6 users to `composeStories` as the supported alternative
-
 ### Play Functions for Astro Components
 
-📋 **To Do**
+🚧 **Partial** — works under the Storybook Test addon; unverified in the canvas
 
-Enable Storybook's [play functions](https://storybook.js.org/docs/writing-stories/play-function) for Astro component stories. Astro components are server-rendered to static HTML, which is a valid target for DOM interaction testing — play functions could drive `@testing-library/user-event` queries and assertions against that output the same way they do for React and Vue stories today.
+Play functions on Astro component stories **do** run under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest): `@testing-library/user-event` interactions and assertions resolve against the server-rendered HTML, on Astro 5, 6 and 7. The `Counter` and `Accordion` stories in the integration apps cover this.
 
-**Complexity**: Medium
-**Tracking**: See the existing [Play Functions support entry](#storybook-features) — currently framework components only.
+What has *not* been verified is the same story running in the Storybook UI — the canvas and the Interactions panel. Both paths go through the renderer's `renderToCanvas`, so this is likely to work already, but until someone checks it this entry stays partial rather than supported.
 
-**What this enables**:
-- Writing interaction tests directly in story files for Astro components
-- Using the Interactions panel to step through and debug story interactions
-- Parity with framework component play function support
+**Complexity**: Low — most likely verification and documentation rather than new code
 
-**What this requires**:
-- Wiring the play function execution lifecycle to run after the server-rendered HTML is injected into the canvas
-- Ensuring `@testing-library/dom` queries resolve against the injected HTML
+**What this still requires**:
+- Confirming play functions execute in the dev canvas after the server-rendered HTML is injected
+- Confirming the Interactions panel steps through them
 - Handling re-renders with new args (Controls changes) between play function runs
 
 ### Code Panel Source for Astro Components
@@ -112,26 +90,6 @@ A dedicated "Astro" panel tab in the Storybook UI (alongside Actions, Controls, 
 - The panel subscribing to those channel events and rendering the data
 
 The render time and HTML string are already available when `renderAstroComponent` resolves in `render.tsx` — this is mostly about emitting them over the addon channel rather than discarding them.
-
-### Automatic Documentation Extraction from JSDoc
-
-✅ **Done**
-
-Component descriptions and prop documentation are extracted from JSDoc in a
-component's `.astro` frontmatter, so autodocs pages populate without any
-`argTypes` boilerplate in story files.
-
-**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110)
-
-**What you get**:
-- Component description from a JSDoc block in the frontmatter
-- Per-prop descriptions, types and defaults in the properties table
-- Select controls for literal union props
-- Inherited DOM attributes filtered out, while props you destructure are kept
-- Types imported from other files, including through tsconfig `paths` aliases
-
-See [Controls & ArgTypes](/writing-stories/controls/) for the conventions and the
-`docgen` framework option.
 
 ## Future Enhancements
 
@@ -180,6 +138,28 @@ Integration with Astro's middleware system and `astro:env` module for managing e
 Support for Astro's built-in i18n routing and helpers, enabling documentation of multi-language components.
 
 ## Recently Completed
+
+### Automatic Documentation Extraction from JSDoc
+
+**Status**: Shipped (unreleased)
+
+Component descriptions and prop documentation are extracted from JSDoc in a component's `.astro` frontmatter, so autodocs pages populate without any `argTypes` boilerplate in story files. Covers per-prop descriptions, types and defaults, select controls for literal union props, and types imported from other files (including through tsconfig `paths` aliases). Inherited DOM attributes are filtered out, while props you destructure are kept.
+
+**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110)
+
+**Documentation**: See [Controls & ArgTypes](/writing-stories/controls/) for the conventions and the `docgen` framework option, and the [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/docgen.md)
+
+### Storybook Test Addon (`@storybook/addon-vitest`) Support
+
+**Status**: Shipped (unreleased)
+
+Storybook's official "Storybook Test" runner (`@storybook/addon-vitest`) runs your stories as Vitest browser tests on **Astro 5, 6 and 7**. Astro component stories render through the same server-side pipeline the canvas uses, and play functions run against the resulting DOM.
+
+This was previously listed as blocked by [withastro/astro#16275](https://github.com/withastro/astro/issues/16275) and then as gated on the `astro@7.0.6` fix. Neither turned out to be accurate for Storybook Astro: the crash comes from Astro's `astro:server` Vite plugin, which Storybook Astro already strips from the Storybook Vite config, so Astro 5 and 6 work too and no version guard is needed.
+
+**Known limitation**: `@storybook/addon-vitest` resolves each `stories` entry against your `.storybook` directory, so an absolute story glob matches nothing and those stories are silently untested. Keep story globs relative — see [Story globs must be relative](/guides/testing/#story-globs-must-be-relative).
+
+**Documentation**: See the [Testing guide](/guides/testing/#storybook-test-addon-storybookaddon-vitest)
 
 ### Decorator Support
 
@@ -310,13 +290,13 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Backgrounds | ✅ Supported | Test components against different background colors |
 | Measure & Outline | ✅ Supported | Visual debugging tools for spacing and layout |
 | Component Description | 🚧 Manual | Component descriptions must be set manually via `parameters.docs.description.component` (automatic extraction from JSDoc planned) |
-| ArgTypes Documentation | 🚧 Manual | Prop documentation must be set manually via `argTypes[].description` (automatic extraction from JSDoc planned) |
+| ArgTypes Documentation | ✅ Supported | Descriptions, types and defaults are extracted from `.astro` frontmatter JSDoc; `argTypes[].description` still overrides. See [Controls & ArgTypes](/writing-stories/controls/) |
 | Source Code Display | 🚧 Partial | Shows story file source; doesn't generate component usage syntax (e.g. `<Component prop="value" />`). See roadmap item above |
 | Decorators | ✅ Supported | Wrapper components/HTML for stories, in global/component/story positions. See [Decorators guide](/writing-stories/decorators/) and [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/decorators.md) |
 | Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
 | Portable Stories Testing (Vitest) | ✅ Supported | Test stories with `@storybook-astro/framework/testing`'s `composeStories`/`renderStory` and Vitest, outside Storybook |
-| Storybook Test Addon (`@storybook/addon-vitest`) | 🚧 Partial | Runs stories as Vitest browser tests. Upstream Astro bug fixed for Astro 7.0.6+ only; Astro 5/6 remain blocked — see roadmap item above |
-| Play Functions | 🚧 Partial | Supported for framework components. Astro component support planned — see roadmap item above |
+| Storybook Test Addon (`@storybook/addon-vitest`) | ✅ Supported | Runs stories as Vitest browser tests on Astro 5, 6 and 7. See the [Testing guide](/guides/testing/) |
+| Play Functions | 🚧 Partial | Supported for framework components. Astro components: verified under the Storybook Test addon, unverified in the canvas — see roadmap item above |
 | Interactions Panel | ✅ Supported | Debug play function interactions |
 | Accessibility Addon | ✅ Supported | Automated accessibility testing with a11y addon |
 | Theming | ✅ Supported | Storybook UI theming and customization |
