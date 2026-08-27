@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Component descriptions and prop documentation are extracted from JSDoc in a component's `.astro` frontmatter, so autodocs pages populate without `argTypes` boilerplate in story files (#163, #110). Covers per-prop descriptions, types and defaults, select controls for literal union props, and types imported from other files including through tsconfig `paths` aliases. Inherited DOM attributes are filtered out while destructured props are kept. Opt out with the `docgen` framework option.
+- `@storybook/addon-vitest` support: Storybook's official test runner now runs Astro component stories as Vitest browser tests on Astro 5, 6 and 7 (#159). Stories render through the same server-side pipeline the canvas uses, and play functions run against the resulting DOM. This was previously believed to require `astro@7.0.6`; it does not — the upstream crash ([withastro/astro#16275](https://github.com/withastro/astro/issues/16275)) originates in Astro's `astro:server` Vite plugin, which the framework already strips from the Storybook Vite config, so no version guard is needed. Note that `@storybook/addon-vitest` resolves each `stories` entry against your `.storybook` directory, so absolute story globs silently match nothing — keep them relative.
+
+### Fixed
+- Vite's dependency scanner can now read `.astro` files (#159). It classifies `.astro` as an HTML type and regex-matches `<script>` out of the raw source, stripping HTML comments but not JavaScript ones — so a `<script>` mentioned inside a frontmatter JSDoc comment was treated as real markup, and the resulting unparseable slice aborted the entire scan (`Failed to run dependency scan. Skipping dependency pre-bundling`). Dependencies were then discovered mid-run and Vite reloaded the page, which under `@storybook/addon-vitest` landed during test collection and surfaced as `Vitest failed to find the current suite` or `TypeError: Illegal invocation`. The framework now hands the scanner the file's import graph instead, on both optimizer backends (esbuild for Vite 6/7, Rolldown for Vite 8).
+- The framework read the Vite version from the copy hoisted beside its own package rather than the one the project runs, so every Vite-version gate in the preset was wrong for projects on a different Vite major than the hoisted one (#159). This meant Astro 5/6 projects in a monorepo missed the Vite ≤7 optimizer options and received Vite 8-only dev-server workarounds they did not need.
+- The Storybook renderer entry-preview exclusion was gated on Vite 8 despite guarding against an esbuild (Vite ≤7) failure, and only ever applied because of the version-detection bug above (#159).
+- The internal Astro SSR Vite server is now closed when the parent server closes (#159). It was never closed, so it kept the process alive — harmless in Storybook dev, which force-exits, but every `@storybook/addon-vitest` run ended with `close timed out after 10000ms`.
+
 ## [1.10.0] - 2026-08-02
 
 ### Added

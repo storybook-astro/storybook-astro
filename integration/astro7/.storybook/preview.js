@@ -6,8 +6,9 @@ import GlobalWrapper from '@storybook-astro/components/Decorator/GlobalWrapper.a
 // Global decorators apply to EVERY story in this Storybook. Astro stories
 // default `parameters.renderer` to 'astro', so each decorator below guards on
 // the framework it targets and is a strict pass-through otherwise, per
-// Decision 3 in docs/DECORATOR_SUPPORT.md. Covers issue #40 (Step 1 for
-// React/Vue, Step 6 for the real Astro global decorator below).
+// Decision 3 in docs/specs/decorators.md. Covers issue #40 (see
+// #framework-delegation for React/Vue, #global-decorators for the real Astro
+// global decorator below).
 const wrapReactStoryInGlobalDecorator = (Story, ctx) => {
   if (ctx.parameters.renderer !== 'react') {
     return Story();
@@ -39,7 +40,7 @@ const wrapVueStoryInGlobalDecorator = (story, ctx) => {
     h('div', { class: 'decorator-global', 'data-testid': 'decorator-global' }, [h(story())]);
 };
 
-// The real Astro global decorator (docs/DECORATOR_SUPPORT.md, Step 6): wraps
+// The real Astro global decorator (docs/specs/decorators.md#global-decorators): wraps
 // EVERY Astro story in this app in GlobalWrapper.astro. Guarded the opposite
 // way from the two decorators above — it applies only when a story IS
 // Astro-rendered — since `parameters.renderer` defaults to 'astro' rather

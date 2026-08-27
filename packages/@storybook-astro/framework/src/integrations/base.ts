@@ -23,6 +23,12 @@ export abstract class Integration {
   abstract readonly options: Record<string | number | symbol, unknown>;
   abstract readonly renderer: RendererDeclaration;
   abstract readonly storybookEntryPreview?: string;
+  // Packages this integration pulls into the browser through a client
+  // entrypoint the dependency scanner cannot reach (a virtual module, or a
+  // config-supplied entrypoint file). Vite would otherwise find them only once
+  // the preview is running and reload the page to optimize them — harmless in
+  // Storybook dev, but fatal mid-collection under `@storybook/addon-vitest`.
+  readonly clientOptimizeDeps?: string[];
 
   abstract resolveClient(moduleName: string): string | undefined;
   abstract loadIntegration(resolveFrom?: string): Promise<AstroIntegration>;

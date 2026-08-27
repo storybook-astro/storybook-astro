@@ -34,11 +34,25 @@ export const Example = {
 
 In `storybook build`, Astro components are **pre-rendered at build time** — changing args via the Controls panel has no effect. Framework components (React, Vue, etc.) remain fully interactive.
 
-## Components
+## Documentation
 
-- **Accordion** — Collapsible sections with vanilla JS toggle (`items`, `allowMultiple`)
-- **Card** — Content card with optional highlight (`title`, `content`, `highlight`, slot: `main`)
-- **Counter** — Increment counter with vanilla JS (no props)
-- **Footer** — Site footer with configurable links (`links`, `licenseText`)
-- **Header** — Responsive nav header with hamburger menu (`logoText`, `navItems`, `currentPath`)
-- **ImageText** — Two-column image + text layout (`imageSrc`, `imageAlt`, `reversed`, slot: `default`)
+Each component's description and props table is generated from the JSDoc in its
+`.astro` frontmatter — pick a component in the sidebar and open its Docs tab.
+Story files declare no `argTypes`, so the table always matches the component:
+
+```astro
+---
+/** A simple content card with optional highlight styling. */
+interface Props {
+  /** Card heading text. */
+  title?: string;
+  /** Applies a highlighted visual style. */
+  highlight?: boolean;
+}
+
+const { title = 'Default title', highlight = false } = Astro.props;
+---
+```
+
+Slots are the exception: they have no TypeScript representation, so describe
+them in the component's own JSDoc block.

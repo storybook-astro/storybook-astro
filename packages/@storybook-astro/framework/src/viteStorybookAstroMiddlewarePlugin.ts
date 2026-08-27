@@ -1,7 +1,14 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import type { ServerResponse } from 'node:http';
-import { createServer, createLogger, type Connect, type PluginOption, type ViteDevServer } from 'vite';
+import {
+  createServer,
+  createLogger,
+  type Connect,
+  type InlineConfig,
+  type PluginOption,
+  type ViteDevServer
+} from 'vite';
 import type { RenderRequestMessage, RenderResponseMessage } from '@storybook-astro/renderer/types';
 import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
@@ -14,7 +21,11 @@ import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.t
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
-import { loadUserAstroIntegrations } from './loadUserAstroConfig.ts';
+import {
+  appendUserVitePlugins,
+  loadUserAstroIntegrations,
+  loadUserAstroVitePlugins
+} from './loadUserAstroConfig.ts';
 
 export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptions) {
   // The internal Vite server is created lazily inside configureServer (dev-only).
@@ -97,6 +108,14 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
           } satisfies RenderResponseMessage['data']);
         }
       });
+    },
+    // The internal Astro SSR server owns a file watcher and an HTTP server, so
+    // leaving it running keeps the whole process alive after Storybook or Vitest
+    // is done. Vite calls this when the parent server closes. During builds
+    // `configureServer` never ran, so there is nothing to close.
+    async closeBundle() {
+      await viteServer?.close();
+      viteServer = null;
     }
   } satisfies PluginOption;
 
@@ -195,7 +214,7 @@ export async function createViteServer(
     }
   )({ mode: 'development', command: 'serve' });
 
-  const viteServer = await createServer({
+  const serverConfig: InlineConfig = {
     configFile: false,
     ...config,
     // Astro's own runtime (e.g. `astro/assets/runtime`'s `createSvgComponent`,
@@ -224,7 +243,15 @@ export async function createViteServer(
       ...(config.plugins?.filter(Boolean) ?? []),
       viteAstroContainerRenderersPlugin(safeIntegrations)
     ]
-  });
+  };
+
+  // The main Storybook build auto-loads `vite.plugins` from the user's
+  // astro.config (see preset.ts). The internal SSR server must receive the
+  // same plugins, or components relying on one of them (e.g. vite-svg-loader's
+  // `.svg?component` imports) fail to render in dev mode.
+  appendUserVitePlugins(serverConfig, await loadUserAstroVitePlugins(resolveFrom));
+
+  const viteServer = await createServer(serverConfig);
 
   // Initialize the server's plugin container to ensure all plugins are ready.
   // Without this, some plugins (like vite:css) may have uninitialized state

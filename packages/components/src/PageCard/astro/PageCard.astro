@@ -1,21 +1,25 @@
 ---
 /**
- * PageCard — a composite component that nests Card.astro and renders an image
- * using astro:assets <Image>. Used in integration tests to verify that:
+ * A composite card that nests Card.astro and renders an image with
+ * astro:assets `<Image>`.
  *
- * 1. Template nesting (using another .astro component) renders correctly via
- *    the Astro Container API.
- * 2. astro:assets <Image> works with an ImageMetadata prop, rendered via the
- *    inline passthrough image service injected by the Storybook middleware.
+ * Exercises three things at once in the integration Storybooks: template
+ * nesting through the Astro Container API, `<Image>` with an ImageMetadata
+ * prop via the passthrough image service the Storybook middleware injects,
+ * and the nested Card's scoped styles reaching the browser (issue #114).
  */
 import type { ImageMetadata } from 'astro';
 import { Image } from 'astro:assets';
 import Card from '../../Card/astro/Card.astro';
 
 interface Props {
+  /** Heading passed through to the nested Card. */
   title: string;
+  /** Body text passed through to the nested Card. */
   content?: string;
+  /** Image source — an imported asset (ImageMetadata) or a URL string. */
   imageSrc: ImageMetadata | string;
+  /** Alt text for the image. */
   imageAlt?: string;
 }
 

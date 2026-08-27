@@ -1,7 +1,14 @@
 ---
+/**
+ * A simple content card with optional highlight styling. Supports a `main`
+ * named slot for additional content below the body text.
+ */
 interface Props {
+  /** Card heading text. */
   title?: string;
+  /** Card body text. */
   content?: string;
+  /** Applies a highlighted visual style with a yellow background and border. */
   highlight?: boolean;
 }
 

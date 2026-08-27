@@ -7,6 +7,10 @@ coverage/
 test-results/
 playwright-report/
 
+# temporary fixture projects written by framework tests; they live inside the
+# package so `importAstroConfig` can resolve `astro/config` by walking up
+**/.vitest-*-fixture-*/
+
 # generated types
 .astro/
 

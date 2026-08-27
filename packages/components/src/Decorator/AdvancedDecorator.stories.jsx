@@ -2,7 +2,7 @@ import Card from '../Card/astro/Card.astro';
 import Wrapper from './Wrapper.astro';
 import LayoutWithSlots from './LayoutWithSlots.astro';
 
-// Step 6 coverage (docs/DECORATOR_SUPPORT.md): the remaining Decorator
+// Coverage (docs/specs/decorators.md#global-decorators): the remaining Decorator
 // Contract shapes not yet exercised by Decorator.stories.jsx /
 // StoryLevelDecorator.stories.jsx — a two-decorator chain, an HTML-string
 // decorator, and a named-slot descriptor. Each story below sets its own
@@ -14,13 +14,13 @@ export default {
     docs: {
       description: {
         component:
-          'Remaining Astro decorator shapes: a two-decorator chain, an HTML-string decorator, and a named-slot descriptor (docs/DECORATOR_SUPPORT.md).',
+          'Remaining Astro decorator shapes: a two-decorator chain, an HTML-string decorator, and a named-slot descriptor (docs/specs/decorators.md).',
       },
     },
   },
 };
 
-// Two-decorator chain (docs/DECORATOR_SUPPORT.md): decorators compose
+// Two-decorator chain (docs/specs/decorators.md): decorators compose
 // inside-out — decorators[0] wraps the story directly, and each later entry
 // wraps everything decided so far — so the LAST array entry ends up
 // outermost. Wrapper[label="Outer"] must end up wrapping
@@ -36,7 +36,7 @@ export const TwoDecoratorChain = {
   ],
 };
 
-// HTML string decorator — the "obvious" syntax (docs/DECORATOR_SUPPORT.md):
+// HTML string decorator — the "obvious" syntax (docs/specs/decorators.md):
 // `Story()` returns a placeholder token that composition splits the string
 // around, so the user-authored markup is sanitized while the story's own
 // rendered HTML is spliced in trusted (#149). `class` is on the sanitizer's
@@ -50,7 +50,7 @@ export const HtmlStringWrapped = {
   decorators: [(Story) => `<div class="dark-bg">${Story()}</div>`],
 };
 
-// Bare-component sugar (docs/DECORATOR_SUPPORT.md, Decorator Contract form 3):
+// Bare-component sugar (docs/specs/decorators.md#supported-decorator-shapes):
 // a decorator entry can be the Astro component itself, with no wrapping
 // function — sugar for `(Story) => ({ component: Wrapper })`, story in the
 // default slot automatically.
@@ -62,7 +62,7 @@ export const BareComponentWrapped = {
   decorators: [Wrapper],
 };
 
-// Named-slot decorator (docs/DECORATOR_SUPPORT.md): the descriptor sets
+// Named-slot decorator (docs/specs/decorators.md): the descriptor sets
 // `slots.default` explicitly alongside a second, named slot — LayoutWithSlots
 // renders both. `<nav>` isn't on the sanitizer's tag allowlist, so it's
 // stripped from the sidebar string; the text inside it survives, which is

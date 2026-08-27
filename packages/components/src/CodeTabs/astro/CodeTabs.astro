@@ -8,7 +8,13 @@ import AlpineCodeTabs from '../alpine/CodeTabs.astro';
 
 type Framework = 'react' | 'solid' | 'preact' | 'svelte' | 'vue' | 'alpine';
 
+/**
+ * Code snippet tabs rendered by Astro, implemented by framework components.
+ * React/Solid/Preact/Svelte/Vue are hydrated with `client:load`; Alpine uses
+ * runtime directives.
+ */
 interface Props {
+  /** Client framework implementation mounted under Astro. */
   framework?: Framework;
 }
 

@@ -10,25 +10,6 @@ export default {
   },
   parameters: {
     layout: 'centered',
-    docs: {
-      description: {
-        component: 'Fetches contributors on the Astro server and renders a compact avatar list with a total count.',
-      },
-    },
-  },
-  argTypes: {
-    repository: {
-      description: 'GitHub repository in `owner/name` format.',
-      control: { type: 'text' },
-    },
-    label: {
-      description: 'Small label shown above the count and avatars.',
-      control: { type: 'text' },
-    },
-    visibleContributors: {
-      description: 'Maximum number of avatars to render before showing `+X`.',
-      control: { type: 'number' },
-    },
   },
 };
 

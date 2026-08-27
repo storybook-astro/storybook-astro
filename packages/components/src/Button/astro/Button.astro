@@ -1,0 +1,82 @@
+---
+import type { HTMLTag, Polymorphic } from 'astro/types';
+import { VARIANT_CLASSES, type ButtonVariants } from './buttonVariants.ts';
+
+/**
+ * A polymorphic button that renders as `<button>` or `<a>` depending on `as`.
+ *
+ * This is the docgen stress case (docs/specs/docgen.md): a generic `Props`
+ * extending Astro's `Polymorphic` helper, variant props coming from a sibling
+ * module, and DOM attributes like `href` and `class` reaching the public API
+ * only through the `Astro.props` destructuring.
+ */
+interface Props<Tag extends HTMLTag = 'button' | 'a'>
+  extends Polymorphic<{ as: Tag } & ButtonVariants> {
+  /** Disables interaction and dims the control. */
+  disabled?: boolean;
+  /** Stretches the button to the full available width. */
+  fullWidth?: boolean;
+}
+
+const {
+  as: Tag = 'button',
+  variant = 'solid',
+  size = 'md',
+  disabled = false,
+  fullWidth = false,
+  href,
+  class: className,
+  ...rest
+} = Astro.props as Props;
+
+const classes = [
+  'button',
+  VARIANT_CLASSES[variant] ?? VARIANT_CLASSES.solid,
+  `button--${size}`,
+  fullWidth ? 'button--full' : '',
+  className
+]
+  .filter(Boolean)
+  .join(' ');
+
+---
+
+<Tag
+  {...rest}
+  class={classes}
+  href={Tag === 'a' ? href : undefined}
+  disabled={Tag === 'button' ? disabled || undefined : undefined}
+  aria-disabled={Tag === 'a' ? disabled || undefined : undefined}
+>
+  <slot>Button</slot>
+</Tag>
+
+<style>
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .button--sm { padding: 0.25rem 0.75rem; font-size: 0.875rem; }
+  .button--md { padding: 0.5rem 1rem; font-size: 1rem; }
+  .button--lg { padding: 0.75rem 1.5rem; font-size: 1.125rem; }
+
+  .button--solid { background: #7c3aed; color: #fff; }
+  .button--soft { background: #ede9fe; color: #5b21b6; }
+  .button--outline { background: transparent; border-color: #7c3aed; color: #7c3aed; }
+
+  .button--full { width: 100%; }
+
+  .button[disabled],
+  .button[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>

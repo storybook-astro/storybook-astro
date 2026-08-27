@@ -8,6 +8,7 @@ import { importAstroConfig } from '../importAstroConfig.ts';
 import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroSvgComponentMarker } from '../vitePluginAstroSvgComponentMarker.ts';
 import { registerTestingIntegrationsForRoot } from '../testing/integration-config.ts';
+import { appendUserVitePlugins, loadUserAstroVitePlugins } from '../loadUserAstroConfig.ts';
 import { cjsInteropPlugin, vitestPatchForSolidJs } from './vite-plugins.ts';
 
 /**
@@ -135,6 +136,12 @@ export function defineConfig(options: TestingDefineConfig) {
     // Inject the logger — this overrides any logger Astro may have set,
     // which is intentional since we only filter benign test-context noise.
     config.customLogger = testLogger;
+
+    // Component tests compile the same sources Storybook does, so plugins the
+    // project declares under `vite.plugins` have to be here too. `getViteConfig`
+    // runs with `configFile: false` by default and would otherwise drop them,
+    // leaving tests unable to resolve what the browser resolves fine.
+    appendUserVitePlugins(config, await loadUserAstroVitePlugins(root));
 
     return config;
   };

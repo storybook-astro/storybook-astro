@@ -15,7 +15,7 @@ function fakeAstroComponent(moduleId: string): AstroComponentFactory {
 const Wrapper = fakeAstroComponent('test:Wrapper');
 const Widget = fakeAstroComponent('test:Widget');
 
-// CSF4 coverage (docs/DECORATOR_SUPPORT.md, Step 6): `definePreview` in
+// CSF4 coverage (docs/specs/decorators.md#global-decorators): `definePreview` in
 // index.ts merges `applyDecorators: input.applyDecorators ?? applyDecorators`
 // into the project annotations it hands to Storybook's `definePreviewBase`,
 // the same way it merges `render` — this proves a preview built that way

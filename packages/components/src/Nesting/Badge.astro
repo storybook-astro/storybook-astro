@@ -1,5 +1,10 @@
 ---
-// Small child component used both as slot content and as a prop in the nesting stories.
+/** A small pill label, used as both slot content and a prop in the nesting stories. */
+interface Props {
+  /** Text inside the pill. */
+  label?: string;
+}
+
 const { label = 'badge' } = Astro.props;
 
 ---
