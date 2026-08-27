@@ -39,7 +39,7 @@ const decoratorLabelStyle = {
 // Regression coverage for issue #40: a story-level decorator written in React's
 // native JSX-free format (`createElement`, since this is a plain .js file) must
 // still wrap the rendered output when the story is delegated to React's own
-// renderer — see docs/DECORATOR_SUPPORT.md, Step 1.
+// renderer — see docs/specs/decorators.md#framework-delegation.
 export const WithDecorator = {
   parameters: {
     docs: { description: { story: 'Counter wrapped in a story-level decorator.' } },

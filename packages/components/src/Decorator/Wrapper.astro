@@ -1,8 +1,15 @@
 ---
-// Component-level decorator target (docs/DECORATOR_SUPPORT.md, Decorator
-// Contract form 1 — "Descriptor returning an Astro component"). Wraps whatever
-// the decorator places in its default slot, plus an optional label so the
-// wrapper is visually obvious in the rendered story.
+/**
+ * Wraps a decorated story in a labelled box, so the decorator is visible in
+ * the rendered output.
+ */
+// Component-level decorator target (docs/specs/decorators.md#supported-decorator-shapes,
+// form 1 — "Descriptor returning an Astro component").
+interface Props {
+  /** Caption shown above the wrapped story. */
+  label?: string;
+}
+
 const { label = 'Decorated' } = Astro.props;
 
 ---

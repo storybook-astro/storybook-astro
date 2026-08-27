@@ -4,15 +4,6 @@ import storybookAstro from '../../assets/storybook-astro.png';
 export default {
   title: 'Astro/PageCard',
   component: PageCard,
-  parameters: {
-    docs: {
-      description: {
-        component:
-          'A composite card component that nests Card.astro and uses astro:assets <Image>. ' +
-          'Tests that template nesting and image rendering both work via the Container API.',
-      },
-    },
-  },
 };
 
 export const Default = {

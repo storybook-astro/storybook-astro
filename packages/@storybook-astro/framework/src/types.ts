@@ -1,5 +1,6 @@
 import type { CompatibleString, Options, StorybookConfig as StorybookConfigBase } from 'storybook/internal/types';
 import type { InlineConfig } from 'vite';
+import type { AstroDocgenOptions } from './docgen/index.ts';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import type { StoryRulesOptions } from './rules-options.ts';
@@ -7,7 +8,7 @@ import type { StorybookFontFamily } from './vitePluginAstroFonts.ts';
 
 type FrameworkName = CompatibleString<'@storybook-astro/framework'>;
 
-export type { Integration, SanitizationOptions, StoryRulesOptions, StorybookFontFamily };
+export type { AstroDocgenOptions, Integration, SanitizationOptions, StoryRulesOptions, StorybookFontFamily };
 export type RenderMode = 'server' | 'static';
 
 export type ServerBuildOptions = {
@@ -33,6 +34,12 @@ type BaseFrameworkOptions = {
    * back to no-op stubs.
    */
   fonts?: StorybookFontFamily[];
+  /**
+   * Controls the props table and description autodocs generates from a
+   * component's frontmatter JSDoc. Pass `false` to turn extraction off
+   * entirely (docs/specs/docgen.md).
+   */
+  docgen?: false | AstroDocgenOptions;
 };
 
 type ServerFrameworkOptions = BaseFrameworkOptions & {

@@ -1,11 +1,21 @@
 ---
+/**
+ * A collapsible section list built as an Astro component with Alpine.js
+ * directives for interactivity. Props are received server-side via
+ * `Astro.props`; toggle behavior uses `x-data` and `x-show`.
+ */
 interface AccordionItem {
   title: string;
   content: string;
 }
 
 interface Props {
+  /** Sections to render. Each item has a `title` (header text) and `content` (body text). */
   items?: AccordionItem[];
+  /**
+   * When true, multiple sections can be open at the same time. When false,
+   * opening one section closes the others.
+   */
   allowMultiple?: boolean;
 }
 

@@ -29,12 +29,12 @@ jobs:
             token: CHROMATIC_PROJECT_TOKEN_ASTRO7
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Chromatic needs full history for baselines/TurboSnap
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -42,7 +42,7 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Build packages
         run: yarn build:packages

@@ -6,8 +6,14 @@ import {
   normalizePackageName,
 } from '../../ProjectStats/astro/projectStatsData.ts';
 
+/**
+ * Fetches last-week download data in Astro and hydrates a Preact SVG chart
+ * whose line draws itself on load.
+ */
 interface Props {
+  /** npm package name used in the weekly downloads API request. */
   packageName?: string;
+  /** Small label shown at the top of the chart card. */
   label?: string;
 }
 

@@ -100,7 +100,17 @@ export async function emitHydratedComponentEntriesFromAstroFile(options: {
 }
 
 /** Collects the framework component files one Astro component hydrates in the browser. */
-export async function collectHydratedComponentPaths(astroFilePath: string, resolveFrom: string) {
+export async function collectHydratedComponentPaths(
+  astroFilePath: string,
+  resolveFrom: string,
+  visited = new Set<string>()
+): Promise<string[]> {
+  if (visited.has(astroFilePath)) {
+    return [];
+  }
+
+  visited.add(astroFilePath);
+
   // Only Astro components create islands, so only their framework imports
   // need standalone client chunks in built Storybook output.
   const allImportSpecifiers = await readAllImportSpecifiers(astroFilePath);
@@ -114,6 +124,16 @@ export async function collectHydratedComponentPaths(astroFilePath: string, resol
       : await resolveAliasedIsland(specifier, resolveFrom);
 
     if (!resolvedImportPath) {
+      continue;
+    }
+
+    // Nested .astro components render on the server but can declare their own
+    // islands (`client:*`), so their framework imports need client chunks too.
+    if (resolvedImportPath.endsWith('.astro')) {
+      hydratedComponentPaths.push(
+        ...(await collectHydratedComponentPaths(resolvedImportPath, resolveFrom, visited))
+      );
+
       continue;
     }
 
