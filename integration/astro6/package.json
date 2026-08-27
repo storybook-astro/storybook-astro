@@ -51,7 +51,6 @@
     "happy-dom": "^20.10.6",
     "http-server": "^14.1.1",
     "msw": "^2.12.10",
-    "playwright": "^1.49.0",
     "prop-types": "^15.8.1",
     "solid-js": "^1.9.10",
     "storybook": "10.5.2",

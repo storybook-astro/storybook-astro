@@ -5348,7 +5348,6 @@ __metadata:
     happy-dom: "npm:^20.10.6"
     http-server: "npm:^14.1.1"
     msw: "npm:^2.12.10"
-    playwright: "npm:^1.49.0"
     preact: "npm:^10.28.1"
     prop-types: "npm:^15.8.1"
     react: "npm:^19.2.3"
@@ -5417,7 +5416,6 @@ __metadata:
     happy-dom: "npm:^20.10.6"
     http-server: "npm:^14.1.1"
     msw: "npm:^2.12.10"
-    playwright: "npm:^1.49.0"
     preact: "npm:^10.28.1"
     prop-types: "npm:^15.8.1"
     react: "npm:^19.2.3"
@@ -5486,7 +5484,6 @@ __metadata:
     happy-dom: "npm:^20.10.6"
     http-server: "npm:^14.1.1"
     msw: "npm:^2.12.10"
-    playwright: "npm:^1.49.0"
     preact: "npm:^10.28.1"
     prop-types: "npm:^15.8.1"
     react: "npm:^19.2.3"
@@ -13667,15 +13664,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright-core@npm:1.62.1":
-  version: 1.62.1
-  resolution: "playwright-core@npm:1.62.1"
-  bin:
-    playwright-core: cli.js
-  checksum: 10c0/a37d0f03bb73364cfd0eba704c4b3359b609c4779ae2649a88d8e2b3a29c7357dfcc58bdcf0cb68ddffdef7687abf78902c8356e89f189682c7e19be38e108f0
-  languageName: node
-  linkType: hard
-
 "playwright@npm:1.60.0":
   version: 1.60.0
   resolution: "playwright@npm:1.60.0"
@@ -13688,21 +13676,6 @@ __metadata:
   bin:
     playwright: cli.js
   checksum: 10c0/714ad76d85b4865d7e43c0012f9039800c1485373388973ed39d79339cee5ad467052d1e2f1eaeca107a1cb6e65342186a8578a4c3504853d84c3a691250d5db
-  languageName: node
-  linkType: hard
-
-"playwright@npm:^1.49.0":
-  version: 1.62.1
-  resolution: "playwright@npm:1.62.1"
-  dependencies:
-    fsevents: "npm:2.3.2"
-    playwright-core: "npm:1.62.1"
-  dependenciesMeta:
-    fsevents:
-      optional: true
-  bin:
-    playwright: cli.js
-  checksum: 10c0/4d3522cd46325f50c46f8874d31f70d036f6983228a9f8b9d68fc249e4c17464edcd97cc4adfbb24e712d1829c1386d3bc24e17f58a1ced94e7c423300c21845
   languageName: node
   linkType: hard
 
