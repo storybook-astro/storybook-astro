@@ -91,26 +91,6 @@ A dedicated "Astro" panel tab in the Storybook UI (alongside Actions, Controls, 
 
 The render time and HTML string are already available when `renderAstroComponent` resolves in `render.tsx` — this is mostly about emitting them over the addon channel rather than discarding them.
 
-### Automatic Documentation Extraction from JSDoc
-
-✅ **Done**
-
-Component descriptions and prop documentation are extracted from JSDoc in a
-component's `.astro` frontmatter, so autodocs pages populate without any
-`argTypes` boilerplate in story files.
-
-**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110)
-
-**What you get**:
-- Component description from a JSDoc block in the frontmatter
-- Per-prop descriptions, types and defaults in the properties table
-- Select controls for literal union props
-- Inherited DOM attributes filtered out, while props you destructure are kept
-- Types imported from other files, including through tsconfig `paths` aliases
-
-See [Controls & ArgTypes](/writing-stories/controls/) for the conventions and the
-`docgen` framework option.
-
 ## Future Enhancements
 
 ### Render Performance
@@ -158,6 +138,16 @@ Integration with Astro's middleware system and `astro:env` module for managing e
 Support for Astro's built-in i18n routing and helpers, enabling documentation of multi-language components.
 
 ## Recently Completed
+
+### Automatic Documentation Extraction from JSDoc
+
+**Status**: Shipped (unreleased)
+
+Component descriptions and prop documentation are extracted from JSDoc in a component's `.astro` frontmatter, so autodocs pages populate without any `argTypes` boilerplate in story files. Covers per-prop descriptions, types and defaults, select controls for literal union props, and types imported from other files (including through tsconfig `paths` aliases). Inherited DOM attributes are filtered out, while props you destructure are kept.
+
+**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110)
+
+**Documentation**: See [Controls & ArgTypes](/writing-stories/controls/) for the conventions and the `docgen` framework option, and the [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/docgen.md)
 
 ### Storybook Test Addon (`@storybook/addon-vitest`) Support
 
@@ -300,7 +290,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Backgrounds | ✅ Supported | Test components against different background colors |
 | Measure & Outline | ✅ Supported | Visual debugging tools for spacing and layout |
 | Component Description | 🚧 Manual | Component descriptions must be set manually via `parameters.docs.description.component` (automatic extraction from JSDoc planned) |
-| ArgTypes Documentation | 🚧 Manual | Prop documentation must be set manually via `argTypes[].description` (automatic extraction from JSDoc planned) |
+| ArgTypes Documentation | ✅ Supported | Descriptions, types and defaults are extracted from `.astro` frontmatter JSDoc; `argTypes[].description` still overrides. See [Controls & ArgTypes](/writing-stories/controls/) |
 | Source Code Display | 🚧 Partial | Shows story file source; doesn't generate component usage syntax (e.g. `<Component prop="value" />`). See roadmap item above |
 | Decorators | ✅ Supported | Wrapper components/HTML for stories, in global/component/story positions. See [Decorators guide](/writing-stories/decorators/) and [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/decorators.md) |
 | Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
