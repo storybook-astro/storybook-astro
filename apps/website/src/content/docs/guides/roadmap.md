@@ -37,16 +37,6 @@ Expand testing capabilities for Astro components tested in isolation, including 
 - Integration with testing libraries (Testing Library, Vitest patterns)
 - Guidance on testing both server-rendered and client-side behavior
 
-### Storybook Test Addon (`@storybook/addon-vitest`) Support
-
-✅ **Supported** — Astro 5, 6 and 7
-
-Storybook's official "Storybook Test" runner (`@storybook/addon-vitest`) runs your stories as Vitest browser tests. Astro component stories render through the same server-side pipeline the canvas uses, and play functions run against the resulting DOM. See the [Testing guide](/guides/testing/) for setup.
-
-**On the upstream Astro bug**: This feature was previously listed as blocked by [withastro/astro#16275](https://github.com/withastro/astro/issues/16275) (`TypeError: Cannot read properties of undefined (reading 'wrapDynamicImport')`), and then as gated on the `astro@7.0.6` fix. Neither is accurate for Storybook Astro. The crash comes from Astro's `astro:server` Vite plugin booting dev-server middleware inside Vitest, and Storybook Astro already strips that plugin from the Storybook Vite config. Astro 5 and 6 — which never received the fix — work here too, and no version guard is needed.
-
-**Known limitation**: `@storybook/addon-vitest` resolves each `stories` entry against your `.storybook` directory, so an absolute story glob matches nothing and those stories are silently untested. Keep story globs relative — see [Story globs must be relative](/guides/testing/#story-globs-must-be-relative).
-
 ### Play Functions for Astro Components
 
 🚧 **Partial** — works under the Storybook Test addon; unverified in the canvas
@@ -168,6 +158,18 @@ Integration with Astro's middleware system and `astro:env` module for managing e
 Support for Astro's built-in i18n routing and helpers, enabling documentation of multi-language components.
 
 ## Recently Completed
+
+### Storybook Test Addon (`@storybook/addon-vitest`) Support
+
+**Status**: Shipped (unreleased)
+
+Storybook's official "Storybook Test" runner (`@storybook/addon-vitest`) runs your stories as Vitest browser tests on **Astro 5, 6 and 7**. Astro component stories render through the same server-side pipeline the canvas uses, and play functions run against the resulting DOM.
+
+This was previously listed as blocked by [withastro/astro#16275](https://github.com/withastro/astro/issues/16275) and then as gated on the `astro@7.0.6` fix. Neither turned out to be accurate for Storybook Astro: the crash comes from Astro's `astro:server` Vite plugin, which Storybook Astro already strips from the Storybook Vite config, so Astro 5 and 6 work too and no version guard is needed.
+
+**Known limitation**: `@storybook/addon-vitest` resolves each `stories` entry against your `.storybook` directory, so an absolute story glob matches nothing and those stories are silently untested. Keep story globs relative — see [Story globs must be relative](/guides/testing/#story-globs-must-be-relative).
+
+**Documentation**: See the [Testing guide](/guides/testing/#storybook-test-addon-storybookaddon-vitest)
 
 ### Decorator Support
 
