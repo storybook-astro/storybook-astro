@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -28,7 +28,7 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Lint code
         run: yarn lint
@@ -78,16 +78,31 @@ jobs:
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
+      - name: Storybook Test addon (Astro 7)
+        run: yarn workspace @storybook-astro/integration-astro7 test:storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Storybook Test addon (Astro 6)
+        run: yarn workspace @storybook-astro/integration-astro6 test:storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Storybook Test addon (Astro 5)
+        run: yarn workspace @storybook-astro/integration-astro5 test:storybook
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
   server-mode:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -95,7 +110,7 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Build packages
         run: yarn build:packages
@@ -115,5 +130,3 @@ jobs:
 
       - name: Browser tests (Astro 5 server)
         run: yarn workspace @storybook-astro/integration-astro5-server test:browser
-        env:
-          STORYBOOK_DISABLE_TELEMETRY: 1

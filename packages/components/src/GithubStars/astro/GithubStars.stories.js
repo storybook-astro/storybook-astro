@@ -9,22 +9,7 @@ export default {
   },
   parameters: {
     layout: 'centered',
-    docs: {
-      description: {
-        component: 'Fetches star counts on the Astro server, then hydrates a Preact component that counts from 0 to the latest value.',
-      },
-    },
   },
-  argTypes: {
-    repository: {
-      description: 'GitHub repository in `owner/name` format.',
-      control: { type: 'text' },
-    },
-    label: {
-      description: 'Small label displayed above the animated number.',
-      control: { type: 'text' },
-    },
-  }
 };
 
 export const Default = {

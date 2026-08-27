@@ -20,7 +20,7 @@
     "preact": "^10.28.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0",
+    "@playwright/test": "1.60.0",
     "@storybook-astro/framework": "workspace:*",
     "@storybook/addon-docs": "10.5.2",
     "eslint": "^9.39.2",

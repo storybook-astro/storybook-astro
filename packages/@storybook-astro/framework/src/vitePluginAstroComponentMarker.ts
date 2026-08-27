@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { PluginOption } from 'vite';
+import type { AstroDocgen } from './docgen/index.ts';
 
 /**
  * Vite plugin that patches Astro 6's client-side .astro file transforms for Storybook.
@@ -27,6 +28,14 @@ export function vitePluginAstroComponentMarker(options?: {
    * still be copied into the deployed snapshot (docs/specs/decorators.md#server-snapshot).
    */
   onClientAstroModuleId?: (moduleId: string) => void;
+  /**
+   * Extracts the component's props and description so Storybook's autodocs can
+   * render them. The result rides along on the stub as `__docgenInfo`, which is
+   * where the renderer's `extractArgTypes` reads it from
+   * (docs/specs/docgen.md#design-decisions). Omitted when the Docgen Server is
+   * handling extraction instead, or when the user turned docgen off.
+   */
+  docgen?: AstroDocgen;
 }): PluginOption {
   let isBuild = false;
 
@@ -38,7 +47,25 @@ export function vitePluginAstroComponentMarker(options?: {
       isBuild = config.command === 'build';
     },
 
-    transform(code: string, id: string) {
+    buildStart() {
+      // Loading TypeScript and warming its language service costs about a
+      // second, once. Kicking it off here without awaiting overlaps that with
+      // Storybook's own boot instead of landing on the first story request.
+      void options?.docgen?.warmUp();
+    },
+
+    configureServer(server) {
+      // A component's docgen depends on files it imports, so an edit to a
+      // shared `types.ts` has to invalidate the components that read it.
+      // Vite's watcher ignores node_modules, so installs still need a restart.
+      for (const event of ['change', 'add', 'unlink'] as const) {
+        server.watcher.on(event, (changedPath: string) => {
+          options?.docgen?.invalidate(changedPath);
+        });
+      }
+    },
+
+    async transform(code: string, id: string) {
       // Only process main .astro modules (not sub-modules like ?astro&type=style)
       if (!id.endsWith('.astro')) {return null;}
 
@@ -63,6 +90,8 @@ export function vitePluginAstroComponentMarker(options?: {
         ? generateInlineStyles(moduleId)
         : generateHybridStyles(moduleId);
 
+      const docgenCode = await generateDocgenAssignment(options?.docgen, moduleId);
+
       return {
         code: `
 ${styleCode}
@@ -71,12 +100,38 @@ const __astro_component = () => {
 };
 __astro_component.isAstroComponentFactory = true;
 __astro_component.moduleId = ${JSON.stringify(moduleId)};
+${docgenCode}
 export default __astro_component;
 `,
         map: null,
       };
     },
   };
+}
+
+/**
+ * Builds the `__docgenInfo` assignment Storybook's autodocs reads, or an empty
+ * string when there is nothing to attach.
+ *
+ * Docgen is a side channel: a component that can't be analysed still renders,
+ * so every failure here degrades to no documentation rather than a broken
+ * transform (docs/specs/docgen.md#failure-modes).
+ */
+async function generateDocgenAssignment(
+  docgen: AstroDocgen | undefined,
+  filePath: string
+): Promise<string> {
+  if (!docgen) {
+    return '';
+  }
+
+  try {
+    const info = await docgen.extract(filePath, readFileSync(filePath, 'utf-8'));
+
+    return info ? `__astro_component.__docgenInfo = ${JSON.stringify(info)};` : '';
+  } catch {
+    return '';
+  }
 }
 
 /**

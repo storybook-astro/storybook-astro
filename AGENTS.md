@@ -36,6 +36,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 - `src/vitePluginAstroComponentMarker.ts` - Patches Astro's client-side `.astro` stubs (Astro 6+ and Astro 7's Rust compiler) to set `isAstroComponentFactory` and preserve scoped CSS imports
 - `src/vitePluginAstroFonts.ts` - Resolves Astro's Font Provider API in Storybook's SSR context and auto-loads fonts declared in `astro.config.*`
 - `src/portable-stories.ts` - `composeStories`/`composeStory` for testing outside Storybook
+- `src/docgen/` - Extracts component descriptions and prop tables from `.astro` frontmatter JSDoc. `index.ts` owns the runtime (guarded `typescript` import, tsconfig discovery, caching), `tsProject.ts` the one shared TypeScript language service, `extract.ts` the extraction itself. Design record: `docs/specs/docgen.md`
 - `src/integrations/` - Integration adapters for each supported framework
 - `src/vitePluginAstroBuildServer.ts` - Server-mode production build (`renderMode: 'server'`). Alongside the usual `storybook-static/` UI, emits a sibling `storybook-server/` directory: `src/server/index.ts`'s Hono app plus a source snapshot of every Astro story component and its transitive (including tsconfig-aliased) imports. Story rules are compiled directly into the server bundle rather than loaded from the snapshot at runtime, since deployed hosts often strip or transpile `.ts` sources; a snapshot module alias map is resolved against the deploy host's filesystem at boot rather than baked in from the build machine. Each integration app wires the built server up with a per-app `api/` wrapper (Vercel) or a `preview-storybook.mjs` script (any Node host) — see `apps/website/src/content/docs/guides/deployment.md`. A CI server-mode job builds the `*-server` integration apps and runs Playwright against their local previews.
 
@@ -51,6 +52,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 **Important Files**:
 - `src/render.tsx` - Exports `render()` and `renderToCanvas()` functions
 - `src/preset.ts` - Defines preview annotations
+- `src/extractArgTypes.ts` - Maps the `__docgenInfo` the framework attaches to a component stub into Storybook's props table. Registered through `preview-defaults.ts` so both CSF3 and CSF-factory stories pick it up
 - `src/decorators.ts` - `applyDecorators`, the renderer's `applyDecorators` project annotation. Composes a story's `decorators` array into a `SlotValue` tree for Astro stories (Decision 2 in `docs/specs/decorators.md#design-decisions`), or defers to Storybook's `defaultDecorateStory` for framework-delegated stories (`parameters.renderer` set)
 
 ### Data Flow

@@ -9,21 +9,6 @@ export default {
   },
   parameters: {
     layout: 'centered',
-    docs: {
-      description: {
-        component: 'Fetches last-week download data in Astro and hydrates a Preact SVG chart whose line draws itself on load.',
-      },
-    },
-  },
-  argTypes: {
-    packageName: {
-      description: 'npm package name used in the weekly downloads API request.',
-      control: { type: 'text' },
-    },
-    label: {
-      description: 'Small label shown at the top of the chart card.',
-      control: { type: 'text' },
-    },
   },
 };
 

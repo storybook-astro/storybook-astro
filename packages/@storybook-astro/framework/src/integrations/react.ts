@@ -9,6 +9,7 @@ export class ReactIntegration implements Integration {
   readonly dependencies = ['@astrojs/react', '@storybook/react', 'react', 'react-dom'];
   readonly options: Options;
   readonly storybookEntryPreview = '@storybook/react/entry-preview';
+  readonly clientOptimizeDeps = ['react-dom/test-utils'];
 
   readonly renderer = {
     server: {
