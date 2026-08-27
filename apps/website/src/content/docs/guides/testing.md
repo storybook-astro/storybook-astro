@@ -5,6 +5,23 @@ description: Test Storybook stories outside of Storybook using portable stories 
 
 Stories can double as test cases with **portable stories**. You can compose stories and render them in Vitest without running the Storybook UI.
 
+## Requirements
+
+Testing requires **Vitest 4.1.0 or newer**. On `vitest@4.0.x`, importing a story
+whose component uses `astro:assets` fails at module load with:
+
+```
+TypeError: Unknown file extension ".astro" for .../astro/components/Image.astro
+```
+
+Vitest externalized `astro` in its SSR environment on those versions, so
+`astro:assets` — which re-exports `astro/components/Image.astro` — reached
+Node's ESM loader untransformed. This was fixed in Vitest 4.1.0; `4.0.18`, the
+last 4.0 release, still reproduces it.
+
+The framework declares this as an optional peer dependency, so your package
+manager will warn if you are below the floor.
+
 ## Basic test setup
 
 ```jsx
