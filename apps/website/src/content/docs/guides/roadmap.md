@@ -148,9 +148,11 @@ This was previously listed as blocked by [withastro/astro#16275](https://github.
 
 ### Play Functions for Astro Components
 
-**Status**: Shipped (unreleased)
+**Shipped in**: 1.7.0
 
-[Play functions](https://storybook.js.org/docs/writing-stories/play-function) run on Astro component stories, on Astro 5, 6 and 7. `@testing-library/user-event` interactions and assertions resolve against the server-rendered HTML, in the dev canvas and under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) alike, and the Interactions panel lists each step with its pass/fail state and the usual step-through controls. The `Counter` and `Accordion` stories in the integration apps cover this.
+[Play functions](https://storybook.js.org/docs/writing-stories/play-function) run on Astro component stories, on Astro 5, 6 and 7. `@testing-library/user-event` interactions and assertions resolve against the server-rendered HTML, and the Interactions panel lists each step with its pass/fail state and the usual step-through controls. The `Counter` and `Accordion` stories in the integration apps cover this.
+
+This has worked in the dev canvas since 1.7.0. Running the same play functions headlessly under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) arrived later, in 1.11.0.
 
 **One difference from framework components**: changing a Control after a play function has run re-renders the story from fresh server HTML, which discards whatever the play function did to the DOM. A React component keeps that state, because React reconciles the existing tree. Neither re-runs the play function on an args change — that part matches Storybook's normal behaviour — so after changing a Control the Interactions panel shows a result that no longer describes what is on screen. Re-select the story to run it again.
 
