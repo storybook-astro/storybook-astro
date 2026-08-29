@@ -5276,6 +5276,7 @@ __metadata:
     storybook-solidjs: ^1.0.0-beta.7
     typescript: ^5.0.0 || ^6.0.0
     vite: ^6.4.1 || ^7.0.0 || ^8.0.0
+    vitest: ^4.1.0
   peerDependenciesMeta:
     "@astrojs/alpinejs":
       optional: true
@@ -5308,6 +5309,8 @@ __metadata:
     storybook-solidjs:
       optional: true
     typescript:
+      optional: true
+    vitest:
       optional: true
   languageName: unknown
   linkType: soft
