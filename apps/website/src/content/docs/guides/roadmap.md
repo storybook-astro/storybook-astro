@@ -21,23 +21,6 @@ A `create-storybook-astro` CLI that generates a new Astro project with Storybook
 - An example Astro component and its story file so the first `yarn storybook` renders something real
 - Optional prompts for framework integrations (React, Vue, Svelte, etc.) and TypeScript
 
-### Enhanced Testing & Portable Stories
-
-🚧 **Documentation only** — the APIs are done
-
-The testing APIs and tooling are in place. What is left is writing up patterns that already work but are not documented anywhere.
-
-**Complexity**: Low — writing, not engineering
-
-**Done**:
-- Testing helpers — `composeStories`, `composeStory`, `setProjectAnnotations`, `renderStory`, `renderAstroStory`, and `defineConfig` from `@storybook-astro/framework/vitest`
-- Testing library integration — `@testing-library/dom` works against server-rendered output, and [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) runs stories as browser tests (1.11.0)
-
-**Still to do**:
-- Examples for testing composed components — slots, nested components, components passed as props, and decorators. The patterns already work and are covered by tests in the repo (`Nesting.test.ts`, `SlotBox.test.ts`); they have simply never been written up in the [Testing guide](/guides/testing/)
-- Guidance on choosing between the two approaches: portable stories for fast assertions on server-rendered output, and the Storybook Test addon when a test needs real interaction
-- `renderAstroStory` is exported but missing from the guide's helper list
-
 ### Code Panel Source for Astro Components
 
 📋 **To Do**
@@ -156,6 +139,14 @@ This was previously listed as blocked by [withastro/astro#16275](https://github.
 This has worked in the dev canvas since 1.7.0. Running the same play functions headlessly under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) arrived later, in 1.11.0.
 
 **One difference from framework components**: changing a Control after a play function has run re-renders the story from fresh server HTML, which discards whatever the play function did to the DOM. A React component keeps that state, because React reconciles the existing tree. Neither re-runs the play function on an args change — that part matches Storybook's normal behaviour — so after changing a Control the Interactions panel shows a result that no longer describes what is on screen. Re-select the story to run it again.
+
+### Enhanced Testing & Portable Stories
+
+**Status**: Complete — the APIs shipped across earlier releases; the remaining work was documentation, which is now live
+
+Testing helpers — `composeStories`, `composeStory`, `setProjectAnnotations`, `renderStory`, `renderAstroStory`, and `defineConfig` from `@storybook-astro/framework/vitest` — cover composing and rendering stories outside Storybook. `@testing-library/dom` queries resolve against the server-rendered output, and [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) runs stories as real browser tests (1.11.0).
+
+The [Testing guide](/guides/testing/) documents both halves: [choosing between the two approaches](/guides/testing/#choosing-an-approach) — portable stories for fast assertions on server-rendered output, the test addon when a test needs real interaction — and [testing composed components](/guides/testing/#testing-composed-components), covering slots, children with their own props and slots, components passed as props, and decorators.
 
 ### Decorator Support
 
