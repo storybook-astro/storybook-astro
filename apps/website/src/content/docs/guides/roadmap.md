@@ -23,19 +23,20 @@ A `create-storybook-astro` CLI that generates a new Astro project with Storybook
 
 ### Enhanced Testing & Portable Stories
 
-🚧 **Partially Complete**
+🚧 **Documentation only** — the APIs are done
 
-Expand testing capabilities for Astro components tested in isolation, including better support for Container API integration and DOM testing patterns.
+The testing APIs and tooling are in place. What is left is writing up patterns that already work but are not documented anywhere.
 
-**Current Status**: Core APIs shipped, additional utilities and documentation in progress
+**Complexity**: Low — writing, not engineering
 
-**Complexity**: Medium
+**Done**:
+- Testing helpers — `composeStories`, `composeStory`, `setProjectAnnotations`, `renderStory`, `renderAstroStory`, and `defineConfig` from `@storybook-astro/framework/vitest`
+- Testing library integration — `@testing-library/dom` works against server-rendered output, and [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) runs stories as browser tests (1.11.0)
 
 **Still to do**:
-- Test helper utilities for common testing patterns
-- Documentation with examples for testing composed components
-- Integration with testing libraries (Testing Library, Vitest patterns)
-- Guidance on testing both server-rendered and client-side behavior
+- Examples for testing composed components — slots, nested components, components passed as props, and decorators. The patterns already work and are covered by tests in the repo (`Nesting.test.ts`, `SlotBox.test.ts`); they have simply never been written up in the [Testing guide](/guides/testing/)
+- Guidance on choosing between the two approaches: portable stories for fast assertions on server-rendered output, and the Storybook Test addon when a test needs real interaction
+- `renderAstroStory` is exported but missing from the guide's helper list
 
 ### Code Panel Source for Astro Components
 
