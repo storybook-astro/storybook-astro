@@ -23,34 +23,20 @@ A `create-storybook-astro` CLI that generates a new Astro project with Storybook
 
 ### Enhanced Testing & Portable Stories
 
-🚧 **Partially Complete**
+🚧 **Documentation only** — the APIs are done
 
-Expand testing capabilities for Astro components tested in isolation, including better support for Container API integration and DOM testing patterns.
+The testing APIs and tooling are in place. What is left is writing up patterns that already work but are not documented anywhere.
 
-**Current Status**: Core APIs shipped, additional utilities and documentation in progress
+**Complexity**: Low — writing, not engineering
 
-**Complexity**: Medium
+**Done**:
+- Testing helpers — `composeStories`, `composeStory`, `setProjectAnnotations`, `renderStory`, `renderAstroStory`, and `defineConfig` from `@storybook-astro/framework/vitest`
+- Testing library integration — `@testing-library/dom` works against server-rendered output, and [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) runs stories as browser tests (1.11.0)
 
 **Still to do**:
-- Test helper utilities for common testing patterns
-- Documentation with examples for testing composed components
-- Integration with testing libraries (Testing Library, Vitest patterns)
-- Guidance on testing both server-rendered and client-side behavior
-
-### Play Functions for Astro Components
-
-🚧 **Partial** — works under the Storybook Test addon; unverified in the canvas
-
-Play functions on Astro component stories **do** run under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest): `@testing-library/user-event` interactions and assertions resolve against the server-rendered HTML, on Astro 5, 6 and 7. The `Counter` and `Accordion` stories in the integration apps cover this.
-
-What has *not* been verified is the same story running in the Storybook UI — the canvas and the Interactions panel. Both paths go through the renderer's `renderToCanvas`, so this is likely to work already, but until someone checks it this entry stays partial rather than supported.
-
-**Complexity**: Low — most likely verification and documentation rather than new code
-
-**What this still requires**:
-- Confirming play functions execute in the dev canvas after the server-rendered HTML is injected
-- Confirming the Interactions panel steps through them
-- Handling re-renders with new args (Controls changes) between play function runs
+- Examples for testing composed components — slots, nested components, components passed as props, and decorators. The patterns already work and are covered by tests in the repo (`Nesting.test.ts`, `SlotBox.test.ts`); they have simply never been written up in the [Testing guide](/guides/testing/)
+- Guidance on choosing between the two approaches: portable stories for fast assertions on server-rendered output, and the Storybook Test addon when a test needs real interaction
+- `renderAstroStory` is exported but missing from the guide's helper list
 
 ### Code Panel Source for Astro Components
 
@@ -160,6 +146,16 @@ This was previously listed as blocked by [withastro/astro#16275](https://github.
 **Known limitation**: `@storybook/addon-vitest` resolves each `stories` entry against your `.storybook` directory, so an absolute story glob matches nothing and those stories are silently untested. Keep story globs relative — see [Story globs must be relative](/guides/testing/#story-globs-must-be-relative).
 
 **Documentation**: See the [Testing guide](/guides/testing/#storybook-test-addon-storybookaddon-vitest)
+
+### Play Functions for Astro Components
+
+**Shipped in**: 1.7.0
+
+[Play functions](https://storybook.js.org/docs/writing-stories/play-function) run on Astro component stories, on Astro 5, 6 and 7. `@testing-library/user-event` interactions and assertions resolve against the server-rendered HTML, and the Interactions panel lists each step with its pass/fail state and the usual step-through controls. The `Counter` and `Accordion` stories in the integration apps cover this.
+
+This has worked in the dev canvas since 1.7.0. Running the same play functions headlessly under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) arrived later, in 1.11.0.
+
+**One difference from framework components**: changing a Control after a play function has run re-renders the story from fresh server HTML, which discards whatever the play function did to the DOM. A React component keeps that state, because React reconciles the existing tree. Neither re-runs the play function on an args change — that part matches Storybook's normal behaviour — so after changing a Control the Interactions panel shows a result that no longer describes what is on screen. Re-select the story to run it again.
 
 ### Decorator Support
 
@@ -296,7 +292,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
 | Portable Stories Testing (Vitest) | ✅ Supported | Test stories with `@storybook-astro/framework/testing`'s `composeStories`/`renderStory` and Vitest, outside Storybook |
 | Storybook Test Addon (`@storybook/addon-vitest`) | ✅ Supported | Runs stories as Vitest browser tests on Astro 5, 6 and 7. See the [Testing guide](/guides/testing/) |
-| Play Functions | 🚧 Partial | Supported for framework components. Astro components: verified under the Storybook Test addon, unverified in the canvas — see roadmap item above |
+| Play Functions | ✅ Supported | Works for both framework and Astro component stories, in the dev canvas and under the Storybook Test addon. One caveat on args changes — see roadmap item above |
 | Interactions Panel | ✅ Supported | Debug play function interactions |
 | Accessibility Addon | ✅ Supported | Automated accessibility testing with a11y addon |
 | Theming | ✅ Supported | Storybook UI theming and customization |
