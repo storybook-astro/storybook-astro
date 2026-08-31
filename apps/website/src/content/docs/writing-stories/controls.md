@@ -190,6 +190,29 @@ The import path is always written as a sibling (`./Card.astro`). It is a usage
 sample rather than a copy of your file layout, so adjust it to wherever the
 component actually lives.
 
+### Turning the Code panel on everywhere
+
+`docs.codePanel` is an ordinary Storybook parameter, so setting it once in
+`.storybook/preview.js` enables the **Code** panel for every story in the
+project — no per-story opt-in:
+
+```javascript
+// .storybook/preview.js
+const preview = {
+  parameters: {
+    docs: { codePanel: true },
+  },
+};
+
+export default preview;
+```
+
+Individual stories can still opt out with `docs: { codePanel: false }`, and the
+same cascade works at the component level via the meta's `parameters`.
+
+The "Show code" block under stories on a docs page needs no parameter at all —
+it is always available.
+
 ### Overriding the snippet
 
 Set `parameters.docs.source.code` to show something specific instead — a manual
