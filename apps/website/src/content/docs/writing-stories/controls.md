@@ -150,6 +150,86 @@ installed, and during test builds.
 It needs TypeScript 5.0 or newer, which Astro projects already have. Without it,
 docgen is skipped with a warning and everything else keeps working.
 
+## Showing component source
+
+Docs pages render a **Show code** block under each story, and stories with
+`parameters.docs.codePanel = true` also get a **Code** panel. Both show the Astro
+template your story's args describe, generated fresh on every render — so it
+follows along as you change Controls:
+
+```astro
+---
+import Card from './Card.astro';
+---
+<Card title="Hello" featured>
+  <p>Body content</p>
+</Card>
+```
+
+The snippet describes the component and its args, not the decorators around it,
+so it stays the usage you would copy into a page.
+
+### How values are serialized
+
+| Arg value | Emitted as |
+| --- | --- |
+| `'text'` | `title="text"` — single-quoted if it contains `"`, a template literal if it contains both quote kinds or a newline |
+| `true` | `featured` (bare attribute) |
+| `false` | `featured={false}` |
+| number / bigint | `count={42}` |
+| `Date` | `published={new Date("2026-06-11T10:00:00.000Z")}` |
+| object / array | `author={author}`, with `const author = …` hoisted into the frontmatter |
+| `''`, `null`, `undefined`, functions | omitted |
+
+`args.slots` becomes the component's children — the `default` slot inline, and
+named slots wrapped in `<Fragment slot="name">`. A component (rather than a
+string) passed as slot content is shown as a placeholder comment, since it has no
+literal template form.
+
+The import path is always written as a sibling (`./Card.astro`). It is a usage
+sample rather than a copy of your file layout, so adjust it to wherever the
+component actually lives.
+
+### Turning the Code panel on everywhere
+
+`docs.codePanel` is an ordinary Storybook parameter, so setting it once in
+`.storybook/preview.js` enables the **Code** panel for every story in the
+project — no per-story opt-in:
+
+```javascript
+// .storybook/preview.js
+const preview = {
+  parameters: {
+    docs: { codePanel: true },
+  },
+};
+
+export default preview;
+```
+
+Individual stories can still opt out with `docs: { codePanel: false }`, and the
+same cascade works at the component level via the meta's `parameters`.
+
+The "Show code" block under stories on a docs page needs no parameter at all —
+it is always available.
+
+### Overriding the snippet
+
+Set `parameters.docs.source.code` to show something specific instead — a manual
+snippet always wins:
+
+```javascript
+export const Custom = {
+  parameters: {
+    docs: { source: { code: '<Card title="Handwritten" />' } },
+  },
+};
+```
+
+Framework component stories (`parameters.renderer` set to `react`, `vue`, and so
+on) are left alone: they render through their own framework, so no Astro snippet
+is generated for them.
+
 ## Static build limitation
 
 In static builds (`storybook build`), Astro components are pre-rendered at build

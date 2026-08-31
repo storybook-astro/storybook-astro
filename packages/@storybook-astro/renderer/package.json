@@ -38,6 +38,7 @@
       "import": "./dist/types.js"
     },
     "./entry-preview": "./dist/entry-preview.js",
+    "./entry-preview-docs": "./dist/entry-preview-docs.js",
     "./preview-defaults": {
       "types": "./dist/preview-defaults.d.ts",
       "import": "./dist/preview-defaults.js"

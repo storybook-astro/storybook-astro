@@ -6,6 +6,7 @@ export default defineConfig({
     'src/types.ts',
     'src/render.tsx',
     'src/entry-preview.ts',
+    'src/entry-preview-docs.ts',
     'src/preview-defaults.ts',
     'src/decorators.ts',
     'src/decoratedTree.ts',

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Docs "Show code" and the Code Panel now show the Astro template a story's args describe — `<Card title="Hello" featured>` — instead of falling back to the raw story file (#106, #161). The snippet regenerates on every render, so it follows Controls changes, and a manual `parameters.docs.source.code` still overrides it. Framework component stories are unaffected. The generator is shipped as a docs-only preview annotation, so projects without `@storybook/addon-docs` don't load it. See [Showing component source](https://storybook-astro.org/writing-stories/controls/#showing-component-source) for the serialization rules.
+
 ## [1.11.0] - 2026-08-27
 
 ### Added
