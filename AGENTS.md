@@ -52,6 +52,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 - `src/render.tsx` - Exports `render()` and `renderToCanvas()` functions
 - `src/preset.ts` - Defines preview annotations
 - `src/extractArgTypes.ts` - Maps the `__docgenInfo` the framework attaches to a component stub into Storybook's props table. Registered through `preview-defaults.ts` so both CSF3 and CSF-factory stories pick it up
+- `src/docs/` - Docs "Show code" / Code Panel source. `generateAstroSource.ts` turns a story's component and args into Astro template text (pure, no Storybook imports); `sourceDecorator.ts` emits it via `emitTransformCode`. Shipped as the `entry-preview-docs` annotation, which `preset.ts` loads only when addon-docs is enabled. Design record: `docs/specs/code-panel-source.md`
 - `src/decorators.ts` - `applyDecorators`, the renderer's `applyDecorators` project annotation. Composes a story's `decorators` array into a `SlotValue` tree for Astro stories (Decision 2 in `docs/specs/decorators.md#design-decisions`), or defers to Storybook's `defaultDecorateStory` for framework-delegated stories (`parameters.renderer` set)
 
 ### Data Flow
