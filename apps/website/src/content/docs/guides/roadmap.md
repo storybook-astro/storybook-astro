@@ -217,6 +217,7 @@ Components whose templates use other Astro components (transitively) render corr
 - **Client-side behavior** of Astro components requires end-to-end tests (Playwright, Cypress) as the Container API doesn't execute script tags
 - **Circular component references** are not yet detected or prevented when passing components as props
 - **Module hot-reloading** with nested component references may require manual refresh in some cases
+- **Function args are not supported for Astro component stories** — args are serialized over Vite HMR to the server-side Container, so function values (callbacks, render functions) cannot be passed. Astro components rarely need function props, but if yours does, consider wrapping the logic server-side or delegating to a framework component.
 
 ## Feature Support
 
