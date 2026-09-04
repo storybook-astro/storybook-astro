@@ -5,24 +5,48 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "storybook dev -p 6018",
-    "build": "storybook build",
+    "build": "storybook build && node ../../scripts/generate-vercel-trace-hints.mjs",
     "serve": "node ./preview-storybook.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:browser": "playwright test"
   },
   "dependencies": {
+    "@astrojs/alpinejs": "1.0.0",
     "@astrojs/preact": "6.0.0",
+    "@astrojs/react": "6.0.0",
+    "@astrojs/solid-js": "7.0.0",
+    "@astrojs/svelte": "9.0.0",
+    "@astrojs/vue": "7.0.0",
     "@hono/node-server": "^1.19.6",
     "@storybook-astro/components": "workspace:*",
+    "@types/alpinejs": "^3.13.11",
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.6",
+    "alpinejs": "^3.14.9",
     "astro": "7.0.0",
     "hono": "^4.11.12",
-    "preact": "^10.28.1"
+    "msw": "^2.12.10",
+    "preact": "^10.28.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "svelte": "^5.46.0",
+    "vue": "^3.5.26"
   },
   "devDependencies": {
+    "@playwright/test": "1.60.0",
     "@storybook-astro/framework": "workspace:*",
     "@storybook/addon-docs": "10.5.2",
+    "@storybook/preact-vite": "10.5.2",
+    "@storybook/react-vite": "10.5.2",
+    "@storybook/svelte": "^10.5.2",
+    "@storybook/vue3": "^10.5.2",
     "eslint": "^9.39.2",
-    "msw": "^2.12.10",
+    "solid-js": "^1.9.10",
     "storybook": "10.5.2",
+    "storybook-solidjs-vite": "^10.0.9",
     "vite": "^8.0.0"
+  },
+  "installConfig": {
+    "hoistingLimits": "workspaces"
   }
 }

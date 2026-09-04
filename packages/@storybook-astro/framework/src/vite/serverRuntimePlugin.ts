@@ -19,6 +19,7 @@ export function serverRuntimePlugin(options: {
   snapshotDirName: string;
   componentPathMap: Record<string, string>;
   staticModuleMap: Record<string, string>;
+  snapshotModuleAliasMap: Record<string, string>;
   staticCssMap: Record<string, string[]>;
   trackedSpecifiers: string[];
 }) {
@@ -38,6 +39,7 @@ export function serverRuntimePlugin(options: {
         storyRulesConfigRelativePath,
         componentPathMap: options.componentPathMap,
         staticModuleMap: options.staticModuleMap,
+        snapshotModuleAliasMap: options.snapshotModuleAliasMap,
         staticCssMap: options.staticCssMap,
         trackedSpecifiers: options.trackedSpecifiers
       };

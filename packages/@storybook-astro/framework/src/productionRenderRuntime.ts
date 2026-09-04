@@ -48,6 +48,8 @@ type ProductionRenderRuntimeOptions = {
   integrations: Integration[];
   sanitization?: SanitizationOptions;
   storyRulesConfigFilePath?: string;
+  /** Rules module compiled into the caller's bundle — skips runtime loading. */
+  preloadedRulesConfigModule?: unknown;
   staticModuleMap: Record<string, string>;
   trackedSpecifiers: Set<string>;
   resolveFrom: string;
@@ -67,10 +69,9 @@ export async function createProductionRenderRuntime(
   });
 
   try {
-    const rulesConfigModule = await loadRulesConfigModule(
-      viteServer,
-      options.storyRulesConfigFilePath
-    );
+    const rulesConfigModule =
+      options.preloadedRulesConfigModule ??
+      (await loadRulesConfigModule(viteServer, options.storyRulesConfigFilePath));
     const resolveClientModule = createClientModuleResolver(
       options.integrations,
       options.staticModuleMap

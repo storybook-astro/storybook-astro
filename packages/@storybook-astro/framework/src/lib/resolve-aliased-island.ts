@@ -1,6 +1,6 @@
-import { access } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { getTsconfig } from 'get-tsconfig';
+import { getTsconfig, type TsconfigCache } from 'get-tsconfig';
 
 // Islands embedded in `.astro` components are frequently imported through a
 // tsconfig path alias (e.g. `@/components/Counter`). The raw aliased specifier
@@ -8,17 +8,40 @@ import { getTsconfig } from 'get-tsconfig';
 // must be turned into an on-disk path before it can hydrate. This helper is
 // used as a last resort after the existing resolution has already had its
 // chance.
+//
+// The same tsconfig `paths` machinery is reused by
+// `resolveTsconfigAliasedImport` for general module imports (issue #136):
+// aliased imports inside `.astro`/`.tsx` files must resolve in the SSR module
+// graph and be followed by the runtime-snapshot copier, not just island
+// references.
 
-const ALIAS_EXTS = ['.tsx', '.ts', '.jsx', '.js', '.vue', '.svelte', '.mts', '.mjs'];
+const ISLAND_EXTS = ['.tsx', '.ts', '.jsx', '.js', '.vue', '.svelte', '.mts', '.mjs'];
+
+// General module imports can also target `.astro`, `.cjs`, explicit-extension
+// files (CSS, JSON), and directory `index.*` files — mirror the candidate
+// order of `resolveLocalImportPath` in vitePluginAstroBuildShared.ts.
+const MODULE_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.astro', '.vue', '.svelte'];
 
 async function isFile(candidate: string): Promise<boolean> {
   try {
-    await access(candidate);
-
-    return true;
+    // A bare candidate can hit a directory (e.g. `~/styles` next to
+    // `~/styles/index.ts`) — only real files are importable.
+    return (await stat(candidate)).isFile();
   } catch {
     return false;
   }
+}
+
+function islandCandidates(base: string) {
+  return [base, ...ISLAND_EXTS.map((ext) => `${base}${ext}`)];
+}
+
+function moduleCandidates(base: string) {
+  return [
+    base,
+    ...MODULE_EXTS.map((ext) => `${base}${ext}`),
+    ...MODULE_EXTS.map((ext) => resolve(base, `index${ext}`))
+  ];
 }
 
 /**
@@ -30,6 +53,38 @@ async function isFile(candidate: string): Promise<boolean> {
 export async function resolveAliasedIsland(
   specifier: string,
   resolveFrom: string
+): Promise<string | undefined> {
+  return resolveAliasedSpecifier(specifier, resolveFrom, islandCandidates);
+}
+
+/**
+ * Resolves a tsconfig-aliased module import (e.g. `~/styles/tokens`) found in
+ * any source file to an absolute on-disk path, or `undefined` when it is not
+ * a tsconfig alias or no matching file exists. Unlike the island variant this
+ * also matches `.astro`/`.cjs` files, explicit-extension targets, and
+ * directory `index.*` files.
+ *
+ * `resolveFrom` should be the importing file where available — the nearest
+ * tsconfig relative to the importer wins, matching TypeScript semantics.
+ */
+export async function resolveTsconfigAliasedImport(
+  specifier: string,
+  resolveFrom: string,
+  tsconfigCache?: TsconfigCache
+): Promise<string | undefined> {
+  return resolveAliasedSpecifier(
+    specifier.replace(/\?.*$/, ''),
+    resolveFrom,
+    moduleCandidates,
+    tsconfigCache
+  );
+}
+
+async function resolveAliasedSpecifier(
+  specifier: string,
+  resolveFrom: string,
+  buildCandidates: (base: string) => string[],
+  tsconfigCache?: TsconfigCache
 ): Promise<string | undefined> {
   // Skip specifiers the existing resolution can already handle.
   if (
@@ -54,7 +109,7 @@ export async function resolveAliasedIsland(
   let found;
 
   try {
-    found = getTsconfig(resolveFrom);
+    found = getTsconfig(resolveFrom, { cache: tsconfigCache });
   } catch {
     // Malformed tsconfig (bad JSON, circular extends). This is a last-resort
     // resolver, so swallow it rather than crash hydration.
@@ -91,9 +146,8 @@ export async function resolveAliasedIsland(
     for (const target of targets) {
       const resolvedTarget = target.replace(/\*$/, '');
       const base = resolve(root, resolvedTarget, rest);
-      const candidates = [base, ...ALIAS_EXTS.map((ext) => `${base}${ext}`)];
 
-      for (const candidate of candidates) {
+      for (const candidate of buildCandidates(base)) {
         if (await isFile(candidate)) {
           return candidate.replace(/\\/g, '/');
         }
