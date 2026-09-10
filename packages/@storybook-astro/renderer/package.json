@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/renderer",
-  "version": "1.11.0",
+  "version": "1.12.0-canary.1",
   "description": "Client-side renderer for Storybook Astro framework",
   "module": "./dist/preset.js",
   "type": "module",
@@ -38,6 +38,11 @@
       "import": "./dist/types.js"
     },
     "./entry-preview": "./dist/entry-preview.js",
+    "./entry-preview-docs": "./dist/entry-preview-docs.js",
+    "./extractArgTypes": {
+      "types": "./dist/extractArgTypes.d.ts",
+      "import": "./dist/extractArgTypes.js"
+    },
     "./preview-defaults": {
       "types": "./dist/preview-defaults.d.ts",
       "import": "./dist/preview-defaults.js"

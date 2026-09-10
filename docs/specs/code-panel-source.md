@@ -50,7 +50,9 @@ Stories delegated via `parameters.renderer` render through the framework's `rend
 
 **Decision 4 — Generate from context, not from output.** Source comes from `ctx.component` + `ctx.args`. This makes the decorator order-independent and immune to the decorator-support feature (`docs/specs/decorators.md`): when `storyFn()` starts returning renderable trees, the source decorator still passes the value through untouched and the snippet still shows the undecorated component usage — which is the desired behavior (parity with `excludeDecorators` defaults elsewhere).
 
-**Decision 5 — Component name resolution order.** `component.__docgenInfo.displayName` (populated by the docgen extractor, `docs/specs/docgen.md`) → basename of `component.moduleId` without `.astro` → last segment of `ctx.title`. Import path: `moduleId` relative to `dirname(parameters.fileName)` when both are available, else `./<Name>.astro`.
+**Decision 5 — Component name resolution order.** `component.__docgenInfo.displayName` (populated by the docgen extractor, `docs/specs/docgen.md`) → basename of `component.moduleId` without `.astro` → last segment of `ctx.title`.
+
+**Decision 6 — The import is always a sibling path.** This plan originally derived the import from `moduleId` relative to `dirname(parameters.fileName)`. That cannot work: Storybook reports `parameters.fileName` **relative to the project root** (`./src/components/Card.stories.jsx`) while the stub's `moduleId` is **absolute**, so the two are in different coordinate systems. Comparing them produced imports like `'../../../../Users/…/packages/components/src/Card/astro/Card.astro'`. Even with both made absolute, a component imported across packages has no relative path worth showing — the real specifier is a bare one (`@scope/components/Card.astro`) that the story context does not carry. The snippet is a usage sample, so it emits `./<Basename>.astro` and the reader adapts it.
 
 ## Source Generation Spec
 
@@ -99,7 +101,8 @@ const author = { name: "Ada", role: "Engineer" };
 
 ### Step 2 — Source decorator and wiring
 
-- `packages/@storybook-astro/renderer/src/docs/sourceDecorator.ts`: calls `storyFn()` and returns it; inside `useEffect`, skips per the standard logic (`__isArgsStory`, `docs.source.code`, `SourceType.CODE` / forced `DYNAMIC` — import `SourceType` from `storybook/internal/docs-tools`), additionally skips stories with `parameters.renderer` set and components that aren't Astro stubs (no `moduleId` and no string/HTMLElement story); otherwise emits via `emitTransformCode`.
+- `packages/@storybook-astro/renderer/src/docs/sourceDecorator.ts`: calls `storyFn()` and returns it; inside `useEffect`, skips per the standard logic (`__isArgsStory`, `docs.source.code`, `SourceType.CODE` / forced `DYNAMIC` — import `SourceType` from `storybook/internal/docs-tools`), additionally skips **framework-delegated** stories and components that aren't Astro stubs (no `moduleId`); otherwise emits via `emitTransformCode`.
+  > A framework story is one whose `parameters.renderer` is set to something **other than `'astro'`** — not merely "set". `entry-preview.ts` gives every story `renderer: 'astro'`, so skipping on presence alone would emit nothing at all. See the note on `applyDecorators` in `renderer/src/decorators.ts`.
 - `packages/@storybook-astro/renderer/src/entry-preview-docs.ts`: `export const decorators = [sourceDecorator];`
 - `renderer/package.json`: add `./entry-preview-docs` export; `tsup.config.ts`: add the entry (runtime-only, no DTS — same treatment as `entry-preview`).
 - `renderer/src/preset.ts`: append the docs entry to `previewAnnotations` when the docs preset is enabled.
@@ -109,7 +112,7 @@ const author = { name: "Ada", role: "Engineer" };
 ### Step 3 — Integration verification
 
 - In `integration/astro6` (has `@storybook/addon-docs`): verify "Show code" on an existing autodocs page shows the generated Astro snippet and live-updates when controls change args; add one story with `parameters.docs.codePanel = true` exercising the Code Panel; one story with `parameters.docs.source.code` proving the workaround still wins.
-- Spot-check `integration/astro5` and `integration/astro6-csf4` (CSF4 annotation loading).
+- Spot-check `integration/astro5` and `integration/astro7` (Vite 8 / Rolldown resolves the new entry differently). There is no `integration/astro6-csf4` app — an earlier draft of this plan named one.
 - Confirm a React story's docs page is unchanged (no Astro snippet leakage).
 - Rebuild packages first (`yarn build:packages`) — integration apps consume `dist`.
 
