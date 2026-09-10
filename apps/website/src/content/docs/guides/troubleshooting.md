@@ -276,6 +276,23 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+### `Unknown file extension ".astro"` in Vitest
+
+**Symptom:** A test fails at module load, before any test runs:
+
+```
+TypeError: Unknown file extension ".astro" for .../astro/components/Image.astro
+```
+
+**Cause:** Your component imports `astro:assets` (e.g. `<Image>`), which
+re-exports `astro/components/Image.astro`. Vitest 4.0.x externalized `astro` in
+its SSR environment, so that `.astro` file reached Node's ESM loader
+untransformed.
+
+**Fix:** Upgrade to **Vitest 4.1.0 or newer**. `4.0.18`, the last 4.0 release,
+still reproduces it. Nothing in your Astro or Storybook Astro configuration
+affects this — it is purely the Vitest version.
+
 ### Storybook Test addon: "Vitest failed to find the current suite"
 
 **Symptom:** Running stories through `@storybook/addon-vitest` fails to collect

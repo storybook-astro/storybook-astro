@@ -21,53 +21,6 @@ A `create-storybook-astro` CLI that generates a new Astro project with Storybook
 - An example Astro component and its story file so the first `yarn storybook` renders something real
 - Optional prompts for framework integrations (React, Vue, Svelte, etc.) and TypeScript
 
-### Enhanced Testing & Portable Stories
-
-🚧 **Partially Complete**
-
-Expand testing capabilities for Astro components tested in isolation, including better support for Container API integration and DOM testing patterns.
-
-**Current Status**: Core APIs shipped, additional utilities and documentation in progress
-
-**Complexity**: Medium
-
-**Still to do**:
-- Test helper utilities for common testing patterns
-- Documentation with examples for testing composed components
-- Integration with testing libraries (Testing Library, Vitest patterns)
-- Guidance on testing both server-rendered and client-side behavior
-
-### Play Functions for Astro Components
-
-🚧 **Partial** — works under the Storybook Test addon; unverified in the canvas
-
-Play functions on Astro component stories **do** run under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest): `@testing-library/user-event` interactions and assertions resolve against the server-rendered HTML, on Astro 5, 6 and 7. The `Counter` and `Accordion` stories in the integration apps cover this.
-
-What has *not* been verified is the same story running in the Storybook UI — the canvas and the Interactions panel. Both paths go through the renderer's `renderToCanvas`, so this is likely to work already, but until someone checks it this entry stays partial rather than supported.
-
-**Complexity**: Low — most likely verification and documentation rather than new code
-
-**What this still requires**:
-- Confirming play functions execute in the dev canvas after the server-rendered HTML is injected
-- Confirming the Interactions panel steps through them
-- Handling re-renders with new args (Controls changes) between play function runs
-
-### Code Panel Source for Astro Components
-
-📋 **To Do**
-
-The Storybook Docs "Show code" / Code Panel currently falls back to displaying the raw story file source because the framework doesn't implement a `sourceDecorator`. The panel should show the Astro template syntax for the component being rendered with the story's args (e.g. `<HeroHijri imageUrl="..." />`).
-
-**Complexity**: Medium
-**Tracking**: [Issue #106 — Code Panel shows story source instead of component usage](https://github.com/storybook-astro/storybook-astro/issues/106)
-
-**What this requires**:
-- A `sourceDecorator` registered via `entry-preview.ts` that intercepts story renders and records the component + args
-- An Astro template serializer that maps `{ component, args }` to a `.astro` template string, including decisions about bare string attributes vs. `{expression}` bindings and slot handling
-- Parity with how `@storybook/react`, `@storybook/vue3`, and similar packages implement dynamic source for their template syntaxes
-
-**Workaround**: Set `parameters.docs.source.code` manually on any story where you want a specific snippet shown.
-
 ### Astro Panel Addon
 
 📋 **To Do**
@@ -139,15 +92,27 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 ## Recently Completed
 
+### Code Panel Source for Astro Components
+
+**Status**: Shipped (unreleased)
+
+Docs "Show code" and the Code Panel show the Astro template a story's args describe — `<Card title="Hello" featured>` — instead of falling back to the raw story file. The snippet regenerates on every render, so it follows Controls changes, and `parameters.docs.source.code` still overrides it.
+
+See [Showing component source](/writing-stories/controls/#showing-component-source) for the serialization rules. Framework component stories are unaffected: they render through their own framework, so no Astro snippet is generated for them.
+
+**Tracking**: [Issue #106](https://github.com/storybook-astro/storybook-astro/issues/106), [Issue #161](https://github.com/storybook-astro/storybook-astro/issues/161)
+
 ### Automatic Documentation Extraction from JSDoc
 
 **Status**: Shipped (unreleased)
 
 Component descriptions and prop documentation are extracted from JSDoc in a component's `.astro` frontmatter, so autodocs pages populate without any `argTypes` boilerplate in story files. Covers per-prop descriptions, types and defaults, select controls for literal union props, and types imported from other files (including through tsconfig `paths` aliases). Inherited DOM attributes are filtered out, while props you destructure are kept.
 
-**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110)
+On Storybook 10.6+ you can move extraction off the dev server into Storybook's Docgen Server with `features: { experimentalDocgenServer: true }`. The output is the same; the TypeScript work runs in a worker thread core owns, and static builds get per-component JSON snapshots instead of docgen inlined in the preview bundle. Storybook still marks the service experimental, so it is opt-in.
 
-**Documentation**: See [Controls & ArgTypes](/writing-stories/controls/) for the conventions and the `docgen` framework option, and the [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/docgen.md)
+**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110), [Issue #173](https://github.com/storybook-astro/storybook-astro/issues/173)
+
+**Documentation**: See [Controls & ArgTypes](/writing-stories/controls/) for the conventions, the `docgen` framework option and the Docgen Server flag, and the [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/docgen.md)
 
 ### Storybook Test Addon (`@storybook/addon-vitest`) Support
 
@@ -160,6 +125,24 @@ This was previously listed as blocked by [withastro/astro#16275](https://github.
 **Known limitation**: `@storybook/addon-vitest` resolves each `stories` entry against your `.storybook` directory, so an absolute story glob matches nothing and those stories are silently untested. Keep story globs relative — see [Story globs must be relative](/guides/testing/#story-globs-must-be-relative).
 
 **Documentation**: See the [Testing guide](/guides/testing/#storybook-test-addon-storybookaddon-vitest)
+
+### Play Functions for Astro Components
+
+**Shipped in**: 1.7.0
+
+[Play functions](https://storybook.js.org/docs/writing-stories/play-function) run on Astro component stories, on Astro 5, 6 and 7. `@testing-library/user-event` interactions and assertions resolve against the server-rendered HTML, and the Interactions panel lists each step with its pass/fail state and the usual step-through controls. The `Counter` and `Accordion` stories in the integration apps cover this.
+
+This has worked in the dev canvas since 1.7.0. Running the same play functions headlessly under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) arrived later, in 1.11.0.
+
+**One difference from framework components**: changing a Control after a play function has run re-renders the story from fresh server HTML, which discards whatever the play function did to the DOM. A React component keeps that state, because React reconciles the existing tree. Neither re-runs the play function on an args change — that part matches Storybook's normal behaviour — so after changing a Control the Interactions panel shows a result that no longer describes what is on screen. Re-select the story to run it again.
+
+### Enhanced Testing & Portable Stories
+
+**Status**: Complete — the APIs shipped across earlier releases; the remaining work was documentation, which is now live
+
+Testing helpers — `composeStories`, `composeStory`, `setProjectAnnotations`, `renderStory`, `renderAstroStory`, and `defineConfig` from `@storybook-astro/framework/vitest` — cover composing and rendering stories outside Storybook. `@testing-library/dom` queries resolve against the server-rendered output, and [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) runs stories as real browser tests (1.11.0).
+
+The [Testing guide](/guides/testing/) documents both halves: [choosing between the two approaches](/guides/testing/#choosing-an-approach) — portable stories for fast assertions on server-rendered output, the test addon when a test needs real interaction — and [testing composed components](/guides/testing/#testing-composed-components), covering slots, children with their own props and slots, components passed as props, and decorators.
 
 ### Decorator Support
 
@@ -236,6 +219,7 @@ Components whose templates use other Astro components (transitively) render corr
 - **Client-side behavior** of Astro components requires end-to-end tests (Playwright, Cypress) as the Container API doesn't execute script tags
 - **Circular component references** are not yet detected or prevented when passing components as props
 - **Module hot-reloading** with nested component references may require manual refresh in some cases
+- **Function args are not supported for Astro component stories** — args are serialized over Vite HMR to the server-side Container, so function values (callbacks, render functions) cannot be passed. Astro components rarely need function props, but if yours does, consider wrapping the logic server-side or delegating to a framework component.
 
 ## Feature Support
 
@@ -291,12 +275,12 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Measure & Outline | ✅ Supported | Visual debugging tools for spacing and layout |
 | Component Description | 🚧 Manual | Component descriptions must be set manually via `parameters.docs.description.component` (automatic extraction from JSDoc planned) |
 | ArgTypes Documentation | ✅ Supported | Descriptions, types and defaults are extracted from `.astro` frontmatter JSDoc; `argTypes[].description` still overrides. See [Controls & ArgTypes](/writing-stories/controls/) |
-| Source Code Display | 🚧 Partial | Shows story file source; doesn't generate component usage syntax (e.g. `<Component prop="value" />`). See roadmap item above |
+| Source Code Display | ✅ Supported | Docs "Show code" and the Code Panel show generated Astro usage (e.g. `<Component prop="value" />`) that follows Controls changes. See [Showing component source](/writing-stories/controls/#showing-component-source) |
 | Decorators | ✅ Supported | Wrapper components/HTML for stories, in global/component/story positions. See [Decorators guide](/writing-stories/decorators/) and [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/decorators.md) |
 | Portable Stories | ✅ Supported | `composeStories`, `composeStory`, `setProjectAnnotations` for testing |
 | Portable Stories Testing (Vitest) | ✅ Supported | Test stories with `@storybook-astro/framework/testing`'s `composeStories`/`renderStory` and Vitest, outside Storybook |
 | Storybook Test Addon (`@storybook/addon-vitest`) | ✅ Supported | Runs stories as Vitest browser tests on Astro 5, 6 and 7. See the [Testing guide](/guides/testing/) |
-| Play Functions | 🚧 Partial | Supported for framework components. Astro components: verified under the Storybook Test addon, unverified in the canvas — see roadmap item above |
+| Play Functions | ✅ Supported | Works for both framework and Astro component stories, in the dev canvas and under the Storybook Test addon. One caveat on args changes — see roadmap item above |
 | Interactions Panel | ✅ Supported | Debug play function interactions |
 | Accessibility Addon | ✅ Supported | Automated accessibility testing with a11y addon |
 | Theming | ✅ Supported | Storybook UI theming and customization |

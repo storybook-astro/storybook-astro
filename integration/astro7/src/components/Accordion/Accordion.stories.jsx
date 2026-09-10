@@ -73,3 +73,24 @@ export const ToggleMultiple = {
     await expect(second).toHaveAttribute('aria-expanded', 'true');
   },
 };
+
+// A richer Code Panel case than Card: `items` is an array of objects, so it is
+// hoisted into a frontmatter `const`, and `allowMultiple` renders as a bare
+// boolean attribute (docs/specs/code-panel-source.md#source-generation-spec).
+export const CodePanel = {
+  parameters: {
+    docs: {
+      codePanel: true,
+      description: {
+        story: 'Shows object hoisting and a bare boolean attribute in the generated snippet.',
+      },
+    },
+  },
+  args: {
+    allowMultiple: true,
+    items: [
+      { title: 'Shipping', content: 'Ships within two business days.' },
+      { title: 'Returns', content: 'Free returns for thirty days.' },
+    ],
+  },
+};
