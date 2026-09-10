@@ -38,12 +38,12 @@ The **Docgen Server** ([RFC](https://github.com/storybookjs/storybook/discussion
 
 | | Legacy | Docgen Server |
 |---|---|---|
-| Storybook floor | all of `^10.0.0` | 10.5+, and opt-in per project |
+| Storybook floor | all of `^10.0.0` | 10.6+, and opt-in per project |
 | Runs on | dev-server main thread, in a Vite `transform` | Node worker thread, off the critical path |
 | Static builds | inlined in the bundle | JSON snapshots written by core |
 | Stability | stable since SB 6 | experimental; payload may change before SB 11 |
 
-Only React ships a provider in 10.5; Vue 3 and Angular added theirs during 10.6-alpha.
+Only React ships a provider in 10.5; Vue 3 and Angular added theirs during 10.6-alpha. Our provider needs 10.6 too, for the two helpers it is built on — 10.5 has the types and the preset key but not the ergonomics.
 
 ### What we have
 
@@ -213,12 +213,19 @@ Add `typescript` as an optional peer dependency and to `tsup.config.ts` `externa
 
 ### Step 3 — Docgen Server provider
 
-- `src/docgen/docgen-worker.ts` exporting `createDocgenProvider()`, satisfying `DocgenWorkerModule`. Resolve `meta.component` from the index entry's story file back to a `.astro` path, run the extractor, return a `DocgenPayload`. Merge with downstream by spread and `??`, per the contract in Storybook's own `docgen/types.ts`.
-- Component resolution uses `storybook/internal/csf-tools`. `createMetaComponentResolver` is a 10.6 addition and absent in 10.5.2, so feature-detect it.
-- `src/preset.ts` exports `experimental_docgenProvider`, returning a descriptor only when the feature flag is set.
-- Add `./docgen-worker` to the package exports and `tsup.config.ts` — core imports the descriptor's module specifier by absolute path, so it must be separately emitted.
+Shipped against Storybook 10.6, which is where `createLazyDocgenMiddleware` and `createMetaComponentResolver` became available (see [Issue #173](https://github.com/storybook-astro/storybook-astro/issues/173) for why it waited).
 
-**Exit criteria**: with `features.experimentalDocgenServer` enabled in one integration app, the props table matches the legacy path's output, and the Vite plugin no longer injects.
+- `src/docgen/docgen-worker.ts` exports `createDocgenProvider()`, satisfying `DocgenWorkerModule`. It is a thin lifetime wrapper: `createLazyDocgenMiddleware` builds the extractor on the first eligible request and memoizes it, and returning `undefined` from `extract` delegates downstream. The merge convention in Storybook's `docgen/types.ts` is that helper's job, not ours.
+- `src/docgen/docgen-payload.ts` turns one index entry into a `DocgenPayload`: resolve `meta.component` back to a file with `createMetaComponentResolver({ extensions: ['.astro'] })`, run the extractor, convert with the renderer's `extractArgTypes`, and resolve the description through `extractComponentDescription` so the CSF meta docblock wins the same way it does for every other framework's provider.
+- `src/preset.ts` exports `experimental_docgenProvider`, returning a descriptor only when the feature flag is set.
+- `./docgen-worker` is in the package exports and `tsup.config.ts` — core imports the descriptor's module specifier by absolute path, so it has to be separately emitted.
+- `./extractArgTypes` is a new renderer export. The conversion is shared with the legacy path rather than reimplemented, which is what makes the two paths produce byte-identical tables.
+
+Two things are deliberately *not* claimed. A component whose `meta.component` does not resolve to a `.astro` file is passed downstream — a React or Vue story reached through an integration belongs to that renderer's provider. So is a story with no readable `meta.component` at all, which is ambiguous enough to belong to someone else. The one failure claimed on `DocgenPayload.error` is a story file that will not parse, because that leaves the author with a blank page and nothing to go on.
+
+`usesDocgenService` in `src/preset.ts` is the single gate: it feature-detects the two 10.6 helpers, so on a 10.0–10.5 Storybook the flag is accepted but extraction stays in the builder with a note. Both the descriptor and `createDocgenIfEnabled` read it, which is what keeps the paths mutually exclusive — the flag alone would disable the plugin on a Storybook that then cannot load the worker, leaving no docgen at all.
+
+**Exit criteria** (met): with `features.experimentalDocgenServer` enabled in `integration/astro6`, the props table matches the legacy path's output — verified on the polymorphic `Button`, where both paths render the same enum controls and defaults — and the Vite plugin no longer injects.
 
 ### Step 4 — Integration components and stories
 
@@ -254,4 +261,6 @@ Two components make good first tests. `PageCard.astro` is the only one with both
 - **`node_modules` changes need a restart.** Vite's watcher ignores `node_modules`, so installing or upgrading a package that contributes types will not invalidate the language service.
 - **Untyped components get no props.** A component that destructures `Astro.props` without declaring `Props` yields a description and an empty table; inferring props from the destructuring pattern alone would type every one of them `any`.
 - **One extraction engine at a time.** Enabling `experimentalDocgenServer` disables the Vite-plugin path rather than merging the two.
+- **`propFilter` is builder-only.** A descriptor's `options` are structured-cloned onto the worker thread, and a function throws at `postMessage`. A project that needs a custom filter stays on the builder path; setting both warns.
+- **The Docgen Server needs Storybook 10.6.** Our peer range starts at 10.0, so the flag is feature-detected rather than assumed: on 10.0–10.5 extraction stays in the builder and says why.
 - **Framework component stories** (`parameters.renderer`) are untouched — their docgen belongs to the delegated renderer, which our framework does not load.
