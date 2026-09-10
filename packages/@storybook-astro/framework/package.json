@@ -47,6 +47,10 @@
       "types": "./dist/node/index.d.ts",
       "import": "./dist/node/index.js"
     },
+    "./docgen-worker": {
+      "types": "./dist/docgen/docgen-worker.d.ts",
+      "import": "./dist/docgen/docgen-worker.js"
+    },
     "./preset": {
       "types": "./dist/preset.d.ts",
       "import": "./dist/preset.js"

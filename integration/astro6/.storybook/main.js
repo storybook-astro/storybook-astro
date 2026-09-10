@@ -23,6 +23,13 @@ const config = {
     getAbsolutePath('@storybook/addon-docs'),
     getAbsolutePath('@storybook/addon-vitest')
   ],
+  features: {
+    // Move JSDoc/props extraction off the dev server into Storybook's docgen
+    // worker. Experimental and opt-in upstream; astro6 carries it so the
+    // provider stays exercised, while astro5 and astro7 keep covering the
+    // builder path (docs/specs/docgen.md#design-decisions).
+    experimentalDocgenServer: true
+  },
   framework: {
     name: '@storybook-astro/framework',
     options: {

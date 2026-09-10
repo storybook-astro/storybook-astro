@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- JSDoc/props extraction can now run in Storybook's Docgen Server instead of the Vite plugin (#173). Set `features: { experimentalDocgenServer: true }` in `.storybook/main.*` and extraction moves into the long-lived worker thread Storybook core owns, off the dev server's critical path, with per-component JSON snapshots under `services/core/docgen/` in static builds. The props table is identical either way — it is the same extractor and the same argTypes conversion, just running elsewhere. Requires Storybook 10.6+; on 10.0–10.5 the flag is accepted but extraction stays in the builder and logs why. `docgen.propFilter` is not available on this path, because a descriptor's options are structured-cloned across the thread boundary and a function cannot be.
 - Docs "Show code" and the Code Panel now show the Astro template a story's args describe — `<Card title="Hello" featured>` — instead of falling back to the raw story file (#106, #161). The snippet regenerates on every render, so it follows Controls changes, and a manual `parameters.docs.source.code` still overrides it. Framework component stories are unaffected. The generator is shipped as a docs-only preview annotation, so projects without `@storybook/addon-docs` don't load it. See [Showing component source](https://storybook-astro.org/writing-stories/controls/#showing-component-source) for the serialization rules.
 
 ## [1.11.0] - 2026-08-27
