@@ -8,6 +8,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-09-10
+
+### Added
+- JSDoc/props extraction can now run in Storybook's Docgen Server instead of the Vite plugin (#173). Set `features: { experimentalDocgenServer: true }` in `.storybook/main.*` to move extraction into the long-lived worker thread Storybook core owns, off the dev server's critical path. Requires Storybook 10.6+.
+- Docs "Show code" and the Code Panel now show the Astro template a story's args describe, instead of falling back to the raw story file (#106, #161). The snippet regenerates on every render, so it follows Controls changes.
+
+### Fixed
+- Importing a story whose component uses `astro:assets` failed at module load with `TypeError: Unknown file extension ".astro"` on Vitest below 4.1.0 (#117). `vitest` is now declared as an optional peer dependency (`^4.1.0`).
+
 ## [1.11.0] - 2026-08-27
 
 ### Added
