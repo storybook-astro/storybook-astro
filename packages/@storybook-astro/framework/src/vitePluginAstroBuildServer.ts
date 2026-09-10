@@ -18,6 +18,7 @@ import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderers
 import { sanitizeConfigPlugin } from './vite/sanitizeConfigPlugin.ts';
 import { serverAuthPlugin } from './vite/serverAuthPlugin.ts';
 import { serverRuntimePlugin } from './vite/serverRuntimePlugin.ts';
+import { storyRulesPlugin } from './vite/storyRulesPlugin.ts';
 
 const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '.');
 // packageRoot works regardless of whether this file is running from src/ or dist/
@@ -90,17 +91,22 @@ export function vitePluginAstroBuildServer(
         resolveFrom,
         outDir: storybookStaticOutDir
       });
-      const staticModuleMap = addSnapshotModuleAliases(
-        {
-          ...trackedModuleMap,
-          ...hydratedComponentAssets.staticModuleMap
-        },
-        {
-          resolveFrom,
-          snapshotRoot: resolve(serverOutDir, snapshotDirName),
-          snapshotDirName
-        }
-      );
+      const combinedModuleMap = {
+        ...trackedModuleMap,
+        ...hydratedComponentAssets.staticModuleMap
+      };
+      const staticModuleMap = addSnapshotModuleAliases(combinedModuleMap, {
+        resolveFrom,
+        snapshotRoot: resolve(serverOutDir, snapshotDirName),
+        snapshotDirName
+      });
+      // Snapshot paths keyed relative to the server bundle: the absolute
+      // aliases above bake in the build machine's paths, which never match
+      // the deploy host's filesystem (e.g. /var/task on Vercel).
+      const snapshotModuleAliasMap = buildSnapshotModuleAliasMap(combinedModuleMap, {
+        resolveFrom,
+        snapshotDirName
+      });
       const staticCssMap = hydratedComponentAssets.staticCssMap;
 
       await buildAstroServer({
@@ -112,6 +118,7 @@ export function vitePluginAstroBuildServer(
         snapshotDirName,
         componentPathMap,
         staticModuleMap,
+        snapshotModuleAliasMap,
         staticCssMap,
         trackedSpecifiers: Array.from(trackedSpecifiers),
         resolveFrom
@@ -138,6 +145,7 @@ async function buildAstroServer(options: {
   snapshotDirName: string;
   componentPathMap: Record<string, string>;
   staticModuleMap: Record<string, string>;
+  snapshotModuleAliasMap: Record<string, string>;
   staticCssMap: Record<string, string[]>;
   trackedSpecifiers: string[];
   resolveFrom: string;
@@ -161,6 +169,10 @@ async function buildAstroServer(options: {
     plugins: [
       sanitizeConfigPlugin(options.sanitization),
       serverAuthPlugin(options.server),
+      // Compile the story-rules module into the server bundle: deployed
+      // hosts (e.g. Vercel) transpile or drop the snapshot's .ts sources,
+      // so runtime loading of the copied rules file is not reliable.
+      storyRulesPlugin(options.storyRules, options.resolveFrom),
       serverRuntimePlugin({
         integrations: options.integrations,
         storyRules: options.storyRules,
@@ -168,6 +180,7 @@ async function buildAstroServer(options: {
         snapshotDirName: options.snapshotDirName,
         componentPathMap: options.componentPathMap,
         staticModuleMap: options.staticModuleMap,
+        snapshotModuleAliasMap: options.snapshotModuleAliasMap,
         staticCssMap: options.staticCssMap,
         trackedSpecifiers: options.trackedSpecifiers
       }),
@@ -223,6 +236,27 @@ async function collectAstroStories(outDir: string, resolveFrom: string) {
         : entry.componentPath
     }))
     .filter((entry): entry is { componentPath: string } => Boolean(entry.componentPath));
+}
+
+function buildSnapshotModuleAliasMap(
+  staticModuleMap: Record<string, string>,
+  options: {
+    resolveFrom: string;
+    snapshotDirName: string;
+  }
+) {
+  const aliasMap: Record<string, string> = {};
+
+  for (const [sourcePath, builtPath] of Object.entries(staticModuleMap)) {
+    if (!sourcePath.startsWith('/')) {
+      continue;
+    }
+
+    aliasMap[buildSnapshotFilePath(options.resolveFrom, sourcePath, options.snapshotDirName)] =
+      builtPath;
+  }
+
+  return aliasMap;
 }
 
 function addSnapshotModuleAliases(

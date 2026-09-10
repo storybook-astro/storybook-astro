@@ -13,6 +13,9 @@ import {
   rewriteBuiltModulePaths
 } from '../lib/staticHtmlRewriting.ts';
 import sanitization from 'virtual:storybook-astro/sanitize-config';
+import storyRulesConfigModule, {
+  storybookAstroStoryRulesConfigFilePath
+} from 'virtual:storybook-astro/story-rules';
 import {
   storybookAstroServerAuthHeader,
   storybookAstroServerAuthToken
@@ -23,6 +26,7 @@ import {
 } from 'virtual:storybook-astro/server-runtime';
 
 const app = new Hono();
+const staticModuleMap = resolveStaticModuleMap();
 const renderAstroStoryPromise = createAstroStoryRenderer();
 
 app.use(
@@ -66,14 +70,31 @@ app.post('/render', async (context) => {
   // The server runtime renders against source modules, then rewrites the HTML
   // so the browser only sees built asset URLs and matching stylesheets.
   return context.text(
-    addStaticStylesheets(rewriteBuiltModulePaths(html, runtimeConfig.staticModuleMap), {
-      staticModuleMap: runtimeConfig.staticModuleMap,
+    addStaticStylesheets(rewriteBuiltModulePaths(html, staticModuleMap), {
+      staticModuleMap,
       staticCssMap: runtimeConfig.staticCssMap
     })
   );
 });
 
 export default app;
+
+/** Combines the build-time module map with snapshot aliases resolved against
+ * THIS host's filesystem — the build machine's absolute snapshot paths never
+ * match the deploy host (e.g. /var/task on Vercel), so rendered island URLs
+ * would otherwise keep unrewritten snapshot prefixes. */
+function resolveStaticModuleMap() {
+  const serverRootDir = dirname(fileURLToPath(import.meta.url));
+  const resolvedMap: Record<string, string> = { ...runtimeConfig.staticModuleMap };
+
+  for (const [snapshotRelativePath, builtPath] of Object.entries(
+    runtimeConfig.snapshotModuleAliasMap ?? {}
+  )) {
+    resolvedMap[resolve(serverRootDir, snapshotRelativePath).replace(/\\/g, '/')] = builtPath;
+  }
+
+  return resolvedMap;
+}
 
 /** Creates the server-mode Astro story renderer from the shared production runtime. */
 async function createAstroStoryRenderer() {
@@ -88,7 +109,13 @@ async function createAstroStoryRenderer() {
     integrations,
     sanitization: sanitization ?? undefined,
     storyRulesConfigFilePath,
-    staticModuleMap: runtimeConfig.staticModuleMap,
+    // The rules module is compiled into this bundle at build time — loading
+    // the snapshot's .ts copy at runtime breaks on hosts that transpile or
+    // drop TypeScript sources from the deployed bundle (Vercel does both).
+    preloadedRulesConfigModule: storybookAstroStoryRulesConfigFilePath
+      ? storyRulesConfigModule
+      : undefined,
+    staticModuleMap,
     trackedSpecifiers: new Set(runtimeConfig.trackedSpecifiers),
     resolveFrom: snapshotRoot,
     resolveComponentId: (componentId: string) =>

@@ -2,7 +2,11 @@
   "extends": "astro/tsconfigs/strict",
   "exclude": ["dist", "storybook-static", "storybook-server"],
   "compilerOptions": {
-    "types": []
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["src/*"]
+    }
   },
   "include": [".astro/types.d.ts", "./src/**/*", "./.storybook/**/*", "./api/**/*"]
 }

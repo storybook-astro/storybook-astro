@@ -139,7 +139,9 @@ export default {
 Optional string that determines how Astro components are rendered in production builds (`storybook build`). Defaults to **`'static'`**.
 
 - **`'static'`** (default) — Pre-renders all Astro component stories at build time. The fastest option for serving static builds, but Controls are disabled for Astro components since they can't be re-rendered with different args. **Recommended for pure static hosting** (GitHub Pages, Netlify static, Cloudflare Pages, S3, etc.). Works everywhere with no server requirements.
-- **`'server'`** — Enables an HTTP render server that processes render requests on-demand. Controls remain fully functional for Astro components in production, but requires a deployment environment that can run the render server with full Node.js APIs (Vercel, Netlify Functions, custom Node.js servers). Not compatible with pure static hosts or edge runtimes with limited Node.js support.
+- **`'server'`** — Enables an HTTP render server that processes render requests on-demand. Controls remain fully functional for Astro components in production. Confirmed working on Vercel (Node serverless functions) and on any Node.js server or container (Docker, Fly.io, Railway, Render, a VPS). Not compatible with Cloudflare Workers/Pages Functions or other edge runtimes without a real filesystem and Node APIs — see [Deployment](/guides/deployment/) for the full platform support matrix and setup steps.
+
+See [Deployment](/guides/deployment/) for how to host each mode in production.
 
 ```javascript
 // Default (static mode) - no configuration needed
@@ -170,9 +172,9 @@ Development mode (`storybook dev`) always uses the HMR-based renderer regardless
 
 #### `server`
 
-Configuration for the server-mode render endpoint. Only applies when `renderMode: 'server'`.
+Configuration for the server-mode render endpoint. Only applies when `renderMode: 'server'`. See [Deployment](/guides/deployment/) for full setup walkthroughs.
 
-- **`serverUrl`** — Optional URL where the render server is accessible. Defaults to `'http://localhost:3000'` (development) or can be set to a relative path like `'/api/storybook-astro'` (production with Cloudflare Pages Functions).
+- **`serverUrl`** — Optional URL where the render server is accessible. Defaults to `'http://localhost:3000'` (development). In production, set this to a relative path like `'/api/storybook-astro'` for same-origin deployments — the Storybook UI and the render server served from the same origin, either a Vercel serverless function or a Node server mounting the render app alongside the static build.
 - **`authToken`** — Optional authentication token sent with render requests.
 - **`authHeader`** — Optional HTTP header name for the auth token. Defaults to `'authorization'`.
 

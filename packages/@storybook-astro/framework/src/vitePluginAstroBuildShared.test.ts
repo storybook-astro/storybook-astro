@@ -1,8 +1,8 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { collectHydratedComponentPaths } from './vitePluginAstroBuildShared.ts';
+import { collectHydratedComponentPaths, copyRuntimeSnapshot } from './vitePluginAstroBuildShared.ts';
 
 describe('collectHydratedComponentPaths', () => {
   let tmpDir: string;
@@ -146,5 +146,149 @@ describe('collectHydratedComponentPaths', () => {
     const result = await collectHydratedComponentPaths(join(tmpDir, 'Island.astro'), tmpDir);
 
     expect(result).toContain(counterFile.replace(/\\/g, '/'));
+  });
+});
+
+describe('copyRuntimeSnapshot', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'storybook-astro-snapshot-test-'));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  function snapshotOptions(astroComponents: string[]) {
+    return {
+      resolveFrom: join(tmpDir, 'repo'),
+      snapshotRoot: join(tmpDir, 'storybook-server', 'project'),
+      snapshotDirName: 'project',
+      astroComponents
+    };
+  }
+
+  async function writeRepoFile(relativePath: string, content: string) {
+    const filePath = join(tmpDir, 'repo', relativePath);
+
+    await mkdir(join(filePath, '..'), { recursive: true });
+    await writeFile(filePath, content);
+
+    return filePath;
+  }
+
+  test('copies files reached only through tsconfig path aliases (issue #136)', async () => {
+    await writeRepoFile(
+      'tsconfig.json',
+      JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '~/*': ['src/*'] } } })
+    );
+    await writeRepoFile('src/styles/tokens.ts', `export const brand = '#5b3df5';`);
+    await writeRepoFile(
+      'src/components/Inner.astro',
+      `---\nimport { brand } from '~/styles/tokens';\n---\n<span>inner</span>`
+    );
+    const outer = await writeRepoFile(
+      'src/components/Outer.astro',
+      `---\nimport { brand } from '~/styles/tokens';\nimport Inner from './Inner.astro';\n---\n<div><Inner /></div>`
+    );
+
+    await copyRuntimeSnapshot(snapshotOptions([outer]));
+
+    const snapshot = join(tmpDir, 'storybook-server', 'project');
+
+    await expect(stat(join(snapshot, 'src/components/Outer.astro'))).resolves.toBeTruthy();
+    await expect(stat(join(snapshot, 'src/components/Inner.astro'))).resolves.toBeTruthy();
+    await expect(stat(join(snapshot, 'src/styles/tokens.ts'))).resolves.toBeTruthy();
+  });
+
+  test('follows aliased imports transitively', async () => {
+    await writeRepoFile(
+      'tsconfig.json',
+      JSON.stringify({ compilerOptions: { paths: { '~/*': ['src/*'] } } })
+    );
+    await writeRepoFile('src/styles/palette.ts', `export const palette = {};`);
+    await writeRepoFile(
+      'src/styles/tokens.ts',
+      `import { palette } from '~/styles/palette';\nexport const brand = palette;`
+    );
+    const component = await writeRepoFile(
+      'src/Card.astro',
+      `---\nimport { brand } from '~/styles/tokens';\n---\n<div />`
+    );
+
+    await copyRuntimeSnapshot(snapshotOptions([component]));
+
+    const snapshot = join(tmpDir, 'storybook-server', 'project');
+
+    await expect(stat(join(snapshot, 'src/styles/tokens.ts'))).resolves.toBeTruthy();
+    await expect(stat(join(snapshot, 'src/styles/palette.ts'))).resolves.toBeTruthy();
+  });
+
+  test('copies out-of-root alias targets under __external', async () => {
+    await writeRepoFile(
+      'tsconfig.json',
+      JSON.stringify({ compilerOptions: { paths: { '~shared/*': ['../shared/*'] } } })
+    );
+
+    const sharedFile = join(tmpDir, 'shared', 'colors.ts');
+
+    await mkdir(join(tmpDir, 'shared'), { recursive: true });
+    await writeFile(sharedFile, `export const red = 'red';`);
+
+    const component = await writeRepoFile(
+      'src/Badge.astro',
+      `---\nimport { red } from '~shared/colors';\n---\n<div />`
+    );
+
+    await copyRuntimeSnapshot(snapshotOptions([component]));
+
+    const externalCopy = join(
+      tmpDir,
+      'storybook-server',
+      'project',
+      '__external',
+      sharedFile.replace(/^[/\\]+/, '')
+    );
+
+    await expect(stat(externalCopy)).resolves.toBeTruthy();
+  });
+
+  test('copies local tsconfig extends targets', async () => {
+    await writeRepoFile(
+      'tsconfig.json',
+      JSON.stringify({ extends: './tsconfig.paths.json', compilerOptions: {} })
+    );
+    await writeRepoFile(
+      'tsconfig.paths.json',
+      JSON.stringify({ compilerOptions: { paths: { '~/*': ['src/*'] } } })
+    );
+    const component = await writeRepoFile('src/Plain.astro', `<div />`);
+
+    await copyRuntimeSnapshot(snapshotOptions([component]));
+
+    const snapshot = join(tmpDir, 'storybook-server', 'project');
+
+    await expect(stat(join(snapshot, 'tsconfig.paths.json'))).resolves.toBeTruthy();
+  });
+
+  test('leaves bare package imports external', async () => {
+    await writeRepoFile(
+      'tsconfig.json',
+      JSON.stringify({ compilerOptions: { paths: { '~/*': ['src/*'] } } })
+    );
+    const component = await writeRepoFile(
+      'src/WithPackage.astro',
+      `---\nimport { render } from 'preact-render-to-string';\n---\n<div />`
+    );
+
+    await copyRuntimeSnapshot(snapshotOptions([component]));
+
+    const snapshot = join(tmpDir, 'storybook-server', 'project');
+
+    await expect(stat(join(snapshot, 'src/WithPackage.astro'))).resolves.toBeTruthy();
+    await expect(
+      stat(join(snapshot, '__external'))
+    ).rejects.toThrow();
   });
 });

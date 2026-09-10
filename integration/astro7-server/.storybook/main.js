@@ -1,6 +1,6 @@
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { preact } from '@storybook-astro/framework/integrations';
+import { react, solid, preact, vue, svelte, alpinejs } from '@storybook-astro/framework/integrations';
 
 const componentsRoot = getAbsolutePath('@storybook-astro/components');
 
@@ -8,13 +8,23 @@ const componentsRoot = getAbsolutePath('@storybook-astro/components');
 const config = {
   stories: [
     '../src/stories/Overview.mdx',
-    `${componentsRoot}/src/NpmWeeklyDownloads/astro/NpmWeeklyDownloads.stories.js`,
-    `${componentsRoot}/src/GithubContributors/astro/GithubContributors.stories.js`,
-    `${componentsRoot}/src/GithubStars/astro/GithubStars.stories.js`,
-    // Component-level Astro decorator (docs/specs/decorators.md#server-snapshot):
-    // Wrapper.astro is only ever referenced from this story file, so it also
-    // exercises the server-mode snapshot picking up a decorator-only component.
-    `${componentsRoot}/src/Decorator/Decorator.stories.jsx`
+    // Regression fixture for issue #136 — tsconfig `~/*` aliases in server mode.
+    '../src/stories/aliased/AliasedOuter.stories.js',
+    // App-local Astro-variant stories for components whose "astro" story only
+    // lives here, not in @storybook-astro/components (Accordion, Card,
+    // CodeTabs, Counter, Footer, Header, ImageText, PageCard, plus the
+    // local-only DateStamp and SlotBox components). FontDemo and PublicImage
+    // are intentionally not copied here — see src/components/ for why.
+    '../src/components/**/*.stories.@(js|jsx|mjs|ts|tsx)',
+    // Pulls in the alpine/preact/react/solid/svelte/vue framework variants for
+    // Accordion and Counter, the Decorator suite, Nesting, and the three
+    // server-work Astro components (NpmWeeklyDownloads, GithubContributors,
+    // GithubStars) — mirrors astro7's own componentsRoot globs. The Decorator
+    // suite matters here beyond coverage: Wrapper.astro is only ever referenced
+    // from its story file, so it exercises the server-mode snapshot picking up
+    // a decorator-only component (docs/specs/decorators.md#server-snapshot).
+    `${componentsRoot}/src/*.mdx`,
+    `${componentsRoot}/src/**/*.stories.@(js|jsx|mjs|ts|tsx)`
   ],
   addons: [getAbsolutePath('@storybook/addon-docs')],
   framework: {
@@ -28,8 +38,19 @@ const config = {
         authHeader: process.env.STORYBOOK_ASTRO_SERVER_AUTH_HEADER
       },
       integrations: [
+        react({
+          include: ['**/react/**']
+        }),
+        solid({
+          include: ['**/solid/**']
+        }),
         preact({
           include: ['**/preact/**']
+        }),
+        vue(),
+        svelte(),
+        alpinejs({
+          entrypoint: './.storybook/alpine-entrypoint.js'
         })
       ]
     }
