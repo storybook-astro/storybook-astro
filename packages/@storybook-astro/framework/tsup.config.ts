@@ -8,6 +8,8 @@ export default defineConfig({
     'src/testing.ts',
     'src/vitest/index.ts',
     'src/integrations/index.ts',
+    // Its own entry because core's docgen worker imports it by absolute path.
+    'src/docgen/docgen-worker.ts',
     'src/renderer/renderer-dev.ts',
     'src/renderer/renderer-static.ts',
     'src/renderer/renderer-server.ts',
@@ -26,6 +28,7 @@ export default defineConfig({
       'src/testing.ts',
       'src/vitest/index.ts',
       'src/integrations/index.ts',
+      'src/docgen/docgen-worker.ts',
     ],
   },
   sourcemap: true,

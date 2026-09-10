@@ -1,6 +1,8 @@
 import { dirname } from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { version as viteVersion } from 'vite';
+import type { DocgenProviderDescriptor, Options } from 'storybook/internal/types';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
@@ -349,12 +351,109 @@ function mergeEnvPrefixes(
 }
 
 /**
+ * Contributes the Docgen Server provider — a module specifier pointing at
+ * `src/docgen/docgen-worker.ts`, which core's worker imports and composes into
+ * its provider chain.
+ *
+ * Only when the user opted into `features.experimentalDocgenServer`. Otherwise
+ * extraction stays in the Vite plugin, which covers our whole `storybook:
+ * ^10.0.0` peer range (docs/specs/docgen.md#design-decisions).
+ */
+// eslint-disable-next-line camelcase -- the preset key Storybook core reads.
+export const experimental_docgenProvider = async (
+  existing: DocgenProviderDescriptor[] = [],
+  storybookOptions: Options
+): Promise<DocgenProviderDescriptor[]> => {
+  if (!(await usesDocgenService(storybookOptions))) {
+    return existing;
+  }
+
+  // Test builds skip docgen on the builder path too: it costs a type check per
+  // component and nothing in a test build renders a props table.
+  if (storybookOptions.build?.test?.disableDocgen) {
+    return existing;
+  }
+
+  const frameworkOptions =
+    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+
+  if (frameworkOptions.docgen === false) {
+    return existing;
+  }
+
+  if (frameworkOptions.docgen?.propFilter) {
+    console.warn(
+      '[storybook-astro] The `docgen.propFilter` option is ignored when `features.experimentalDocgenServer` is enabled: a filter is a function, and the Docgen Server hands its provider plain data across a worker boundary. Turn the feature off to keep your filter.'
+    );
+  }
+
+  return [
+    ...existing,
+    {
+      moduleSpecifier: fileURLToPath(
+        import.meta.resolve('@storybook-astro/framework/docgen-worker')
+      ),
+      options: {
+        projectRoot: frameworkOptions.resolveFrom ?? dirname(storybookOptions.configDir),
+        tsconfigPath: frameworkOptions.docgen?.tsconfigPath
+      }
+    }
+  ];
+};
+
+/**
+ * Whether the Docgen Server owns extraction instead of the Vite plugin.
+ *
+ * Two things have to line up. The user has to opt into Storybook's experimental
+ * docgen service, and their Storybook has to actually ship the provider helpers
+ * the worker is built on — those landed in 10.6, while our peer range goes back
+ * to 10.0. On an older Storybook we say so and stay on the builder path, which
+ * produces the same table.
+ *
+ * Both callers below go through this so the two paths can never both run: a
+ * worker thread has its own module registry, so enabling both would pay the
+ * TypeScript warm-up twice for identical output.
+ */
+async function usesDocgenService(storybookOptions: Options): Promise<boolean> {
+  const features = await storybookOptions.presets.apply('features', {});
+
+  if (features?.experimentalDocgenServer !== true) {
+    return false;
+  }
+
+  const common = (await import('storybook/internal/common')) as Record<string, unknown>;
+  const supported =
+    typeof common.createLazyDocgenMiddleware === 'function' &&
+    typeof common.createMetaComponentResolver === 'function';
+
+  if (!supported) {
+    warnOnce(
+      '`features.experimentalDocgenServer` needs Storybook 10.6 or newer. Component documentation is still being extracted — in the builder, as it was before — so your props tables are unaffected. Upgrade Storybook to move extraction off the dev server.'
+    );
+  }
+
+  return supported;
+}
+
+const warned = new Set<string>();
+
+function warnOnce(message: string) {
+  if (warned.has(message)) {
+    return;
+  }
+
+  warned.add(message);
+  console.warn(`[storybook-astro] ${message}`);
+}
+
+/**
  * Builds the docgen runtime for the props table and description autodocs shows,
  * or returns undefined when extraction shouldn't run at all.
  *
- * Skipped when the user opted out, when the docs addon isn't installed (nothing
- * would render the output), and when Storybook is building for tests — docgen
- * costs a type check per component and none of those need it.
+ * Skipped when the user opted out, when the Docgen Server is handling
+ * extraction instead, when the docs addon isn't installed (nothing would render
+ * the output), and when Storybook is building for tests — docgen costs a type
+ * check per component and none of those need it.
  */
 async function createDocgenIfEnabled(
   options: FrameworkOptions,
@@ -362,6 +461,10 @@ async function createDocgenIfEnabled(
   storybookOptions: Parameters<NonNullable<StorybookConfigVite['viteFinal']>>[1]
 ) {
   if (options.docgen === false || storybookOptions.build?.test?.disableDocgen) {
+    return undefined;
+  }
+
+  if (await usesDocgenService(storybookOptions)) {
     return undefined;
   }
 

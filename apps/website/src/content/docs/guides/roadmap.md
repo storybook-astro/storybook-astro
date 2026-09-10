@@ -108,9 +108,11 @@ See [Showing component source](/writing-stories/controls/#showing-component-sour
 
 Component descriptions and prop documentation are extracted from JSDoc in a component's `.astro` frontmatter, so autodocs pages populate without any `argTypes` boilerplate in story files. Covers per-prop descriptions, types and defaults, select controls for literal union props, and types imported from other files (including through tsconfig `paths` aliases). Inherited DOM attributes are filtered out, while props you destructure are kept.
 
-**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110)
+On Storybook 10.6+ you can move extraction off the dev server into Storybook's Docgen Server with `features: { experimentalDocgenServer: true }`. The output is the same; the TypeScript work runs in a worker thread core owns, and static builds get per-component JSON snapshots instead of docgen inlined in the preview bundle. Storybook still marks the service experimental, so it is opt-in.
 
-**Documentation**: See [Controls & ArgTypes](/writing-stories/controls/) for the conventions and the `docgen` framework option, and the [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/docgen.md)
+**Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110), [Issue #173](https://github.com/storybook-astro/storybook-astro/issues/173)
+
+**Documentation**: See [Controls & ArgTypes](/writing-stories/controls/) for the conventions, the `docgen` framework option and the Docgen Server flag, and the [design record](https://github.com/storybook-astro/storybook-astro/blob/develop/docs/specs/docgen.md)
 
 ### Storybook Test Addon (`@storybook/addon-vitest`) Support
 

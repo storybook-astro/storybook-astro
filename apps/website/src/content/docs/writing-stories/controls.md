@@ -135,6 +135,39 @@ export const WithMain = {
 };
 ```
 
+## Moving extraction off the dev server
+
+By default extraction runs in the Vite plugin, on the dev server. Storybook 10.6
+can instead run it in a long-lived worker thread it owns, which keeps the
+TypeScript work off the critical path:
+
+```js
+// .storybook/main.js
+export default {
+  features: {
+    experimentalDocgenServer: true,
+  },
+};
+```
+
+The props table and description are the same either way — it is the same
+extractor, just running somewhere else. What you gain is that a large component
+library no longer blocks story transforms while its types are checked, and
+static builds get per-component JSON snapshots under
+`services/core/docgen/` instead of inlining docgen into the preview bundle.
+
+Two caveats:
+
+- The feature is **experimental upstream**, and Storybook notes the payload
+  shape may still change. It is off unless you turn it on.
+- `docgen.propFilter` is **ignored** here. A filter is a function, and the worker
+  receives its configuration as plain data across a thread boundary, so there is
+  no way to send one. Leave the feature off if you need a custom filter — you'll
+  get a warning if both are set.
+
+On Storybook 10.0–10.5 the flag is accepted but the helpers this builds on don't
+exist yet, so extraction stays in the builder and logs a note saying so.
+
 ## Turning extraction off
 
 ```js
