@@ -1,4 +1,5 @@
 import { dirname, resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build, type Rollup } from 'vite';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
@@ -12,7 +13,7 @@ import {
   loadVirtualBuildModule,
   resolveVirtualBuildModuleId,
 } from './vitePluginAstroBuildShared.ts';
-import { buildHydratedComponentAssets } from './lib/hydratedComponentBuild.ts';
+import { buildHydratedComponentAssets, FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
 import { sanitizeConfigPlugin } from './vite/sanitizeConfigPlugin.ts';
@@ -109,7 +110,7 @@ export function vitePluginAstroBuildServer(
       });
       const staticCssMap = hydratedComponentAssets.staticCssMap;
 
-      await buildAstroServer({
+      const externalDependencies = await buildAstroServer({
         integrations,
         sanitization: options.sanitization,
         storyRules: options.storyRules,
@@ -124,13 +125,44 @@ export function vitePluginAstroBuildServer(
         resolveFrom
       });
 
+      const runtimeDependencies = new Set<string>();
+
       await copyRuntimeSnapshot({
         resolveFrom,
         snapshotRoot: resolve(serverOutDir, snapshotDirName),
         snapshotDirName,
         astroComponents: allAstroComponentPaths,
-        storyRulesConfigFilePath
+        storyRulesConfigFilePath,
+        runtimeDependencies
       });
+      // Packaging happens after the entire Storybook build, not inside a Vite
+      // hook: Storybook may still be copying manager/public assets at this point.
+      const serverUrl = options.server?.serverUrl ?? 'http://localhost:3000';
+      const basePath = new URL(serverUrl, 'http://localhost').pathname.replace(/\/$/, '') || '/';
+
+      for (const name of ['astro', ...(options.server?.runtimeDependencies ?? [])]) {
+        runtimeDependencies.add(name);
+      }
+      for (const integration of integrations) {
+        for (const name of integration.runtimeDependencies ?? []) {
+          runtimeDependencies.add(name);
+        }
+        if (integration.renderer.server) {
+          runtimeDependencies.add(integration.renderer.server.name);
+        }
+        // SSR deduplication resolves these from the project root, even when
+        // only a renderer (rather than a component) imports them directly.
+        for (const name of integration.dependencies) {
+          if (FRAMEWORK_RUNTIME_PACKAGES.includes(name)) {
+            runtimeDependencies.add(name);
+          }
+        }
+      }
+      await writeFile(resolve(serverOutDir, 'deployment.json'), JSON.stringify({
+        basePath,
+        runtimeDependencies: Array.from(runtimeDependencies),
+        externalDependencies
+      }, null, 2));
     }
   };
 }
@@ -150,6 +182,7 @@ async function buildAstroServer(options: {
   trackedSpecifiers: string[];
   resolveFrom: string;
 }) {
+  const externalDependencies = new Set<string>();
   const buildConfig = {
     root: resolve(packageRoot, 'src/server'),
     ssr: {
@@ -167,6 +200,23 @@ async function buildAstroServer(options: {
       }
     },
     plugins: [
+      {
+        name: 'storybook-astro:server-externals',
+        generateBundle(_options: unknown, bundle: Rollup.OutputBundle) {
+          // pnpm does not hoist the bundled framework's dependencies into the
+          // app. Give NF3 the bundler's external imports and their owner roots.
+          for (const chunk of Object.values(bundle)) {
+            if (chunk.type !== 'chunk') {
+              continue;
+            }
+            for (const id of [...chunk.imports, ...chunk.dynamicImports]) {
+              if (!id.startsWith('.') && !id.startsWith('/') && !bundle[id]) {
+                externalDependencies.add(id);
+              }
+            }
+          }
+        }
+      },
       sanitizeConfigPlugin(options.sanitization),
       serverAuthPlugin(options.server),
       // Compile the story-rules module into the server bundle: deployed
@@ -200,6 +250,8 @@ async function buildAstroServer(options: {
   );
 
   await build(finalConfig);
+
+  return Array.from(externalDependencies);
 }
 
 /** Rewrites Astro component module ids so the standalone server loads them from the snapshot tree. */

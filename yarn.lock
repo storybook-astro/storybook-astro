@@ -5080,6 +5080,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@storybook-astro/framework@workspace:packages/@storybook-astro/framework"
   dependencies:
+    "@hono/node-server": "npm:^1.19.6"
     "@storybook-astro/renderer": "workspace:*"
     "@storybook/preact": "npm:^10.0.0"
     "@storybook/react": "npm:^10.0.0"
@@ -5095,6 +5096,7 @@ __metadata:
     eslint: "npm:^9.39.2"
     get-tsconfig: "npm:5.0.0-beta.4"
     hono: "npm:^4.11.12"
+    nf3: "npm:^0.3.24"
     sanitize-html: "npm:^2.17.0"
     storybook-solidjs: "npm:^1.0.0-beta.7"
     tsup: "npm:^8.5.1"
@@ -13133,6 +13135,13 @@ __metadata:
   version: 1.0.1
   resolution: "neotraverse@npm:1.0.1"
   checksum: 10c0/98e5d2d1974f91d527851a9dcfceb62701a1d31970b324b9f35fbdd244d173edc7a379ea1773f64771a9dc282486e3d3b693b24e14b1e969291612b2ff6b5054
+  languageName: node
+  linkType: hard
+
+"nf3@npm:^0.3.24":
+  version: 0.3.24
+  resolution: "nf3@npm:0.3.24"
+  checksum: 10c0/6c971b63634b6f7838194b5266fb40a8cb763d55a83b07a58ec3cf044fba1eef2fddfb6ee4d760ac3fbda34f69b9c04ddb923505cff3bbb57b7836c33c54b8ed
   languageName: node
   linkType: hard
 

@@ -15,6 +15,8 @@ export type ServerBuildOptions = {
   serverUrl?: string;
   authToken?: string;
   authHeader?: string;
+  /** Extra packages loaded by computed imports that cannot be discovered during build. */
+  runtimeDependencies?: string[];
 };
 
 export type RenderStoryInput = {

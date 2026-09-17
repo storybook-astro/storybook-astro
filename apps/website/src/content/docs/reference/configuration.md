@@ -177,6 +177,7 @@ Configuration for the server-mode render endpoint. Only applies when `renderMode
 - **`serverUrl`** — Optional URL where the render server is accessible. Defaults to `'http://localhost:3000'` (development). In production, set this to a relative path like `'/api/storybook-astro'` for same-origin deployments — the Storybook UI and the render server served from the same origin, either a Vercel serverless function or a Node server mounting the render app alongside the static build.
 - **`authToken`** — Optional authentication token sent with render requests.
 - **`authHeader`** — Optional HTTP header name for the auth token. Defaults to `'authorization'`.
+- **`runtimeDependencies`** — Additional package names for deployment adapters to include, for example packages loaded through computed imports or optional preprocessors. Dependencies found in the server bundle, source snapshot and configured renderers are included automatically.
 
 ```javascript
 export default {

@@ -14,7 +14,7 @@ description: How Storybook Astro renders Astro components on demand in productio
   - **`index.js`** — a [Hono](https://hono.dev/) app (`export default app`) with two routes: `GET /` (a health check returning `"OK"`) and `POST /render` (renders one story to HTML).
   - **`project/`** — a source snapshot of every Astro story component reached by the build, plus its transitive imports (including imports resolved through tsconfig path aliases) and any config files the render runtime needs at boot.
 
-This server isn't runnable as-is — it needs a host that can execute it as a Node process. See [Deployment](/guides/deployment/) for how to wire it up on Vercel or any Node server, and the [platform support matrix](/guides/deployment/#platform-support) for where it can and can't run.
+The build also writes a host-independent `deployment.json` with the API base path and runtime dependencies. After Storybook finishes, a deployment adapter packages the outputs for its host: the Node adapter writes a runnable directory, and the Vercel adapter writes Build Output API v3 directly. See [Deployment](/guides/deployment/) for how to wire it up on Vercel or any Node server, and the [platform support matrix](/guides/deployment/#platform-support) for where it can and can't run.
 
 ## Request flow
 
@@ -40,7 +40,7 @@ tsconfig path aliases (e.g. `~/components/Button.astro`) are resolved to their r
 
 ## Why this needs Node, not an edge runtime
 
-The render server isn't a plain request handler — it's a live Vite SSR dev server plus an Astro Container that has to boot inside the process and then read component source files from a real filesystem (`project/`) for the life of that process. Edge runtimes like Cloudflare Workers have no Node `fs` module and can't spawn the kind of long-lived, filesystem-backed dev server this requires. That's a structural limitation, not a missing adapter — see [Deployment](/guides/deployment/#cloudflare-workers--pages-functions) for the details.
+The render server isn't a plain request handler — it's a live Vite SSR dev server plus an Astro Container that has to boot inside the process and then read component source files from a real filesystem (`project/`) for the life of that process. Cloudflare Workers provide a virtual filesystem, but cannot run this Node-based native compilation pipeline. Supporting Workers requires a build that emits compiled SSR modules instead of this source snapshot — see [Deployment](/guides/deployment/#cloudflare-workers--pages-functions) for the details.
 
 ## Choosing server vs. static
 

@@ -14,7 +14,7 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
   },
   webServer: {
-    command: `yarn build --quiet && node ./preview-storybook.mjs`,
+    command: `yarn build && node ./preview-storybook.mjs`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 240 * 1000,

@@ -67,7 +67,7 @@ Astro component stories can use one of two production build modes:
 
 **Future enhancements**:
 - Service worker-based Controls for static builds (no server required)
-- Pre-configured deployment adapters for popular serverless platforms
+- Additional deployment adapters beyond the built-in Node and Vercel adapters
 - Wire fonts through the server-build pipeline, and verify public-asset semantics under server mode — both are currently excluded from the `astro7-server` integration app's coverage pending that work
 
 ### Content Collections Support
@@ -254,7 +254,7 @@ This table tracks compatibility of Astro's built-in framework features with Stor
 | Prefetch | ❌ Not Supported | Automatic page prefetching utilities |
 | Dev Toolbar | ❌ Not Supported | Development toolbar integrations |
 | Markdown/MDX Features | ❌ Not Supported | Advanced markdown processing beyond basic rendering |
-| Adapters | 🔮 Future | Integration with deployment adapters (Netlify, Vercel, etc.) |
+| Adapters | ✅ Supported | Host-independent server output with Node and Vercel adapters; custom adapters can implement the same interface. |
 
 **Legend**: ✅ Supported | 🚧 Partial/In Progress | 📋 Planned | ❌ Not Supported | 🔮 Future Consideration
 

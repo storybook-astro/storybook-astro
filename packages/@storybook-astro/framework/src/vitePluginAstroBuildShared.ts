@@ -266,6 +266,8 @@ export async function copyRuntimeSnapshot(options: {
   snapshotDirName: string;
   astroComponents: string[];
   storyRulesConfigFilePath?: string;
+  /** Packages imported by copied runtime sources, for deployment adapters. */
+  runtimeDependencies?: Set<string>;
 }) {
   // The standalone render server still spins up a Vite SSR runtime, so it
   // needs the exact source/config files that runtime will read from disk.
@@ -279,7 +281,11 @@ export async function copyRuntimeSnapshot(options: {
   const copiedFiles = new Set<string>();
 
   for (const runtimeInputFile of runtimeInputFiles) {
-    await copyLocalRuntimeDependencies(runtimeInputFile, options, copiedFiles);
+    await copyLocalRuntimeDependencies(runtimeInputFile, {
+      ...options,
+      // Rules are already bundled; their external imports come from that bundle.
+      runtimeDependencies: runtimeInputFile === options.storyRulesConfigFilePath ? undefined : options.runtimeDependencies
+    }, copiedFiles);
   }
 }
 
@@ -378,6 +384,7 @@ async function copyLocalRuntimeDependencies(
     resolveFrom: string;
     snapshotRoot: string;
     snapshotDirName: string;
+    runtimeDependencies?: Set<string>;
   },
   copiedFiles: Set<string>
 ) {
@@ -412,6 +419,10 @@ async function copyLocalRuntimeDependencies(
       : await resolveTsconfigAliasedImport(specifier, normalizedSourcePath);
 
     if (!resolvedDependency) {
+      if (!specifier.startsWith('.') && !specifier.startsWith('/') &&
+        !specifier.includes(':') && !specifier.startsWith('#')) {
+        options.runtimeDependencies?.add(specifier);
+      }
       continue;
     }
 
@@ -430,9 +441,12 @@ async function readAllImportSpecifiers(filePath: string): Promise<string[]> {
 
   const source = await readFile(filePath, 'utf-8');
 
-  return Array.from(source.matchAll(IMPORT_RE), (match) => match[1] ?? match[2]).filter(
-    (specifier): specifier is string => Boolean(specifier)
-  );
+  // Filter individual declarations: type imports do not need a semicolon, so
+  // removing text up to the next one can also erase following runtime imports.
+  return Array.from(source.matchAll(IMPORT_RE))
+    .filter((match) => !/^(?:import|export)\s+type\s+(?!from\b)/.test(match[0]))
+    .map((match) => match[1] ?? match[2])
+    .filter((specifier): specifier is string => Boolean(specifier));
 }
 
 /** Finds local files reached through tsconfig/jsconfig `extends` chains so the

@@ -8,5 +8,5 @@
       "~/*": ["src/*"]
     }
   },
-  "include": [".astro/types.d.ts", "./src/**/*", "./.storybook/**/*", "./api/**/*"]
+  "include": [".astro/types.d.ts", "./src/**/*", "./.storybook/**/*", "./providers/**/*"]
 }

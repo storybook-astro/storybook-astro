@@ -202,6 +202,27 @@ describe('copyRuntimeSnapshot', () => {
     await expect(stat(join(snapshot, 'src/styles/tokens.ts'))).resolves.toBeTruthy();
   });
 
+  test('keeps runtime imports after a type import without a semicolon', async () => {
+    await writeRepoFile('src/Child.astro', '<span>child</span>');
+    await writeRepoFile('src/runtime.ts', 'export default {};');
+    const component = await writeRepoFile('src/Parent.astro', `---
+import type { Props } from 'types-only'
+import Child from './Child.astro'
+import type from './runtime.ts';
+import { h } from 'preact';
+---
+<Child />`);
+    const runtimeDependencies = new Set<string>();
+
+    await copyRuntimeSnapshot({ ...snapshotOptions([component]), runtimeDependencies });
+
+    const snapshot = join(tmpDir, 'storybook-server', 'project');
+
+    await expect(stat(join(snapshot, 'src/Child.astro'))).resolves.toBeTruthy();
+    await expect(stat(join(snapshot, 'src/runtime.ts'))).resolves.toBeTruthy();
+    expect([...runtimeDependencies]).toEqual(['preact']);
+  });
+
   test('follows aliased imports transitively', async () => {
     await writeRepoFile(
       'tsconfig.json',

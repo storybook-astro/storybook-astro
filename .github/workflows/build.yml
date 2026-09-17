@@ -130,3 +130,19 @@ jobs:
 
       - name: Browser tests (Astro 5 server)
         run: yarn workspace @storybook-astro/integration-astro5-server test:browser
+
+      - name: Verify relocated Vercel outputs
+        run: |
+          node scripts/test-server-adapter.mjs integration/astro5-server
+          node scripts/test-server-adapter.mjs integration/astro6-server
+          node scripts/test-server-adapter.mjs integration/astro7-server
+
+      - name: Verify portable Node output
+        run: |
+          cd integration/astro6-server
+          node providers/build.mjs node
+          cd ../..
+          node scripts/test-server-adapter.mjs integration/astro6-server node
+
+      - name: Verify isolated pnpm packaging
+        run: node scripts/test-server-adapter-pnpm.mjs

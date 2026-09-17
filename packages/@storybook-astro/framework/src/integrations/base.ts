@@ -20,6 +20,8 @@ export abstract class Integration {
   // `name` is "alpine" but its factory export is `alpinejs`).
   readonly factoryName?: string;
   abstract readonly dependencies: string[];
+  /** Packages a renderer's Vite plugin loads dynamically in the production server. */
+  readonly runtimeDependencies?: string[];
   abstract readonly options: Record<string | number | symbol, unknown>;
   abstract readonly renderer: RendererDeclaration;
   abstract readonly storybookEntryPreview?: string;

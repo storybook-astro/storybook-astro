@@ -5,10 +5,11 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "storybook dev -p 6016",
-    "build": "storybook build && node ../../scripts/generate-vercel-trace-hints.mjs",
+    "build": "storybook build && node ./providers/build.mjs",
     "serve": "node ./preview-storybook.mjs",
     "lint": "eslint .",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "build:node": "storybook build && node ./providers/build.mjs node"
   },
   "dependencies": {
     "@astrojs/preact": "5.0.0",
