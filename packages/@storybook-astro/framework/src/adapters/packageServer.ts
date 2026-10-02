@@ -5,7 +5,6 @@ import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { traceNodeModules } from 'nf3';
 import { FullTracePackages, NodeNativePackages } from 'nf3/db';
 import type { ServerBuild } from './index.ts';
-import { rewriteRequestBasePath } from './request.ts';
 
 /** NF3 owns tracing, copying, deduplication and the output's node_modules layout. */
 export async function packageServer(build: ServerBuild, output: string, extraPackages: string[]) {
@@ -47,10 +46,6 @@ export async function packageServer(build: ServerBuild, output: string, extraPac
 
   await cp(build.serverDir, join(output, 'storybook-server'), { recursive: true });
   await writeFile(join(output, 'package.json'), '{"private":true,"type":"module"}\n');
-  await writeFile(
-    join(output, 'request.mjs'),
-    `export const rewriteRequestBasePath = ${rewriteRequestBasePath.toString()};\n`
-  );
 
   // First let NF3 locate the dynamic packages. Their JS files then become
   // inputs too: Vite can load unexported renderer files, not only package entrypoints.

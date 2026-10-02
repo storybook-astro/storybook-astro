@@ -42,8 +42,7 @@ test('waits for the complete Storybook build before packaging its output', async
   expect(adapt).toHaveBeenCalledWith({
     projectDir: process.cwd(),
     staticDir: resolve('output/ui'),
-    serverDir: resolve('output/storybook-server'),
-    basePath: '/api'
+    serverDir: resolve('output/storybook-server')
   });
 });
 

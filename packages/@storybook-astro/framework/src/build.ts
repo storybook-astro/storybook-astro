@@ -63,7 +63,6 @@ export async function build(args: string[]): Promise<void> {
   await options.server.adapter.adapt({
     projectDir,
     staticDir,
-    serverDir: resolvePath(dirname(staticDir), 'storybook-server'),
-    basePath: '/api'
+    serverDir: resolvePath(dirname(staticDir), 'storybook-server')
   });
 }

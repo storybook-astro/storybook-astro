@@ -5,6 +5,8 @@ import type { ServerAdapter } from './index.ts';
 import { packageServer } from './packageServer.ts';
 
 export type VercelAdapterOptions = {
+  /** Vercel Node.js runtime, such as `nodejs22.x`. Defaults to `nodejs24.x`. */
+  runtime?: string;
   maxDuration?: number;
   memory?: number;
 };
@@ -32,8 +34,7 @@ export function vercel(options: VercelAdapterOptions = {}): ServerAdapter {
         [
           "import { getRequestListener } from '@hono/node-server';",
           "import app from './storybook-server/index.js';",
-          "import { rewriteRequestBasePath } from './request.mjs';",
-          `export default getRequestListener(request => app.fetch(rewriteRequestBasePath(request, ${JSON.stringify(build.basePath)})));`,
+          'export default getRequestListener(app.fetch);',
           ''
         ].join('\n')
       );
@@ -41,7 +42,7 @@ export function vercel(options: VercelAdapterOptions = {}): ServerAdapter {
         resolve(functionDir, '.vc-config.json'),
         JSON.stringify(
           {
-            runtime: `nodejs${process.versions.node.split('.')[0]}.x`,
+            runtime: options.runtime ?? 'nodejs24.x',
             handler: 'handler.mjs',
             launcherType: 'Nodejs',
             architecture: process.arch === 'arm64' ? 'arm64' : 'x86_64',
@@ -52,15 +53,12 @@ export function vercel(options: VercelAdapterOptions = {}): ServerAdapter {
           2
         )
       );
-      const prefix =
-        build.basePath === '/' ? '' : build.basePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
       await writeFile(
         resolve(output, 'config.json'),
         JSON.stringify(
           {
             version: 3,
-            routes: [{ src: `^${prefix}(?:/.*)?$`, dest: '/render' }, { handle: 'filesystem' }]
+            routes: [{ src: '^/api(?:/.*)?$', dest: '/render' }, { handle: 'filesystem' }]
           },
           null,
           2

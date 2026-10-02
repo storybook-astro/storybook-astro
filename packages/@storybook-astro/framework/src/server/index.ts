@@ -25,7 +25,8 @@ import {
   runtimeConfig
 } from 'virtual:storybook-astro/server-runtime';
 
-const app = new Hono();
+// The preview calls a fixed same-origin `/api`, so every host mounts this app as-is.
+const app = new Hono().basePath('/api');
 const staticModuleMap = resolveStaticModuleMap();
 const renderAstroStoryPromise = createAstroStoryRenderer();
 

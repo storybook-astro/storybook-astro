@@ -89,8 +89,7 @@ try {
     {
       projectDir: app,
       serverDir,
-      staticDir: join(app, 'storybook-static'),
-      basePath: '/api'
+      staticDir: join(app, 'storybook-static')
     },
     output,
     []

@@ -24,7 +24,7 @@ export function node(): ServerAdapter {
           "import { serveStatic } from '@hono/node-server/serve-static';",
           "import renderApp from './storybook-server/index.js';",
           'const app = new Hono();',
-          `app.route(${JSON.stringify(build.basePath)}, renderApp);`,
+          "app.route('/', renderApp);",
           "app.use('/*', serveStatic({ root: fileURLToPath(new URL('./static/', import.meta.url)) }));",
           'export const server = serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000), hostname: process.env.HOST ?? "0.0.0.0" });',
           ''

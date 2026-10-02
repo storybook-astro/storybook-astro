@@ -135,10 +135,6 @@ export function vitePluginAstroBuildServer(
         storyRulesConfigFilePath,
         runtimeDependencies
       });
-      // Packaging happens after the entire Storybook build, not inside a Vite
-      // hook: Storybook may still be copying manager/public assets at this point.
-      const basePath = '/api';
-
       for (const name of ['astro', ...(options.server?.runtimeDependencies ?? [])]) {
         runtimeDependencies.add(name);
       }
@@ -157,8 +153,9 @@ export function vitePluginAstroBuildServer(
           }
         }
       }
+      // Adapters package from this file after the entire Storybook build, not in
+      // a Vite hook: Storybook may still be copying manager/public assets here.
       await writeFile(resolve(serverOutDir, 'deployment.json'), JSON.stringify({
-        basePath,
         runtimeDependencies: Array.from(runtimeDependencies),
         externalDependencies
       }, null, 2));

@@ -54,11 +54,12 @@ vercel deploy --prebuilt
 vercel deploy --prebuilt --prod
 ```
 
-Build on Linux with the same Node major and CPU architecture as the deployment.
+Build on Linux with the same CPU architecture as the deployment.
 For Git deployments, select the **Other** framework preset and use `yarn build`
 as the build command. Leave Output Directory unset.
 
-`vercel({ maxDuration: 60, memory: 1024 })` optionally configures function limits.
+The function uses Node.js 24 by default. Pass options to change it or the
+function limits: `vercel({ runtime: 'nodejs22.x', maxDuration: 60, memory: 1024 })`.
 
 ### On any Node.js server or container
 

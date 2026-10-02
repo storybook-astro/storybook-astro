@@ -8,7 +8,6 @@ import { promisify } from 'node:util';
 import { afterEach, expect, test } from 'vitest';
 import { vercel, node } from './index.ts';
 import { packageServer } from './packageServer.ts';
-import { rewriteRequestBasePath } from './request.ts';
 
 const directories: string[] = [];
 
@@ -30,11 +29,11 @@ async function fixture() {
   await writeFile(join(serverDir, 'index.js'), 'export default {};');
   await writeFile(
     join(serverDir, 'deployment.json'),
-    JSON.stringify({ basePath: '/custom', runtimeDependencies: [] })
+    JSON.stringify({ runtimeDependencies: [] })
   );
   await writeFile(join(projectDir, 'package.json'), '{"type":"module"}');
 
-  return { projectDir, staticDir, serverDir, basePath: '/custom' };
+  return { projectDir, staticDir, serverDir };
 }
 
 test('packaging fails when an explicitly requested runtime dependency is missing', async () => {
@@ -64,15 +63,16 @@ test.skipIf(process.platform !== 'linux')(
     expect(config.version).toBe(3);
     const route = new RegExp(config.routes[0].src);
 
-    expect(route.test('/custom/render')).toBe(true);
-    expect(route.test('/custom')).toBe(true);
-    expect(route.test('/other/custom/render')).toBe(false);
-    expect(route.test('/custom-debug/render')).toBe(false);
+    expect(route.test('/api/render')).toBe(true);
+    expect(route.test('/api')).toBe(true);
+    expect(route.test('/other/api/render')).toBe(false);
+    expect(route.test('/api-debug/render')).toBe(false);
     const functionConfig = JSON.parse(
       await readFile(join(output, 'functions/render.func/.vc-config.json'), 'utf8')
     );
 
     expect(functionConfig.maxDuration).toBe(90);
+    expect(functionConfig.runtime).toBe('nodejs24.x');
     expect(functionConfig.filePathMap).toBeUndefined();
     expect(await readFile(join(output, 'static/manager.js'), 'utf8')).toContain(
       'after the preview'
@@ -89,29 +89,9 @@ test('Node emits a portable listener without Vercel configuration', async () => 
   await node().adapt(build);
   const output = join(build.projectDir, 'storybook-node');
 
-  expect(await readFile(join(output, 'server.mjs'), 'utf8')).toContain('"/custom"');
+  expect(await readFile(join(output, 'server.mjs'), 'utf8')).toContain('renderApp');
   expect(await readFile(join(output, 'static/index.html'), 'utf8')).toContain('Storybook');
   await expect(realpath(join(build.projectDir, '.vercel'))).rejects.toThrow();
-});
-
-test('mounting the server preserves request body, query and headers without stripping partial prefixes', async () => {
-  const request = new Request('https://example.com/custom/render?story=one', {
-    method: 'POST',
-    body: '{"args":{}}',
-    headers: { authorization: 'Bearer test' }
-  });
-  const rewritten = rewriteRequestBasePath(request, '/custom');
-
-  expect(rewritten.url).toBe('https://example.com/render?story=one');
-  expect(rewritten.method).toBe('POST');
-  expect(rewritten.headers.get('authorization')).toBe('Bearer test');
-  expect(await rewritten.text()).toBe('{"args":{}}');
-  expect(rewriteRequestBasePath(new Request('https://example.com/custom'), '/custom').url).toBe(
-    'https://example.com/'
-  );
-  expect(
-    rewriteRequestBasePath(new Request('https://example.com/custom-other'), '/custom').url
-  ).toBe('https://example.com/custom-other');
 });
 
 test('packaging preserves conflicting dependency versions and runtime files after moving away from the source', async () => {
@@ -146,7 +126,7 @@ test('packaging preserves conflicting dependency versions and runtime files afte
   await writeFile(join(modules, 'one/template.astro'), '<slot />');
   await writeFile(
     join(build.serverDir, 'deployment.json'),
-    JSON.stringify({ basePath: '/custom', runtimeDependencies: ['one', 'two'] })
+    JSON.stringify({ runtimeDependencies: ['one', 'two'] })
   );
   const output = join(build.projectDir, 'output');
 
@@ -195,10 +175,7 @@ test('NF3 packages an explicitly included workspace and its assets without unuse
   // Local source packages are recorded as runtime inputs by the snapshot build.
   await writeFile(
     join(build.serverDir, 'deployment.json'),
-    JSON.stringify({
-      basePath: '/custom',
-      runtimeDependencies: ['linked']
-    })
+    JSON.stringify({ runtimeDependencies: ['linked'] })
   );
   const output = join(build.projectDir, 'output');
 

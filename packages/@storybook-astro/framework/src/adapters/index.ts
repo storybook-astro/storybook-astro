@@ -7,7 +7,6 @@ export type ServerBuild = {
   projectDir: string;
   staticDir: string;
   serverDir: string;
-  basePath: string;
 };
 
 /** Providers own packaging and HTTP entrypoints; the render runtime owns neither. */
