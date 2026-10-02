@@ -24,7 +24,8 @@
     "src",
     "preset.ts",
     "package.json",
-    "README.md"
+    "README.md",
+    "bin"
   ],
   "exports": {
     ".": {
@@ -58,7 +59,11 @@
     "./shim": {
       "types": "./src/shim.d.ts"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "import": "./dist/adapters/index.js"
+    }
   },
   "scripts": {
     "build": "tsup && node scripts/patch-shim-ref.mjs",
@@ -162,10 +167,15 @@
     }
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.6",
     "@storybook-astro/renderer": "workspace:*",
     "get-tsconfig": "5.0.0-beta.4",
     "hono": "^4.11.12",
+    "nf3": "^0.3.24",
     "sanitize-html": "^2.17.0",
     "vite": "^6.4.1 || ^7.0.0 || ^8.0.0"
+  },
+  "bin": {
+    "storybook-astro": "./bin/storybook-astro.mjs"
   }
 }

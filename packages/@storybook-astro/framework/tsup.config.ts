@@ -4,7 +4,9 @@ export default defineConfig({
   entry: [
     'src/index.ts',
     'src/node/index.ts',
+    'src/adapters/index.ts',
     'src/preset.ts',
+    'src/build.ts',
     'src/testing.ts',
     'src/vitest/index.ts',
     'src/integrations/index.ts',
@@ -24,6 +26,7 @@ export default defineConfig({
     entry: [
       'src/index.ts',
       'src/node/index.ts',
+      'src/adapters/index.ts',
       'src/preset.ts',
       'src/testing.ts',
       'src/vitest/index.ts',

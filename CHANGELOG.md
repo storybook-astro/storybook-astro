@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Breaking:** server mode needs a deployment adapter. Set `server.adapter` to `vercel()` or `node()` from `@storybook-astro/framework/adapters`, then build with `storybook-astro build`.
+- The render API is now always at `/api/render`, on the same origin as Storybook. `server.serverUrl` and `STORYBOOK_ASTRO_SERVER_URL` were removed.
+
 ## [1.12.0] - 2026-09-10
 
 ### Added

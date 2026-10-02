@@ -7,6 +7,7 @@ import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
+import { scheduleRenderLoadingIndicator } from './renderLoadingIndicator.ts';
 
 type FallbackRenderer = {
   render: (args: Record<string, unknown>, context: StoryContext<Renderer>) => unknown;
@@ -94,6 +95,11 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
 // suppress the cleanup when a different framework's story later reuses the shared
 // story canvas — stacking two components until a reload.
 const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
+
+// Which story an Astro canvas currently shows — a different id means the old
+// story's HTML is stale and should give way to the loading indicator rather
+// than linger while the (possibly slow) server render is in flight.
+const lastAstroStoryByCanvas = new WeakMap<HTMLElement, string | undefined>();
 
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
@@ -213,19 +219,36 @@ async function renderAstroToCanvas(
   const { slots = {}, ...componentArgs } = args;
   const decoratedTree = isDecoratedTree(element) ? element : undefined;
 
-  const response = await astroRenderer.render({
-    component: rootComponent.moduleId,
-    args: serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>,
-    slots: serializeAstroComponentMarkers(slots) as Record<string, SlotValue>,
-    ...(decoratedTree ? { node: serializeAstroComponentMarkers(decoratedTree) as SlotValue } : {}),
-    story: storyContext
-      ? {
-          id: storyContext.id,
-          title: storyContext.title,
-          name: storyContext.name
-        }
-      : undefined
+  // Story switch: the previous story's HTML is stale, so let the indicator
+  // replace it. Same-story re-render (Controls change): keep the current HTML
+  // and overlay it, so tweaking args doesn't blank the canvas.
+  const isSameStory =
+    storyContext?.id !== undefined && lastAstroStoryByCanvas.get(canvasElement) === storyContext.id;
+  const removeLoadingIndicator = scheduleRenderLoadingIndicator(canvasElement, {
+    replaceContent: !isSameStory || canvasElement.childElementCount === 0
   });
+
+  let response;
+
+  try {
+    response = await astroRenderer.render({
+      component: rootComponent.moduleId,
+      args: serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>,
+      slots: serializeAstroComponentMarkers(slots) as Record<string, SlotValue>,
+      ...(decoratedTree ? { node: serializeAstroComponentMarkers(decoratedTree) as SlotValue } : {}),
+      story: storyContext
+        ? {
+            id: storyContext.id,
+            title: storyContext.title,
+            name: storyContext.name
+          }
+        : undefined
+    });
+  } finally {
+    removeLoadingIndicator();
+  }
+
+  lastAstroStoryByCanvas.set(canvasElement, storyContext?.id);
 
   astroRenderer.applyStyles?.();
   canvasElement.innerHTML = prepareServerRenderedHtml(

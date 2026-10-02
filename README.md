@@ -142,28 +142,25 @@ export default {
 
 ### Render modes (production builds)
 
-`storybook build` supports two Astro render modes:
-
-- `static` (default): pre-renders Astro stories into `astro-prerendered-stories.json` and serves without a render server
-- `server`: builds `storybook-static` and a standalone Astro render server in `storybook-server`
+Static mode is the default: run `storybook build` and host `storybook-static/` anywhere.
+For interactive Astro Controls in production, choose a server adapter:
 
 ```javascript
+import { vercel } from '@storybook-astro/framework/adapters';
+
 export default {
   framework: {
     name: '@storybook-astro/framework',
     options: {
       renderMode: 'server',
-      server: {
-        serverUrl: 'https://storybook-render.example.com',
-        authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
-        authHeader: 'authorization',
-      },
+      server: { adapter: vercel() },
     },
   },
 };
 ```
 
-For token-based auth in server mode, you can also use runtime env/global values: `STORYBOOK_ASTRO_SERVER_URL`, `STORYBOOK_ASTRO_SERVER_TOKEN`, and `STORYBOOK_ASTRO_SERVER_AUTH_HEADER`.
+Run `storybook-astro build` to produce the deployment output. Use `node()` instead
+of `vercel()` for a Node server or container. See the [Deployment guide](https://storybook-astro.org/guides/deployment/).
 
 ### Sanitization
 

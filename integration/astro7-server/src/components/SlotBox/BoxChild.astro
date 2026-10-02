@@ -1,0 +1,16 @@
+---
+// A child component with its own slot. Used to prove a configured-component slot
+// (a child placed in a parent's slot *with its own props and slot content*)
+// renders as a real Astro component — issue #146.
+interface Props {
+  label?: string;
+}
+
+const { label } = Astro.props;
+
+---
+
+<div class="BoxChild" data-testid="box-child">
+  {label && <span class="BoxChild-label">{label}</span>}
+  <slot />
+</div>

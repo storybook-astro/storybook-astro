@@ -15,6 +15,7 @@ import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegra
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
+import { FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import {
   astroDepScanEsbuildPlugin,
@@ -41,6 +42,12 @@ export const core = {
 export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storybookOptions) => {
   const { configType, presets, configDir } = storybookOptions;
   const frameworkOptions = await presets.apply<FrameworkOptions>('frameworkOptions');
+
+  if (frameworkOptions.renderMode === 'server' && typeof frameworkOptions.server?.adapter?.adapt !== 'function') {
+    throw new Error(
+      'Server mode requires server.adapter: vercel() (or node()). Configure it and run storybook-astro build.'
+    );
+  }
   const resolveFrom = frameworkOptions.resolveFrom ?? dirname(configDir);
 
   // Auto-load fonts from the user's astro.config.* when the framework option
@@ -75,6 +82,18 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   resolveSanitizationOptions(options.sanitization);
 
   config.envPrefix = mergeEnvPrefixes(config.envPrefix, 'STORYBOOK_');
+
+  // Story files and renderer glue can resolve physically different copies of
+  // a framework package (workspace hoisting limits, nested installs). Two
+  // copies of e.g. preact in the preview bundle break hooks at hydration, so
+  // force single instances in Storybook's own build too — the island asset
+  // build applies the same list (see lib/hydratedComponentBuild.ts).
+  config.resolve = {
+    ...config.resolve,
+    dedupe: Array.from(
+      new Set([...(config.resolve?.dedupe ?? []), ...FRAMEWORK_RUNTIME_PACKAGES])
+    )
+  };
 
   const { vitePlugin: storybookAstroMiddlewarePlugin, viteConfig } =
     await vitePluginStorybookAstroMiddleware(options);

@@ -7,13 +7,11 @@ type StorybookImportMetaEnv = ImportMeta & {
 };
 
 type StorybookGlobalEnv = typeof globalThis & {
-  STORYBOOK_ASTRO_SERVER_URL?: string;
   STORYBOOK_ASTRO_SERVER_TOKEN?: string;
   STORYBOOK_ASTRO_SERVER_AUTH_HEADER?: string;
 };
 
 type ServerRendererDefaults = {
-  serverUrl?: string;
   authToken?: string;
   authHeader?: string;
 };
@@ -22,11 +20,25 @@ const ASTRO_SERVER_UNAVAILABLE_ERROR_NAME = 'AstroRenderServerUnavailableError';
 
 export function createServerRenderer(defaults: ServerRendererDefaults = {}) {
   return {
-    render(data: RenderComponentInput, timeoutMs = 5000) {
+    // Serverless render endpoints boot a full Vite SSR runtime on cold start
+    // (~10-15s on Vercel), so the server-mode timeout is far above the HMR
+    // renderer's — an aborted first render would just retry into another
+    // cold start.
+    render(data: RenderComponentInput, timeoutMs = 60_000) {
       return renderWithHttp(data, timeoutMs, defaults);
     },
     init() {
-      return;
+      // Fire-and-forget warmup at preview startup: any request boots the
+      // serverless function and its Vite SSR runtime while the Storybook UI
+      // is still loading, hiding most of the ~10-15s cold start that would
+      // otherwise land on the first story render. GET /render is unrouted
+      // (Hono 404s it) but still initializes the function module.
+      try {
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins
+        fetch('/api/render', { method: 'GET' }).catch(() => {});
+      } catch {
+        // Never let warmup break preview startup.
+      }
     },
     applyStyles() {
       return;
@@ -41,7 +53,7 @@ async function renderWithHttp(
 ) {
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
   const id = crypto.randomUUID();
-  const serverUrl = resolveServerUrl(defaults);
+  const serverUrl = '/api';
   const authToken = resolveAuthToken(defaults);
   const authHeader = resolveAuthHeader(defaults);
   const controller = new AbortController();
@@ -105,13 +117,6 @@ async function renderWithHttp(
 
     throw error;
   }
-}
-
-function resolveServerUrl(defaults: ServerRendererDefaults) {
-  const envServerUrl = (import.meta as StorybookImportMetaEnv).env?.STORYBOOK_ASTRO_SERVER_URL;
-  const globalServerUrl = (globalThis as StorybookGlobalEnv).STORYBOOK_ASTRO_SERVER_URL;
-
-  return defaults.serverUrl || envServerUrl || globalServerUrl || 'http://localhost:3000';
 }
 
 function resolveAuthToken(defaults: ServerRendererDefaults) {

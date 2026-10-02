@@ -1,0 +1,46 @@
+/* Import global styles */
+@import '../src/styles/global.css';
+
+/* Storybook docs panel overrides (scoped to .sbdocs).
+   The docs panel has a light/white background, so the docs prose needs dark
+   text. `:not(.sb-unstyled *)` keeps these overrides off rendered story content
+   — the framework tags each inline story's container `.sb-unstyled` in docs
+   view — so a component keeps its own styling in the Docs preview. */
+.sbdocs strong:not(.sb-unstyled *) {
+  color: #1a1a1a;
+}
+
+.sbdocs :is(p, li):not(.sb-unstyled *) {
+  color: #333;
+}
+
+.sbdocs :is(h1, h2, h3, h4, h5, h6):not(.sb-unstyled *) {
+  color: #1a1a1a;
+}
+
+.sbdocs code:not(.sb-unstyled *) {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a1a;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.sbdocs pre:not(.sb-unstyled *) {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+}
+
+.sbdocs pre code:not(.sb-unstyled *) {
+  background: none;
+  padding: 0;
+  color: #1f2328;
+}
+
+.sbdocs a:not(.sb-unstyled *) {
+  color: #0969da;
+}
+
+.sbdocs a:not(.sb-unstyled *):hover {
+  color: #0550ae;
+}

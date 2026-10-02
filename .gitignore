@@ -51,6 +51,7 @@ pnpm-debug.log*
 **/storybook-static/
 **/storybook-server/
 
-# Vercel CLI project link + build output (scratch deploys/smoke tests)
+**/storybook-node/
+
+# Vercel CLI local link/build output
 .vercel/
-_vercel-trace-hints.js

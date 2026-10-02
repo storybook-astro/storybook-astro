@@ -1,4 +1,5 @@
 import { dirname, resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build, type Rollup } from 'vite';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
@@ -12,12 +13,13 @@ import {
   loadVirtualBuildModule,
   resolveVirtualBuildModuleId,
 } from './vitePluginAstroBuildShared.ts';
-import { buildHydratedComponentAssets } from './lib/hydratedComponentBuild.ts';
+import { buildHydratedComponentAssets, FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
 import { sanitizeConfigPlugin } from './vite/sanitizeConfigPlugin.ts';
 import { serverAuthPlugin } from './vite/serverAuthPlugin.ts';
 import { serverRuntimePlugin } from './vite/serverRuntimePlugin.ts';
+import { storyRulesPlugin } from './vite/storyRulesPlugin.ts';
 
 const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '.');
 // packageRoot works regardless of whether this file is running from src/ or dist/
@@ -90,20 +92,25 @@ export function vitePluginAstroBuildServer(
         resolveFrom,
         outDir: storybookStaticOutDir
       });
-      const staticModuleMap = addSnapshotModuleAliases(
-        {
-          ...trackedModuleMap,
-          ...hydratedComponentAssets.staticModuleMap
-        },
-        {
-          resolveFrom,
-          snapshotRoot: resolve(serverOutDir, snapshotDirName),
-          snapshotDirName
-        }
-      );
+      const combinedModuleMap = {
+        ...trackedModuleMap,
+        ...hydratedComponentAssets.staticModuleMap
+      };
+      const staticModuleMap = addSnapshotModuleAliases(combinedModuleMap, {
+        resolveFrom,
+        snapshotRoot: resolve(serverOutDir, snapshotDirName),
+        snapshotDirName
+      });
+      // Snapshot paths keyed relative to the server bundle: the absolute
+      // aliases above bake in the build machine's paths, which never match
+      // the deploy host's filesystem (e.g. /var/task on Vercel).
+      const snapshotModuleAliasMap = buildSnapshotModuleAliasMap(combinedModuleMap, {
+        resolveFrom,
+        snapshotDirName
+      });
       const staticCssMap = hydratedComponentAssets.staticCssMap;
 
-      await buildAstroServer({
+      const externalDependencies = await buildAstroServer({
         integrations,
         sanitization: options.sanitization,
         storyRules: options.storyRules,
@@ -112,18 +119,46 @@ export function vitePluginAstroBuildServer(
         snapshotDirName,
         componentPathMap,
         staticModuleMap,
+        snapshotModuleAliasMap,
         staticCssMap,
         trackedSpecifiers: Array.from(trackedSpecifiers),
         resolveFrom
       });
+
+      const runtimeDependencies = new Set<string>();
 
       await copyRuntimeSnapshot({
         resolveFrom,
         snapshotRoot: resolve(serverOutDir, snapshotDirName),
         snapshotDirName,
         astroComponents: allAstroComponentPaths,
-        storyRulesConfigFilePath
+        storyRulesConfigFilePath,
+        runtimeDependencies
       });
+      for (const name of ['astro', ...(options.server?.runtimeDependencies ?? [])]) {
+        runtimeDependencies.add(name);
+      }
+      for (const integration of integrations) {
+        for (const name of integration.runtimeDependencies ?? []) {
+          runtimeDependencies.add(name);
+        }
+        if (integration.renderer.server) {
+          runtimeDependencies.add(integration.renderer.server.name);
+        }
+        // SSR deduplication resolves these from the project root, even when
+        // only a renderer (rather than a component) imports them directly.
+        for (const name of integration.dependencies) {
+          if (FRAMEWORK_RUNTIME_PACKAGES.includes(name)) {
+            runtimeDependencies.add(name);
+          }
+        }
+      }
+      // Adapters package from this file after the entire Storybook build, not in
+      // a Vite hook: Storybook may still be copying manager/public assets here.
+      await writeFile(resolve(serverOutDir, 'deployment.json'), JSON.stringify({
+        runtimeDependencies: Array.from(runtimeDependencies),
+        externalDependencies
+      }, null, 2));
     }
   };
 }
@@ -138,10 +173,12 @@ async function buildAstroServer(options: {
   snapshotDirName: string;
   componentPathMap: Record<string, string>;
   staticModuleMap: Record<string, string>;
+  snapshotModuleAliasMap: Record<string, string>;
   staticCssMap: Record<string, string[]>;
   trackedSpecifiers: string[];
   resolveFrom: string;
 }) {
+  const externalDependencies = new Set<string>();
   const buildConfig = {
     root: resolve(packageRoot, 'src/server'),
     ssr: {
@@ -159,8 +196,29 @@ async function buildAstroServer(options: {
       }
     },
     plugins: [
+      {
+        name: 'storybook-astro:server-externals',
+        generateBundle(_options: unknown, bundle: Rollup.OutputBundle) {
+          // pnpm does not hoist the bundled framework's dependencies into the
+          // app. Give NF3 the bundler's external imports and their owner roots.
+          for (const chunk of Object.values(bundle)) {
+            if (chunk.type !== 'chunk') {
+              continue;
+            }
+            for (const id of [...chunk.imports, ...chunk.dynamicImports]) {
+              if (!id.startsWith('.') && !id.startsWith('/') && !bundle[id]) {
+                externalDependencies.add(id);
+              }
+            }
+          }
+        }
+      },
       sanitizeConfigPlugin(options.sanitization),
       serverAuthPlugin(options.server),
+      // Compile the story-rules module into the server bundle: deployed
+      // hosts (e.g. Vercel) transpile or drop the snapshot's .ts sources,
+      // so runtime loading of the copied rules file is not reliable.
+      storyRulesPlugin(options.storyRules, options.resolveFrom),
       serverRuntimePlugin({
         integrations: options.integrations,
         storyRules: options.storyRules,
@@ -168,6 +226,7 @@ async function buildAstroServer(options: {
         snapshotDirName: options.snapshotDirName,
         componentPathMap: options.componentPathMap,
         staticModuleMap: options.staticModuleMap,
+        snapshotModuleAliasMap: options.snapshotModuleAliasMap,
         staticCssMap: options.staticCssMap,
         trackedSpecifiers: options.trackedSpecifiers
       }),
@@ -187,6 +246,8 @@ async function buildAstroServer(options: {
   );
 
   await build(finalConfig);
+
+  return Array.from(externalDependencies);
 }
 
 /** Rewrites Astro component module ids so the standalone server loads them from the snapshot tree. */
@@ -223,6 +284,27 @@ async function collectAstroStories(outDir: string, resolveFrom: string) {
         : entry.componentPath
     }))
     .filter((entry): entry is { componentPath: string } => Boolean(entry.componentPath));
+}
+
+function buildSnapshotModuleAliasMap(
+  staticModuleMap: Record<string, string>,
+  options: {
+    resolveFrom: string;
+    snapshotDirName: string;
+  }
+) {
+  const aliasMap: Record<string, string> = {};
+
+  for (const [sourcePath, builtPath] of Object.entries(staticModuleMap)) {
+    if (!sourcePath.startsWith('/')) {
+      continue;
+    }
+
+    aliasMap[buildSnapshotFilePath(options.resolveFrom, sourcePath, options.snapshotDirName)] =
+      builtPath;
+  }
+
+  return aliasMap;
 }
 
 function addSnapshotModuleAliases(
