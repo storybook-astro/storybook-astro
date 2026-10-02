@@ -137,8 +137,7 @@ export function vitePluginAstroBuildServer(
       });
       // Packaging happens after the entire Storybook build, not inside a Vite
       // hook: Storybook may still be copying manager/public assets at this point.
-      const serverUrl = options.server?.serverUrl ?? 'http://localhost:3000';
-      const basePath = new URL(serverUrl, 'http://localhost').pathname.replace(/\/$/, '') || '/';
+      const basePath = '/api';
 
       for (const name of ['astro', ...(options.server?.runtimeDependencies ?? [])]) {
         runtimeDependencies.add(name);

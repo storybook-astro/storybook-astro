@@ -7,13 +7,11 @@ type StorybookImportMetaEnv = ImportMeta & {
 };
 
 type StorybookGlobalEnv = typeof globalThis & {
-  STORYBOOK_ASTRO_SERVER_URL?: string;
   STORYBOOK_ASTRO_SERVER_TOKEN?: string;
   STORYBOOK_ASTRO_SERVER_AUTH_HEADER?: string;
 };
 
 type ServerRendererDefaults = {
-  serverUrl?: string;
   authToken?: string;
   authHeader?: string;
 };
@@ -37,7 +35,7 @@ export function createServerRenderer(defaults: ServerRendererDefaults = {}) {
       // (Hono 404s it) but still initializes the function module.
       try {
         // eslint-disable-next-line n/no-unsupported-features/node-builtins
-        fetch(`${resolveServerUrl(defaults)}/render`, { method: 'GET' }).catch(() => {});
+        fetch('/api/render', { method: 'GET' }).catch(() => {});
       } catch {
         // Never let warmup break preview startup.
       }
@@ -55,7 +53,7 @@ async function renderWithHttp(
 ) {
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
   const id = crypto.randomUUID();
-  const serverUrl = resolveServerUrl(defaults);
+  const serverUrl = '/api';
   const authToken = resolveAuthToken(defaults);
   const authHeader = resolveAuthHeader(defaults);
   const controller = new AbortController();
@@ -119,13 +117,6 @@ async function renderWithHttp(
 
     throw error;
   }
-}
-
-function resolveServerUrl(defaults: ServerRendererDefaults) {
-  const envServerUrl = (import.meta as StorybookImportMetaEnv).env?.STORYBOOK_ASTRO_SERVER_URL;
-  const globalServerUrl = (globalThis as StorybookGlobalEnv).STORYBOOK_ASTRO_SERVER_URL;
-
-  return defaults.serverUrl || envServerUrl || globalServerUrl || 'http://localhost:3000';
 }
 
 function resolveAuthToken(defaults: ServerRendererDefaults) {

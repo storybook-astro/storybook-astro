@@ -55,3 +55,4 @@ pnpm-debug.log*
 
 # Vercel CLI local link/build output
 .vercel/
+.vercel

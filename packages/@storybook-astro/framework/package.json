@@ -24,7 +24,8 @@
     "src",
     "preset.ts",
     "package.json",
-    "README.md"
+    "README.md",
+    "bin"
   ],
   "exports": {
     ".": {
@@ -173,5 +174,8 @@
     "nf3": "^0.3.24",
     "sanitize-html": "^2.17.0",
     "vite": "^6.4.1 || ^7.0.0 || ^8.0.0"
+  },
+  "bin": {
+    "storybook-astro": "./bin/storybook-astro.mjs"
   }
 }

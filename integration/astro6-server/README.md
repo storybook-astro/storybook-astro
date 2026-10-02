@@ -1,44 +1,25 @@
 # Astro 6 Server Build
 
-This app exercises host-independent server rendering. `storybook build` produces
-`storybook-static/` and `storybook-server/`; `providers/build.mjs` selects a deployment
-adapter after Storybook finishes writing all assets.
+The adapter in `.storybook/main.js` packages the build for Vercel or Node.
 
 ```bash
-# From the repository root, once after framework changes:
+# From the repository root:
 yarn build:packages
 
 # From this app directory:
-yarn build                         # Vercel Build Output API v3
-vercel deploy --prebuilt            # app must be linked to your Vercel project
-yarn build:node                    # portable storybook-node/ directory
+yarn build
+vercel deploy --prebuilt
+yarn build:node
 PORT=3000 node storybook-node/server.mjs
-yarn serve                         # local preview of the original build
 ```
 
-NF3 traces and packages runtime dependencies for both adapters. The Vercel adapter writes `.vercel/output/static`, a self-contained Node function,
-and routing configuration. It does not use `vercel build`, trace hints or a source
-`api/` wrapper. Build on Linux with the target Node version and CPU architecture.
-The Node adapter uses the same runtime packaging, without Vercel configuration.
+For Vercel Git builds, use Root Directory `integration/astro6-server`, allow
+source files outside it, and build the framework packages before this app.
+Select the Other framework preset. Build on Linux with the deployment's Node
+version and CPU architecture.
 
-For Git-triggered Vercel builds, set Root Directory to `integration/astro6-server`,
-allow source files outside it, and build the framework packages before this app.
-Keep Framework Preset set to Other (`"framework": null`).
-
-Server auth variables, if used, must be present during the Storybook build.
-MSW belongs to this app's story rules, not the framework or deployment adapters.
+Run `yarn test:browser` for rendering and Controls tests. From the repository
+root, `node scripts/test-server-adapter.mjs integration/astro6-server` tests
+the packaged Vercel function outside the workspace.
 
 See the [Deployment guide](../../apps/website/src/content/docs/guides/deployment.md).
-
-## Verification
-
-```bash
-yarn test:browser
-# From the repository root, after this app's build:
-node scripts/test-server-adapter.mjs integration/astro6-server
-```
-
-The browser suite exercises rendering, controls and decorators. The adapter test
-copies the generated function outside the repository and verifies rendering with
-factory mocks and user-provided MSW hooks, so workspace dependencies cannot hide
-missing files in the deployment.

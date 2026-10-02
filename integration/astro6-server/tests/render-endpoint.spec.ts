@@ -11,15 +11,15 @@ const githubStarsComponent = resolve(
   'packages/components/src/GithubStars/astro/GithubStars.astro'
 );
 
-test('GET /api/storybook-astro returns OK', async ({ request }) => {
-  const response = await request.get('/api/storybook-astro');
+test('GET /api returns OK', async ({ request }) => {
+  const response = await request.get('/api');
 
   expect(response.status()).toBe(200);
   expect(await response.text()).toBe('OK');
 });
 
-test('POST /api/storybook-astro/render renders the mocked GithubStars story', async ({ request }) => {
-  const response = await request.post('/api/storybook-astro/render', {
+test('POST /api/render renders the mocked GithubStars story', async ({ request }) => {
+  const response = await request.post('/api/render', {
     data: {
       component: githubStarsComponent,
       args: {
@@ -39,8 +39,8 @@ test('POST /api/storybook-astro/render renders the mocked GithubStars story', as
   expect(await response.text()).toContain('2413');
 });
 
-test('POST /api/storybook-astro/render rejects a malformed decorator node', async ({ request }) => {
-  const response = await request.post('/api/storybook-astro/render', {
+test('POST /api/render rejects a malformed decorator node', async ({ request }) => {
+  const response = await request.post('/api/render', {
     data: {
       component: 'x',
       args: {},

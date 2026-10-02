@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { afterEach, expect, test } from 'vitest';
-import { adaptServerBuild, vercel, node, type ServerAdapter } from './index.ts';
+import { vercel, node } from './index.ts';
 import { packageServer } from './packageServer.ts';
 import { rewriteRequestBasePath } from './request.ts';
 
@@ -36,34 +36,6 @@ async function fixture() {
 
   return { projectDir, staticDir, serverDir, basePath: '/custom' };
 }
-
-test('a custom adapter receives the complete build with custom output directories', async () => {
-  const build = await fixture();
-  let received;
-  const adapter: ServerAdapter = {
-    name: 'custom',
-    async adapt(input) {
-      received = input;
-    }
-  };
-
-  await adaptServerBuild(adapter, {
-    projectDir: build.projectDir,
-    staticDir: 'ui',
-    serverDir: 'server'
-  });
-  expect(received).toEqual(build);
-});
-
-test('packaging rejects a root API URL that would shadow the static UI', async () => {
-  const build = await fixture();
-
-  await writeFile(
-    join(build.serverDir, 'deployment.json'),
-    JSON.stringify({ basePath: '/', runtimeDependencies: [] })
-  );
-  await expect(adaptServerBuild(node(), build)).rejects.toThrow('server.serverUrl');
-});
 
 test('packaging fails when an explicitly requested runtime dependency is missing', async () => {
   const build = await fixture();

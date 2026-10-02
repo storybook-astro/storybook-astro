@@ -139,9 +139,7 @@ jobs:
 
       - name: Verify portable Node output
         run: |
-          cd integration/astro6-server
-          node providers/build.mjs node
-          cd ../..
+          yarn workspace @storybook-astro/integration-astro6-server build:node
           node scripts/test-server-adapter.mjs integration/astro6-server node
 
       - name: Verify isolated pnpm packaging

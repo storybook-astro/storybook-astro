@@ -5160,6 +5160,8 @@ __metadata:
       optional: true
     vitest:
       optional: true
+  bin:
+    storybook-astro: ./bin/storybook-astro.mjs
   languageName: unknown
   linkType: soft
 

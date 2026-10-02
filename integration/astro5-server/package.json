@@ -5,11 +5,11 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "storybook dev -p 6014",
-    "build": "storybook build && node ./providers/build.mjs",
+    "build": "storybook-astro build",
     "serve": "node ./preview-storybook.mjs",
     "lint": "eslint .",
     "test:browser": "playwright test",
-    "build:node": "storybook build && node ./providers/build.mjs node"
+    "build:node": "STORYBOOK_ADAPTER=node storybook-astro build"
   },
   "dependencies": {
     "@astrojs/preact": "^4.0.8",

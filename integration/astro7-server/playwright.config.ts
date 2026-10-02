@@ -1,7 +1,7 @@
 /**
  * Builds Storybook, builds the render server, and boots `preview-storybook.mjs`
  * (which serves storybook-static AND mounts the render server at
- * /api/storybook-astro), then runs the Playwright suite against that single
+ * /api), then runs the Playwright suite against that single
  * process. The build runs inside webServer startup, so the timeout is generous.
  */
 import { defineConfig, devices } from '@playwright/test';

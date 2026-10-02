@@ -1,4 +1,5 @@
 import type { CompatibleString, Options, StorybookConfig as StorybookConfigBase } from 'storybook/internal/types';
+import type { ServerAdapter } from './adapters/index.ts';
 import type { InlineConfig } from 'vite';
 import type { AstroDocgenOptions } from './docgen/index.ts';
 import type { Integration } from './integrations/index.ts';
@@ -9,10 +10,9 @@ import type { StorybookFontFamily } from './vitePluginAstroFonts.ts';
 type FrameworkName = CompatibleString<'@storybook-astro/framework'>;
 
 export type { AstroDocgenOptions, Integration, SanitizationOptions, StoryRulesOptions, StorybookFontFamily };
-export type RenderMode = 'server' | 'static';
+export type RenderMode = 'static' | 'server';
 
 export type ServerBuildOptions = {
-  serverUrl?: string;
   authToken?: string;
   authHeader?: string;
   /** Extra packages loaded by computed imports that cannot be discovered during build. */
@@ -45,13 +45,13 @@ type BaseFrameworkOptions = {
 };
 
 type ServerFrameworkOptions = BaseFrameworkOptions & {
-  renderMode?: 'server';
+  renderMode: 'server';
   storyRules?: StoryRulesOptions;
-  server?: ServerBuildOptions;
+  server: ServerBuildOptions & { adapter: ServerAdapter };
 };
 
 type StaticFrameworkOptions = BaseFrameworkOptions & {
-  renderMode: 'static';
+  renderMode?: 'static';
   storyRules?: StoryRulesOptions;
   server?: never;
 };

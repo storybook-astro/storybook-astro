@@ -136,69 +136,44 @@ export default {
 
 #### `renderMode`
 
-Optional string that determines how Astro components are rendered in production builds (`storybook build`). Defaults to **`'static'`**.
-
-- **`'static'`** (default) — Pre-renders all Astro component stories at build time. The fastest option for serving static builds, but Controls are disabled for Astro components since they can't be re-rendered with different args. **Recommended for pure static hosting** (GitHub Pages, Netlify static, Cloudflare Pages, S3, etc.). Works everywhere with no server requirements.
-- **`'server'`** — Enables an HTTP render server that processes render requests on-demand. Controls remain fully functional for Astro components in production. Confirmed working on Vercel (Node serverless functions) and on any Node.js server or container (Docker, Fly.io, Railway, Render, a VPS). Not compatible with Cloudflare Workers/Pages Functions or other edge runtimes without a real filesystem and Node APIs — see [Deployment](/guides/deployment/) for the full platform support matrix and setup steps.
-
-See [Deployment](/guides/deployment/) for how to host each mode in production.
+Defaults to `'static'`: Astro stories are pre-rendered with their default args.
+For interactive Astro Controls in production, choose a server adapter:
 
 ```javascript
-// Default (static mode) - no configuration needed
-export default {
-  framework: {
-    name: '@storybook-astro/framework',
-    options: {
-      // renderMode defaults to 'static'
-    },
-  },
-};
+import { vercel } from '@storybook-astro/framework/adapters';
 
-// Opt into server mode for interactive Astro Controls in production
 export default {
   framework: {
     name: '@storybook-astro/framework',
     options: {
       renderMode: 'server',
-      server: {
-        serverUrl: '/api/storybook-astro',
-      },
+      server: { adapter: vercel() },
     },
   },
 };
 ```
 
-Development mode (`storybook dev`) always uses the HMR-based renderer regardless of this setting.
+Use `storybook-astro build` to build and package the deployment. Built-in adapters
+are `vercel()` and `node()`. The API is served at `/api/render`; no URL configuration
+is needed. See [Deployment](/guides/deployment/) for the commands to deploy each output.
+
+`storybook dev` always uses the development renderer, regardless of this setting.
 
 #### `server`
 
-Configuration for the server-mode render endpoint. Only applies when `renderMode: 'server'`. See [Deployment](/guides/deployment/) for full setup walkthroughs.
+Required when `renderMode: 'server'`:
 
-- **`serverUrl`** — Optional URL where the render server is accessible. Defaults to `'http://localhost:3000'` (development). In production, set this to a relative path like `'/api/storybook-astro'` for same-origin deployments — the Storybook UI and the render server served from the same origin, either a Vercel serverless function or a Node server mounting the render app alongside the static build.
-- **`authToken`** — Optional authentication token sent with render requests.
-- **`authHeader`** — Optional HTTP header name for the auth token. Defaults to `'authorization'`.
-- **`runtimeDependencies`** — Additional package names for deployment adapters to include, for example packages loaded through computed imports or optional preprocessors. Dependencies found in the server bundle, source snapshot and configured renderers are included automatically.
+- **`adapter`** — Deployment adapter, such as `vercel()` or `node()`. There is no
+  default adapter.
 
-```javascript
-export default {
-  framework: {
-    name: '@storybook-astro/framework',
-    options: {
-      renderMode: 'server',
-      server: {
-        serverUrl: process.env.STORYBOOK_ASTRO_SERVER_URL ?? '/api/storybook-astro',
-        authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
-        authHeader: process.env.STORYBOOK_ASTRO_SERVER_AUTH_HEADER,
-      },
-    },
-  },
-};
-```
+Optional server-mode settings:
 
-Environment variables or globalThis values can also be used to configure server settings at runtime:
-- `STORYBOOK_ASTRO_SERVER_URL` / `globalThis.STORYBOOK_ASTRO_SERVER_URL`
-- `STORYBOOK_ASTRO_SERVER_TOKEN` / `globalThis.STORYBOOK_ASTRO_SERVER_TOKEN`
-- `STORYBOOK_ASTRO_SERVER_AUTH_HEADER` / `globalThis.STORYBOOK_ASTRO_SERVER_AUTH_HEADER`
+- **`authToken`** — Token sent by the preview client and checked by the render server.
+  This token is included in the client build; it does not make a public Storybook private.
+  Use your host's access controls to restrict access to the whole site.
+- **`authHeader`** — Header for the token; defaults to `'authorization'`.
+- **`runtimeDependencies`** — Extra package names to include when they are loaded
+  through computed imports that the build cannot discover.
 
 #### `storyRules`
 

@@ -9,7 +9,7 @@ const builtStorybookServer = (await import(pathToFileURL(resolve('storybook-serv
 
 const app = new Hono();
 
-app.route('/api/storybook-astro', builtStorybookServer);
+app.route('/api', builtStorybookServer);
 app.use('/*', serveStatic({ root: './storybook-static' }));
 app.get('*', serveStatic({ root: './storybook-static', path: './index.html' }));
 

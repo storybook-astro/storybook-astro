@@ -66,7 +66,7 @@ if (process.argv[2] === '--child') {
       })
     ]);
     const origin = `http://127.0.0.1:${ready[0].port}`;
-    const health = await fetch(`${origin}/api/storybook-astro`);
+    const health = await fetch(`${origin}/api`);
 
     assert.equal(health.status, 200);
     const index = JSON.parse(await readFile(join(output, 'static/index.json'), 'utf8'));
@@ -80,7 +80,7 @@ if (process.argv[2] === '--child') {
 
     if (codeTabs) {
       for (const framework of ['react', 'solid', 'preact', 'svelte', 'vue', 'alpine']) {
-        const response = await fetch(`${origin}/api/storybook-astro/render`, {
+        const response = await fetch(`${origin}/api/render`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -111,7 +111,7 @@ if (process.argv[2] === '--child') {
       const story = index.entries[id];
 
       assert.ok(story, `Missing story ${id}`);
-      const response = await fetch(`${origin}/api/storybook-astro/render`, {
+      const response = await fetch(`${origin}/api/render`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
