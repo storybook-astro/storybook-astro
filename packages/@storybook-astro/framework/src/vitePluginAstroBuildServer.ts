@@ -1,5 +1,6 @@
 import { dirname, resolve } from 'node:path';
-import { writeFile } from 'node:fs/promises';
+import { copyFile, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { build, type Rollup } from 'vite';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
@@ -124,6 +125,13 @@ export function vitePluginAstroBuildServer(
         trackedSpecifiers: Array.from(trackedSpecifiers),
         resolveFrom
       });
+
+      // Astro 7.4+ loads the image service by path at render time, and the
+      // bundled server finds it next to index.js (see astroImageService.ts).
+      await copyFile(
+        createRequire(import.meta.url).resolve('@storybook-astro/framework/image-service'),
+        resolve(serverOutDir, 'storybookImageService.js')
+      );
 
       const runtimeDependencies = new Set<string>();
 

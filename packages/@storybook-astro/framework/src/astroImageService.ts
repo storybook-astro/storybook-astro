@@ -1,4 +1,6 @@
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import storybookImageService from './storybookImageService.ts';
 
 /**
@@ -21,13 +23,20 @@ export function ensureAstroPassthroughImageService() {
  * 7.4+ keeps the image service in a module-level variable filled only from
  * `virtual:image-service`, which loads this entrypoint (issue #196).
  *
- * The entrypoint is resolved to an absolute path here, rather than passed as a
- * package name, so it loads wherever the project's Vite root is: pnpm layouts,
- * test fixtures and deployed render servers included.
+ * The entrypoint is an absolute path rather than a package name, so it loads
+ * wherever the project's Vite root is. The built file sits next to this code
+ * both in the framework's `dist/` and in a server-mode `storybook-server/`
+ * bundle (vitePluginAstroBuildServer copies it there, since deployed render
+ * servers don't ship the framework package). Running from source, as the
+ * framework's own tests do, it is resolved through the package instead.
  */
 export function storybookImageServiceConfig() {
+  const besideThisModule = fileURLToPath(new URL('./storybookImageService.js', import.meta.url));
+
   return {
-    entrypoint: createRequire(import.meta.url).resolve('@storybook-astro/framework/image-service'),
+    entrypoint: existsSync(besideThisModule)
+      ? besideThisModule
+      : createRequire(import.meta.url).resolve('@storybook-astro/framework/image-service'),
     config: {}
   };
 }
