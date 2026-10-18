@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Support for `@astrojs/react` 7 (#192). Its peer range was `^4 || ^5 || ^6`, so with npm, installing the framework next to the current `@astrojs/react` failed with ERESOLVE.
+
 ### Fixed
+- With TypeScript 7 (the native port) installed, docgen crashed `storybook dev` and addon-vitest runs with "Cannot read properties of undefined (reading 'Latest')" (#197). TypeScript 7 has no JavaScript compiler API, so component descriptions and props tables are now skipped with a warning to install TypeScript 5 or 6.
+- TypeScript in an Astro component `<script>` reached the browser untranspiled in `storybook dev` and threw a `SyntaxError` (#187). The renderer's re-import token was appended after `lang.ts`, which stopped Vite from compiling the script as TypeScript.
 - Static builds left pre-rendered Astro stories pointing at the build machine (#186). A component `<script>` kept its dev-server URL (`/<abs path>/X.astro?astro&type=script&index=0&lang.ts`) and 404'd, and an image only the server-side render imported — a component passing its own import to `<Image>` or `getImage()`, or a `?url` import from outside the project root — stayed a `/@fs/<abs path>` URL. Processed scripts are now bundled into `_astro/` with the hydrated islands, for the story's component and every component it renders; they are read with the project's own Astro compiler, so the script indices match the rendered HTML on Astro 5, 6 and 7. Images the build never emitted are copied into `_astro/` under a content hash. Images passed in through args also map to the asset the build already emitted when that asset's hash contains `-` or `_` — the lookup now uses the file name Rollup records instead of parsing the hashed one.
 - Images imported from `src/` stopped loading on Astro 7.4 (#196): it no longer reads the image service Storybook installed on `globalThis.astroAsset`, so `<Image>` rendered `/_image?href=…` URLs that 404 in dev and in static builds. The service is now also passed to Astro as `image.service.entrypoint` (exported as `@storybook-astro/framework/image-service`), which works on Astro 5–7.4, including in `renderStory` component tests.
 - Astro font families resolved to nothing on Astro 7.4, failing every story that renders `<Font>` ("No data was found for the `--font-…` family"): its providers request their APIs through a `fetch` passed to `init()`, which Storybook now supplies.
