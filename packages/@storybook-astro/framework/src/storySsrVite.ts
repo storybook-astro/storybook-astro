@@ -36,27 +36,40 @@ export async function createStorySsrViteServer(options: {
     command: 'serve'
   });
 
-  const config = mergeConfig(astroConfig, {
-    appType: 'custom',
-    server: {
-      middlewareMode: true
+  // mergeConfig appends the second config's plugins after the first's, so
+  // the fallbacks and story module mocks go in the first config to run ahead
+  // of Astro's plugins, matching dev's createViteServer. Several of Astro's
+  // plugins are `enforce: 'pre'` too (its astro:content resolver, for one),
+  // and array order decides which resolveId answers first — after Astro's, a
+  // storyRules mock of `astro:content` was never consulted (issue #194).
+  const config = mergeConfig(
+    {
+      plugins: [
+        createProjectAstroResolutionPlugin(options.resolveFrom),
+        vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }),
+        vitePluginAstroIntegrationOptsFallback(),
+        vitePluginAstroVueFallback(),
+        vitePluginAstroRoutesFallback(),
+        vitePluginStoryModuleMocks()
+      ]
     },
-    ssr: {
-      // Keep Astro runtime classes in the Vite SSR graph so containers and
-      // components share SlotString/HTMLString instances during prerendering.
-      noExternal: /^astro(\/.+)?$/
-    },
-    plugins: [
-      createProjectAstroResolutionPlugin(options.resolveFrom),
-      vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }),
-      vitePluginAstroIntegrationOptsFallback(),
-      vitePluginAstroVueFallback(),
-      vitePluginAstroRoutesFallback(),
-      vitePluginStoryModuleMocks(),
-      createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
-      createStorybookBrowserStubPlugin()
-    ]
-  });
+    mergeConfig(astroConfig, {
+      appType: 'custom',
+      server: {
+        middlewareMode: true
+      },
+      ssr: {
+        // Keep Astro runtime classes in the Vite SSR graph so containers and
+        // components share SlotString/HTMLString instances during prerendering.
+        noExternal: /^astro(\/.+)?$/
+      },
+      // Only stubs for what Astro's plugins can't answer, so they stay after them.
+      plugins: [
+        createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
+        createStorybookBrowserStubPlugin()
+      ]
+    })
+  );
 
   // The main Storybook build auto-loads `vite.plugins` from the user's
   // astro.config (see preset.ts). The prerender SSR server must receive the
