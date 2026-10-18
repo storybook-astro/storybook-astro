@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer, mergeConfig, type Plugin, type ViteDevServer } from 'vite';
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
-import { ensureAstroPassthroughImageService } from './astroImageService.ts';
+import { ensureAstroPassthroughImageService, storybookImageServiceConfig } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
 import {
@@ -31,7 +31,7 @@ export async function createStorySsrViteServer(options: {
   resolveFrom: string;
   fonts?: FrameworkOptions['fonts'];
 }) {
-  const { getViteConfig, passthroughImageService } = await importAstroConfig(options.resolveFrom);
+  const { getViteConfig } = await importAstroConfig(options.resolveFrom);
   const frameworkIntegrations = await Promise.all(
     options.integrations.map((integration) => integration.loadIntegration(options.resolveFrom))
   );
@@ -48,7 +48,7 @@ export async function createStorySsrViteServer(options: {
     {
       configFile: false,
       integrations,
-      image: { service: passthroughImageService() },
+      image: { service: storybookImageServiceConfig() },
       // The render server is headless; the toolbar plugin also breaks the
       // Vite dep-optimizer build under vitest ("Not implemented" in
       // astro:strip-toolbar-sourcemap generateBundle).
@@ -71,52 +71,65 @@ export async function createStorySsrViteServer(options: {
         !String(plugin.name).includes('toolbar')
     );
 
-  const config = mergeConfig(astroConfig, {
-    appType: 'custom',
-    // Vite and some plugins (e.g. @sveltejs/vite-plugin-svelte's optimizer
-    // metadata) write into cacheDir at boot. The default node_modules/.vite
-    // lives on a read-only filesystem on serverless hosts, so keep the cache
-    // in the OS temp dir instead.
-    cacheDir: join(
-      tmpdir(),
-      `storybook-astro-vite-${createHash('sha1').update(options.resolveFrom).digest('hex').slice(0, 8)}`
-    ),
-    server: {
-      middlewareMode: true
+  // mergeConfig appends the second config's plugins after the first's, so
+  // the fallbacks and story module mocks go in the first config to run ahead
+  // of Astro's plugins, matching dev's createViteServer. Several of Astro's
+  // plugins are `enforce: 'pre'` too (its astro:content resolver, for one),
+  // and array order decides which resolveId answers first — after Astro's, a
+  // storyRules mock of `astro:content` was never consulted (issue #194).
+  const config = mergeConfig(
+    {
+      plugins: [
+        createProjectAstroResolutionPlugin(options.resolveFrom),
+        vitePluginTsconfigAliases(options.resolveFrom),
+        vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }),
+        vitePluginAstroIntegrationOptsFallback(),
+        vitePluginAstroVueFallback(),
+        vitePluginAstroRoutesFallback(),
+        vitePluginStoryModuleMocks()
+      ]
     },
-    resolve: {
-      // Same same-instance constraint as the dev SSR server and preview build:
-      // one physical copy of each framework runtime in this SSR graph, or a
-      // duplicate (e.g. an app-local preact under yarn hoistingLimits) breaks
-      // hooks with "Cannot read properties of undefined (reading '__H')".
-      dedupe: FRAMEWORK_RUNTIME_PACKAGES,
-      // `configFile: false` drops the user's astro.config `vite.resolve.alias`;
-      // re-apply it so aliased imports resolve like they do in a real Astro build.
-      ...(userResolveAlias ? { alias: userResolveAlias } : {})
-    },
-    ssr: {
-      // Keep Astro runtime classes in the Vite SSR graph so containers and
-      // components share SlotString/HTMLString instances during prerendering.
-      // Renderer packages (@astrojs/preact etc.) must also stay in the graph:
-      // since Astro 7 / @astrojs/preact 6 their server entrypoints import
-      // integration-provided virtuals (astro:preact:opts) that only resolve
-      // through Vite — externalized, node imports them directly and crashes
-      // with ERR_UNSUPPORTED_ESM_URL_SCHEME. Astro's own explicit `external`
-      // entries (e.g. @astrojs/compiler) still win over this pattern.
-      noExternal: [/^astro(\/.+)?$/, /^@astrojs\//]
-    },
-    plugins: [
-      createProjectAstroResolutionPlugin(options.resolveFrom),
-      vitePluginTsconfigAliases(options.resolveFrom),
-      vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }),
-      vitePluginAstroIntegrationOptsFallback(),
-      vitePluginAstroVueFallback(),
-      vitePluginAstroRoutesFallback(),
-      vitePluginStoryModuleMocks(),
-      createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
-      createStorybookBrowserStubPlugin()
-    ]
-  });
+    mergeConfig(astroConfig, {
+      appType: 'custom',
+      // Vite and some plugins (e.g. @sveltejs/vite-plugin-svelte's optimizer
+      // metadata) write into cacheDir at boot. The default node_modules/.vite
+      // lives on a read-only filesystem on serverless hosts, so keep the cache
+      // in the OS temp dir instead.
+      cacheDir: join(
+        tmpdir(),
+        `storybook-astro-vite-${createHash('sha1').update(options.resolveFrom).digest('hex').slice(0, 8)}`
+      ),
+      server: {
+        middlewareMode: true
+      },
+      resolve: {
+        // Same same-instance constraint as the dev SSR server and preview build:
+        // one physical copy of each framework runtime in this SSR graph, or a
+        // duplicate (e.g. an app-local preact under yarn hoistingLimits) breaks
+        // hooks with "Cannot read properties of undefined (reading '__H')".
+        dedupe: FRAMEWORK_RUNTIME_PACKAGES,
+        // `configFile: false` drops the user's astro.config `vite.resolve.alias`;
+        // re-apply it so aliased imports resolve like they do in a real Astro build.
+        ...(userResolveAlias ? { alias: userResolveAlias } : {})
+      },
+      ssr: {
+        // Keep Astro runtime classes in the Vite SSR graph so containers and
+        // components share SlotString/HTMLString instances during prerendering.
+        // Renderer packages (@astrojs/preact etc.) must also stay in the graph:
+        // since Astro 7 / @astrojs/preact 6 their server entrypoints import
+        // integration-provided virtuals (astro:preact:opts) that only resolve
+        // through Vite — externalized, node imports them directly and crashes
+        // with ERR_UNSUPPORTED_ESM_URL_SCHEME. Astro's own explicit `external`
+        // entries (e.g. @astrojs/compiler) still win over this pattern.
+        noExternal: [/^astro(\/.+)?$/, /^@astrojs\//]
+      },
+      // Only stubs for what Astro's plugins can't answer, so they stay after them.
+      plugins: [
+        createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
+        createStorybookBrowserStubPlugin()
+      ]
+    })
+  );
 
   // The main Storybook build auto-loads `vite.plugins` from the user's
   // astro.config (see preset.ts). The prerender SSR server must receive the

@@ -305,7 +305,9 @@ export function rewriteAssetPaths(
   // still point at dev-only /@fs/ paths. Rewrite them to the emitted assets.
   return html.replace(/\/@fs\/[^"']+/g, (match) => {
     const pathOnly = match.replace(/\?.*$/, '');
-    const fsPath = pathOnly.slice('/@fs'.length);
+    // URLs are percent-encoded: a project under `My Projects/` renders as
+    // `/@fs/…/My%20Projects/…`, and neither the maps nor the disk know that path.
+    const fsPath = safeDecodeURI(pathOnly).slice('/@fs'.length);
     // Handle /@fs//abs/path (double leading slash on Unix)
     const absolutePath = fsPath.startsWith('//') ? fsPath.slice(1) : fsPath;
 
@@ -337,6 +339,14 @@ export function rewriteAssetPaths(
     // never emitted it. Copy it into the output instead.
     return copyAssetToOutDir(absolutePath, outDir) ?? match;
   });
+}
+
+function safeDecodeURI(url: string) {
+  try {
+    return decodeURI(url);
+  } catch {
+    return url;
+  }
 }
 
 // File types the copy fallback may publish. Anything else behind a `/@fs/` URL

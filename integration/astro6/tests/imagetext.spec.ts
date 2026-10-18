@@ -24,9 +24,11 @@ test.describe('ImageText', () => {
     await expect(img).toBeVisible();
     await expect(img).toHaveAttribute('alt', 'Astro Storybook Earth');
 
-    const naturalWidth = await img.evaluate((el: HTMLImageElement) => el.naturalWidth);
-
-    expect(naturalWidth).toBeGreaterThan(0);
+    // The image is loading="lazy", so it can still be decoding when it first
+    // becomes visible; wait for it rather than reading naturalWidth once.
+    await expect
+      .poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth))
+      .toBeGreaterThan(0);
   });
 
   test('slot HTML renders as elements, not escaped text', async ({ page }) => {
