@@ -163,3 +163,28 @@ test('never publishes component source behind an unmatched /@fs/ URL', async () 
     await rm(projectDir, { recursive: true, force: true });
   }
 });
+
+test('finds the image behind a percent-encoded /@fs/ URL when the project path has a space', async () => {
+  // Vite encodes the path, so a project in `My Projects/` renders as
+  // `/@fs/…/My%20Projects/…`; looked up as-is, the file "does not exist".
+  const projectDir = await mkdtemp(join(tmpdir(), 'storybook astro prerender test '));
+  const outDir = join(projectDir, 'storybook-static');
+  const logoPath = join(projectDir, 'src', 'logo.png');
+
+  try {
+    await mkdir(join(projectDir, 'src'), { recursive: true });
+    await writeFile(logoPath, 'logo bytes');
+
+    const result = rewriteAssetPaths(
+      `<img src="/@fs${encodeURI(logoPath)}?origWidth=64">`,
+      assetMap({}),
+      join(projectDir, 'public'),
+      outDir
+    );
+    const [copiedFile] = await readdir(join(outDir, '_astro'));
+
+    expect(result).toBe(`<img src="/_astro/${copiedFile}">`);
+  } finally {
+    await rm(projectDir, { recursive: true, force: true });
+  }
+});
