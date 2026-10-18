@@ -55,6 +55,7 @@
       "types": "./dist/preset.d.ts",
       "import": "./dist/preset.js"
     },
+    "./image-service": "./dist/storybookImageService.js",
     "./shim": {
       "types": "./src/shim.d.ts"
     },

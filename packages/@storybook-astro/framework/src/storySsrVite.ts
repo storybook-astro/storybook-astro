@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { createServer, mergeConfig, type Plugin, type ViteDevServer } from 'vite';
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
-import { ensureAstroPassthroughImageService } from './astroImageService.ts';
+import { ensureAstroPassthroughImageService, storybookImageServiceConfig } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
@@ -21,7 +21,7 @@ export async function createStorySsrViteServer(options: {
   resolveFrom: string;
   fonts?: FrameworkOptions['fonts'];
 }) {
-  const { getViteConfig, passthroughImageService } = await importAstroConfig(options.resolveFrom);
+  const { getViteConfig } = await importAstroConfig(options.resolveFrom);
   const astroConfig = await getViteConfig(
     { root: options.resolveFrom },
     {
@@ -29,7 +29,7 @@ export async function createStorySsrViteServer(options: {
       integrations: await Promise.all(
         options.integrations.map((integration) => integration.loadIntegration(options.resolveFrom))
       ),
-      image: { service: passthroughImageService() }
+      image: { service: storybookImageServiceConfig() }
     }
   )({
     mode: 'production',
