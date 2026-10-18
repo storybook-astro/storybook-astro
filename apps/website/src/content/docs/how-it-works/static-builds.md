@@ -17,7 +17,9 @@ Since Astro components require server-side rendering via the Container API, stat
 
 5. **Asset Emission** — Any `/@fs` dev-server asset URLs (e.g. images) in the rendered HTML are emitted as Rollup assets with content-hashed filenames, and the URLs are rewritten to their final paths.
 
-6. **Client Runtime** — At runtime, the renderer detects the pre-rendered HTML parameter and uses it directly, bypassing the HMR-based render path.
+6. **Component Scripts** — Every `<script>` Astro processes (anything not `is:inline`) in a story's component, and in the components it renders, is bundled into `_astro/` alongside hydrated islands, and the pre-rendered HTML loads it from there.
+
+7. **Client Runtime** — At runtime, the renderer detects the pre-rendered HTML parameter and uses it directly, bypassing the HMR-based render path.
 
 ## Limitations
 

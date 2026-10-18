@@ -1,0 +1,14 @@
+---
+/**
+ * Adds its behavior with a processed `<script>` that imports a helper module,
+ * the way most Astro components do. The text changes once the script has run.
+ */
+---
+
+<p class="scripted" data-testid="scripted">The component script has not run.</p>
+
+<script>
+  import { markAsRun } from './markAsRun.ts';
+
+  markAsRun(document.querySelector('[data-testid="scripted"]'));
+</script>

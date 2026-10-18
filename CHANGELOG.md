@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** server mode needs a deployment adapter. Set `server.adapter` to `vercel()` or `node()` from `@storybook-astro/framework/adapters`, then build with `storybook-astro build`.
 - The render API is now always at `/api/render`, on the same origin as Storybook. `server.serverUrl` and `STORYBOOK_ASTRO_SERVER_URL` were removed.
 
+### Fixed
+- Static builds left pre-rendered Astro stories pointing at the build machine (#186). A component `<script>` kept its dev-server URL (`/<abs path>/X.astro?astro&type=script&index=0&lang.ts`) and 404'd, and an image only the server-side render imported — a component passing its own import to `<Image>` or `getImage()`, or a `?url` import from outside the project root — stayed a `/@fs/<abs path>` URL. Processed scripts are now bundled into `_astro/` with the hydrated islands, for the story's component and every component it renders; they are read with the project's own Astro compiler, so the script indices match the rendered HTML on Astro 5, 6 and 7. Images the build never emitted are copied into `_astro/` under a content hash. Images passed in through args also map to the asset the build already emitted when that asset's hash contains `-` or `_` — the lookup now uses the file name Rollup records instead of parsing the hashed one.
+
 ## [1.12.0] - 2026-09-10
 
 ### Added

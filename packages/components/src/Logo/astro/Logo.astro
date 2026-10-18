@@ -1,0 +1,14 @@
+---
+/**
+ * The Storybook Astro logo, imported by the component itself rather than passed
+ * in through args — once through `astro:assets` and once as a `?url` import.
+ */
+import { Image } from 'astro:assets';
+import logo from './logo.png';
+import logoUrl from './logo.png?url';
+---
+
+<div class="logo">
+  <Image src={logo} alt="Storybook Astro logo" width={128} data-testid="logo-image" />
+  <img src={logoUrl} alt="Storybook Astro logo" width="128" data-testid="logo-url" />
+</div>
