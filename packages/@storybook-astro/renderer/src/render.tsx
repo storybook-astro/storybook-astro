@@ -333,9 +333,18 @@ function invokeScriptTags(element: HTMLElement) {
     const src = newScript.getAttribute('src');
 
     if (src && newScript.type === 'module') {
-      const separator = src.includes('?') ? '&' : '?';
+      // The token goes first in the query: a processed Astro script's URL ends
+      // in `&lang.ts`, and Vite only compiles it as TypeScript while that stays
+      // the last parameter (issue #187).
+      const token = `sbAstroReload=${(scriptReloadToken += 1)}`;
+      const queryStart = src.indexOf('?');
 
-      newScript.setAttribute('src', `${src}${separator}sbAstroReload=${(scriptReloadToken += 1)}`);
+      newScript.setAttribute(
+        'src',
+        queryStart === -1
+          ? `${src}?${token}`
+          : `${src.slice(0, queryStart)}?${token}&${src.slice(queryStart + 1)}`
+      );
     }
 
     newScript.appendChild(document.createTextNode(oldScript.innerHTML));
