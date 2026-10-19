@@ -109,6 +109,58 @@ describe('.astro imports resolve', () => {
   });
 });
 
+// `node:path` builds `\` paths on Windows, while TypeScript asks the host for
+// every file with `/` separators on any platform — so a backslash path
+// reproduces the Windows mismatch here too (issue #185).
+describe('Windows-style paths', () => {
+  const windowsStyle = (filePath: string) => filePath.replaceAll('/', '\\');
+
+  test('a component registered under a backslash path still has its props read', () => {
+    const project = createProject();
+    const componentPath = windowsStyle(join(projectRoot, 'Badge.astro.ts'));
+
+    project.setVirtualFile(
+      componentPath,
+      'interface Props { label: string; outline?: boolean }\nexport {};\n'
+    );
+
+    expect(propNamesOf(project.getProgram()!, componentPath).sort()).toEqual([
+      'label',
+      'outline'
+    ]);
+
+    project.dispose();
+  });
+
+  test('a sibling .astro import resolves to the registered component', () => {
+    const project = createProject();
+    const parentPath = windowsStyle(join(projectRoot, 'WindowsParent.astro.ts'));
+
+    project.setVirtualFile(
+      windowsStyle(join(projectRoot, 'WindowsChild.astro.ts')),
+      'export type Tone = "info" | "warning";\n'
+    );
+    // The ambient `*.astro` shim has no `Tone`, so this only type-checks when
+    // the import lands on the registered child.
+    project.setVirtualFile(
+      parentPath,
+      [
+        "import type { Tone } from './WindowsChild.astro';",
+        "const tone: Tone = 'info';",
+        'export { tone };'
+      ].join('\n')
+    );
+
+    const program = project.getProgram()!;
+    const parent = program.getSourceFile(parentPath);
+
+    expect(parent).toBeDefined();
+    expect(program.getSemanticDiagnostics(parent)).toHaveLength(0);
+
+    project.dispose();
+  });
+});
+
 describe('Astro is in scope as a value', () => {
   test('so `Astro.props as Props` does not take the frontmatter down with it', () => {
     const project = createProject();
