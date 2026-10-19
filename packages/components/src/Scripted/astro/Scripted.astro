@@ -10,5 +10,9 @@
 <script>
   import { markAsRun } from './markAsRun.ts';
 
-  markAsRun(document.querySelector('[data-testid="scripted"]'));
+  // Type syntax on purpose: Astro scripts are TypeScript, and dev must still
+  // serve this transpiled after the renderer re-imports it (issue #187).
+  const target: Element | null = document.querySelector('[data-testid="scripted"]');
+
+  markAsRun(target);
 </script>

@@ -56,11 +56,17 @@ export function createAstroDocgen(setup: AstroDocgenSetup): AstroDocgen {
 
   return {
     async warmUp() {
-      const active = await ensureSession();
+      // Callers fire this without awaiting, so a rejection here would surface
+      // as an unhandled one and take Storybook or Vitest down with it.
+      try {
+        const active = await ensureSession();
 
-      // Building the program is what actually costs the ~0.9s; getting the
-      // service alone is nearly free and would just defer it.
-      active?.project.getProgram();
+        // Building the program is what actually costs the ~0.9s; getting the
+        // service alone is nearly free and would just defer it.
+        active?.project.getProgram();
+      } catch (error) {
+        warn(`Component documentation is unavailable: ${messageOf(error)}`);
+      }
     },
 
     async extract(astroFilePath, astroSource) {
@@ -171,6 +177,17 @@ async function startSession(
     typescript = (await import('typescript')).default;
   } catch {
     warn('TypeScript is not installed, so component documentation cannot be extracted.');
+
+    return undefined;
+  }
+
+  // TypeScript 7 (the native port) ships no JavaScript compiler API: its
+  // default export is just `version` and `versionMajorMinor`, so the version
+  // check below passes and the first `ScriptTarget` read throws (issue #197).
+  if (typeof typescript.createLanguageService !== 'function') {
+    warn(
+      `TypeScript ${typescript.version} does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.`
+    );
 
     return undefined;
   }

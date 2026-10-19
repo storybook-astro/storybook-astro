@@ -1,3 +1,4 @@
+import { expect, within } from 'storybook/test';
 import Scripted from './Scripted.astro';
 
 export default {
@@ -13,4 +14,10 @@ export default {
   }
 };
 
-export const Default = {};
+export const Default = {
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('The component script ran.')
+    ).toBeInTheDocument();
+  }
+};
