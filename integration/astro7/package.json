@@ -36,7 +36,7 @@
     "@playwright/test": "1.60.0",
     "@storybook-astro/framework": "workspace:*",
     "@storybook/addon-docs": "10.6.0",
-    "@storybook/addon-vitest": "^10.6.0",
+    "@storybook/addon-vitest": "^10.6.2",
     "@storybook/preact-vite": "10.6.0",
     "@storybook/react-vite": "10.6.0",
     "@storybook/svelte": "^10.6.0",
@@ -44,9 +44,9 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/prop-types": "^15.7.14",
-    "@vitest/browser": "4.1.9",
-    "@vitest/browser-playwright": "4.1.9",
-    "@vitest/ui": "^4.1.9",
+    "@vitest/browser": "5.0.5",
+    "@vitest/browser-playwright": "5.0.5",
+    "@vitest/ui": "^5.0.5",
     "eslint": "^9.39.2",
     "happy-dom": "^20.10.6",
     "http-server": "^14.1.1",
@@ -56,6 +56,6 @@
     "storybook": "10.6.0",
     "storybook-solidjs-vite": "^10.0.9",
     "vite": "^8.0.0",
-    "vitest": "^4.1.9"
+    "vitest": "^5.0.5"
   }
 }
