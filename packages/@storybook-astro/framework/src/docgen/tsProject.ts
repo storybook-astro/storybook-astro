@@ -53,7 +53,7 @@ export function createAstroTsProject(
   const versions = new Map<string, number>();
   let projectVersion = 0;
 
-  const shimPath = join(projectRoot, SHIM_FILE_NAME);
+  const shimPath = toTypeScriptPath(join(projectRoot, SHIM_FILE_NAME));
 
   virtualFiles.set(shimPath, SHIM_SOURCE);
 
@@ -142,7 +142,7 @@ export function createAstroTsProject(
   ): ts.ResolvedModuleWithFailedLookupLocations {
     if (specifier.endsWith('.astro')) {
       const candidate = specifier.startsWith('.')
-        ? `${resolve(dirname(containingFile), specifier)}.ts`
+        ? toTypeScriptPath(`${resolve(dirname(containingFile), specifier)}.ts`)
         : undefined;
 
       if (candidate && virtualFiles.has(candidate)) {
@@ -170,7 +170,9 @@ export function createAstroTsProject(
   let service: ts.LanguageService | undefined = typescript.createLanguageService(host, registry);
 
   return {
-    setVirtualFile(filePath, contents) {
+    setVirtualFile(rawFilePath, contents) {
+      const filePath = toTypeScriptPath(rawFilePath);
+
       if (virtualFiles.get(filePath) === contents) {
         return;
       }
@@ -198,4 +200,14 @@ export function createAstroTsProject(
       versions.clear();
     }
   };
+}
+
+/**
+ * TypeScript asks the host for files with `/` separators on every platform,
+ * but `node:path` builds `\` paths on Windows. Virtual files are keyed by
+ * the TypeScript form, or every lookup misses and the props table comes out
+ * empty (issue #185).
+ */
+function toTypeScriptPath(filePath: string): string {
+  return filePath.replaceAll('\\', '/');
 }

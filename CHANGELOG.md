@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Support for `@astrojs/react` 7 (#192). Its peer range was `^4 || ^5 || ^6`, so with npm, installing the framework next to the current `@astrojs/react` failed with ERESOLVE.
+- Support for Vitest 5 (#193). The optional `vitest` peer range is now `^4.1.0 || ^5.0.0`, and the Astro 7 integration app runs its component tests and addon-vitest story tests on Vitest 5.
 
 ### Changed
 - **Breaking:** server mode needs a deployment adapter. Set `server.adapter` to `vercel()` or `node()` from `@storybook-astro/framework/adapters`, then build with `storybook-astro build`.
 - The render API is now always at `/api/render`, on the same origin as Storybook. `server.serverUrl` and `STORYBOOK_ASTRO_SERVER_URL` were removed.
 
 ### Fixed
+- Docgen extracted no props on Windows, so the autodocs props table only showed props inferred from a story's `args` (#185). The virtual TypeScript file for each component was registered under a `\`-separated path, but TypeScript asks for files with `/` separators, so it never found it. Component descriptions were unaffected.
 - With TypeScript 7 (the native port) installed, docgen crashed `storybook dev` and addon-vitest runs with "Cannot read properties of undefined (reading 'Latest')" (#197). TypeScript 7 has no JavaScript compiler API, so component descriptions and props tables are now skipped with a warning to install TypeScript 5 or 6.
 - TypeScript in an Astro component `<script>` reached the browser untranspiled in `storybook dev` and threw a `SyntaxError` (#187). The renderer's re-import token was appended after `lang.ts`, which stopped Vite from compiling the script as TypeScript.
 - Static builds left pre-rendered Astro stories pointing at the build machine (#186). A component `<script>` kept its dev-server URL (`/<abs path>/X.astro?astro&type=script&index=0&lang.ts`) and 404'd, and an image only the server-side render imported — a component passing its own import to `<Image>` or `getImage()`, or a `?url` import from outside the project root — stayed a `/@fs/<abs path>` URL. Processed scripts are now bundled into `_astro/` with the hydrated islands, for the story's component and every component it renders; they are read with the project's own Astro compiler, so the script indices match the rendered HTML on Astro 5, 6 and 7. Images the build never emitted are copied into `_astro/` under a content hash. Images passed in through args also map to the asset the build already emitted when that asset's hash contains `-` or `_` — the lookup now uses the file name Rollup records instead of parsing the hashed one.
