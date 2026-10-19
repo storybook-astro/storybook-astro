@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { InlineConfig, PluginOption } from 'vite';
 import type { Integration } from '../integrations/base.ts';
+import { storybookImageServiceConfig } from '../astroImageService.ts';
 import { importAstroConfig } from '../importAstroConfig.ts';
 import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroSvgComponentMarker } from '../vitePluginAstroSvgComponentMarker.ts';
@@ -123,7 +124,10 @@ export function defineConfig(options: TestingDefineConfig) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       astroConfigModule.getViteConfig(vitestConfig as any, {
         configFile: astroConfigFile,
-        integrations: [...resolvedIntegrations, vitestPatchForSolidJs()]
+        integrations: [...resolvedIntegrations, vitestPatchForSolidJs()],
+        // Render images the way Storybook does (issue #196), not through the
+        // project's image service and an /_image endpoint tests can't serve.
+        image: { service: storybookImageServiceConfig() }
       })
     );
 

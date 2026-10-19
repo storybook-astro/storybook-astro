@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
@@ -63,6 +63,61 @@ describe('buildHydratedComponentAssets', () => {
       const chunkCode = await readFile(join(outDir, chunkRelPath), 'utf-8');
 
       expect(chunkCode).toContain('USER_PLUGIN_APPLIED');
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('bundles the <script> of a component the story component renders, with its imports', async () => {
+    // Issue #186: prerendered HTML kept each processed <script> as
+    // `<script src="/<abs path>/X.astro?astro&type=script&index=0&lang.ts">`,
+    // which only the dev server can answer.
+    const packageDir = fileURLToPath(new URL('../..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-island-fixture-'));
+    const outDir = join(fixtureDir, 'out');
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'script-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'greeting.ts'),
+        "export const greeting: string = 'GREETING_FROM_HELPER';"
+      );
+      // TypeScript syntax and a relative import, the way component scripts are written.
+      await writeFile(
+        join(fixtureDir, 'Greeting.astro'),
+        [
+          '<p data-greeting></p>',
+          '<script>',
+          "  import { greeting } from './greeting.ts';",
+          "  document.querySelector('[data-greeting]')!.textContent = greeting;",
+          '</script>'
+        ].join('\n')
+      );
+      // The story's own component has no script; the one it renders does.
+      await writeFile(
+        join(fixtureDir, 'Page.astro'),
+        ['---', "import Greeting from './Greeting.astro';", '---', '<Greeting />'].join('\n')
+      );
+
+      const assets = await buildHydratedComponentAssets({
+        componentPaths: [join(fixtureDir, 'Page.astro')],
+        integrations: [],
+        resolveFrom: fixtureDir,
+        outDir
+      });
+
+      const greetingPath = (await realpath(join(fixtureDir, 'Greeting.astro'))).replace(/\\/g, '/');
+      const chunkRelPath =
+        assets.staticModuleMap[`${greetingPath}?astro&type=script&index=0&lang.ts`];
+
+      expect(chunkRelPath).toMatch(/^\.\/_astro\/.+\.js$/);
+
+      const chunkCode = await readFile(join(outDir, chunkRelPath), 'utf-8');
+
+      expect(chunkCode).toContain('GREETING_FROM_HELPER');
     } finally {
       await rm(fixtureDir, { recursive: true, force: true });
     }

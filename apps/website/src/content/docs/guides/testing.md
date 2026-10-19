@@ -7,7 +7,7 @@ Stories can double as test cases with **portable stories**. You can compose stor
 
 ## Requirements
 
-Testing requires **Vitest 4.1.0 or newer**. On `vitest@4.0.x`, importing a story
+Testing requires **Vitest 4.1.0 or newer**; Vitest 5 is supported too. On `vitest@4.0.x`, importing a story
 whose component uses `astro:assets` fails at module load with:
 
 ```

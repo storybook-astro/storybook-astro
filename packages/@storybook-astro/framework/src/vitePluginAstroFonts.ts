@@ -6,7 +6,11 @@ import type { Plugin } from 'vite';
 // The provider interface we rely on is small and stable enough to type locally.
 export interface StorybookFontProvider {
   name: string;
-  init?: (context: { storage: FontStorage; root: URL }) => Promise<void> | void;
+  init?: (context: {
+    storage: FontStorage;
+    root: URL;
+    fetch: typeof globalThis.fetch;
+  }) => Promise<void> | void;
   resolveFont: (options: {
     familyName: string;
     weights: string[];
@@ -190,7 +194,11 @@ async function resolveAllFamilies(
   for (const family of families) {
     try {
       if (family.provider.init) {
-        await family.provider.init({ storage, root });
+        // Astro 7.4+ providers request their APIs through `fetch` from this
+        // context; older providers ignore it. Astro's own adds retries and
+        // proxy support, which a one-off Storybook resolve can do without.
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins
+        await family.provider.init({ storage, root, fetch: globalThis.fetch });
       }
       const result = await family.provider.resolveFont({
         familyName: family.name,

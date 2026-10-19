@@ -51,7 +51,7 @@ These layers live in `@storybook-astro/framework`. Each one solves a specific mi
 
 **Problem:** Astro's Font Provider API (`astro:assets/fonts`) depends on font-related virtual modules that are not wired up in Storybook's SSR Vite server, so font CSS variables would be missing.
 
-**Solution:** `vitePluginAstroFonts` resolves the Font Provider API in Storybook's SSR context and auto-loads the font families declared in your `astro.config.*`, exposing their CSS variables to rendered components. No mirror into `.storybook/main.js` is required.
+**Solution:** `vitePluginAstroFonts` resolves the Font Provider API in Storybook's SSR context and auto-loads the font families declared in your `astro.config.*`, exposing their CSS variables to rendered components. No mirror into `.storybook/main.js` is required. Since Astro 7.4, providers make their API requests through a `fetch` function passed to `init()`, which the plugin supplies.
 
 ### 5. Framework renderer delegation — `render.tsx`
 
@@ -59,11 +59,14 @@ These layers live in `@storybook-astro/framework`. Each one solves a specific mi
 
 **Solution:** `renderToCanvas()` delegates to framework-specific renderers *before* calling `storyFn()`, letting each framework manage its own reactive root without interference.
 
-### 6. Image service injection — `middleware.ts`
+### 6. Image service injection — `astroImageService.ts`
 
-**Problem:** Astro's `getConfiguredImageService()` calls `import("virtual:image-service")` to load the configured service. Under Vite's module runner this dynamic import fails with `InvalidImageService`, and even when it succeeds the noop service routes through `/_image?href=...` URLs the Storybook dev server does not serve reliably.
+**Problem:** Astro's `getConfiguredImageService()` calls `import("virtual:image-service")` to load the configured service. Under Vite's module runner this dynamic import fails with `InvalidImageService` on some versions (Astro 6 on Vite 7), and Astro's default services route through `/_image?href=...` URLs the Storybook dev server does not serve.
 
-**Solution:** `handlerFactory()` pre-populates `globalThis.astroAsset.imageService` with a custom inline service before creating the Astro Container, bypassing the dynamic import entirely. The inline service's `getURL()` returns the `/@fs/...` Vite URL from the `ImageMetadata` object, which Vite serves as a static asset in the browser.
+**Solution:** Storybook uses its own image service, whose `getURL()` returns the `/@fs/...` Vite URL from the `ImageMetadata` object, which Vite serves as a static asset in the browser (and which static builds rewrite to the emitted asset). It is installed two ways, because Astro changed how it looks the service up:
+
+- **Astro 5 through 7.3** check `globalThis.astroAsset.imageService` before the dynamic import, so the render pipeline sets that global and the import never runs.
+- **Astro 7.4+** ignore the global and only load the service through `virtual:image-service`. The Storybook SSR servers and the Vitest config pass the same service as `image.service.entrypoint` (`@storybook-astro/framework/image-service`), so that import loads it.
 
 ### 7. CJS module interop — `cjsInteropPlugin`
 
@@ -78,5 +81,5 @@ These layers can be simplified or removed as Astro evolves:
 - **Component marker** — can be removed if a future Astro reintroduces `isAstroComponentFactory` in client-side transforms.
 - **Props patching** — can be removed once every supported compiler matches the runtime calling convention.
 - **Fonts** — can be simplified if Astro's font plugin handles the Storybook SSR context directly.
-- **Image service injection** — can be removed if Astro exposes an image service configuration API for the Container, or if `virtual:image-service` resolves correctly in all Vite contexts.
+- **Image service injection** — the global can be dropped along with support for Astro versions below 7.4, leaving only the `image.service.entrypoint` config.
 - **CJS interop** — will shrink as dependencies migrate to ESM.

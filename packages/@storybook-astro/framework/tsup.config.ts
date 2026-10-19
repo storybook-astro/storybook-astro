@@ -15,6 +15,8 @@ export default defineConfig({
     'src/renderer/renderer-server.ts',
     'src/middleware.ts',
     'src/vitest/global-setup.ts',
+    // Its own entry because Astro loads it by path as `image.service.entrypoint`.
+    'src/storybookImageService.ts',
   ],
   format: ['esm'],
   dts: {

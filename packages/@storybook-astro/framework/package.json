@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/framework",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "Community-supported Storybook framework for Astro 5, 6 & 7 components",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -55,6 +55,7 @@
       "types": "./dist/preset.d.ts",
       "import": "./dist/preset.js"
     },
+    "./image-service": "./dist/storybookImageService.js",
     "./shim": {
       "types": "./src/shim.d.ts"
     },
@@ -89,7 +90,7 @@
   "peerDependencies": {
     "@astrojs/alpinejs": "^0.4.5 || ^0.5.0 || ^1.0.0",
     "@astrojs/preact": "^4.0.8 || ^5.0.0 || ^6.0.0",
-    "@astrojs/react": "^4.2.3 || ^5.0.0 || ^6.0.0",
+    "@astrojs/react": "^4.2.3 || ^5.0.0 || ^6.0.0 || ^7.0.0",
     "@astrojs/solid-js": "^5.0.7 || ^6.0.0 || ^7.0.0",
     "@astrojs/svelte": "^7.0.9 || ^8.0.0 || ^9.0.0",
     "@astrojs/vue": "^5.0.9 || ^6.0.0 || ^7.0.0",
@@ -106,7 +107,7 @@
     "storybook-solidjs": "^1.0.0-beta.7",
     "typescript": "^5.0.0 || ^6.0.0",
     "vite": "^6.4.1 || ^7.0.0 || ^8.0.0",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0 || ^5.0.0"
   },
   "peerDependenciesMeta": {
     "@astrojs/alpinejs": {

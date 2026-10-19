@@ -12,6 +12,7 @@ import {
 import type { RenderRequestMessage, RenderResponseMessage } from '@storybook-astro/renderer/types';
 import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
+import { storybookImageServiceConfig } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import { viteAstroContainerRenderersPlugin } from './viteAstroContainerRenderersPlugin.ts';
 import { vitePluginAstroFonts, generateFontCss } from './vitePluginAstroFonts.ts';
@@ -190,7 +191,7 @@ export async function createViteServer(
   resolveFrom = process.cwd(),
   fonts?: FrameworkOptions['fonts']
 ) {
-  const { getViteConfig, passthroughImageService } = await importAstroConfig(resolveFrom);
+  const { getViteConfig } = await importAstroConfig(resolveFrom);
   const safeIntegrations = integrations ?? [];
   const projectAstroResolutionPlugin = createProjectAstroResolutionPlugin(resolveFrom);
 
@@ -210,7 +211,7 @@ export async function createViteServer(
       // Use the passthrough image service so nested components that use <Image>
       // from astro:assets render as plain <img> tags without triggering image
       // optimization (which fails in the Storybook SSR context).
-      image: { service: passthroughImageService() }
+      image: { service: storybookImageServiceConfig() }
     }
   )({ mode: 'development', command: 'serve' });
 

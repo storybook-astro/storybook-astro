@@ -7,6 +7,7 @@ import type { Integration } from '../integrations/index.ts';
 import { appendUserVitePlugins, loadUserAstroVitePlugins } from '../loadUserAstroConfig.ts';
 import { mergeWithAstroConfig } from '../vitePluginAstro.ts';
 import { collectHydratedComponentPaths } from '../vitePluginAstroBuildShared.ts';
+import { collectComponentScripts, vitePluginComponentScripts } from './componentScripts.ts';
 import type { StaticCssMap, StaticModuleMap } from './staticHtmlRewriting.ts';
 
 export type HydratedComponentAssets = {
@@ -31,6 +32,10 @@ export type BuildHydratedComponentAssetsOptions = {
  * this step their `client:load` islands have no built JS chunk and no extracted
  * CSS — leading to unstyled, unhydrated previews in the static build.
  *
+ * The processed `<script>`s of those Astro components (and of the components
+ * they render) are bundled here too, for the same reason: the browser only ever
+ * sees their dev-server URLs in the rendered HTML.
+ *
  * Component paths may be absolute filesystem paths, paths relative to `resolveFrom`,
  * or bare package specifiers (e.g. `@my-pkg/components/Foo.astro`). All three are
  * normalized to absolute filesystem paths before reading sources from disk.
@@ -42,19 +47,23 @@ export async function buildHydratedComponentAssets(
   const resolvedComponentPaths = options.componentPaths
     .map(resolveSpecifier)
     .filter((path): path is string => Boolean(path));
+  // The walks share one visited set, so it ends up listing every `.astro` file
+  // they read: the story components and each component those render.
+  const astroFilePaths = new Set<string>();
   const hydratedComponentPaths = Array.from(
     new Set(
       (
         await Promise.all(
           resolvedComponentPaths.map((componentPath) =>
-            collectHydratedComponentPaths(componentPath, options.resolveFrom)
+            collectHydratedComponentPaths(componentPath, options.resolveFrom, astroFilePaths)
           )
         )
       ).flat()
     )
   );
+  const componentScripts = await collectComponentScripts(astroFilePaths, options.resolveFrom);
 
-  if (hydratedComponentPaths.length === 0) {
+  if (hydratedComponentPaths.length === 0 && componentScripts.size === 0) {
     return { staticModuleMap: {}, staticCssMap: {} };
   }
 
@@ -67,7 +76,8 @@ export async function buildHydratedComponentAssets(
   );
   const entryNames = Object.fromEntries([
     ...hydratedComponentPaths.map((componentPath, index) => [`component-${index}`, componentPath]),
-    ...clientEntrypoints.map((entrypoint, index) => [`renderer-${index}`, entrypoint])
+    ...clientEntrypoints.map((entrypoint, index) => [`renderer-${index}`, entrypoint]),
+    ...Array.from(componentScripts.keys(), (scriptId, index) => [`script-${index}`, scriptId])
   ]);
 
   // build.watch is not set, so result is always a build output, never a watcher.
@@ -75,6 +85,7 @@ export async function buildHydratedComponentAssets(
 
   const buildConfig = {
     root: options.resolveFrom,
+    plugins: [vitePluginComponentScripts(componentScripts)],
     build: {
       write: false,
       outDir: options.outDir,

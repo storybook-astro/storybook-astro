@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
+import { createPathStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
 import { createStorybookBrowserStubPlugin, createStorySsrViteServer } from './storySsrVite.ts';
 
 type HookFn = (id: string) => unknown;
@@ -40,6 +41,39 @@ describe('createStorySsrViteServer', () => {
         const pluginNames = viteServer.config.plugins.map((plugin) => plugin.name);
 
         expect(pluginNames).toContain('user-test-plugin');
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('lets a storyRules mock replace astro:content, as dev does (issue #194)', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+    const stubPath = join(fixtureDir, 'astro-content-stub.ts');
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(stubPath, 'export const getEntry = async () => ({ data: {} });');
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        const resolved = await withStoryModuleMocks(
+          new Map([['astro:content', createPathStoryModuleMock(stubPath)]]),
+          () => viteServer.pluginContainer.resolveId('astro:content')
+        );
+
+        expect(resolved?.id).toBe(stubPath);
       } finally {
         await viteServer.close();
       }
