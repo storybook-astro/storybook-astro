@@ -1,7 +1,7 @@
 import type { Options } from 'storybook/internal/types';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 // eslint-disable-next-line camelcase -- the preset key Storybook core reads.
-import { experimental_docgenProvider } from './preset.ts';
+import { experimental_docgenProvider, viteFinal } from './preset.ts';
 import type { FrameworkOptions } from './types.ts';
 
 interface Scenario {
@@ -99,4 +99,10 @@ describe('a prop filter cannot cross the worker boundary', () => {
     expect(descriptors).toHaveLength(1);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('propFilter'));
   });
+});
+
+test('server mode without an adapter fails with a clear message', async () => {
+  const options = storybookOptions({ frameworkOptions: { renderMode: 'server' } });
+
+  await expect(viteFinal!({}, options)).rejects.toThrow('Server mode requires server.adapter');
 });
