@@ -36,6 +36,17 @@ export async function createStorySsrViteServer(options: {
     command: 'serve'
   });
 
+  // Astro 7.4+ gives `serve` configs a path-based CSS module naming scheme so
+  // dev HMR keeps class names stable. This server renders production output,
+  // and the island build that emits the matching stylesheets runs as a
+  // `build`, which keeps Vite's default naming. Drop Astro's so the rendered
+  // HTML references the class names the built CSS defines (issue #199).
+  const cssModules = astroConfig.css?.modules;
+
+  if (cssModules) {
+    delete cssModules.generateScopedName;
+  }
+
   // mergeConfig appends the second config's plugins after the first's, so
   // the fallbacks and story module mocks go in the first config to run ahead
   // of Astro's plugins, matching dev's createViteServer. Several of Astro's
