@@ -28,7 +28,11 @@ const config = {
     // worker. Experimental and opt-in upstream; astro6 carries it so the
     // provider stays exercised, while astro5 and astro7 keep covering the
     // builder path (docs/specs/docgen.md#design-decisions).
-    experimentalDocgenServer: true
+    experimentalDocgenServer: true,
+    // The components manifest (what @storybook/addon-mcp reads) is built from
+    // the docgen worker's payloads; on together, the build fails unless the
+    // framework names its docgen engine (issue #183).
+    componentsManifest: true
   },
   framework: {
     name: '@storybook-astro/framework',

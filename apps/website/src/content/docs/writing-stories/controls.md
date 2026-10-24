@@ -145,10 +145,17 @@ TypeScript work off the critical path:
 // .storybook/main.js
 export default {
   features: {
-    experimentalDocgenServer: true,
+    experimentalDocgenServer: true, // Storybook 10.6–10.x
+    // docgenServer: true,          // Storybook 11 renames the flag
   },
 };
 ```
+
+Use the name your Storybook reads. Storybook 11 renamed the flag to
+`docgenServer` and no longer reads the old one (its `docgen-server`
+automigration rewrites it for you). If you set the name your version ignores,
+extraction stays in the builder and Storybook Astro logs a warning naming the
+right flag.
 
 The props table and description are the same either way — it is the same
 extractor, just running somewhere else. What you gain is that a large component
@@ -167,6 +174,11 @@ Two caveats:
 
 On Storybook 10.0–10.5 the flag is accepted but the helpers this builds on don't
 exist yet, so extraction stays in the builder and logs a note saying so.
+
+The Docgen Server also feeds Storybook's components manifest
+(`features.componentsManifest`), which `@storybook/addon-mcp` reads to give AI
+agents your components' descriptions and props. With both features on, static
+builds write `manifests/components.json` with an entry for each Astro component.
 
 ## Turning extraction off
 
