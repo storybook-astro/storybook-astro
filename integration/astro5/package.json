@@ -55,7 +55,7 @@
     "prop-types": "^15.8.1",
     "solid-js": "^1.9.10",
     "storybook": "10.6.0",
-    "storybook-solidjs-vite": "^10.0.9",
+    "storybook-solidjs-vite": "^10.7.4",
     "vite": "^6.2.5",
     "vitest": "^4.1.9"
   }

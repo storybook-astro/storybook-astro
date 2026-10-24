@@ -49,6 +49,44 @@ describe('createStorySsrViteServer', () => {
     }
   }, 60_000);
 
+  test('turns off the client dependency optimizer, even after integrations add to it (issue #184)', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      // Framework integrations (React, Svelte, …) list their client deps from
+      // a `config` hook, which runs after the server's inline config.
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default { vite: { plugins: [{
+          name: 'adds-client-deps',
+          config: () => ({ optimizeDeps: { include: ['react'] } })
+        }] } };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        const { optimizeDeps } = viteServer.environments.client.config;
+
+        expect(optimizeDeps.noDiscovery).toBe(true);
+        expect(optimizeDeps.include).toEqual([]);
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   test('lets a storyRules mock replace astro:content, as dev does (issue #194)', async () => {
     const packageDir = fileURLToPath(new URL('..', import.meta.url));
     const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));

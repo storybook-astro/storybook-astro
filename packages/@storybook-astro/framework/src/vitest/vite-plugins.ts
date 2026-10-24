@@ -27,6 +27,12 @@ function findPackageDir(pkgName: string): string | null {
   return null;
 }
 
+/**
+ * @deprecated No longer needed: Astro components with Solid children
+ * server-render under Vitest on Astro 5, 6 and 7 without it, and `defineConfig`
+ * no longer adds it (issue #209). Kept only so existing imports keep working;
+ * it will be removed in the next major version.
+ */
 export function vitestPatchForSolidJs(): AstroIntegration {
   return {
     name: 'fix-solid',

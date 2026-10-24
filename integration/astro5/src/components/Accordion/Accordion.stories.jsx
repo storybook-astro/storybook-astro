@@ -35,10 +35,14 @@ export const AllowMultiple = {
 
 export const ToggleOpen = {
   parameters: {
-    docs: { description: { story: 'Interaction test: click a header and verify section expands.' } },
+    docs: {
+      description: {
+        story: 'Interaction test: click a header and verify that section expands while the others stay closed.',
+      },
+    },
   },
   args: {
-    items: [{ title: 'Section 1', content: 'Content for section 1' }],
+    items: Default.args.items,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -48,19 +52,22 @@ export const ToggleOpen = {
     await userEvent.click(header);
     await expect(header).toHaveAttribute('aria-expanded', 'true');
     await expect(canvas.getByText('Content for section 1')).toBeVisible();
+    await expect(canvas.getByRole('button', { name: /Section 2/ })).toHaveAttribute('aria-expanded', 'false');
+    await expect(canvas.getByRole('button', { name: /Section 3/ })).toHaveAttribute('aria-expanded', 'false');
   },
 };
 
 export const ToggleMultiple = {
   parameters: {
-    docs: { description: { story: 'Interaction test: verify multiple sections can be open simultaneously.' } },
+    docs: {
+      description: {
+        story: 'Interaction test: open two sections and verify both stay open while the third stays closed.',
+      },
+    },
   },
   args: {
     allowMultiple: true,
-    items: [
-      { title: 'First Item', content: 'First content' },
-      { title: 'Second Item', content: 'Second content' },
-    ],
+    items: AllowMultiple.args.items,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -71,5 +78,6 @@ export const ToggleMultiple = {
     await userEvent.click(second);
     await expect(first).toHaveAttribute('aria-expanded', 'true');
     await expect(second).toHaveAttribute('aria-expanded', 'true');
+    await expect(canvas.getByRole('button', { name: /Third Item/ })).toHaveAttribute('aria-expanded', 'false');
   },
 };

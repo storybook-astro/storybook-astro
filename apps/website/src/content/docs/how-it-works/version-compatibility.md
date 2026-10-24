@@ -14,7 +14,7 @@ Storybook Astro tracks Astro's major releases and includes a small set of compat
 | **Vite** | 6.4.1+ (required by Astro 5), 7.x, or 8.x |
 | **Node.js** | 20.16.0+, 22.19.0+, or 24.0.0+ |
 
-Each supported Astro major has a matching integration example in the repository (`integration/astro5`, `integration/astro6`, `integration/astro7`) plus a server-render variant, and every release is smoke-tested against all three majors.
+Each supported Astro major has a matching integration example in the repository (`integration/astro5`, `integration/astro6`, `integration/astro7`) plus a server-render variant, and every release is smoke-tested against all three majors. A weekly CI job also runs the test suites against the newest release of each major, so new Astro minors are checked as they ship.
 
 ### What changed in Astro 7
 
@@ -46,6 +46,8 @@ These layers live in `@storybook-astro/framework`. Each one solves a specific mi
 **Problem:** The client-side transform no longer includes `<style>` block imports, so Storybook's preview iframe receives the component stub but none of the scoped CSS.
 
 **Solution:** The component marker plugin reads the original `.astro` source, counts `<style>` blocks, and generates import statements for each style sub-module using Astro's convention: `Component.astro?astro&type=style&index=N&lang.css`. During builds, it extracts raw CSS directly from the source and inlines it.
+
+CSS Modules in framework components (React, Preact, Solid, …) need their class names to match between the prerendered HTML and the stylesheet the static build emits. Since Astro 7.4, Astro's dev-server config names CSS Module classes with a path-based hash, while builds keep Vite's default naming. Static builds prerender stories through a dev-style server, so that server drops Astro's naming to stay consistent with the built CSS.
 
 ### 4. Fonts — `vitePluginAstroFonts`
 

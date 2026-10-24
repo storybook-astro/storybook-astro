@@ -8,6 +8,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-10-24
+
+### Added
+- Storybook 11 readiness: the framework reads Storybook 11's renamed `features.docgenServer` flag, and keeps reading `experimentalDocgenServer` on Storybook 10.6 (#206).
+
+### Changed
+- The Solid integration's optional peer is now `storybook-solidjs-vite` (`>=10.0.0 <10.1.0 || ^10.6.0`) instead of the abandoned `storybook-solidjs` (#209).
+
+### Deprecated
+- `vitestPatchForSolidJs` from `@storybook-astro/framework/vitest` is no longer needed or applied by `defineConfig`, and will be removed in the next major version (#209).
+
+### Fixed
+- `storybook build` failed with the Solid integration on `storybook-solidjs-vite` 10.1 and later, including the current 10.7 (#209).
+- CSS Module styles were missing from static and server-mode builds on Astro 7.4 (#199).
+- The framework's internal SSR servers logged `Failed to run dependency scan`, and on some setups failed the build (#184).
+- Builds with both `componentsManifest` and the Docgen Server enabled silently failed to write the components manifest (#183).
+
 ## [1.13.0] - 2026-10-19
 
 ### Added

@@ -13,6 +13,7 @@ import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
+import { vitePluginNoClientDepOptimizer } from './vitePluginNoClientDepOptimizer.ts';
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 
 export async function createStorySsrViteServer(options: {
@@ -35,6 +36,17 @@ export async function createStorySsrViteServer(options: {
     mode: 'production',
     command: 'serve'
   });
+
+  // Astro 7.4+ gives `serve` configs a path-based CSS module naming scheme so
+  // dev HMR keeps class names stable. This server renders production output,
+  // and the island build that emits the matching stylesheets runs as a
+  // `build`, which keeps Vite's default naming. Drop Astro's so the rendered
+  // HTML references the class names the built CSS defines (issue #199).
+  const cssModules = astroConfig.css?.modules;
+
+  if (cssModules) {
+    delete cssModules.generateScopedName;
+  }
 
   // mergeConfig appends the second config's plugins after the first's, so
   // the fallbacks and story module mocks go in the first config to run ahead
@@ -66,7 +78,8 @@ export async function createStorySsrViteServer(options: {
       // Only stubs for what Astro's plugins can't answer, so they stay after them.
       plugins: [
         createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
-        createStorybookBrowserStubPlugin()
+        createStorybookBrowserStubPlugin(),
+        vitePluginNoClientDepOptimizer()
       ]
     })
   );
@@ -197,20 +210,15 @@ export async function addContainerRenderers(
       const serverRendererModule = await viteServer.ssrLoadModule(serverRenderer.entrypoint);
       const renderer = serverRendererModule.default ?? serverRendererModule;
 
-      if (integration.name === 'solid' && isRecord(renderer)) {
-        container.addServerRenderer({
-          name: serverRenderer.name,
-          renderer: {
-            ...renderer,
-            name: serverRenderer.name
-          } as never
-        });
-      } else {
-        container.addServerRenderer({
-          name: serverRenderer.name,
-          renderer
-        });
-      }
+      // Always register under the declared name; see `buildServerRenderer` in
+      // viteAstroContainerRenderersPlugin.ts for why (Solid's renderer names
+      // itself differently from its client).
+      container.addServerRenderer({
+        name: serverRenderer.name,
+        renderer: isRecord(renderer)
+          ? ({ ...renderer, name: serverRenderer.name } as never)
+          : renderer
+      });
     }
 
     const clientRenderer = integration.renderer.client;

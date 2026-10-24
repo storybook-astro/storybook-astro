@@ -10,7 +10,7 @@ import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarke
 import { vitePluginAstroSvgComponentMarker } from '../vitePluginAstroSvgComponentMarker.ts';
 import { registerTestingIntegrationsForRoot } from '../testing/integration-config.ts';
 import { appendUserVitePlugins, loadUserAstroVitePlugins } from '../loadUserAstroConfig.ts';
-import { cjsInteropPlugin, vitestPatchForSolidJs } from './vite-plugins.ts';
+import { cjsInteropPlugin } from './vite-plugins.ts';
 
 /**
  * Creates a Vite logger that suppresses known benign warnings in the test context:
@@ -124,7 +124,7 @@ export function defineConfig(options: TestingDefineConfig) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       astroConfigModule.getViteConfig(vitestConfig as any, {
         configFile: astroConfigFile,
-        integrations: [...resolvedIntegrations, vitestPatchForSolidJs()],
+        integrations: resolvedIntegrations,
         // Render images the way Storybook does (issue #196), not through the
         // project's image service and an /_image endpoint tests can't serve.
         image: { service: storybookImageServiceConfig() }

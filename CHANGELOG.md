@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-10-24
+
+### Added
+- Storybook 11 readiness for the Docgen Server flag (#206). Storybook 11 renamed `features.experimentalDocgenServer` to `features.docgenServer` and reads only the new name, while Storybook 10.6 reads only the old one. The framework now reads whichever name the installed Storybook reads, and warns once when only the other name is set.
+
+### Changed
+- The Solid integration's optional peer is now `storybook-solidjs-vite` (`>=10.0.0 <10.1.0 || ^10.6.0`) instead of the abandoned `storybook-solidjs` (#209). The integration already loaded `storybook-solidjs-vite`; only the declared peer was wrong.
+
+### Deprecated
+- `vitestPatchForSolidJs` from `@storybook-astro/framework/vitest` (#209). Astro components with Solid children render under Vitest on Astro 5, 6 and 7 without it, so `defineConfig` no longer adds it. It will be removed in the next major version.
+
+### Fixed
+- With `storybook-solidjs-vite` 10.1 or later (10.7 is the current `latest`), `storybook build` failed for any project using the Solid integration with `Missing "./renderer/entry-preview" specifier` (#209). That package moved its Solid 1 preview entry to `renderer/solid-legacy` in 10.6; the integration now reads the installed package's exports and uses whichever entry it has. 10.1–10.5 export no browser entry at all and now get an error naming the supported versions.
+- CSS Module styles were missing from static builds and server-mode builds on Astro 7.4 (#199), e.g. a React component's `.module.css` classes on the Docs page. Astro 7.4 sets a path-based `css.modules.generateScopedName` for dev only, so the prerendered HTML and the emitted stylesheet used different class names. The build's internal SSR server now uses Vite's default naming, as on Astro 7.3 and earlier.
+- `storybook build` and `storybook dev` logged `Failed to run dependency scan` (and, on some setups, failed outright in Astro's toolbar plugin) from the framework's internal SSR Vite servers (#184). Those servers only render on the server, so their client dependency optimizer is now turned off.
+- Builds with both `features.componentsManifest` and the Docgen Server enabled failed to write the components manifest (`experimental_manifests must supply components.meta.docgen`), while still exiting 0 (#183). The framework now declares its docgen engine for the manifest.
+
 ## [1.13.0] - 2026-10-19
 
 ### Added

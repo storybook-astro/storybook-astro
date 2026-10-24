@@ -1,0 +1,82 @@
+name: Latest Astro
+
+# PR CI tests pinned Astro versions so it stays deterministic. This job installs
+# the newest release of each supported Astro major instead, so a new minor that
+# breaks us shows up here before users report it (issue #200). It runs on a
+# schedule rather than on PRs so an Astro release can't turn unrelated PRs red;
+# a failure opens (or comments on) an issue instead.
+
+on:
+  schedule:
+    # Mondays 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  latest-astro:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        astro-major: [5, 6, 7]
+
+    env:
+      APP: '@storybook-astro/integration-astro${{ matrix.astro-major }}'
+      STORYBOOK_DISABLE_TELEMETRY: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          check-latest: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Upgrade to the latest Astro ${{ matrix.astro-major }}
+        run: |
+          yarn workspace "$APP" add "astro@^${{ matrix.astro-major }}"
+          echo "ASTRO_VERSION=$(yarn workspace "$APP" node -p "require('astro/package.json').version")" >> "$GITHUB_ENV"
+
+      - name: Build packages
+        run: yarn build:packages
+
+      - name: Component tests
+        run: yarn workspace "$APP" test --run
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests (static build)
+        run: yarn workspace "$APP" test:browser
+
+      - name: Storybook Test addon
+        run: yarn workspace "$APP" test:storybook
+
+      - name: Report failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="CI fails on the latest Astro ${{ matrix.astro-major }}"
+          body="The scheduled latest-Astro run failed on astro@${ASTRO_VERSION:-unknown}: $RUN_URL"
+          existing=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

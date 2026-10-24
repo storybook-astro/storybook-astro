@@ -2,7 +2,12 @@ import { dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { version as viteVersion } from 'vite';
-import type { DocgenProviderDescriptor, Options } from 'storybook/internal/types';
+import type {
+  ComponentsManifest,
+  DocgenProviderDescriptor,
+  Manifests,
+  Options
+} from 'storybook/internal/types';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
 import { viteStorybookRendererFallbackPlugin } from './viteStorybookRendererFallbackPlugin.ts';
@@ -127,24 +132,6 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
       ...(config.build.rollupOptions ?? {}),
       preserveEntrySignatures: 'strict'
     };
-  }
-
-  // Add React/ReactDOM aliases for storybook-solidjs compatibility
-  if (!config.resolve) {
-    config.resolve = {};
-  }
-  if (!config.resolve.alias) {
-    config.resolve.alias = {};
-  }
-  
-  // Ensure React is available for storybook-solidjs
-  const aliases = config.resolve.alias as Record<string, string>;
-
-  if (!aliases['react']) {
-    aliases['react'] = 'react';
-  }
-  if (!aliases['react-dom']) {
-    aliases['react-dom'] = 'react-dom';
   }
 
   const finalConfig = await mergeWithAstroConfig(
@@ -355,7 +342,8 @@ function mergeEnvPrefixes(
  * `src/docgen/docgen-worker.ts`, which core's worker imports and composes into
  * its provider chain.
  *
- * Only when the user opted into `features.experimentalDocgenServer`. Otherwise
+ * Only when the user opted into the Docgen Server (`features.docgenServer`, or
+ * `features.experimentalDocgenServer` before Storybook 11). Otherwise
  * extraction stays in the Vite plugin, which covers our whole `storybook:
  * ^10.0.0` peer range (docs/specs/docgen.md#design-decisions).
  */
@@ -383,7 +371,7 @@ export const experimental_docgenProvider = async (
 
   if (frameworkOptions.docgen?.propFilter) {
     console.warn(
-      '[storybook-astro] The `docgen.propFilter` option is ignored when `features.experimentalDocgenServer` is enabled: a filter is a function, and the Docgen Server hands its provider plain data across a worker boundary. Turn the feature off to keep your filter.'
+      '[storybook-astro] The `docgen.propFilter` option is ignored when the Docgen Server is enabled: a filter is a function, and the Docgen Server hands its provider plain data across a worker boundary. Turn the feature off to keep your filter.'
     );
   }
 
@@ -402,22 +390,56 @@ export const experimental_docgenProvider = async (
 };
 
 /**
+ * Declares which engine produced the Docgen Server's payloads. With the
+ * components manifest also enabled, core builds `components.json` from those
+ * payloads but requires the renderer to name the engine: it doesn't infer it,
+ * and fails the build without one (issue #183).
+ */
+// eslint-disable-next-line camelcase -- the preset key Storybook core reads.
+export const experimental_manifests = async (
+  existing: Manifests = {},
+  storybookOptions: Options
+): Promise<Manifests> => {
+  if (!(await usesDocgenService(storybookOptions))) {
+    return existing;
+  }
+
+  // Core types `meta.docgen` as a union of its first-party engines. The value
+  // is only displayed (in the `components.html` debugger), so naming ours is
+  // safe until the union has an entry for it.
+  const docgen = 'astro-docgen' as NonNullable<ComponentsManifest['meta']>['docgen'];
+
+  return {
+    ...existing,
+    components: { v: 0, components: {}, meta: { docgen, durationMs: 0 } }
+  };
+};
+
+/**
  * Whether the Docgen Server owns extraction instead of the Vite plugin.
  *
- * Two things have to line up. The user has to opt into Storybook's experimental
- * docgen service, and their Storybook has to actually ship the provider helpers
- * the worker is built on — those landed in 10.6, while our peer range goes back
- * to 10.0. On an older Storybook we say so and stay on the builder path, which
+ * Two things have to line up. The user has to opt into Storybook's docgen
+ * service, and their Storybook has to actually ship the provider helpers the
+ * worker is built on — those landed in 10.6, while our peer range goes back to
+ * 10.0. On an older Storybook we say so and stay on the builder path, which
  * produces the same table.
  *
- * Both callers below go through this so the two paths can never both run: a
- * worker thread has its own module registry, so enabling both would pay the
+ * All callers go through this so the two paths can never both run: a worker
+ * thread has its own module registry, so enabling both would pay the
  * TypeScript warm-up twice for identical output.
  */
 async function usesDocgenService(storybookOptions: Options): Promise<boolean> {
-  const features = await storybookOptions.presets.apply('features', {});
+  // Typed against the Storybook we build with, which knows only one of the names.
+  const features = (await storybookOptions.presets.apply('features', {})) as Record<string, unknown>;
+  const { flag, ignoredFlag } = await docgenServerFlags();
 
-  if (features?.experimentalDocgenServer !== true) {
+  if (features[ignoredFlag] === true && features[flag] !== true) {
+    warnOnce(
+      `\`features.${ignoredFlag}\` has no effect on this version of Storybook; it reads \`features.${flag}\`. Component documentation is still extracted in the builder.`
+    );
+  }
+
+  if (features[flag] !== true) {
     return false;
   }
 
@@ -428,11 +450,27 @@ async function usesDocgenService(storybookOptions: Options): Promise<boolean> {
 
   if (!supported) {
     warnOnce(
-      '`features.experimentalDocgenServer` needs Storybook 10.6 or newer. Component documentation is still being extracted — in the builder, as it was before — so your props tables are unaffected. Upgrade Storybook to move extraction off the dev server.'
+      `\`features.${flag}\` needs Storybook 10.6 or newer. Component documentation is still being extracted — in the builder, as it was before — so your props tables are unaffected. Upgrade Storybook to move extraction off the dev server.`
     );
   }
 
   return supported;
+}
+
+/**
+ * The Docgen Server flag the running Storybook reads, and the one it ignores.
+ * Storybook 11 renamed `experimentalDocgenServer` to `docgenServer` and stopped
+ * reading the old name; 10.x reads only the old one. Honoring the name core
+ * ignores would switch off builder docgen while core never starts the service,
+ * leaving every props table empty.
+ */
+async function docgenServerFlags() {
+  const { versions } = await import('storybook/internal/common');
+  const isStorybook11 = Number.parseInt(versions.storybook, 10) >= 11;
+
+  return isStorybook11
+    ? ({ flag: 'docgenServer', ignoredFlag: 'experimentalDocgenServer' } as const)
+    : ({ flag: 'experimentalDocgenServer', ignoredFlag: 'docgenServer' } as const);
 }
 
 const warned = new Set<string>();
