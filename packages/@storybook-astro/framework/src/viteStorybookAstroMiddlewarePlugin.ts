@@ -20,6 +20,7 @@ import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegra
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
+import { vitePluginNoClientDepOptimizer } from './vitePluginNoClientDepOptimizer.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import {
@@ -242,7 +243,8 @@ export async function createViteServer(
       vitePluginAstroRoutesFallback(),
       vitePluginStoryModuleMocks(),
       ...(config.plugins?.filter(Boolean) ?? []),
-      viteAstroContainerRenderersPlugin(safeIntegrations)
+      viteAstroContainerRenderersPlugin(safeIntegrations),
+      vitePluginNoClientDepOptimizer()
     ]
   };
 

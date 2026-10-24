@@ -13,6 +13,7 @@ import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
+import { vitePluginNoClientDepOptimizer } from './vitePluginNoClientDepOptimizer.ts';
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 
 export async function createStorySsrViteServer(options: {
@@ -77,7 +78,8 @@ export async function createStorySsrViteServer(options: {
       // Only stubs for what Astro's plugins can't answer, so they stay after them.
       plugins: [
         createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
-        createStorybookBrowserStubPlugin()
+        createStorybookBrowserStubPlugin(),
+        vitePluginNoClientDepOptimizer()
       ]
     })
   );
