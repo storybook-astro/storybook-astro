@@ -17,7 +17,7 @@ If you encounter an `npm ERESOLVE` error, see the [Troubleshooting Guide](../../
 
 ## Optional: framework integration packages
 
-To use non-Astro framework components (React, Vue, Svelte, etc.) in your stories, also install the corresponding Astro integrations and Storybook renderers:
+To use non-Astro framework components (React, Vue, Svelte, etc.) in your stories, also install the corresponding Astro integrations and Storybook renderers. They are optional peer dependencies, so npm doesn't install them for you, and `storybook build` fails without them:
 
 ```bash
 # React
@@ -33,10 +33,10 @@ npm install --save-dev @astrojs/svelte @storybook/svelte @sveltejs/vite-plugin-s
 npm install --save-dev @astrojs/preact @storybook/preact @preact/preset-vite preact
 
 # Solid
-npm install --save-dev @astrojs/solid-js @storybook/html vite-plugin-solid solid-js
+npm install --save-dev @astrojs/solid-js storybook-solidjs-vite vite-plugin-solid solid-js
 
 # Alpine.js
-npm install --save-dev @astrojs/alpinejs @storybook/html alpinejs
+npm install --save-dev @astrojs/alpinejs alpinejs
 ```
 
 See the [Framework Components](/writing-stories/framework-components/) page for how to configure and use these in stories.

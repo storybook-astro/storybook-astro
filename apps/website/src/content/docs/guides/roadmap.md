@@ -94,7 +94,7 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 ### Code Panel Source for Astro Components
 
-**Status**: Shipped (unreleased)
+**Shipped in**: 1.12.0
 
 Docs "Show code" and the Code Panel show the Astro template a story's args describe — `<Card title="Hello" featured>` — instead of falling back to the raw story file. The snippet regenerates on every render, so it follows Controls changes, and `parameters.docs.source.code` still overrides it.
 
@@ -104,11 +104,11 @@ See [Showing component source](/writing-stories/controls/#showing-component-sour
 
 ### Automatic Documentation Extraction from JSDoc
 
-**Status**: Shipped (unreleased)
+**Shipped in**: 1.11.0
 
 Component descriptions and prop documentation are extracted from JSDoc in a component's `.astro` frontmatter, so autodocs pages populate without any `argTypes` boilerplate in story files. Covers per-prop descriptions, types and defaults, select controls for literal union props, and types imported from other files (including through tsconfig `paths` aliases). Inherited DOM attributes are filtered out, while props you destructure are kept.
 
-On Storybook 10.6+ you can move extraction off the dev server into Storybook's Docgen Server with `features: { experimentalDocgenServer: true }` (`docgenServer` on Storybook 11). The output is the same; the TypeScript work runs in a worker thread core owns, and static builds get per-component JSON snapshots instead of docgen inlined in the preview bundle. Storybook still marks the service experimental, so it is opt-in.
+Since 1.12.0, on Storybook 10.6+ you can move extraction off the dev server into Storybook's Docgen Server with `features: { experimentalDocgenServer: true }` (`docgenServer` on Storybook 11). The output is the same; the TypeScript work runs in a worker thread core owns, and static builds get per-component JSON snapshots instead of docgen inlined in the preview bundle. Storybook still marks the service experimental, so it is opt-in.
 
 **Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110), [Issue #173](https://github.com/storybook-astro/storybook-astro/issues/173)
 
@@ -116,7 +116,7 @@ On Storybook 10.6+ you can move extraction off the dev server into Storybook's D
 
 ### Storybook Test Addon (`@storybook/addon-vitest`) Support
 
-**Status**: Shipped (unreleased)
+**Shipped in**: 1.11.0
 
 Storybook's official "Storybook Test" runner (`@storybook/addon-vitest`) runs your stories as Vitest browser tests on **Astro 5, 6 and 7**. Astro component stories render through the same server-side pipeline the canvas uses, and play functions run against the resulting DOM.
 
@@ -146,7 +146,7 @@ The [Testing guide](/guides/testing/) documents both halves: [choosing between t
 
 ### Decorator Support
 
-**Status**: Shipped (unreleased)
+**Shipped in**: 1.10.0
 
 Storybook's [decorator](https://storybook.js.org/docs/writing-stories/decorators) API now works for both Astro component stories and framework component stories (React, Vue, etc.) — global (`.storybook/preview.js`), component-level, and story-level decorators are all supported, in dev mode, static builds, server-mode builds, and the portable-stories testing API.
 
