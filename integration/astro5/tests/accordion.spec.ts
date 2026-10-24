@@ -15,4 +15,6 @@ test('Accordion allows multiple open', async ({ page }) => {
   // The story's play function clicks both headers; verify both are expanded
   await expect(page.getByRole('button', { name: /First Item/ })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('button', { name: /Second Item/ })).toHaveAttribute('aria-expanded', 'true');
+  // Only the clicked sections open
+  await expect(page.getByRole('button', { name: /Third Item/ })).toHaveAttribute('aria-expanded', 'false');
 });
