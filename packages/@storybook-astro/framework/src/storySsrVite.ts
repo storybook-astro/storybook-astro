@@ -210,20 +210,15 @@ export async function addContainerRenderers(
       const serverRendererModule = await viteServer.ssrLoadModule(serverRenderer.entrypoint);
       const renderer = serverRendererModule.default ?? serverRendererModule;
 
-      if (integration.name === 'solid' && isRecord(renderer)) {
-        container.addServerRenderer({
-          name: serverRenderer.name,
-          renderer: {
-            ...renderer,
-            name: serverRenderer.name
-          } as never
-        });
-      } else {
-        container.addServerRenderer({
-          name: serverRenderer.name,
-          renderer
-        });
-      }
+      // Always register under the declared name; see `buildServerRenderer` in
+      // viteAstroContainerRenderersPlugin.ts for why (Solid's renderer names
+      // itself differently from its client).
+      container.addServerRenderer({
+        name: serverRenderer.name,
+        renderer: isRecord(renderer)
+          ? ({ ...renderer, name: serverRenderer.name } as never)
+          : renderer
+      });
     }
 
     const clientRenderer = integration.renderer.client;

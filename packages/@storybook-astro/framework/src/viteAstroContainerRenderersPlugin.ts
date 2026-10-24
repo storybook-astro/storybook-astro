@@ -153,22 +153,18 @@ function buildServerRenderer(integration: Integration) {
     return '';
   }
 
-  if (integration.name === 'solid') {
-    return `
-      container.addServerRenderer({
-        name: '${serverRenderer.name}',
-        renderer: {
-          ...${integration.name}Renderer,
-          name: '${serverRenderer.name}'
-        }
-      });
-    `;
-  }
-
+  // The container registers a renderer under its own `name`, ignoring the one
+  // passed alongside it, and that name has to match the client renderer's for
+  // hydration. Solid's server renderer calls itself `@astrojs/solid` while its
+  // client is `@astrojs/solid-js`, so always use the declared name. For every
+  // other integration the two already match.
   return `
     container.addServerRenderer({
       name: '${serverRenderer.name}',
-      renderer: ${integration.name}Renderer
+      renderer: {
+        ...${integration.name}Renderer,
+        name: '${serverRenderer.name}'
+      }
     });
   `;
 }
