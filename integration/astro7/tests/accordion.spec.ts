@@ -5,6 +5,9 @@ test('Accordion toggles open', async ({ page }) => {
   // The story's play function clicks the header; verify the resulting state
   await expect(page.getByRole('button', { name: /Section 1/ })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByText('Content for section 1')).toBeVisible();
+  // Single-open mode: the other sections stay closed
+  await expect(page.getByRole('button', { name: /Section 2/ })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('button', { name: /Section 3/ })).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('Accordion allows multiple open', async ({ page }) => {

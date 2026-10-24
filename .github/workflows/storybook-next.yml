@@ -1,0 +1,103 @@
+name: Storybook next
+
+# Runs the astro7 suites against Storybook's `next` prerelease (issue #213), so
+# breaking changes in upcoming Storybook majors show up as each prerelease
+# lands rather than all at once when we pick up the upgrade. It runs on a
+# schedule rather than on PRs so a prerelease can't turn unrelated PRs red; a
+# failure opens (or comments on) an issue instead — once per prerelease.
+
+on:
+  schedule:
+    # Mondays 07:00 UTC, an hour after the Latest Astro job
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  storybook-next:
+    runs-on: ubuntu-latest
+
+    env:
+      APP: '@storybook-astro/integration-astro7'
+      STORYBOOK_DISABLE_TELEMETRY: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          check-latest: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Switch every Storybook package to next
+        run: |
+          node scripts/use-storybook-next.mjs
+          YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+          echo "STORYBOOK_VERSION=$(node -p "require('storybook/package.json').version")" >> "$GITHUB_ENV"
+
+      # A type error against the new Storybook types is a finding, but it
+      # shouldn't hide what happens at runtime. If the full build fails, build
+      # the JS alone so the suites below still run; the job fails at the end.
+      - name: Build packages
+        id: build
+        continue-on-error: true
+        run: yarn build:packages
+
+      - name: Build packages without type declarations
+        if: steps.build.outcome == 'failure'
+        run: |
+          yarn workspace @storybook-astro/renderer exec tsup --no-dts
+          yarn workspace @storybook-astro/framework exec tsup --no-dts
+
+      - name: Component tests
+        if: ${{ !cancelled() }}
+        run: yarn workspace "$APP" test --run
+
+      - name: Install Playwright browsers
+        if: ${{ !cancelled() }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests (static build)
+        if: ${{ !cancelled() }}
+        run: yarn workspace "$APP" test:browser
+
+      - name: Storybook Test addon
+        if: ${{ !cancelled() }}
+        run: yarn workspace "$APP" test:storybook
+
+      - name: Fail if the type build failed
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "::error::yarn build:packages failed against storybook@$STORYBOOK_VERSION; see the Build packages step."
+          exit 1
+
+      - name: Report failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="CI fails on storybook@next"
+          marker="storybook@${STORYBOOK_VERSION:-unknown}"
+          body="The scheduled storybook@next run failed on $marker: $RUN_URL"
+          existing=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+
+          if [ -z "$existing" ]; then
+            gh issue create --title "$title" --body "$body"
+          elif gh issue view "$existing" --json body,comments --jq '[.body, .comments[].body] | join("\n")' | grep -qF "$marker:"; then
+            # Already reported for this prerelease; wait for the next one.
+            echo "Already reported $marker on #$existing"
+          else
+            gh issue comment "$existing" --body "$body"
+          fi
