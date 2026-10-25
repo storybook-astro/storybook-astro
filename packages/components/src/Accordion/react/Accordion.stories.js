@@ -70,10 +70,14 @@ export const AllowMultiple = {
 // test failing (#160).
 export const ToggleOpen = {
   parameters: {
-    docs: { description: { story: 'Interaction test: click a header and verify section expands.' } },
+    docs: {
+      description: {
+        story: 'Interaction test: click a header and verify that section expands while the others stay closed.',
+      },
+    },
   },
   args: {
-    items: [{ title: 'Section 1', content: 'Content for section 1' }],
+    items: Default.args.items,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -83,5 +87,7 @@ export const ToggleOpen = {
     await userEvent.click(header);
     await expect(header).toHaveAttribute('aria-expanded', 'true');
     await expect(canvas.getByText('Content for section 1')).toBeVisible();
+    await expect(canvas.getByRole('button', { name: /Section 2/ })).toHaveAttribute('aria-expanded', 'false');
+    await expect(canvas.getByRole('button', { name: /Section 3/ })).toHaveAttribute('aria-expanded', 'false');
   },
 };

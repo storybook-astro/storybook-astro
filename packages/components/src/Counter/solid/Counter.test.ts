@@ -1,12 +1,9 @@
-import { composeStories } from 'storybook/preview-api';
-import { setProjectAnnotations } from 'storybook-solidjs';
+import { composeStories, setProjectAnnotations } from 'storybook/preview-api';
+import * as solidAnnotations from 'storybook-solidjs-vite/renderer/solid-legacy';
 import { test, expect } from 'vitest';
-// import * as projectAnnotations from '../../../../.storybook/preview';
 import * as stories from './Counter.stories.js';
 
-const composedProjectAnnotations = setProjectAnnotations([
-  // projectAnnotations
-]);
+const composedProjectAnnotations = setProjectAnnotations([solidAnnotations]);
 
 const { Default } = composeStories(stories, composedProjectAnnotations);
 

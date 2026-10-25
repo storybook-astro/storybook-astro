@@ -301,13 +301,13 @@ export default preview;
 
 ### `parameters.renderer`
 
-Set on individual stories or at the meta level to delegate rendering to a specific framework renderer instead of the Astro Container API:
+Set on individual stories or at the meta level to delegate rendering to a specific framework renderer instead of the Astro Container API. The value is the integration's name — `'react'`, `'vue'`, `'svelte'`, `'preact'` or `'solid'` — not the Storybook renderer package:
 
 ```javascript
 export default {
   component: MyReactComponent,
   parameters: {
-    renderer: '@storybook/react',
+    renderer: 'react',
   },
 };
 ```

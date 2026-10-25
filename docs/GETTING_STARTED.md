@@ -21,7 +21,7 @@ npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 
 > **Installation issues?** If you encounter an `npm ERESOLVE` error, see the [Troubleshooting guide](./TROUBLESHOOTING.md#npm-eresolve-could-not-resolve-peer-dependencies-with-vite-5).
 
-To use non-Astro framework components (React, Vue, Svelte, etc.) in your stories, also install the corresponding Astro integrations and Storybook renderers:
+To use non-Astro framework components (React, Vue, Svelte, etc.) in your stories, also install the corresponding Astro integrations and Storybook renderers. They are optional peer dependencies, so npm doesn't install them for you, and `storybook build` fails without them:
 
 ```bash
 # Example: adding React and Vue support
@@ -29,7 +29,7 @@ npm install --save-dev @astrojs/react @storybook/react @vitejs/plugin-react reac
 npm install --save-dev @astrojs/vue @storybook/vue3 @vitejs/plugin-vue vue
 ```
 
-See the [Framework Integration](https://github.com/storybook-astro/storybook-astro#framework-integration) section in the README for the full list of supported frameworks and their required packages.
+See [Installation](https://storybook-astro.org/getting-started/installation/#optional-framework-integration-packages) for the packages each integration needs.
 
 ### 2. Create `.storybook/main.js`
 

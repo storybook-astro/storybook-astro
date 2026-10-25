@@ -8,6 +8,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-10-24
+
+### Added
+- Storybook 11 readiness: the framework reads Storybook 11's renamed `features.docgenServer` flag, and keeps reading `experimentalDocgenServer` on Storybook 10.6 (#206).
+
+### Changed
+- The Solid integration's optional peer is now `storybook-solidjs-vite` (`>=10.0.0 <10.1.0 || ^10.6.0`) instead of the abandoned `storybook-solidjs` (#209).
+
+### Deprecated
+- `vitestPatchForSolidJs` from `@storybook-astro/framework/vitest` is no longer needed or applied by `defineConfig`, and will be removed in the next major version (#209).
+
+### Fixed
+- `storybook build` failed with the Solid integration on `storybook-solidjs-vite` 10.1 and later, including the current 10.7 (#209).
+- CSS Module styles were missing from static and server-mode builds on Astro 7.4 (#199).
+- The framework's internal SSR servers logged `Failed to run dependency scan`, and on some setups failed the build (#184).
+- Builds with both `componentsManifest` and the Docgen Server enabled silently failed to write the components manifest (#183).
+
+## [1.13.0] - 2026-10-19
+
+### Added
+- Support for `@astrojs/react` 7 (#192). Its peer range was `^4 || ^5 || ^6`, so installing the framework next to the current `@astrojs/react` failed with ERESOLVE.
+- Support for Vitest 5 (#193). The optional `vitest` peer range is now `^4.1.0 || ^5.0.0`.
+
+### Fixed
+- Docgen extracted no props on Windows; the autodocs props table only showed props inferred from a story's `args` (#185).
+- With TypeScript 7 installed, docgen crashed `storybook dev` and addon-vitest runs (#197). Component descriptions and props tables are now skipped with a warning to install TypeScript 5 or 6.
+- TypeScript in an Astro component `<script>` reached the browser untranspiled in `storybook dev` and threw a `SyntaxError` (#187).
+- Static builds left pre-rendered Astro stories pointing at the build machine for component scripts and server-only images (#186). Scripts are now bundled into `_astro/` with the hydrated islands, and images the build never emitted are copied under a content hash.
+- Images imported from `src/` stopped loading on Astro 7.4 (#196), and Astro font families resolved to nothing on Astro 7.4.
+- `storyRules` module mocks were ignored by `storybook build` (#194).
+- Static builds left `/@fs/` image URLs in place when the project path contained a space or another URL-encoded character.
+
 ## [1.12.0] - 2026-09-10
 
 ### Added

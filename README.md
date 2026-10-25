@@ -36,6 +36,14 @@ npm install -D storybook @storybook/builder-vite @storybook-astro/framework
 
 > The `@storybook-astro/renderer` package is installed automatically as a dependency of `@storybook-astro/framework` — no separate install is needed.
 
+If you'll add [framework integrations](#framework-integrations), install each one's Astro integration and Storybook renderer too. They are optional peer dependencies, so npm doesn't install them for you, and `storybook build` fails without them. For React:
+
+```bash
+npm install -D @astrojs/react @storybook/react @vitejs/plugin-react react react-dom
+```
+
+See [Installation](https://storybook-astro.org/getting-started/installation/#optional-framework-integration-packages) for the packages each integration needs.
+
 ### 2. Configure
 
 Create `.storybook/main.js`:
@@ -264,7 +272,7 @@ This tracks Astro's built-in framework features and their compatibility status.
 ### ⚠️ Partial
 
 - **`astro:assets` (Image Optimization)** — works in components but requires a fallback approach for stories due to module resolution. Components can accept both `ImageMetadata` and string URLs to maintain compatibility.
-- **Astro Fonts** — font virtual modules are stubbed with no-op exports. See the roadmap for planned Font Provider API integration.
+- **Astro Fonts** — fonts declared in `astro.config.*` are resolved through their providers and loaded as `@font-face` CSS. The runtime exports (`fontData`, `experimental_getFontFileURL`) are still stubs, and preload links and fallback metrics aren't generated. See the [roadmap](https://storybook-astro.org/guides/roadmap/).
 
 ## Known Issues
 

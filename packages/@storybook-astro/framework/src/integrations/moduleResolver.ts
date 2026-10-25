@@ -12,7 +12,7 @@ export function resolveFrom(moduleName: string, fromDirectory: string): string {
   return createRequire(toFileHref(fromFile)).resolve(moduleName);
 }
 
-function resolveFromCandidates(moduleName: string, primaryDirectory: string): string {
+export function resolveFromCandidates(moduleName: string, primaryDirectory: string): string {
   const directories = [primaryDirectory, process.env.INIT_CWD].filter(
     (value): value is string => Boolean(value)
   );

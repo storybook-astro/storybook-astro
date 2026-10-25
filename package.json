@@ -44,6 +44,7 @@
     "tsup": "^8.5.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.18.2",
+    "vite": "^8.0.13",
     "vitest": "^4.1.9",
     "vue-eslint-parser": "^10.1.3"
   },

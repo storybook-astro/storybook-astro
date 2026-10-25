@@ -27,14 +27,14 @@ export const StartAt10 = {
 
 ## Setting `parameters.renderer`
 
-Framework component stories must set `parameters.renderer` to the appropriate Storybook renderer when using multiple frameworks:
+Framework component stories must set `parameters.renderer` to the name of the integration that renders them — `'react'`, `'vue'`, `'svelte'`, `'preact'` or `'solid'`:
 
 ```jsx
 export default {
   title: 'React/MyComponent',
   component: MyComponent,
   parameters: {
-    renderer: '@storybook/react',
+    renderer: 'react',
   },
 };
 ```
