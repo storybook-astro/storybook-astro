@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for `@astrojs/react` 7 (#192). Its peer range was `^4 || ^5 || ^6`, so with npm, installing the framework next to the current `@astrojs/react` failed with ERESOLVE.
 - Support for Vitest 5 (#193). The optional `vitest` peer range is now `^4.1.0 || ^5.0.0`, and the Astro 7 integration app runs its component tests and addon-vitest story tests on Vitest 5.
 
+### Changed
+- **Breaking:** server mode needs a deployment adapter. Set `server.adapter` to `vercel()` or `node()` from `@storybook-astro/framework/adapters`, then build with `storybook-astro build`.
+- The render API is now always at `/api/render`, on the same origin as Storybook. `server.serverUrl` and `STORYBOOK_ASTRO_SERVER_URL` were removed.
+
 ### Fixed
 - Docgen extracted no props on Windows, so the autodocs props table only showed props inferred from a story's `args` (#185). The virtual TypeScript file for each component was registered under a `\`-separated path, but TypeScript asks for files with `/` separators, so it never found it. Component descriptions were unaffected.
 - With TypeScript 7 (the native port) installed, docgen crashed `storybook dev` and addon-vitest runs with "Cannot read properties of undefined (reading 'Latest')" (#197). TypeScript 7 has no JavaScript compiler API, so component descriptions and props tables are now skipped with a warning to install TypeScript 5 or 6.

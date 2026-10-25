@@ -226,6 +226,8 @@ export default [
       '.idea/',
       '**/storybook-static/',
       '**/storybook-server/',
+      '**/storybook-node/',
+      '**/.vercel/',
       '**/dist/',
       '**/node_modules/',
       'smoke/' // template files for tarball smoke tests — linted in their own context
