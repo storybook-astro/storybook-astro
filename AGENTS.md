@@ -406,6 +406,19 @@ If only a **child** component's styles are missing (a parent story renders the c
 4. **Verify**: Check browser console and Storybook UI for errors
 5. **Run Tests**: `yarn test` before committing
 
+### Before Opening a PR
+
+AI-generated changes get an independent review before the PR is opened. The reviewer must be a **fresh Claude Code session** (new terminal, or `/clear`), not the session that wrote the code. A reviewer that shares the author's context tends to confirm the author's reasoning.
+
+- [ ] `nvm use`, then `yarn lint`, `yarn lint:links`, and `yarn test` pass
+- [ ] In a fresh session, run `/code-review high develop...HEAD` (use `xhigh` for changes to `render.tsx`, `middleware.ts`, or the [Astro version compatibility layers](#astro-version-compatibility-layers))
+- [ ] Give the reviewer only the target, not an explanation of the change
+- [ ] Each finding is fixed or deliberately dismissed with a reason
+- [ ] After substantial fixes, re-run `/code-review` on the updated branch
+- [ ] Once the PR exists, optionally run `/code-review high <pr-number> --comment` to leave the findings on the PR as a record
+
+When an agent finishes a change, it should remind the user to run this review rather than reviewing its own work.
+
 ## External Resources
 
 - [Storybook Framework API](https://storybook.js.org/docs/configure/integration/frameworks)

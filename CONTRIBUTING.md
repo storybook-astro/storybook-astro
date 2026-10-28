@@ -82,8 +82,9 @@ Thank you for your interest in contributing! This project is community-driven an
    ```
    **PRs must pass linting** — CI will reject PRs with lint errors.
 4. Run `yarn test` to ensure all tests pass
-5. Open a PR targeting `develop`
-5. Once reviewed and merged, your changes will be included in the next release
+5. If the change was written with an AI assistant, have it reviewed independently first — see [Before Opening a PR](./AGENTS.md#before-opening-a-pr) in `AGENTS.md`
+6. Open a PR targeting `develop`
+7. Once reviewed and merged, your changes will be included in the next release
 
 ### Releases
 
