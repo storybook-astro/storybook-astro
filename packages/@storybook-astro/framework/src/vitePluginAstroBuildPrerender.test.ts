@@ -225,6 +225,24 @@ test('publishes the images component CSS refers to by root-relative or bare /@fs
   }
 });
 
+test('publishes CSS images from a project whose path has an apostrophe or a space', async () => {
+  const projectDir = await mkdtemp(join(tmpdir(), "o'brien storybook "));
+  const outDir = join(projectDir, 'storybook-static');
+
+  try {
+    await mkdir(join(projectDir, 'src', 'assets'), { recursive: true });
+    await writeFile(join(projectDir, 'src', 'assets', 'bg.png'), 'background bytes');
+
+    const html = "<style data-storybook-astro-styles>.a { background: url('/src/assets/bg.png'); }</style>";
+    const result = rewriteAssetPaths(html, assetMap({}), join(projectDir, 'public'), outDir, projectDir);
+    const [copiedFile] = await readdir(join(outDir, '_astro'));
+
+    expect(result).toBe(`<style data-storybook-astro-styles>.a { background: url('/_astro/${copiedFile}'); }</style>`);
+  } finally {
+    await rm(projectDir, { recursive: true, force: true });
+  }
+});
+
 test('leaves url() outside the component styles alone, so attribute quotes stay intact', async () => {
   const projectDir = await mkdtemp(join(tmpdir(), 'storybook-astro-prerender-test-'));
 

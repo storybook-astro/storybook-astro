@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { access, copyFile, mkdir, readFile, readdir, stat } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import type { Rollup } from 'vite';
 import type { Integration } from './integrations/index.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
@@ -401,16 +401,71 @@ async function copyLocalRuntimeDependencies(
   // Follow only local imports here. Package dependencies stay external and are
   // resolved by Node/Vite from the deployed install, not copied into snapshot.
   const localImportSpecifiers = await readLocalImportSpecifiers(normalizedSourcePath);
+  const localDependencies = [
+    ...(await Promise.all(
+      localImportSpecifiers.map((specifier) => resolveLocalImportPath(normalizedSourcePath, specifier))
+    )),
+    // The render server compiles each component's styles too, so the partials
+    // and stylesheets they pull in have to be there as well.
+    ...(await Promise.all(
+      (await readStyleImportSpecifiers(normalizedSourcePath)).map((specifier) =>
+        resolveStyleImportPath(normalizedSourcePath, specifier)
+      )
+    ))
+  ];
 
-  for (const specifier of localImportSpecifiers) {
-    const resolvedDependency = await resolveLocalImportPath(normalizedSourcePath, specifier);
+  for (const dependency of localDependencies) {
+    if (dependency) {
+      await copyLocalRuntimeDependencies(dependency, options, copiedFiles);
+    }
+  }
+}
 
-    if (!resolvedDependency) {
+// `@import`, `@use` and `@forward` rules, with or without `url()`.
+const STYLE_IMPORT_RE = /@(?:import|use|forward)\s+(?:url\(\s*)?['"]([^'"]+)['"]/g;
+
+/**
+ * Reads the stylesheets a stylesheet, or an `.astro` file's `<style>` blocks,
+ * imports from disk. Sass resolves a bare `@use 'tokens'` against the
+ * importing file, so only URLs and package or built-in modules are skipped.
+ */
+async function readStyleImportSpecifiers(filePath: string): Promise<string[]> {
+  if (!/\.(astro|css|scss|sass|less)$/.test(filePath)) {
+    return [];
+  }
+
+  const source = await readFile(filePath, 'utf-8');
+
+  return Array.from(source.matchAll(STYLE_IMPORT_RE), (match) => match[1]).filter(
+    (specifier) => !/^([a-z][a-z0-9+.-]*:|\/|~)/i.test(specifier)
+  );
+}
+
+/** Resolves a stylesheet import the way Sass and CSS do, partials (`_name.scss`) included. */
+async function resolveStyleImportPath(importerPath: string, specifier: string) {
+  const basePath = resolve(dirname(importerPath), specifier);
+  const partialPath = resolve(dirname(basePath), `_${basename(basePath)}`);
+  const candidates = [
+    basePath,
+    ...['scss', 'sass', 'css', 'less'].flatMap((extension) => [
+      `${basePath}.${extension}`,
+      `${partialPath}.${extension}`,
+      resolve(basePath, `index.${extension}`),
+      resolve(basePath, `_index.${extension}`)
+    ])
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if ((await stat(candidate)).isFile()) {
+        return candidate.replace(/\\/g, '/');
+      }
+    } catch {
       continue;
     }
-
-    await copyLocalRuntimeDependencies(resolvedDependency, options, copiedFiles);
   }
+
+  return undefined;
 }
 
 const IMPORT_RE =

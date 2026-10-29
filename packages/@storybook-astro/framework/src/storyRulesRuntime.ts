@@ -24,11 +24,24 @@ export async function runWithStoryRules<T>(
     story: options.story
   });
 
-  if (selectedRules.moduleMocks.size > 0) {
-    options.invalidateModuleGraph?.();
+  const render = () =>
+    withStoryRuleCleanups(selectedRules.cleanups, async () => {
+      return withStoryModuleMocks(selectedRules.moduleMocks, async () => callback(selectedRules));
+    });
+
+  if (selectedRules.moduleMocks.size === 0) {
+    return render();
   }
 
-  return withStoryRuleCleanups(selectedRules.cleanups, async () => {
-    return withStoryModuleMocks(selectedRules.moduleMocks, async () => callback(selectedRules));
-  });
+  // Modules load once per module graph, so they have to reload for the mocks
+  // to take effect, and again afterwards: the ones this render loaded import
+  // the mocks, and the next render, under this handler or a new one, would
+  // get them.
+  options.invalidateModuleGraph?.();
+
+  try {
+    return await render();
+  } finally {
+    options.invalidateModuleGraph?.();
+  }
 }

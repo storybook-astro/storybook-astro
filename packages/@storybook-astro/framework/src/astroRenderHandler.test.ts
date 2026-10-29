@@ -482,9 +482,7 @@ describe('createAstroRenderHandler — component styles', () => {
     expect(html.match(/<\/style>/g)).toHaveLength(1);
   });
 
-  test('reloads components after a story with module mocks, so the next story is styled by the real ones', async () => {
-    // A mocked render rewrites the shared module graph's import edges to the
-    // mocks; the styles walk follows those edges.
+  function createMockingHandler() {
     const loadModule = vi.fn(async (id: string) => ({ default: fakeComponent(id) }));
     const invalidateModuleGraph = vi.fn();
     const handler = createAstroRenderHandler({
@@ -498,24 +496,46 @@ describe('createAstroRenderHandler — component styles', () => {
       }),
       loadComponentStyles: stylesNamingEachComponent
     });
-    const render = (storyId: string) =>
-      handler({ component: 'Card.astro', story: { id: storyId, title: 'Card', name: storyId } });
+    const render = (storyId: string, request: Partial<Parameters<typeof handler>[0]> = {}) =>
+      handler({ component: 'Card.astro', story: { id: storyId, title: 'Card', name: storyId }, ...request });
+
+    return { loadModule, invalidateModuleGraph, render };
+  }
+
+  test('restores the real modules after a story with module mocks, for whichever handler renders next', async () => {
+    // The modules a mocked render loads import the mocks. The module graph
+    // outlives the handler (dev makes a new one on every file change), so it
+    // is reset as soon as the mocked render ends.
+    const { loadModule, invalidateModuleGraph, render } = createMockingHandler();
 
     await render('card--real');
     await render('card--mocked');
-    expect(invalidateModuleGraph).toHaveBeenCalledOnce();
-
-    loadModule.mockClear();
-    await render('card--real');
 
     expect(invalidateModuleGraph).toHaveBeenCalledTimes(2);
+
+    // The next story reloads its components, so it and its styles come from
+    // the real modules. After that, renders use the cache again.
+    loadModule.mockClear();
+    await render('card--real');
     expect(loadModule).toHaveBeenCalledWith('Card.astro');
 
-    // Once the graph is back to the real modules, renders use the cache again.
     loadModule.mockClear();
     await render('card--real');
-
-    expect(invalidateModuleGraph).toHaveBeenCalledTimes(2);
     expect(loadModule).not.toHaveBeenCalled();
+    expect(invalidateModuleGraph).toHaveBeenCalledTimes(2);
+  });
+
+  test('a mocked story\'s decorators load with the mocks, and the next story does not reuse them', async () => {
+    const { loadModule, render } = createMockingHandler();
+    const node = { component: marker('Wrapper.astro'), slots: { default: marker('Card.astro') } };
+
+    await render('card--real', { node });
+    loadModule.mockClear();
+    await render('card--mocked', { node });
+    expect(loadModule).toHaveBeenCalledWith('Wrapper.astro');
+
+    loadModule.mockClear();
+    await render('card--real', { node });
+    expect(loadModule).toHaveBeenCalledWith('Wrapper.astro');
   });
 });

@@ -390,7 +390,11 @@ function pointStoryCssUrlsAtFsPaths(html: string, projectRoot: string) {
         const suffix = url.match(/[?#].*$/)?.[0] ?? '';
         const filePath = resolve(projectRoot, `.${safeDecodeURI(url.slice(0, url.length - suffix.length))}`);
 
-        return existsSync(filePath) ? `url(${quote}${toFsPath(filePath)}${suffix}${quote})` : match;
+        // Encoded like the other /@fs/ URLs, plus `'`, which would end the
+        // quoted url() and the /@fs/ URL the rewrite below reads.
+        const fsUrl = encodeURI(toFsPath(filePath)).replace(/'/g, '%27');
+
+        return existsSync(filePath) ? `url(${quote}${fsUrl}${suffix}${quote})` : match;
       }
     );
 

@@ -62,9 +62,6 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
   const sanitizationOptions = resolveSanitizationOptions(options.sanitization);
   const componentCache = new Map<string, Promise<AstroComponentFactory>>();
   let renderQueue = Promise.resolve<void>(undefined);
-  // Whether the last render loaded modules with story module mocks. Those
-  // renders rewrite the shared module graph's import edges to the mocks.
-  let moduleGraphHasMocks = false;
 
   // The HTML is already rendered when styles load, so a style failure (a
   // broken stylesheet, a stale module) shows the story unstyled instead of
@@ -146,36 +143,28 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
         async (selectedRules) => {
           const usesModuleMocks = selectedRules.moduleMocks.size > 0;
 
-          // After a mocked render, cached components and the module graph's
-          // import edges still lead to the mocks. Reload this render's
-          // components so it, and its styles, use the real modules again.
-          if (moduleGraphHasMocks && !usesModuleMocks) {
-            options.invalidateModuleGraph?.();
+          // A mocked render loads every component fresh, so each one imports
+          // the mocks, and leaves none in the cache. Reloading also rewires
+          // the module graph's import edges, which the styles walk follows, so
+          // the cache is cleared too: the next render reloads its components
+          // and their edges lead back to the real modules.
+          if (usesModuleMocks) {
             componentCache.clear();
           }
-          moduleGraphHasMocks = usesModuleMocks;
+          const loadComponent = (moduleId: string) =>
+            loadPatchedComponent(moduleId, !usesModuleMocks);
 
           // Every component this render uses (decorators, the story, slot and
           // prop components) contributes its styles to the response, in that
           // order: decorators wrap the story the way a layout wraps a page, so
           // the story's styles come after theirs, as a page's do in Astro.
-          // Components the request names are recorded up front; ones that
-          // only turn up while rendering are recorded as they load.
           const renderedComponentIds = new Set<string>();
 
           addComponentModuleIds(data.node, renderedComponentIds);
           renderedComponentIds.add(data.component);
           addComponentModuleIds([data.args, data.slots], renderedComponentIds);
-          const loadComponent = (moduleId: string) => {
-            renderedComponentIds.add(moduleId);
 
-            return loadPatchedComponent(moduleId);
-          };
-
-          const patchedComponent = await loadPatchedComponent(
-            data.component,
-            !usesModuleMocks
-          );
+          const patchedComponent = await loadComponent(data.component);
           // Resolve Astro components passed as props back to real factories
           // before the other arg processing (factories pass through those
           // untouched), so the parent template can render them with `<Comp />`.
