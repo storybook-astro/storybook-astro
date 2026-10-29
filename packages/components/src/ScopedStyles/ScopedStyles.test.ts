@@ -3,9 +3,11 @@ import { test, expect } from 'vitest';
 import { composeStories, renderStory } from '@storybook-astro/framework/testing';
 import * as slotListStories from './SlotList.stories.jsx';
 import * as titlePairStories from './TitlePair.stories.jsx';
+import * as sassCardStories from './SassCard.stories.jsx';
 
 const { ListInSlot } = composeStories(slotListStories);
 const { SameClassName } = composeStories(titlePairStories);
+const { ScssStyleBlock } = composeStories(sassCardStories);
 
 function scopeAttributeOf(element: Element) {
   return element.getAttributeNames().find((name) => name.startsWith('data-astro-cid-'));
@@ -41,4 +43,15 @@ test('components that share a class name only style their own markup', async () 
   expect(storyCss()).toContain(`.title[${redScope}]`);
   expect(storyCss()).toContain(`.title[${blueScope}]`);
   expect(storyCss()).not.toMatch(/\.title\s*\{/);
+});
+
+test('an SCSS style block ships compiled and scoped', async () => {
+  await renderStory(ScssStyleBlock);
+
+  const scope = scopeAttributeOf(screen.getByTestId('sass-card'));
+
+  expect(scope).toBeDefined();
+  expect(storyCss()).toContain(`.card[${scope}] span[${scope}]`);
+  // No SCSS syntax reaches the browser: the variable is resolved.
+  expect(storyCss()).not.toContain('$accent');
 });

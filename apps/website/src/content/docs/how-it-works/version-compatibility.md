@@ -47,6 +47,8 @@ These layers live in `@storybook-astro/framework`. Each one solves a specific mi
 
 **Solution:** Every render goes through Astro's SSR Vite server, which compiles each component it loads, including a style sub-module for each `<style>` block (`Component.astro?astro&type=style&index=N&lang.css`). After a render, the framework walks that server's module graph from every component the story loaded, loads each style sub-module with Vite's `inline` query, and sends the compiled CSS with the HTML in a `<style>` tag. The CSS carries the same `data-astro-cid-*` scope as the markup and is scoped the way the installed Astro compiler scopes it, in dev, static builds and server mode.
 
+Preprocessed blocks such as `<style lang="scss">` work the same way: Astro compiles them with the project's own preprocessor (`sass` for SCSS) before scoping.
+
 Only `<style>` blocks are covered. CSS a component imports in its frontmatter isn't shipped yet, and the SSR server doesn't read every `astro.config.*` option (for example `scopedStyleStrategy`), so selector specificity can differ from a real page that changes it.
 
 CSS Modules in framework components (React, Preact, Solid, …) need their class names to match between the prerendered HTML and the stylesheet the static build emits. Since Astro 7.4, Astro's dev-server config names CSS Module classes with a path-based hash, while builds keep Vite's default naming. Static builds prerender stories through a dev-style server, so that server drops Astro's naming to stay consistent with the built CSS.
