@@ -67,6 +67,21 @@ test('points a story-arg image at the asset the build emitted, whatever characte
   expect(result).toBe('<img src="/_astro/photo-CG2UH-wI.webp" alt="Photo">');
 });
 
+test('drops a query whose `&` Astro 5 escaped as `&#38;`, which is not a #fragment', () => {
+  const html =
+    '<img src="/@fs/project/src/assets/logo.png?origWidth=128&#38;origHeight=50&#38;origFormat=png" alt="Logo">';
+
+  const result = rewriteAssetPaths(
+    html,
+    assetMap({}, { 'logo.png': '/_astro/logo-31d076c4.png' }),
+    PUBLIC_DIR,
+    OUT_DIR,
+    PROJECT_ROOT
+  );
+
+  expect(result).toBe('<img src="/_astro/logo-31d076c4.png" alt="Logo">');
+});
+
 test('copies an image only the server-side render imported into _astro/ and points at the copy', async () => {
   // A component that imports its own image for <Image> (or as `?url`) never
   // puts it in Storybook's client build, so there is no emitted asset to map to.

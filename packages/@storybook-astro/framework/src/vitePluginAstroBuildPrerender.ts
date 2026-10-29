@@ -318,7 +318,9 @@ export function rewriteAssetPaths(
     const pathOnly = match.replace(/[?#].*$/, '');
     // A `#fragment` (an SVG sprite's symbol, say) still applies to the
     // published file, so it's kept. The query only meant something to Vite.
-    const fragment = match.match(/#.*$/)?.[0] ?? '';
+    // The `#` in `&#38;`, how Astro 5 escapes the `&` between query
+    // parameters, doesn't start a fragment.
+    const fragment = match.match(/(?<!&)#.*$/)?.[0] ?? '';
     // URLs are percent-encoded: a project under `My Projects/` renders as
     // `/@fs/…/My%20Projects/…`, and neither the maps nor the disk know that path.
     const fsPath = safeDecodeURI(pathOnly).slice('/@fs'.length);
