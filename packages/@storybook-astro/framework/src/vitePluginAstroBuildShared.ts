@@ -349,7 +349,18 @@ async function listRuntimeConfigFiles(resolveFrom: string) {
     'astro.config.ts',
     'vite.config.js',
     'vite.config.ts',
-    'svelte.config.js'
+    'svelte.config.js',
+    // Vite reads these when it compiles component styles.
+    ...['js', 'cjs', 'mjs', 'ts', 'cts', 'mts'].map((extension) => `postcss.config.${extension}`),
+    '.postcssrc',
+    '.postcssrc.json',
+    '.postcssrc.yaml',
+    '.postcssrc.yml',
+    '.postcssrc.js',
+    '.postcssrc.cjs',
+    '.postcssrc.mjs',
+    ...['js', 'cjs', 'mjs', 'ts'].map((extension) => `tailwind.config.${extension}`),
+    '.browserslistrc'
   ];
   const existing: string[] = [];
 
@@ -421,8 +432,8 @@ async function copyLocalRuntimeDependencies(
   }
 }
 
-// `@import`, `@use` and `@forward` rules, with or without `url()`.
-const STYLE_IMPORT_RE = /@(?:import|use|forward)\s+(?:url\(\s*)?['"]([^'"]+)['"]/g;
+// `@import`, `@use` and `@forward` rules: a quoted path, or a `url()` with or without quotes.
+const STYLE_IMPORT_RE = /@(?:import|use|forward)\s+(?:url\(\s*['"]?([^'")\s]+)|['"]([^'"]+)['"])/g;
 
 /**
  * Reads the stylesheets a stylesheet, or an `.astro` file's `<style>` blocks,
@@ -436,36 +447,26 @@ async function readStyleImportSpecifiers(filePath: string): Promise<string[]> {
 
   const source = await readFile(filePath, 'utf-8');
 
-  return Array.from(source.matchAll(STYLE_IMPORT_RE), (match) => match[1]).filter(
+  return Array.from(source.matchAll(STYLE_IMPORT_RE), (match) => match[1] ?? match[2]).filter(
     (specifier) => !/^([a-z][a-z0-9+.-]*:|\/|~)/i.test(specifier)
   );
 }
 
 /** Resolves a stylesheet import the way Sass and CSS do, partials (`_name.scss`) included. */
-async function resolveStyleImportPath(importerPath: string, specifier: string) {
+function resolveStyleImportPath(importerPath: string, specifier: string) {
   const basePath = resolve(dirname(importerPath), specifier);
   const partialPath = resolve(dirname(basePath), `_${basename(basePath)}`);
-  const candidates = [
+
+  return findFirstFile([
     basePath,
+    partialPath,
     ...['scss', 'sass', 'css', 'less'].flatMap((extension) => [
       `${basePath}.${extension}`,
       `${partialPath}.${extension}`,
       resolve(basePath, `index.${extension}`),
       resolve(basePath, `_index.${extension}`)
     ])
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      if ((await stat(candidate)).isFile()) {
-        return candidate.replace(/\\/g, '/');
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return undefined;
+  ]);
 }
 
 const IMPORT_RE =
@@ -514,11 +515,14 @@ async function resolveLocalImportPath(importerPath: string, specifier: string) {
     resolve(basePath, 'index.svelte')
   ];
 
+  return findFirstFile(candidates);
+}
+
+/** Returns the first candidate path that is a file, with forward slashes. */
+async function findFirstFile(candidates: string[]) {
   for (const candidate of candidates) {
     try {
-      const candidateStats = await stat(candidate);
-
-      if (candidateStats.isFile()) {
+      if ((await stat(candidate)).isFile()) {
         return candidate.replace(/\\/g, '/');
       }
     } catch {

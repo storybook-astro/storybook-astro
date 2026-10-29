@@ -160,19 +160,22 @@ describe('copyRuntimeSnapshot', () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  test('copies the stylesheets a component\'s <style> blocks use, so the render server can compile them', async () => {
+  test('copies the stylesheets and PostCSS config a component\'s <style> blocks use, so the render server can compile them', async () => {
     const project = join(tmpDir, 'project');
     const snapshotRoot = join(tmpDir, 'server', 'snapshot');
 
     await mkdir(join(project, 'src', 'styles', 'theme'), { recursive: true });
     await writeFile(
       join(project, 'src', 'Card.astro'),
-      `<div class="card" />\n<style lang="scss">\n@use 'styles/tokens';\n@use 'sass:math';\n</style>\n<style>@import "./styles/base.css";</style>`
+      `<div class="card" />\n<style lang="scss">\n@use 'styles/tokens';\n@use 'styles/mixins.scss';\n@use 'sass:math';\n</style>\n<style>@import "./styles/base.css";</style>`
     );
     // A Sass partial, which forwards another one through its folder's index.
     await writeFile(join(project, 'src', 'styles', '_tokens.scss'), `@forward './theme';`);
     await writeFile(join(project, 'src', 'styles', 'theme', '_index.scss'), '$accent: teal;');
-    await writeFile(join(project, 'src', 'styles', 'base.css'), '.card { margin: 0; }');
+    await writeFile(join(project, 'src', 'styles', 'base.css'), '@import url(./reset.css);');
+    await writeFile(join(project, 'src', 'styles', 'reset.css'), '* { margin: 0; }');
+    await writeFile(join(project, 'src', 'styles', '_mixins.scss'), '@mixin card {}');
+    await writeFile(join(project, 'postcss.config.cjs'), 'module.exports = { plugins: {} };');
 
     await copyRuntimeSnapshot({
       resolveFrom: project,
@@ -181,8 +184,19 @@ describe('copyRuntimeSnapshot', () => {
       astroComponents: [join(project, 'src', 'Card.astro')]
     });
 
-    for (const file of ['Card.astro', 'styles/_tokens.scss', 'styles/theme/_index.scss', 'styles/base.css']) {
-      await expect(access(join(snapshotRoot, 'src', file))).resolves.toBeUndefined();
+    const copied = [
+      'src/Card.astro',
+      'src/styles/_tokens.scss',
+      'src/styles/_mixins.scss',
+      'src/styles/theme/_index.scss',
+      'src/styles/base.css',
+      'src/styles/reset.css',
+      // Vite reads it to compile the styles, Tailwind's @apply included.
+      'postcss.config.cjs'
+    ];
+
+    for (const file of copied) {
+      await expect(access(join(snapshotRoot, file)), file).resolves.toBeUndefined();
     }
   });
 });

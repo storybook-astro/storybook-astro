@@ -151,18 +151,25 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           if (usesModuleMocks) {
             componentCache.clear();
           }
-          const loadComponent = (moduleId: string) =>
-            loadPatchedComponent(moduleId, !usesModuleMocks);
+          const loadedComponentIds = new Set<string>();
+          const loadComponent = (moduleId: string) => {
+            loadedComponentIds.add(moduleId);
+
+            return loadPatchedComponent(moduleId, !usesModuleMocks);
+          };
 
           // Every component this render uses (decorators, the story, slot and
           // prop components) contributes its styles to the response, in that
           // order: decorators wrap the story the way a layout wraps a page, so
           // the story's styles come after theirs, as a page's do in Astro.
-          const renderedComponentIds = new Set<string>();
+          // The request gives the order. Each id is marked with whether it's a
+          // real factory, which renders as it is, or a marker, which renders
+          // only if the render loads it.
+          const requestedComponents = new Map<string, boolean>();
 
-          addComponentModuleIds(data.node, renderedComponentIds);
-          renderedComponentIds.add(data.component);
-          addComponentModuleIds([data.args, data.slots], renderedComponentIds);
+          addComponentModuleIds(data.node, requestedComponents);
+          requestedComponents.set(data.component, false);
+          addComponentModuleIds([data.args, data.slots], requestedComponents);
 
           const patchedComponent = await loadComponent(data.component);
           // Resolve Astro components passed as props back to real factories
@@ -212,7 +219,10 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
                 slots: markRawSlots(renderedSlots)
               }
             );
-          const stylesheets = await loadStylesOrWarn([...renderedComponentIds]);
+          const renderedComponentIds = [...requestedComponents]
+            .filter(([moduleId, isFactory]) => isFactory || loadedComponentIds.has(moduleId))
+            .map(([moduleId]) => moduleId);
+          const stylesheets = await loadStylesOrWarn(renderedComponentIds);
 
           // `</style` inside the CSS (in a string or comment) would end the
           // tag early. `<\/style` reads the same to the CSS parser.
@@ -238,17 +248,20 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
 
 /**
  * Records the module id of every Astro component found in a render request's
- * args, slots or decorator tree, in the order they appear: markers the browser
- * sent, and real factories the static build passes straight from the story
- * module (Astro's compiler sets `moduleId` on each component it compiles).
+ * args, slots or decorator tree, in the order they appear, and whether it's a
+ * real factory: markers are what the browser sends, and factories are what the
+ * static build passes straight from the story module (Astro's compiler sets
+ * `moduleId` on each component it compiles).
  *
- * It walks every level, guarding only against cycles: the walk is cheap, and a
- * depth cap counted differently from the slot and prop resolvers' would drop the
- * styles of a component they still render.
+ * It walks every level, guarding only against cycles. It may find components
+ * the slot and prop resolvers never render (past their depth cap, or in a shape
+ * they don't read), so the caller keeps only the markers that were loaded.
  */
-function addComponentModuleIds(value: unknown, moduleIds: Set<string>, seen = new Set<object>()) {
+function addComponentModuleIds(value: unknown, moduleIds: Map<string, boolean>, seen = new Set<object>()) {
   if (isAstroComponentMarker(value)) {
-    moduleIds.add(value.moduleId);
+    if (!moduleIds.has(value.moduleId)) {
+      moduleIds.set(value.moduleId, false);
+    }
 
     return;
   }
@@ -257,7 +270,7 @@ function addComponentModuleIds(value: unknown, moduleIds: Set<string>, seen = ne
     const { moduleId } = value as AstroComponentFactory;
 
     if (moduleId) {
-      moduleIds.add(moduleId);
+      moduleIds.set(moduleId, true);
     }
 
     return;

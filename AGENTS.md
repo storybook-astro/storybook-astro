@@ -373,7 +373,7 @@ export const MyStory = {
 **Symptom**: Component renders but styles are missing
 **Fix**: Scoped CSS ships with the render response: `createAstroRenderHandler` prepends one `<style data-storybook-astro-styles>` element per `<style>` block, from `loadComponentStyles` in `lib/componentStyles.ts`. That function walks the SSR server's module graph from every component the render loaded and loads each `?astro&type=style&index=N&lang.*` sub-module with `&inline`. Check that the `<style>` elements are in the response and that its selectors use the same `data-astro-cid-*` as the markup.
 
-If only one component's styles are missing, check that the render request names it (as the story's `component`, or as a component marker in its args, slots or decorator tree, which `addComponentModuleIds` collects) or that it is reachable through the imports of a component that was.
+If only one component's styles are missing, check that the render used it: the story's `component`, a component in its args, slots or decorator tree that the handler loaded, or a component reachable through their imports. The walk doesn't follow a stylesheet's imports, so a component that only a CSS file or a PostCSS plugin refers to isn't included.
 
 ### Props Not Passing Through
 **Symptom**: Component renders but props are undefined or wrong

@@ -396,6 +396,21 @@ describe('createAstroRenderHandler — component styles', () => {
     );
   });
 
+  test('leaves out a component the request mentions but the render never loads', async () => {
+    // Slots don't read components inside a plain object, so Tooltip never
+    // renders. Asking for its styles would report it missing from the module
+    // graph, and fail a static build.
+    const loadComponentStyles = vi.fn(stylesNamingEachComponent);
+    const { handler } = createHandler({
+      components: { 'Panel.astro': fakeComponent('Panel.astro') },
+      loadComponentStyles
+    });
+
+    await handler({ component: 'Panel.astro', slots: { default: { note: marker('Tooltip.astro') } } });
+
+    expect(loadComponentStyles).toHaveBeenCalledWith(['Panel.astro']);
+  });
+
   test('adds no style tag when the components have no styles', async () => {
     const { handler } = createHandler({
       components: { 'Button.astro': fakeComponent('Button.astro') },

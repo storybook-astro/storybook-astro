@@ -57,24 +57,22 @@ function createFakeServer(options: {
   const modulesForFile = (file: string) =>
     [...modules.values()].filter((module) => module.id.split('?')[0] === file);
 
-  const server = {
-    moduleGraph: {
-      getModulesByFile: (file: string) =>
-        modules.has(file) && !Object.values(urlOnly).includes(file)
-          ? new Set(modulesForFile(file))
-          : undefined,
-      getModuleByUrl: async (url: string) => {
-        if (options.rejectUrl?.includes(url)) {
-          throw new Error(`Failed to resolve ${url}`);
-        }
-
-        const id = urlOnly[url] ?? url;
-
-        return Object.values(urlOnly).includes(id) ? modules.get(id) : undefined;
+  const moduleGraph = {
+    getModulesByFile: (file: string) =>
+      modules.has(file) && !Object.values(urlOnly).includes(file)
+        ? new Set(modulesForFile(file))
+        : undefined,
+    getModuleByUrl: async (url: string) => {
+      if (options.rejectUrl?.includes(url)) {
+        throw new Error(`Failed to resolve ${url}`);
       }
-    },
-    ssrLoadModule
+
+      const id = urlOnly[url] ?? url;
+
+      return Object.values(urlOnly).includes(id) ? modules.get(id) : undefined;
+    }
   };
+  const server = { environments: { ssr: { moduleGraph } }, ssrLoadModule };
 
   return { server: server as unknown as Parameters<typeof loadComponentStyles>[0], ssrLoadModule };
 }
@@ -168,6 +166,23 @@ describe('loadComponentStyles', () => {
     const css = (await loadComponentStyles(server, ['/@id/Panel'])).stylesheets.join('\n');
 
     expect(css).toContain('Panel.astro?astro&type=style');
+  });
+
+  test('does not follow a stylesheet\'s imports to components the story never rendered', async () => {
+    // Tailwind's PostCSS plugin records every file it scans as an import of
+    // the global stylesheet, Other.astro included.
+    const { server } = createFakeServer({
+      imports: {
+        'Page.astro': [styleOf('Page.astro'), 'global.css'],
+        'global.css': ['Other.astro'],
+        'Other.astro': [styleOf('Other.astro')]
+      }
+    });
+
+    const css = (await loadComponentStyles(server, ['Page.astro'])).stylesheets.join('\n');
+
+    expect(css).toContain('Page.astro?astro&type=style');
+    expect(css).not.toContain('Other.astro');
   });
 
   test('includes a shared stylesheet once and survives import cycles', async () => {

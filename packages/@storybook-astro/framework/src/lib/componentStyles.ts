@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import type { ModuleNode, ViteDevServer } from 'vite';
+import { isCSSRequest, normalizePath, type EnvironmentModuleNode, type ViteDevServer } from 'vite';
 
 // The sub-module Astro's Vite plugin creates for each `<style>` block, e.g.
 // `Card.astro?astro&type=style&index=0&lang.css` (or `&lang.scss`, …).
@@ -31,14 +31,17 @@ export type ComponentStyles = {
  * or fail on.
  */
 export async function loadComponentStyles(
-  viteServer: Pick<ViteDevServer, 'moduleGraph' | 'ssrLoadModule'>,
+  viteServer: Pick<ViteDevServer, 'environments' | 'ssrLoadModule'>,
   componentIds: Iterable<string>
 ): Promise<ComponentStyles> {
+  // The SSR environment's graph only: the client's holds the browser's
+  // imports, and looking an id up there can fail for client-only reasons.
+  const { moduleGraph } = viteServer.environments.ssr;
   const styleModuleIds = new Set<string>();
-  const visited = new Set<ModuleNode>();
+  const visited = new Set<EnvironmentModuleNode>();
   const failures: ComponentStyles['failures'] = [];
 
-  const collect = (module: ModuleNode) => {
+  const collect = (module: EnvironmentModuleNode) => {
     if (visited.has(module)) {
       return;
     }
@@ -48,6 +51,15 @@ export async function loadComponentStyles(
       styleModuleIds.add(module.id);
     }
 
+    // Like Astro's own crawl, don't follow the imports of a stylesheet or of a
+    // module with a query (`?url`, `?raw`, a style block). A stylesheet's
+    // `@import`s are already inlined, and PostCSS plugins such as Tailwind
+    // list every file they scan as its imports, which would pull in the
+    // styles of components this story never rendered.
+    if (module.id && (isCSSRequest(module.id) || module.id.includes('?'))) {
+      return;
+    }
+
     for (const imported of module.importedModules) {
       collect(imported);
     }
@@ -55,7 +67,7 @@ export async function loadComponentStyles(
 
   for (const componentId of componentIds) {
     try {
-      const modules = await findComponentModules(viteServer, componentId);
+      const modules = await findComponentModules(moduleGraph, componentId);
 
       if (modules.length > 0) {
         modules.forEach(collect);
@@ -106,17 +118,18 @@ export async function loadComponentStyles(
  * listed. The component module's current imports reach the live ones.
  */
 async function findComponentModules(
-  viteServer: Pick<ViteDevServer, 'moduleGraph'>,
+  moduleGraph: ViteDevServer['environments']['ssr']['moduleGraph'],
   componentId: string
-): Promise<ModuleNode[]> {
-  const modulesForFile = viteServer.moduleGraph.getModulesByFile(componentId) ?? [];
+): Promise<EnvironmentModuleNode[]> {
+  // Vite keys files by forward-slash path, also on Windows.
+  const modulesForFile = moduleGraph.getModulesByFile(normalizePath(componentId)) ?? [];
   const componentModules = [...modulesForFile].filter((module) => !module.id?.includes('?'));
 
   if (componentModules.length > 0) {
     return componentModules;
   }
 
-  const moduleForUrl = await viteServer.moduleGraph.getModuleByUrl(componentId, true);
+  const moduleForUrl = await moduleGraph.getModuleByUrl(componentId);
 
   return moduleForUrl ? [moduleForUrl] : [];
 }
