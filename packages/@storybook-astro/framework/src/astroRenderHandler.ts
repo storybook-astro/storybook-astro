@@ -11,6 +11,7 @@ import {
 } from './lib/reconstruct-component-args.ts';
 import { runWithStoryRules, type ResolveRulesConfigModule } from './storyRulesRuntime.ts';
 import type { RenderStoryInput } from './types.ts';
+import type { ComponentStyles } from './lib/componentStyles.ts';
 
 type AstroCreateResult = {
   createAstro?: (...args: unknown[]) => unknown;
@@ -48,7 +49,7 @@ type CreateAstroRenderHandlerOptions = {
    * Astro's scoped styles in dev, static builds and server mode alike
    * (issue #189).
    */
-  loadComponentStyles?: (componentIds: string[]) => Promise<string>;
+  loadComponentStyles?: (componentIds: string[]) => Promise<ComponentStyles>;
   /** Fail the render when styles fail to load, instead of warning. Set for static builds. */
   failOnStyleError?: boolean;
 };
@@ -63,17 +64,29 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
   // replacing it with an error. A static build fails instead: nobody is
   // watching its console, and it would publish the story unstyled.
   async function loadStylesOrWarn(componentIds: string[]) {
+    let styles: ComponentStyles | undefined;
+
     try {
-      return await options.loadComponentStyles?.(componentIds);
+      styles = await options.loadComponentStyles?.(componentIds);
     } catch (error) {
-      if (options.failOnStyleError) {
-        throw error;
-      }
-
-      console.warn('[storybook-astro] Could not load component styles:', error);
-
-      return undefined;
+      styles = { css: '', failures: [{ moduleId: componentIds.join(', '), error }] };
     }
+
+    const failures = styles?.failures ?? [];
+
+    if (options.failOnStyleError && failures.length > 0) {
+      const details = failures.map(({ moduleId, error }) => `- ${moduleId}: ${errorMessage(error)}`);
+
+      throw new Error(`[storybook-astro] Could not load component styles:\n${details.join('\n')}`, {
+        cause: failures[0].error
+      });
+    }
+
+    failures.forEach(({ moduleId, error }) => {
+      console.warn(`[storybook-astro] Could not load styles for ${moduleId}:`, error);
+    });
+
+    return styles?.css;
   }
 
   async function loadPatchedComponent(componentId: string, useCache = true) {
@@ -452,4 +465,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   const prototype = Object.getPrototypeOf(value);
 
   return prototype === Object.prototype || prototype === null;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

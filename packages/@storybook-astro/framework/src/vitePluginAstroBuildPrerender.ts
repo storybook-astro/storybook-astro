@@ -22,6 +22,7 @@ import { buildHydratedComponentAssets } from './lib/hydratedComponentBuild.ts';
 import {
   addStaticStylesheets,
   rewriteBuiltModulePaths,
+  toFsPath,
   type StaticCssMap,
   type StaticModuleMap
 } from './lib/staticHtmlRewriting.ts';
@@ -298,7 +299,7 @@ export function buildAssetPathMap(bundle: Rollup.OutputBundle): Map<string, stri
 
 /** Rewrites dev-only /@fs/ asset URLs in prerendered HTML to emitted build asset paths. */
 export function rewriteAssetPaths(
-  html: string,
+  rawHtml: string,
   assetPathMap: ReturnType<typeof buildAssetPathMap>,
   publicDir: string,
   outDir: string,
@@ -311,8 +312,13 @@ export function rewriteAssetPaths(
 
   // Prerendering happens through a Vite SSR server, so image/style URLs can
   // still point at dev-only /@fs/ paths. Rewrite them to the emitted assets.
-  return pointCssUrlsAtFsPaths(html, projectRoot).replace(/\/@fs\/[^"']+/g, (match) => {
-    const pathOnly = match.replace(/\?.*$/, '');
+  const html = pointStoryCssUrlsAtFsPaths(rawHtml, projectRoot);
+
+  return html.replace(/\/@fs\/[^"']+/g, (match) => {
+    const pathOnly = match.replace(/[?#].*$/, '');
+    // A `#fragment` (an SVG sprite's symbol, say) still applies to the
+    // published file, so it's kept. The query only meant something to Vite.
+    const fragment = match.match(/#.*$/)?.[0] ?? '';
     // URLs are percent-encoded: a project under `My Projects/` renders as
     // `/@fs/…/My%20Projects/…`, and neither the maps nor the disk know that path.
     const fsPath = safeDecodeURI(pathOnly).slice('/@fs'.length);
@@ -323,7 +329,7 @@ export function rewriteAssetPaths(
     const exact = exactMap.get(absolutePath);
 
     if (exact) {
-      return exact;
+      return exact + fragment;
     }
 
     // Fall back to stem-based matching for image assets whose
@@ -332,44 +338,63 @@ export function rewriteAssetPaths(
     const stemHit = stemMap.get(baseName);
 
     if (stemHit) {
-      return stemHit;
+      return stemHit + fragment;
     }
 
     // Files under the project's `public/` directory aren't bundle assets — the
     // build copies them verbatim to the output root and serves them from `/`.
     // Map e.g. `/@fs/<root>/public/images/x.png?…` to `/images/x.png`.
     if (absolutePath.startsWith(`${publicDir}/`)) {
-      return absolutePath.slice(publicDir.length);
+      return absolutePath.slice(publicDir.length) + fragment;
     }
 
     // Anything else was only imported on the server — an image a component
     // passes to <Image> or getImage() itself, a `?url` import — so the build
     // never emitted it. Copy it into the output instead.
-    return copyAssetToOutDir(absolutePath, outDir) ?? match;
+    const copiedUrl = copyAssetToOutDir(absolutePath, outDir);
+
+    return copiedUrl ? copiedUrl + fragment : match;
   });
 }
+
+// The `<style>` element the render handler prepends with the story's component CSS.
+const STORY_STYLES = /(<style data-storybook-astro-styles>)([\s\S]*?)(<\/style>)/;
 
 // A CSS `url()` holding an absolute path: double-quoted, single-quoted or bare.
 const CSS_ABSOLUTE_URL = /url\(\s*(?:"(\/[^"]*)"|'(\/[^']*)'|(\/[^\s"')]*))\s*\)/g;
 
 /**
- * Component CSS compiled by the SSR server refers to project files by
+ * The component CSS compiled by the SSR server refers to project files by
  * root-relative URL (`url("/src/assets/bg.png")`) and to files outside the
  * root by `/@fs/` URL, sometimes unquoted. Turns both into quoted `/@fs/` URLs
- * so the asset rewrite maps them like any other. Paths that aren't project
- * files, such as `public/` assets served from `/`, stay as they are.
+ * (keeping single quotes where the CSS used them) so the asset rewrite maps
+ * them like any other. Paths that aren't project files, such as `public/`
+ * assets served from `/`, stay as they are.
+ *
+ * Only that `<style>` element is touched. Elsewhere in the page a `url()` can
+ * sit inside an HTML attribute (an inline `style`, an island's props), where
+ * the added quotes would end the attribute.
  */
-function pointCssUrlsAtFsPaths(html: string, projectRoot: string) {
-  return html.replace(CSS_ABSOLUTE_URL, (match, doubleQuoted, singleQuoted, bare) => {
-    const url: string = doubleQuoted ?? singleQuoted ?? bare;
+function pointStoryCssUrlsAtFsPaths(html: string, projectRoot: string) {
+  return html.replace(STORY_STYLES, (_, open: string, css: string, close: string) => {
+    const cssWithFsUrls = css.replace(
+      CSS_ABSOLUTE_URL,
+      (match, doubleQuoted?: string, singleQuoted?: string, bare?: string) => {
+        const url = (doubleQuoted ?? singleQuoted ?? bare)!;
+        const quote = singleQuoted !== undefined ? "'" : '"';
 
-    if (url.startsWith('/@fs/')) {
-      return `url("${url}")`;
-    }
+        if (url.startsWith('/@fs/')) {
+          return `url(${quote}${url}${quote})`;
+        }
 
-    const filePath = resolve(projectRoot, `.${safeDecodeURI(url.replace(/[?#].*$/, ''))}`);
+        const suffix = url.match(/[?#].*$/)?.[0] ?? '';
+        const filePath = resolve(projectRoot, `.${safeDecodeURI(url.slice(0, url.length - suffix.length))}`);
 
-    return existsSync(filePath) ? `url("/@fs${filePath}")` : match;
+        return existsSync(filePath) ? `url(${quote}${toFsPath(filePath)}${suffix}${quote})` : match;
+      }
+    );
+
+    return open + cssWithFsUrls + close;
   });
 }
 

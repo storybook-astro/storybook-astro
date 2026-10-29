@@ -197,7 +197,7 @@ export class FrameworkIntegration extends BaseIntegration {
 **Client-side (render.tsx)**:
 - `renderToCanvas` delegates to framework renderers BEFORE calling `storyFn()` — this ordering is critical for frameworks like Solid that manage their own reactive roots
 - Modify `renderAstroComponent` to change request/response handling
-- `applyAstroStyles` handles Vite's style injection for Astro components
+- `astroRenderer.applyStyles` re-runs Vite's injected style modules in dev. Astro component styles don't go through it: they arrive with the rendered HTML (see [Styles Not Applying](#styles-not-applying))
 - `activateScriptTags` re-executes `<script>` tags after HTML injection for hydration
 
 ### Debugging

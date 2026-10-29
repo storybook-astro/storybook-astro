@@ -112,8 +112,7 @@ export async function createProductionRenderRuntime(
       loadComponentStyles: (componentIds) =>
         loadComponentStyles(
           viteServer,
-          componentIds.map((id) => options.resolveComponentId?.(id) ?? id),
-          { failOnError: options.failOnStyleError }
+          componentIds.map((id) => options.resolveComponentId?.(id) ?? id)
         ),
       failOnStyleError: options.failOnStyleError
     });

@@ -4,28 +4,31 @@ import type { ModuleNode, ViteDevServer } from 'vite';
 // `Card.astro?astro&type=style&index=0&lang.css` (or `&lang.scss`, …).
 const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 
+export type ComponentStyles = {
+  css: string;
+  /** What couldn't be styled: a component missing from the module graph, or a block that failed to load. */
+  failures: Array<{ moduleId: string; error: unknown }>;
+};
+
 /**
  * Returns the scoped CSS Astro compiled for the given components and every
  * module they import, for the story render that loaded them (issue #189).
  *
  * The story HTML comes from this same SSR server, so the compiled CSS carries
- * the same `data-astro-cid-*` scope as the markup and matches what a real Astro
- * page ships: nested selectors are scoped the way the installed compiler scopes
- * them.
+ * the same `data-astro-cid-*` scope as the markup, scoped the way the
+ * installed compiler scopes it.
  *
  * `componentIds` must already be loaded through `viteServer`, so their imports
- * are in its module graph.
- *
- * A block that fails to load is skipped with a warning, or with
- * `failOnError`, throws (a static build shouldn't ship unstyled stories).
+ * are in its module graph. One failure doesn't drop the other components'
+ * CSS: it's reported in `failures` for the caller to warn about or fail on.
  */
 export async function loadComponentStyles(
   viteServer: Pick<ViteDevServer, 'moduleGraph' | 'ssrLoadModule'>,
-  componentIds: Iterable<string>,
-  { failOnError = false }: { failOnError?: boolean } = {}
-): Promise<string> {
+  componentIds: Iterable<string>
+): Promise<ComponentStyles> {
   const styleModuleIds = new Set<string>();
   const visited = new Set<ModuleNode>();
+  const failures: ComponentStyles['failures'] = [];
 
   const collect = (module: ModuleNode) => {
     if (visited.has(module)) {
@@ -51,11 +54,19 @@ export async function loadComponentStyles(
     const componentModules = [...(viteServer.moduleGraph.getModulesByFile(componentId) ?? [])].filter(
       (module) => !module.id?.includes('?')
     );
-    const modules = componentModules.length
-      ? componentModules
-      : [await viteServer.moduleGraph.getModuleByUrl(componentId, true)];
+    const module = componentModules.length
+      ? undefined
+      : await viteServer.moduleGraph.getModuleByUrl(componentId, true);
 
-    modules.forEach((module) => module && collect(module));
+    if (!componentModules.length && !module) {
+      failures.push({
+        moduleId: componentId,
+        error: new Error('The component is not in the SSR module graph, so its styles were not found.')
+      });
+      continue;
+    }
+
+    (module ? [module] : componentModules).forEach(collect);
   }
 
   const styleModules = [...styleModuleIds];
@@ -70,51 +81,46 @@ export async function loadComponentStyles(
     })
   );
 
-  // One broken block (a Sass error, say) shouldn't unstyle the whole story.
   const cssBlocks = results.flatMap((result, index) => {
     if (result.status === 'fulfilled') {
       return result.value ? [result.value] : [];
     }
 
-    const message = `[storybook-astro] Could not load ${styleModules[index]}`;
-
-    if (failOnError) {
-      throw new Error(`${message}: ${errorMessage(result.reason)}`, { cause: result.reason });
-    }
-
-    console.warn(`${message}:`, result.reason);
+    failures.push({ moduleId: styleModules[index], error: result.reason });
 
     return [];
   });
 
-  return joinStylesheets(cssBlocks);
+  return { css: joinStylesheets(cssBlocks), failures };
 }
 
-// An `@import` statement, which Vite leaves at the top of a block when it can't
-// inline it (a remote URL, for example).
-const LEADING_IMPORT = /^(?:\s|\/\*[\s\S]*?\*\/)*@import\s+(?:"[^"]*"|'[^']*'|url\([^)]*\))[^;]*;/;
+// What may come before a block's rules: `@charset`, `@layer` order statements
+// and `@import`s, which Vite leaves in place when it can't inline them (a
+// remote URL, for example). Comments may sit between them.
+const LEADING_AT_RULE =
+  /^(?:\s|\/\*[\s\S]*?\*\/)*(@charset\s+"[^"]*"\s*;|@layer\s+[^;{]+;|@import\s+(?:"[^"]*"|'[^']*'|url\([^)]*\))[^;]*;)/;
 
 /**
  * Joins style blocks into one stylesheet. Browsers ignore an `@import` that
- * comes after other rules, so each block's leading imports move to the top.
+ * comes after other rules, so each block's leading `@import`s, and the `@layer`
+ * statements that may precede them, move to the top. `@charset` is dropped:
+ * browsers ignore it inside a `<style>` element.
  */
 function joinStylesheets(cssBlocks: string[]) {
-  const imports: string[] = [];
+  const preludes: string[] = [];
   const rules = cssBlocks.map((css) => {
     let rest = css;
     let match: RegExpExecArray | null;
 
-    while ((match = LEADING_IMPORT.exec(rest))) {
-      imports.push(match[0].trim());
+    while ((match = LEADING_AT_RULE.exec(rest))) {
+      if (!match[1].startsWith('@charset')) {
+        preludes.push(match[1]);
+      }
       rest = rest.slice(match[0].length);
     }
 
     return rest.trim();
   });
 
-  return [...imports, ...rules].filter(Boolean).join('\n');
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
+  return [...preludes, ...rules].filter(Boolean).join('\n');
 }

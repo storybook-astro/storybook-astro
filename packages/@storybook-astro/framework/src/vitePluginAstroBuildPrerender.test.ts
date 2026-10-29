@@ -202,17 +202,62 @@ test('publishes the images component CSS refers to by root-relative or bare /@fs
     await writeFile(bgPath, 'background bytes');
 
     const html =
-      '<style>.a { background: url("/src/assets/bg.png"); }' +
+      '<style data-storybook-astro-styles>.a { background: url("/src/assets/bg.png"); }' +
       `.b { background: url(/@fs${bgPath}); }` +
-      '.c { background: url(/images/from-public.png); }</style>';
+      ".c { background: url('/src/assets/bg.png'); }" +
+      '.d { background: url(/images/from-public.png); }</style>';
 
     const result = rewriteAssetPaths(html, assetMap({}), join(projectDir, 'public'), outDir, projectDir);
     const [copiedFile] = await readdir(join(outDir, '_astro'));
 
     expect(result).toBe(
-      `<style>.a { background: url("/_astro/${copiedFile}"); }` +
+      `<style data-storybook-astro-styles>.a { background: url("/_astro/${copiedFile}"); }` +
         `.b { background: url("/_astro/${copiedFile}"); }` +
-        '.c { background: url(/images/from-public.png); }</style>'
+        `.c { background: url('/_astro/${copiedFile}'); }` +
+        '.d { background: url(/images/from-public.png); }</style>'
+    );
+  } finally {
+    await rm(projectDir, { recursive: true, force: true });
+  }
+});
+
+test('leaves url() outside the component styles alone, so attribute quotes stay intact', async () => {
+  const projectDir = await mkdtemp(join(tmpdir(), 'storybook-astro-prerender-test-'));
+
+  try {
+    await mkdir(join(projectDir, 'src', 'assets'), { recursive: true });
+    await writeFile(join(projectDir, 'src', 'assets', 'bg.png'), 'background bytes');
+
+    const html =
+      '<div style="background: url(/src/assets/bg.png)"></div>' +
+      '<astro-island props="{&quot;style&quot;:[0,&quot;background: url(/src/assets/bg.png)&quot;]}"></astro-island>';
+
+    expect(
+      rewriteAssetPaths(html, assetMap({}), join(projectDir, 'public'), join(projectDir, 'out'), projectDir)
+    ).toBe(html);
+  } finally {
+    await rm(projectDir, { recursive: true, force: true });
+  }
+});
+
+test('keeps a #fragment, such as an SVG sprite symbol, on the published URL', async () => {
+  const projectDir = await mkdtemp(join(tmpdir(), 'storybook-astro-prerender-test-'));
+  const outDir = join(projectDir, 'storybook-static');
+
+  try {
+    await mkdir(join(projectDir, 'src', 'icons'), { recursive: true });
+    await writeFile(join(projectDir, 'src', 'icons', 'sprite.svg'), '<svg/>');
+
+    const html =
+      '<style data-storybook-astro-styles>.icon { mask: url("/src/icons/sprite.svg#arrow"); }</style>' +
+      `<svg><use href="/@fs${join(projectDir, 'src', 'icons', 'sprite.svg')}#arrow"></use></svg>`;
+
+    const result = rewriteAssetPaths(html, assetMap({}), join(projectDir, 'public'), outDir, projectDir);
+    const [copiedFile] = await readdir(join(outDir, '_astro'));
+
+    expect(result).toBe(
+      `<style data-storybook-astro-styles>.icon { mask: url("/_astro/${copiedFile}#arrow"); }</style>` +
+        `<svg><use href="/_astro/${copiedFile}#arrow"></use></svg>`
     );
   } finally {
     await rm(projectDir, { recursive: true, force: true });

@@ -80,7 +80,7 @@ describe('loadComponentStyles', () => {
       }
     });
 
-    const css = await loadComponentStyles(server, ['Page.astro']);
+    const { css } = await loadComponentStyles(server, ['Page.astro']);
 
     expect(css).toContain('Page.astro?astro&type=style&index=0');
     expect(css).toContain('Badge.astro?astro&type=style&index=0');
@@ -95,21 +95,10 @@ describe('loadComponentStyles', () => {
       stale: [styleOf('Card.astro', 1)]
     });
 
-    const css = await loadComponentStyles(server, ['Card.astro']);
+    const { css } = await loadComponentStyles(server, ['Card.astro']);
 
     expect(css).toContain('Card.astro?astro&type=style&index=0');
     expect(css).not.toContain('index=1');
-  });
-
-  test('throws for a block that fails to load when asked to, as a static build does', async () => {
-    const { server } = createFakeServer({
-      imports: { 'Card.astro': [styleOf('Card.astro'), styleOf('Card.astro', 1)] },
-      stale: [styleOf('Card.astro', 1)]
-    });
-
-    await expect(loadComponentStyles(server, ['Card.astro'], { failOnError: true })).rejects.toThrow(
-      `[storybook-astro] Could not load ${styleOf('Card.astro', 1)}: No Astro CSS at index`
-    );
   });
 
   test('loads each style with `inline` before `lang.*`, which Vite needs last', async () => {
@@ -131,33 +120,41 @@ describe('loadComponentStyles', () => {
       }
     });
 
-    const css = await loadComponentStyles(server, ['Page.astro']);
+    const { css } = await loadComponentStyles(server, ['Page.astro']);
 
     expect(css).toBe(
       '@import "https://fonts.example/inter.css";\n.page { color: red; }\n.card { color: blue; }'
     );
   });
 
-  test('keeps the blocks that load when another one fails', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  test('hoists an @import that follows @charset or @layer, and drops the @charset', async () => {
+    const { server } = createFakeServer({
+      imports: { 'Page.astro': [styleOf('Page.astro'), 'Card.astro'], 'Card.astro': [styleOf('Card.astro')] },
+      css: {
+        [styleOf('Page.astro')]: '.page { color: red; }',
+        [styleOf('Card.astro')]:
+          '@charset "UTF-8";\n@layer base, theme;\n@import "https://fonts.example/inter.css";\n.card { color: blue; }'
+      }
+    });
 
-    try {
-      // Card imports a block that fails to compile (a Sass error, say).
-      const { server } = createFakeServer({
-        imports: { 'Card.astro': [styleOf('Card.astro'), styleOf('Card.astro', 1)] },
-        stale: [styleOf('Card.astro', 1)]
-      });
+    const { css } = await loadComponentStyles(server, ['Page.astro']);
 
-      const css = await loadComponentStyles(server, ['Card.astro']);
+    expect(css).toBe(
+      '@layer base, theme;\n@import "https://fonts.example/inter.css";\n.page { color: red; }\n.card { color: blue; }'
+    );
+  });
 
-      expect(css).toContain('Card.astro?astro&type=style&index=0');
-      expect(warn).toHaveBeenCalledWith(
-        `[storybook-astro] Could not load ${styleOf('Card.astro', 1)}:`,
-        expect.any(Error)
-      );
-    } finally {
-      warn.mockRestore();
-    }
+  test('keeps the blocks that load and reports the one that fails', async () => {
+    // Card imports a block that fails to compile (a Sass error, say).
+    const { server } = createFakeServer({
+      imports: { 'Card.astro': [styleOf('Card.astro'), styleOf('Card.astro', 1)] },
+      stale: [styleOf('Card.astro', 1)]
+    });
+
+    const { css, failures } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(css).toContain('Card.astro?astro&type=style&index=0');
+    expect(failures).toEqual([{ moduleId: styleOf('Card.astro', 1), error: expect.any(Error) }]);
   });
 
   test('finds a component by file when it is only registered under a /@fs/ URL', async () => {
@@ -169,7 +166,7 @@ describe('loadComponentStyles', () => {
       }
     });
 
-    const css = await loadComponentStyles(server, ['/abs/Badge.astro']);
+    const { css } = await loadComponentStyles(server, ['/abs/Badge.astro']);
 
     expect(css).toContain('/abs/Badge.astro?astro&type=style');
   });
@@ -180,7 +177,7 @@ describe('loadComponentStyles', () => {
       urlOnly: { '/@id/Panel': 'Panel.astro' }
     });
 
-    const css = await loadComponentStyles(server, ['/@id/Panel']);
+    const { css } = await loadComponentStyles(server, ['/@id/Panel']);
 
     expect(css).toContain('Panel.astro?astro&type=style');
   });
@@ -198,9 +195,17 @@ describe('loadComponentStyles', () => {
     expect(ssrLoadModule).toHaveBeenCalledTimes(1);
   });
 
-  test('returns an empty string for components without styles or unknown ids', async () => {
+  test('returns no CSS for a component without styles', async () => {
     const { server } = createFakeServer({ imports: { 'Plain.astro': ['runtime.js'] } });
 
-    expect(await loadComponentStyles(server, ['Plain.astro', 'Missing.astro'])).toBe('');
+    expect(await loadComponentStyles(server, ['Plain.astro'])).toEqual({ css: '', failures: [] });
+  });
+
+  test('reports a component that is not in the module graph, since its styles can\'t be found', async () => {
+    const { server } = createFakeServer({ imports: { 'Plain.astro': ['runtime.js'] } });
+
+    const { failures } = await loadComponentStyles(server, ['Missing.astro']);
+
+    expect(failures).toEqual([{ moduleId: 'Missing.astro', error: expect.any(Error) }]);
   });
 });

@@ -2,6 +2,7 @@ import { describe, test, expect, vi } from 'vitest';
 import { ASTRO_COMPONENT_MARKER } from '@storybook-astro/renderer/types';
 import { createAstroRenderHandler, processImageMetadata } from './astroRenderHandler.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
+import type { ComponentStyles } from './lib/componentStyles.ts';
 
 // In the static-build/testing path, story args arrive as real JS objects (no
 // JSON transport), so a Date reaches processImageMetadata as an actual Date.
@@ -77,7 +78,7 @@ function createHandler(options: {
   components: Record<string, unknown>;
   sanitization?: SanitizationOptions;
   renderToString?: FakeRenderToString;
-  loadComponentStyles?: (componentIds: string[]) => Promise<string>;
+  loadComponentStyles?: (componentIds: string[]) => Promise<ComponentStyles>;
   failOnStyleError?: boolean;
 }) {
   const renderToString = vi.fn(options.renderToString ?? defaultRenderToString);
@@ -363,7 +364,10 @@ describe('createAstroRenderHandler — depth cap', () => {
 
 describe('createAstroRenderHandler — component styles', () => {
   test('ships the CSS for every component the story used, ahead of the HTML', async () => {
-    const loadComponentStyles = vi.fn(async (ids: string[]) => `/* ${ids.sort().join(' ')} */`);
+    const loadComponentStyles = vi.fn(async (ids: string[]) => ({
+      css: `/* ${ids.sort().join(' ')} */`,
+      failures: []
+    }));
     const { handler } = createHandler({
       components: {
         'Panel.astro': fakeComponent('Panel.astro'),
@@ -391,7 +395,7 @@ describe('createAstroRenderHandler — component styles', () => {
   test('adds no style tag when the components have no styles', async () => {
     const { handler } = createHandler({
       components: { 'Button.astro': fakeComponent('Button.astro') },
-      loadComponentStyles: async () => ''
+      loadComponentStyles: async () => ({ css: '', failures: [] })
     });
 
     const html = await handler({ component: 'Button.astro' });
@@ -399,45 +403,73 @@ describe('createAstroRenderHandler — component styles', () => {
     expect(html).not.toContain('<style');
   });
 
-  test('still shows the story, unstyled, when its styles fail to load', async () => {
+  test('ships the styles that loaded and warns about the ones that failed', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const brokenBlock = new Error('No Astro CSS at index 1');
 
     try {
       const { handler } = createHandler({
         components: { 'Button.astro': fakeComponent('Button.astro') },
-        loadComponentStyles: async () => {
-          throw new Error('No Astro CSS at index 1');
-        }
+        loadComponentStyles: async () => ({
+          css: '.button { color: red; }',
+          failures: [{ moduleId: 'Button.astro?astro&type=style&index=1&lang.css', error: brokenBlock }]
+        })
       });
 
       const html = await handler({ component: 'Button.astro' });
 
-      expect(html).toMatch(/^<Button\.astro/);
+      expect(html).toMatch(/^<style data-storybook-astro-styles>\.button \{ color: red; \}<\/style><Button\.astro/);
       expect(warn).toHaveBeenCalledWith(
-        '[storybook-astro] Could not load component styles:',
-        expect.objectContaining({ message: 'No Astro CSS at index 1' })
+        '[storybook-astro] Could not load styles for Button.astro?astro&type=style&index=1&lang.css:',
+        brokenBlock
       );
     } finally {
       warn.mockRestore();
     }
   });
 
-  test('fails the render when styles fail to load in a static build', async () => {
+  test('still shows the story, unstyled, when loading styles throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const { handler } = createHandler({
+        components: { 'Button.astro': fakeComponent('Button.astro') },
+        loadComponentStyles: async () => {
+          throw new Error('module graph unavailable');
+        }
+      });
+
+      expect(await handler({ component: 'Button.astro' })).toMatch(/^<Button\.astro/);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test('fails the render in a static build, naming each module whose styles failed', async () => {
     const { handler } = createHandler({
       components: { 'Button.astro': fakeComponent('Button.astro') },
-      loadComponentStyles: async () => {
-        throw new Error('Sass syntax error');
-      },
+      loadComponentStyles: async () => ({
+        css: '.button { color: red; }',
+        failures: [
+          { moduleId: 'Button.astro?astro&type=style&index=1&lang.scss', error: new Error('Sass syntax error') },
+          { moduleId: 'Icon.astro', error: new Error('not in the SSR module graph') }
+        ]
+      }),
       failOnStyleError: true
     });
 
-    await expect(handler({ component: 'Button.astro' })).rejects.toThrow('Sass syntax error');
+    await expect(handler({ component: 'Button.astro' })).rejects.toThrow(
+      '[storybook-astro] Could not load component styles:\n' +
+        '- Button.astro?astro&type=style&index=1&lang.scss: Sass syntax error\n' +
+        '- Icon.astro: not in the SSR module graph'
+    );
   });
 
   test('a "</style" inside the CSS does not end the style tag early', async () => {
     const { handler } = createHandler({
       components: { 'Button.astro': fakeComponent('Button.astro') },
-      loadComponentStyles: async () => '.button::after { content: "</style>"; }'
+      loadComponentStyles: async () => ({ css: '.button::after { content: "</style>"; }', failures: [] })
     });
 
     const html = await handler({ component: 'Button.astro' });

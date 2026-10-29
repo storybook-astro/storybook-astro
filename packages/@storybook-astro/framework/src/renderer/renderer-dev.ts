@@ -39,12 +39,6 @@ export async function render(data: RenderComponentInput, timeoutMs = 5000) {
 }
 
 export function init() {
-  import.meta.hot?.on('vite:afterUpdate', (payload) => {
-    if (payload.updates.some((update) => isAstroStyleUpdate(update.path))) {
-      applyStyles();
-    }
-  });
-
   import.meta.hot?.on('astro:render:response', (data: RenderResponseMessage['data']) => {
     if (!data.id || !pendingMessages.has(data.id)) {
       return;
@@ -78,8 +72,4 @@ export function applyStyles() {
       document.head.appendChild(script);
       document.head.removeChild(script);
     });
-}
-
-function isAstroStyleUpdate(path: string): boolean {
-  return /\.astro\?astro&type=style&index=\d+&lang\.(css|scss|sass|less|stylus)$/.test(path);
 }
