@@ -412,7 +412,7 @@ If only one component's styles are missing, check that the handler loaded it thr
 AI-generated changes get an independent review before the PR is opened. The requirement is that the reviewer starts from **fresh context**: a new agent session that sees only the committed changes, not the session that wrote them. A reviewer that shares the author's context tends to confirm the author's reasoning. Any AI tool can satisfy this; the commands below are for Claude Code.
 
 - [ ] `nvm use`, then `yarn lint`, `yarn lint:links`, and `yarn test` pass
-- [ ] All changes are committed and `git status` shows no modified files. The review reads commits, so uncommitted work is silently skipped and an empty branch reports no findings
+- [ ] All changes are committed and `git status` shows no modified files. The review can also pick up uncommitted changes, so a dirty working tree mixes work that isn't going into the PR into the review
 - [ ] Your local `develop` is current: `git fetch origin develop:develop` (run it from your feature branch). The review compares against it, so a stale `develop` pulls unrelated commits into the review
 - [ ] In a fresh session (new terminal, or `/clear`), run `/code-review high <your-branch>`. Use `xhigh` for changes to `render.tsx`, `middleware.ts`, or the [Astro version compatibility layers](#astro-version-compatibility-layers)
 - [ ] Give the reviewer only the target, not an explanation of the change
