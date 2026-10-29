@@ -137,18 +137,21 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
 }
 
 function setRenderedHtml(html: string) {
-  if (typeof document !== 'undefined') {
-    const template = document.createElement('template');
-
-    template.innerHTML = html;
-
-    // As in the Storybook canvas, the story's component CSS goes in the head
-    // and the body holds only its markup (issue #224).
-    moveStoryStylesToHead(template.content, document);
-    document.body.innerHTML = template.innerHTML;
+  if (typeof document === 'undefined') {
+    return html;
   }
 
-  return html;
+  const template = document.createElement('template');
+
+  template.innerHTML = html;
+
+  // As in the Storybook canvas, the story's component CSS goes in the head,
+  // replacing the last story's, and the body and the returned HTML hold only
+  // its markup (issue #224).
+  moveStoryStylesToHead(template.content, document.body);
+  document.body.innerHTML = template.innerHTML;
+
+  return template.innerHTML;
 }
 
 /**

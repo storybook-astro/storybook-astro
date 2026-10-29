@@ -5,7 +5,7 @@ import 'astro:scripts/page.js';
 import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
 import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
-import { moveStoryStylesToHead, removeStoryStyles } from './storyStyles';
+import { moveStoryStylesToHead, removeStoryStyles } from './storyStyles.ts';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -99,7 +99,7 @@ const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
   canvasElement: HTMLElement
-): Promise<void> {
+): Promise<void | (() => void)> {
   const { storyFn, kind, name, showMain, showError, forceRemount, storyContext } = ctx;
   const renderer = ctx.storyContext.parameters?.renderer as string | undefined;
   const typedRenderers = renderers as RendererRegistry;
@@ -118,15 +118,7 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
-  // Only an Astro render ships component CSS. In the Canvas, drop the last
-  // Astro story's before anything else renders (a Docs page keeps them all).
-  const isDocs = storyContext?.viewMode === 'docs';
-
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
-    if (!isDocs) {
-      removeStoryStyles(canvasElement.ownerDocument);
-    }
-
     showMain();
     await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
@@ -160,11 +152,9 @@ export async function renderToCanvas(
       throw error;
     }
 
-    return;
-  }
-
-  if (!isDocs) {
-    removeStoryStyles(canvasElement.ownerDocument);
+    // Storybook calls this when it removes the story: on navigation, and for
+    // each story on a Docs page when the page goes.
+    return () => removeStoryStyles(canvasElement);
   }
 
   if (typeof element === 'string') {
@@ -241,16 +231,13 @@ async function renderAstroToCanvas(
   });
 
   astroRenderer.applyStyles?.();
-  canvasElement.innerHTML = prepareServerRenderedHtml(
-    response.html,
-    canvasElement.ownerDocument,
-    storyContext?.viewMode
-  );
+  canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement, storyContext?.viewMode);
   invokeScriptTags(canvasElement);
 }
 
 /** Parses the server HTML response and hoists its stylesheet links and component CSS into the iframe head. */
-function prepareServerRenderedHtml(html: string, document: Document, viewMode?: string) {
+function prepareServerRenderedHtml(html: string, canvasElement: HTMLElement, viewMode?: string) {
+  const document = canvasElement.ownerDocument;
   const template = document.createElement('template');
 
   template.innerHTML = html;
@@ -258,7 +245,7 @@ function prepareServerRenderedHtml(html: string, document: Document, viewMode?: 
   // Server mode returns stylesheet links in the HTML response. Keep those in
   // the iframe head so controls rerenders can reuse them instead of refetching.
   syncServerRenderedStylesheets(template.content, document, viewMode);
-  moveStoryStylesToHead(template.content, document, viewMode);
+  moveStoryStylesToHead(template.content, canvasElement);
 
   return template.innerHTML;
 }

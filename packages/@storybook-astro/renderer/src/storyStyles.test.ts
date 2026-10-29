@@ -4,70 +4,94 @@ import { moveStoryStylesToHead, removeStoryStyles } from './storyStyles.ts';
 
 const styleFor = (css: string) => `<style data-storybook-astro-styles>${css}</style>`;
 
-/** Renders one story's HTML the way render.tsx does, and returns the canvas markup. */
-function renderStory(html: string, viewMode?: string) {
+/** Renders one story's HTML into a canvas the way render.tsx does. */
+function renderInto(canvas: HTMLElement, html: string) {
   const template = document.createElement('template');
 
   template.innerHTML = html;
-  moveStoryStylesToHead(template.content, document, viewMode);
-
-  return template.innerHTML;
+  moveStoryStylesToHead(template.content, canvas);
+  canvas.innerHTML = template.innerHTML;
 }
 
-const headCss = () =>
-  Array.from(document.head.querySelectorAll('style[data-storybook-astro-styles]')).map(
-    (style) => style.textContent
-  );
+const headStyles = () => Array.from(document.head.querySelectorAll('style[data-storybook-astro-styles]'));
+const headCss = () => headStyles().map((style) => style.textContent);
+
+function createCanvas() {
+  const canvas = document.createElement('div');
+
+  document.body.appendChild(canvas);
+
+  return canvas;
+}
 
 beforeEach(() => {
   document.head.innerHTML = '<style id="global">body { margin: 0; }</style>';
+  document.body.innerHTML = '';
 });
 
 describe('moveStoryStylesToHead', () => {
   test('leaves the story markup first and puts its CSS at the end of the head, in order', () => {
-    const markup = renderStory(`${styleFor('.page {}')}${styleFor('.card {}')}<div class="page"></div>`);
+    const canvas = createCanvas();
 
-    expect(markup).toBe('<div class="page"></div>');
+    renderInto(canvas, `${styleFor('.page {}')}${styleFor('.card {}')}<div class="page"></div>`);
+
+    expect(canvas.innerHTML).toBe('<div class="page"></div>');
     expect(headCss()).toEqual(['.page {}', '.card {}']);
     expect(document.head.firstElementChild?.id).toBe('global');
   });
 
-  test('keeps one copy of a block when the story rerenders with new args', () => {
-    renderStory(`${styleFor('.card {}')}<div>first</div>`);
-    renderStory(`${styleFor('.card {}')}<div>second</div>`);
+  test('keeps the same elements when a controls change rerenders with the same CSS', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('.card {}')}<div>first</div>`);
+    const [before] = headStyles();
+
+    renderInto(canvas, `${styleFor('.card {}')}<div>second</div>`);
+
+    expect(headStyles()).toEqual([before]);
+  });
+
+  test('drops CSS deleted in an edit when the story rerenders', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('.card { color: red; }')}<div></div>`);
+    renderInto(canvas, `${styleFor('.card {}')}<div></div>`);
 
     expect(headCss()).toEqual(['.card {}']);
   });
 
-  test('drops the previous story\'s CSS in the Canvas', () => {
-    renderStory(`${styleFor('.card {}')}<div></div>`);
-    renderStory(`${styleFor('.badge {}')}<span></span>`);
+  test('gives each story on a Docs page its own CSS', () => {
+    const cardCanvas = createCanvas();
+    const badgeCanvas = createCanvas();
 
-    expect(headCss()).toEqual(['.badge {}']);
-  });
+    renderInto(cardCanvas, `${styleFor('.card {}')}<div></div>`);
+    renderInto(badgeCanvas, `${styleFor('.badge {}')}<span></span>`);
+    renderInto(cardCanvas, `${styleFor('.card { color: blue; }')}<div></div>`);
 
-  test('keeps every story\'s CSS on a Docs page, where the stories share the head', () => {
-    renderStory(`${styleFor('.card {}')}<div></div>`, 'docs');
-    renderStory(`${styleFor('.badge {}')}${styleFor('.card {}')}<span></span>`, 'docs');
-
-    expect(headCss()).toEqual(['.badge {}', '.card {}']);
-  });
-
-  test('moves a block it already has into the latest render\'s cascade order', () => {
-    // The second story ships the shared block after one of its own.
-    renderStory(`${styleFor('.base {}')}<div></div>`, 'docs');
-    renderStory(`${styleFor('.override {}')}${styleFor('.base {}')}<div></div>`, 'docs');
-
-    expect(headCss().indexOf('.base {}')).toBeGreaterThan(headCss().indexOf('.override {}'));
+    expect(headCss()).toEqual(['.badge {}', '.card { color: blue; }']);
   });
 });
 
 describe('removeStoryStyles', () => {
-  test('clears the last Astro story\'s CSS and nothing else', () => {
-    renderStory(`${styleFor('.card {}')}<div></div>`);
-    removeStoryStyles(document);
+  test('removes only the torn-down canvas\'s CSS', () => {
+    const cardCanvas = createCanvas();
+    const badgeCanvas = createCanvas();
 
-    expect(headCss()).toEqual([]);
+    renderInto(cardCanvas, `${styleFor('.card {}')}<div></div>`);
+    renderInto(badgeCanvas, `${styleFor('.badge {}')}<span></span>`);
+    removeStoryStyles(cardCanvas);
+
+    expect(headCss()).toEqual(['.badge {}']);
     expect(document.getElementById('global')).not.toBeNull();
+  });
+
+  test('lets the next story in the same canvas start clean', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('.card {}')}<div></div>`);
+    removeStoryStyles(canvas);
+    renderInto(canvas, `${styleFor('.card {}')}<div></div>`);
+
+    expect(headCss()).toEqual(['.card {}']);
   });
 });

@@ -59,11 +59,20 @@ test('an SCSS style block ships compiled and scoped', async () => {
 });
 
 // Issue #224: the CSS goes in the head, so the story's markup is the body's
-// first child and its text holds no CSS.
+// first child and neither it nor the returned HTML holds any CSS.
 test('the story CSS is in the head, not ahead of the story markup', async () => {
-  await renderStory(SameClassName);
+  const html = await renderStory(SameClassName);
 
   expect(document.head.querySelector('style[data-storybook-astro-styles]')).not.toBeNull();
   expect(document.body.querySelector('style')).toBeNull();
   expect(document.body.textContent).not.toContain('color');
+  expect(html).not.toContain('<style');
+});
+
+test('the next story replaces the last one\'s CSS', async () => {
+  await renderStory(SameClassName);
+  await renderStory(ListInSlot);
+
+  expect(storyCss()).toContain('.list[');
+  expect(storyCss()).not.toContain('.title[');
 });
