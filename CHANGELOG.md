@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- Astro component `<style>` blocks are now scoped the way Astro scopes them (#189). Storybook used to inject each `<style>` block's raw source globally, so rules could reach elements Astro would never style, such as HTML passed into a `<slot />`, and components sharing a class name could style each other. Every story now ships the CSS Astro compiled for the components it rendered, scoped with the same `data-astro-cid-*` attribute as the markup, in dev, static builds and server mode. `<style lang="scss">` blocks now work too, compiled with the project's own `sass` package. Before, dev skipped them with a warning and builds shipped the raw SCSS, which browsers ignore.
+- Astro component `<style>` blocks are now scoped the way Astro scopes them (#189). Storybook used to inject each `<style>` block's raw source globally, so rules could reach elements Astro would never style, such as HTML passed into a `<slot />`, and components sharing a class name could style each other. Every story now ships the CSS Astro compiled for the components it rendered, scoped with the same `data-astro-cid-*` attribute as the markup, in dev, static builds and server mode. `<style lang="scss">` blocks now work too, compiled with the project's own `sass` package. Before, dev skipped them with a warning and builds shipped the raw SCSS, which browsers ignore. The styles arrive as a `<style data-storybook-astro-styles>` element at the start of the story's HTML, so a test or play function that reads the canvas's first child, its `textContent` or an `innerHTML` snapshot may need updating.
 
 ## [1.14.0] - 2026-10-24
 

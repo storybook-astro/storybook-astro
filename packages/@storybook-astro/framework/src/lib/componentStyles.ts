@@ -54,8 +54,9 @@ export async function loadComponentStyles(
     modules.forEach((module) => module && collect(module));
   }
 
-  const cssBlocks = await Promise.all(
-    [...styleModuleIds].map(async (styleModuleId) => {
+  const styleModules = [...styleModuleIds];
+  const results = await Promise.allSettled(
+    styleModules.map(async (styleModuleId) => {
       // `inline` asks Vite's CSS plugin for the CSS text instead of a module
       // that injects it. It goes before `lang.*`, which must stay last.
       const inlineId = styleModuleId.replace(/&lang\.(\w+)$/, '&inline&lang.$1');
@@ -65,5 +66,41 @@ export async function loadComponentStyles(
     })
   );
 
-  return cssBlocks.filter(Boolean).join('\n');
+  // One broken block (a Sass error, say) shouldn't unstyle the whole story.
+  const cssBlocks = results.flatMap((result, index) => {
+    if (result.status === 'fulfilled') {
+      return result.value ? [result.value] : [];
+    }
+
+    console.warn(`[storybook-astro] Could not load ${styleModules[index]}:`, result.reason);
+
+    return [];
+  });
+
+  return joinStylesheets(cssBlocks);
+}
+
+// An `@import` statement, which Vite leaves at the top of a block when it can't
+// inline it (a remote URL, for example).
+const LEADING_IMPORT = /^(?:\s|\/\*[\s\S]*?\*\/)*@import\s+(?:"[^"]*"|'[^']*'|url\([^)]*\))[^;]*;/;
+
+/**
+ * Joins style blocks into one stylesheet. Browsers ignore an `@import` that
+ * comes after other rules, so each block's leading imports move to the top.
+ */
+function joinStylesheets(cssBlocks: string[]) {
+  const imports: string[] = [];
+  const rules = cssBlocks.map((css) => {
+    let rest = css;
+    let match: RegExpExecArray | null;
+
+    while ((match = LEADING_IMPORT.exec(rest))) {
+      imports.push(match[0].trim());
+      rest = rest.slice(match[0].length);
+    }
+
+    return rest.trim();
+  });
+
+  return [...imports, ...rules].filter(Boolean).join('\n');
 }

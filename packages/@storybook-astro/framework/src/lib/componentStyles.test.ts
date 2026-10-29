@@ -18,6 +18,8 @@ function createFakeServer(options: {
   urlOnly?: Record<string, string>;
   /** Style sub-modules still in the graph after their `<style>` block was deleted. */
   stale?: string[];
+  /** Compiled CSS for particular style sub-modules, keyed by their id. */
+  css?: Record<string, string>;
 }) {
   const modules = new Map<string, FakeModule>();
   const moduleFor = (id: string): FakeModule => {
@@ -42,7 +44,9 @@ function createFakeServer(options: {
       throw new Error(`No Astro CSS at index ${id}`);
     }
 
-    return { default: `/* ${id} */` };
+    const styleModuleId = id.replace('&inline', '');
+
+    return { default: options.css?.[styleModuleId] ?? `/* ${styleModuleId} */` };
   });
 
   const modulesForFile = (file: string) =>
@@ -105,6 +109,44 @@ describe('loadComponentStyles', () => {
     await loadComponentStyles(server, ['Card.astro']);
 
     expect(ssrLoadModule).toHaveBeenCalledWith('Card.astro?astro&type=style&index=0&inline&lang.scss');
+  });
+
+  test('moves every block\'s @import to the top, where browsers honor it', async () => {
+    const { server } = createFakeServer({
+      imports: { 'Page.astro': [styleOf('Page.astro'), 'Card.astro'], 'Card.astro': [styleOf('Card.astro')] },
+      css: {
+        [styleOf('Page.astro')]: '.page { color: red; }',
+        [styleOf('Card.astro')]: '@import "https://fonts.example/inter.css";\n.card { color: blue; }'
+      }
+    });
+
+    const css = await loadComponentStyles(server, ['Page.astro']);
+
+    expect(css).toBe(
+      '@import "https://fonts.example/inter.css";\n.page { color: red; }\n.card { color: blue; }'
+    );
+  });
+
+  test('keeps the blocks that load when another one fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      // Card imports a block that fails to compile (a Sass error, say).
+      const { server } = createFakeServer({
+        imports: { 'Card.astro': [styleOf('Card.astro'), styleOf('Card.astro', 1)] },
+        stale: [styleOf('Card.astro', 1)]
+      });
+
+      const css = await loadComponentStyles(server, ['Card.astro']);
+
+      expect(css).toContain('Card.astro?astro&type=style&index=0');
+      expect(warn).toHaveBeenCalledWith(
+        `[storybook-astro] Could not load ${styleOf('Card.astro', 1)}:`,
+        expect.any(Error)
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test('finds a component by file when it is only registered under a /@fs/ URL', async () => {

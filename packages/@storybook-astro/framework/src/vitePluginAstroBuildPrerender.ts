@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, extname, resolve } from 'node:path';
 import type { Plugin, Rollup } from 'vite';
@@ -201,7 +201,13 @@ async function prerenderAstroStories(options: {
       // Image asset URLs from Vite SSR still point at /@fs/ paths, so rewrite
       // them first; then rewrite hydrated framework component module paths and
       // prepend their extracted CSS so the static preview matches dev styling.
-      const htmlWithAssetUrls = rewriteAssetPaths(html, assetPathMap, publicDir, options.outDir);
+      const htmlWithAssetUrls = rewriteAssetPaths(
+        html,
+        assetPathMap,
+        publicDir,
+        options.outDir,
+        options.resolveFrom
+      );
       const htmlWithBuiltModules = rewriteBuiltModulePaths(
         htmlWithAssetUrls,
         options.staticModuleMap
@@ -294,7 +300,8 @@ export function rewriteAssetPaths(
   html: string,
   assetPathMap: ReturnType<typeof buildAssetPathMap>,
   publicDir: string,
-  outDir: string
+  outDir: string,
+  projectRoot: string
 ): string {
   const { exactMap, stemMap } = assetPathMap as unknown as {
     exactMap: Map<string, string>;
@@ -303,7 +310,7 @@ export function rewriteAssetPaths(
 
   // Prerendering happens through a Vite SSR server, so image/style URLs can
   // still point at dev-only /@fs/ paths. Rewrite them to the emitted assets.
-  return html.replace(/\/@fs\/[^"']+/g, (match) => {
+  return pointCssUrlsAtFsPaths(html, projectRoot).replace(/\/@fs\/[^"']+/g, (match) => {
     const pathOnly = match.replace(/\?.*$/, '');
     // URLs are percent-encoded: a project under `My Projects/` renders as
     // `/@fs/…/My%20Projects/…`, and neither the maps nor the disk know that path.
@@ -338,6 +345,30 @@ export function rewriteAssetPaths(
     // passes to <Image> or getImage() itself, a `?url` import — so the build
     // never emitted it. Copy it into the output instead.
     return copyAssetToOutDir(absolutePath, outDir) ?? match;
+  });
+}
+
+// A CSS `url()` holding an absolute path: double-quoted, single-quoted or bare.
+const CSS_ABSOLUTE_URL = /url\(\s*(?:"(\/[^"]*)"|'(\/[^']*)'|(\/[^\s"')]*))\s*\)/g;
+
+/**
+ * Component CSS compiled by the SSR server refers to project files by
+ * root-relative URL (`url("/src/assets/bg.png")`) and to files outside the
+ * root by `/@fs/` URL, sometimes unquoted. Turns both into quoted `/@fs/` URLs
+ * so the asset rewrite maps them like any other. Paths that aren't project
+ * files, such as `public/` assets served from `/`, stay as they are.
+ */
+function pointCssUrlsAtFsPaths(html: string, projectRoot: string) {
+  return html.replace(CSS_ABSOLUTE_URL, (match, doubleQuoted, singleQuoted, bare) => {
+    const url: string = doubleQuoted ?? singleQuoted ?? bare;
+
+    if (url.startsWith('/@fs/')) {
+      return `url("${url}")`;
+    }
+
+    const filePath = resolve(projectRoot, `.${safeDecodeURI(url.replace(/[?#].*$/, ''))}`);
+
+    return existsSync(filePath) ? `url("/@fs${filePath}")` : match;
   });
 }
 

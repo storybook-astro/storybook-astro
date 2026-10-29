@@ -56,6 +56,19 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
   const componentCache = new Map<string, Promise<AstroComponentFactory>>();
   let renderQueue = Promise.resolve<void>(undefined);
 
+  // The HTML is already rendered when styles load, so a style failure (a
+  // broken stylesheet, a stale module) shows the story unstyled instead of
+  // replacing it with an error.
+  async function loadStylesOrWarn(componentIds: string[]) {
+    try {
+      return await options.loadComponentStyles?.(componentIds);
+    } catch (error) {
+      console.warn('[storybook-astro] Could not load component styles:', error);
+
+      return undefined;
+    }
+  }
+
   async function loadPatchedComponent(componentId: string, useCache = true) {
     if (!useCache) {
       const { default: component } = await options.loadModule(componentId);
@@ -94,19 +107,6 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
     if (data.node !== undefined) {
       assertValidSlotValue(data.node, 'node');
     }
-
-    // The HTML is already rendered when styles load, so a style failure (a
-    // broken stylesheet, a stale module) shows the story unstyled instead of
-    // replacing it with an error.
-    const loadStylesOrWarn = async (componentIds: string[]) => {
-      try {
-        return await options.loadComponentStyles?.(componentIds);
-      } catch (error) {
-        console.warn('[storybook-astro] Could not load component styles:', error);
-
-        return undefined;
-      }
-    };
 
     const executeRender = async () => {
       return runWithStoryRules(
@@ -184,7 +184,11 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
             );
           const css = await loadStylesOrWarn([...renderedComponentIds]);
 
-          return css ? `<style data-storybook-astro-styles>${css}</style>${html}` : html;
+          // `</style` inside the CSS (in a string or comment) would end the
+          // tag early. `<\/style` reads the same to the CSS parser.
+          return css
+            ? `<style data-storybook-astro-styles>${css.replace(/<\/(style)/gi, '<\\/$1')}</style>${html}`
+            : html;
         }
       );
     };

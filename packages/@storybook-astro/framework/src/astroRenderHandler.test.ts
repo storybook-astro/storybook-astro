@@ -399,20 +399,36 @@ describe('createAstroRenderHandler — component styles', () => {
 
   test('still shows the story, unstyled, when its styles fail to load', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const { handler } = createHandler({
+        components: { 'Button.astro': fakeComponent('Button.astro') },
+        loadComponentStyles: async () => {
+          throw new Error('No Astro CSS at index 1');
+        }
+      });
+
+      const html = await handler({ component: 'Button.astro' });
+
+      expect(html).toMatch(/^<Button\.astro/);
+      expect(warn).toHaveBeenCalledWith(
+        '[storybook-astro] Could not load component styles:',
+        expect.objectContaining({ message: 'No Astro CSS at index 1' })
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test('a "</style" inside the CSS does not end the style tag early', async () => {
     const { handler } = createHandler({
       components: { 'Button.astro': fakeComponent('Button.astro') },
-      loadComponentStyles: async () => {
-        throw new Error('No Astro CSS at index 1');
-      }
+      loadComponentStyles: async () => '.button::after { content: "</style>"; }'
     });
 
     const html = await handler({ component: 'Button.astro' });
 
-    expect(html).toMatch(/^<Button\.astro/);
-    expect(warn).toHaveBeenCalledWith(
-      '[storybook-astro] Could not load component styles:',
-      expect.objectContaining({ message: 'No Astro CSS at index 1' })
-    );
-    warn.mockRestore();
+    expect(html).toContain('content: "<\\/style>"; }</style><Button.astro');
+    expect(html.match(/<\/style>/g)).toHaveLength(1);
   });
 });
