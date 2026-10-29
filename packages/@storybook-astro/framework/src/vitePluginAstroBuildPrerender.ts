@@ -177,7 +177,8 @@ async function prerenderAstroStories(options: {
     staticModuleMap: options.staticModuleMap,
     trackedSpecifiers: options.trackedSpecifiers,
     resolveFrom: options.resolveFrom,
-    fonts: options.fonts
+    fonts: options.fonts,
+    failOnStyleError: true
   });
   const assetPathMap = buildAssetPathMap(options.bundle);
   // Astro's default public directory; its contents are copied to the output

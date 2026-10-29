@@ -49,6 +49,8 @@ type CreateAstroRenderHandlerOptions = {
    * (issue #189).
    */
   loadComponentStyles?: (componentIds: string[]) => Promise<string>;
+  /** Fail the render when styles fail to load, instead of warning. Set for static builds. */
+  failOnStyleError?: boolean;
 };
 
 export function createAstroRenderHandler(options: CreateAstroRenderHandlerOptions) {
@@ -58,11 +60,16 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
 
   // The HTML is already rendered when styles load, so a style failure (a
   // broken stylesheet, a stale module) shows the story unstyled instead of
-  // replacing it with an error.
+  // replacing it with an error. A static build fails instead: nobody is
+  // watching its console, and it would publish the story unstyled.
   async function loadStylesOrWarn(componentIds: string[]) {
     try {
       return await options.loadComponentStyles?.(componentIds);
     } catch (error) {
+      if (options.failOnStyleError) {
+        throw error;
+      }
+
       console.warn('[storybook-astro] Could not load component styles:', error);
 
       return undefined;

@@ -78,6 +78,7 @@ function createHandler(options: {
   sanitization?: SanitizationOptions;
   renderToString?: FakeRenderToString;
   loadComponentStyles?: (componentIds: string[]) => Promise<string>;
+  failOnStyleError?: boolean;
 }) {
   const renderToString = vi.fn(options.renderToString ?? defaultRenderToString);
   const loadModule = vi.fn(async (id: string) => ({ default: options.components[id] }));
@@ -86,7 +87,8 @@ function createHandler(options: {
     container: { renderToString } as unknown as Parameters<typeof createAstroRenderHandler>[0]['container'],
     sanitization: options.sanitization,
     loadModule,
-    loadComponentStyles: options.loadComponentStyles
+    loadComponentStyles: options.loadComponentStyles,
+    failOnStyleError: options.failOnStyleError
   });
 
   return { handler, renderToString };
@@ -418,6 +420,18 @@ describe('createAstroRenderHandler — component styles', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+
+  test('fails the render when styles fail to load in a static build', async () => {
+    const { handler } = createHandler({
+      components: { 'Button.astro': fakeComponent('Button.astro') },
+      loadComponentStyles: async () => {
+        throw new Error('Sass syntax error');
+      },
+      failOnStyleError: true
+    });
+
+    await expect(handler({ component: 'Button.astro' })).rejects.toThrow('Sass syntax error');
   });
 
   test('a "</style" inside the CSS does not end the style tag early', async () => {

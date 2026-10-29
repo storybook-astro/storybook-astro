@@ -15,10 +15,14 @@ const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
  *
  * `componentIds` must already be loaded through `viteServer`, so their imports
  * are in its module graph.
+ *
+ * A block that fails to load is skipped with a warning, or with
+ * `failOnError`, throws (a static build shouldn't ship unstyled stories).
  */
 export async function loadComponentStyles(
   viteServer: Pick<ViteDevServer, 'moduleGraph' | 'ssrLoadModule'>,
-  componentIds: Iterable<string>
+  componentIds: Iterable<string>,
+  { failOnError = false }: { failOnError?: boolean } = {}
 ): Promise<string> {
   const styleModuleIds = new Set<string>();
   const visited = new Set<ModuleNode>();
@@ -72,7 +76,13 @@ export async function loadComponentStyles(
       return result.value ? [result.value] : [];
     }
 
-    console.warn(`[storybook-astro] Could not load ${styleModules[index]}:`, result.reason);
+    const message = `[storybook-astro] Could not load ${styleModules[index]}`;
+
+    if (failOnError) {
+      throw new Error(`${message}: ${errorMessage(result.reason)}`, { cause: result.reason });
+    }
+
+    console.warn(`${message}:`, result.reason);
 
     return [];
   });
@@ -103,4 +113,8 @@ function joinStylesheets(cssBlocks: string[]) {
   });
 
   return [...imports, ...rules].filter(Boolean).join('\n');
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

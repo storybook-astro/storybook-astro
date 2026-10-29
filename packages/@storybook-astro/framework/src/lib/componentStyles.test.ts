@@ -101,6 +101,17 @@ describe('loadComponentStyles', () => {
     expect(css).not.toContain('index=1');
   });
 
+  test('throws for a block that fails to load when asked to, as a static build does', async () => {
+    const { server } = createFakeServer({
+      imports: { 'Card.astro': [styleOf('Card.astro'), styleOf('Card.astro', 1)] },
+      stale: [styleOf('Card.astro', 1)]
+    });
+
+    await expect(loadComponentStyles(server, ['Card.astro'], { failOnError: true })).rejects.toThrow(
+      `[storybook-astro] Could not load ${styleOf('Card.astro', 1)}: No Astro CSS at index`
+    );
+  });
+
   test('loads each style with `inline` before `lang.*`, which Vite needs last', async () => {
     const { server, ssrLoadModule } = createFakeServer({
       imports: { 'Card.astro': [`Card.astro?astro&type=style&index=0&lang.scss`] }

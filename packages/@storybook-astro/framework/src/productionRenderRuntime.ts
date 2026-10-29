@@ -54,6 +54,8 @@ type ProductionRenderRuntimeOptions = {
   resolveFrom: string;
   resolveComponentId?: (id: string) => string;
   fonts?: FrameworkOptions['fonts'];
+  /** Fail a render whose component styles fail to load. Set by the static build's prerender. */
+  failOnStyleError?: boolean;
 };
 
 /** Creates the shared SSR runtime used by both build-time prerendering and the standalone render server. */
@@ -110,8 +112,10 @@ export async function createProductionRenderRuntime(
       loadComponentStyles: (componentIds) =>
         loadComponentStyles(
           viteServer,
-          componentIds.map((id) => options.resolveComponentId?.(id) ?? id)
-        )
+          componentIds.map((id) => options.resolveComponentId?.(id) ?? id),
+          { failOnError: options.failOnStyleError }
+        ),
+      failOnStyleError: options.failOnStyleError
     });
 
     const composeDecoratedTree = async ({
