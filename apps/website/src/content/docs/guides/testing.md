@@ -105,7 +105,8 @@ From `@storybook-astro/framework/testing`:
 - `composeStory(story, componentAnnotations, projectAnnotations?, exportsName?)`
 - `setProjectAnnotations(annotations)`
 - `renderStory(story)` — renders the composed story and replaces `document.body`
-  with its HTML, so `screen` queries resolve against it
+  with its HTML, so `screen` queries resolve against it. The components' scoped
+  CSS goes in `document.head`, as it does in Storybook
 - `renderAstroStory(story)` — an alias for `renderStory`, kept for readability in
   suites that also render framework components
 

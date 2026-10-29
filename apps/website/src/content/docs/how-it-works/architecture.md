@@ -57,7 +57,7 @@ Story File (.stories.jsx)
     ↓ [Astro Container API renders to HTML]
 @storybook-astro/renderer (render.tsx)
     ↓ [injects HTML into canvas]
-    ↓ [scoped <style> elements arrive with the HTML; executes client scripts]
+    ↓ [scoped <style> elements arrive with the HTML and move to the iframe head; executes client scripts]
 Storybook Canvas (rendered component)
 ```
 

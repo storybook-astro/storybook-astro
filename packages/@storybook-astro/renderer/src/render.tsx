@@ -5,6 +5,7 @@ import 'astro:scripts/page.js';
 import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
 import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
+import { moveStoryStylesToHead, removeStoryStyles } from './storyStyles';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -117,7 +118,15 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
+  // Only an Astro render ships component CSS. In the Canvas, drop the last
+  // Astro story's before anything else renders (a Docs page keeps them all).
+  const isDocs = storyContext?.viewMode === 'docs';
+
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
+    if (!isDocs) {
+      removeStoryStyles(canvasElement.ownerDocument);
+    }
+
     showMain();
     await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
@@ -152,6 +161,10 @@ export async function renderToCanvas(
     }
 
     return;
+  }
+
+  if (!isDocs) {
+    removeStoryStyles(canvasElement.ownerDocument);
   }
 
   if (typeof element === 'string') {
@@ -236,7 +249,7 @@ async function renderAstroToCanvas(
   invokeScriptTags(canvasElement);
 }
 
-/** Parses the server HTML response and hoists any stylesheet links into the iframe head. */
+/** Parses the server HTML response and hoists its stylesheet links and component CSS into the iframe head. */
 function prepareServerRenderedHtml(html: string, document: Document, viewMode?: string) {
   const template = document.createElement('template');
 
@@ -245,6 +258,7 @@ function prepareServerRenderedHtml(html: string, document: Document, viewMode?: 
   // Server mode returns stylesheet links in the HTML response. Keep those in
   // the iframe head so controls rerenders can reuse them instead of refetching.
   syncServerRenderedStylesheets(template.content, document, viewMode);
+  moveStoryStylesToHead(template.content, document, viewMode);
 
   return template.innerHTML;
 }

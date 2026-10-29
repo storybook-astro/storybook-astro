@@ -17,6 +17,7 @@ import {
   type SlotValue
 } from '@storybook-astro/renderer/types';
 import { isDecoratedTree } from '@storybook-astro/renderer/decoratedTree';
+import { moveStoryStylesToHead } from '@storybook-astro/renderer/storyStyles';
 import type { ComposedStory } from './types.ts';
 import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
 
@@ -137,7 +138,14 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
 
 function setRenderedHtml(html: string) {
   if (typeof document !== 'undefined') {
-    document.body.innerHTML = html;
+    const template = document.createElement('template');
+
+    template.innerHTML = html;
+
+    // As in the Storybook canvas, the story's component CSS goes in the head
+    // and the body holds only its markup (issue #224).
+    moveStoryStylesToHead(template.content, document);
+    document.body.innerHTML = template.innerHTML;
   }
 
   return html;

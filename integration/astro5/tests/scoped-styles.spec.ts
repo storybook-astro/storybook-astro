@@ -1,0 +1,16 @@
+import { test, expect } from '@playwright/test';
+
+test.describe('Scoped styles', () => {
+  test('the story CSS is in the head and the story markup comes first in the canvas', async ({ page }) => {
+    await page.goto('/iframe.html?id=astro-scoped-styles-class-name-collision--same-class-name&viewMode=story');
+
+    // Each title keeps its own component's color (issue #189).
+    await expect(page.getByTestId('red-title')).toHaveCSS('color', 'rgb(198, 40, 40)');
+
+    // Issue #224: the CSS no longer sits ahead of the markup in the canvas.
+    const canvas = page.locator('#storybook-root');
+
+    expect(await canvas.locator('style').count()).toBe(0);
+    expect(await page.locator('head style[data-storybook-astro-styles]').count()).toBeGreaterThan(0);
+  });
+});

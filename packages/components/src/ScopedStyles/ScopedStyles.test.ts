@@ -57,3 +57,13 @@ test('an SCSS style block ships compiled and scoped', async () => {
   // No SCSS syntax reaches the browser: the variable is resolved.
   expect(storyCss()).not.toContain('$accent');
 });
+
+// Issue #224: the CSS goes in the head, so the story's markup is the body's
+// first child and its text holds no CSS.
+test('the story CSS is in the head, not ahead of the story markup', async () => {
+  await renderStory(SameClassName);
+
+  expect(document.head.querySelector('style[data-storybook-astro-styles]')).not.toBeNull();
+  expect(document.body.querySelector('style')).toBeNull();
+  expect(document.body.textContent).not.toContain('color');
+});
