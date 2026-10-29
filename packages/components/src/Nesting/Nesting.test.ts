@@ -45,7 +45,9 @@ test('a slotted Astro component ships its compiled, scoped CSS', async () => {
 
   const badge = screen.getByTestId('badge');
   const scopeAttribute = badge.getAttributeNames().find((name) => name.startsWith('data-astro-cid-'));
-  const css = document.querySelector('style[data-storybook-astro-styles]')?.textContent ?? '';
+  const css = Array.from(document.querySelectorAll('style[data-storybook-astro-styles]'))
+    .map((style) => style.textContent)
+    .join('\n');
 
   expect(scopeAttribute).toBeDefined();
   expect(css).toContain(`.badge[${scopeAttribute}]`);

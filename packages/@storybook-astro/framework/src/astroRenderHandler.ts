@@ -1,6 +1,10 @@
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { markHTMLString } from 'astro/runtime/server/index.js';
-import { isAstroComponentFactory, type SlotValue } from '@storybook-astro/renderer/types';
+import {
+  isAstroComponentFactory,
+  isAstroComponentMarker,
+  type SlotValue
+} from '@storybook-astro/renderer/types';
 import type { ResolvedSanitizationOptions, SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeArgs, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { reviveDateStrings } from './lib/revive-dates.ts';
@@ -45,7 +49,7 @@ type CreateAstroRenderHandlerOptions = {
   invalidateModuleGraph?: () => void;
   /**
    * Returns the compiled CSS for the components a render loaded, plus their
-   * imports. Prepended to the HTML as a `<style>` tag, so the story ships with
+   * imports. Prepended to the HTML as `<style>` elements, so the story ships with
    * Astro's scoped styles in dev, static builds and server mode alike
    * (issue #189).
    */
@@ -58,6 +62,9 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
   const sanitizationOptions = resolveSanitizationOptions(options.sanitization);
   const componentCache = new Map<string, Promise<AstroComponentFactory>>();
   let renderQueue = Promise.resolve<void>(undefined);
+  // Whether the last render loaded modules with story module mocks. Those
+  // renders rewrite the shared module graph's import edges to the mocks.
+  let moduleGraphHasMocks = false;
 
   // The HTML is already rendered when styles load, so a style failure (a
   // broken stylesheet, a stale module) shows the story unstyled instead of
@@ -69,7 +76,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
     try {
       styles = await options.loadComponentStyles?.(componentIds);
     } catch (error) {
-      styles = { css: '', failures: [{ moduleId: componentIds.join(', '), error }] };
+      styles = { stylesheets: [], failures: [{ moduleId: componentIds.join(', '), error }] };
     }
 
     const failures = styles?.failures ?? [];
@@ -86,7 +93,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
       console.warn(`[storybook-astro] Could not load styles for ${moduleId}:`, error);
     });
 
-    return styles?.css;
+    return styles?.stylesheets ?? [];
   }
 
   async function loadPatchedComponent(componentId: string, useCache = true) {
@@ -137,14 +144,28 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           invalidateModuleGraph: options.invalidateModuleGraph
         },
         async (selectedRules) => {
-          // Every component this render uses (the story, slot and prop
-          // components, decorators) contributes its styles to the response.
-          // Components sent as markers are recorded when they load; real
-          // factories, which the static build passes straight from the story
-          // module, are already in the request.
-          const renderedComponentIds = new Set<string>([data.component]);
+          const usesModuleMocks = selectedRules.moduleMocks.size > 0;
 
-          addComponentModuleIds([data.args, data.slots, data.node], renderedComponentIds);
+          // After a mocked render, cached components and the module graph's
+          // import edges still lead to the mocks. Reload this render's
+          // components so it, and its styles, use the real modules again.
+          if (moduleGraphHasMocks && !usesModuleMocks) {
+            options.invalidateModuleGraph?.();
+            componentCache.clear();
+          }
+          moduleGraphHasMocks = usesModuleMocks;
+
+          // Every component this render uses (decorators, the story, slot and
+          // prop components) contributes its styles to the response, in that
+          // order: decorators wrap the story the way a layout wraps a page, so
+          // the story's styles come after theirs, as a page's do in Astro.
+          // Components the request names are recorded up front; ones that
+          // only turn up while rendering are recorded as they load.
+          const renderedComponentIds = new Set<string>();
+
+          addComponentModuleIds(data.node, renderedComponentIds);
+          renderedComponentIds.add(data.component);
+          addComponentModuleIds([data.args, data.slots], renderedComponentIds);
           const loadComponent = (moduleId: string) => {
             renderedComponentIds.add(moduleId);
 
@@ -153,7 +174,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
 
           const patchedComponent = await loadPatchedComponent(
             data.component,
-            selectedRules.moduleMocks.size === 0
+            !usesModuleMocks
           );
           // Resolve Astro components passed as props back to real factories
           // before the other arg processing (factories pass through those
@@ -202,13 +223,15 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
                 slots: markRawSlots(renderedSlots)
               }
             );
-          const css = await loadStylesOrWarn([...renderedComponentIds]);
+          const stylesheets = await loadStylesOrWarn([...renderedComponentIds]);
 
           // `</style` inside the CSS (in a string or comment) would end the
           // tag early. `<\/style` reads the same to the CSS parser.
-          return css
-            ? `<style data-storybook-astro-styles>${css.replace(/<\/(style)/gi, '<\\/$1')}</style>${html}`
-            : html;
+          const styleTags = stylesheets.map(
+            (css) => `<style data-storybook-astro-styles>${css.replace(/<\/(style)/gi, '<\\/$1')}</style>`
+          );
+
+          return styleTags.join('') + html;
         }
       );
     };
@@ -225,15 +248,22 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
 }
 
 /**
- * Records the `moduleId` of every Astro component factory found in a render
- * request's args, slots or decorator tree. Astro's compiler sets `moduleId` on
- * each component it compiles.
+ * Records the module id of every Astro component found in a render request's
+ * args, slots or decorator tree, in the order they appear: markers the browser
+ * sent, and real factories the static build passes straight from the story
+ * module (Astro's compiler sets `moduleId` on each component it compiles).
  *
  * It walks every level, guarding only against cycles: the walk is cheap, and a
  * depth cap counted differently from the slot and prop resolvers' would drop the
  * styles of a component they still render.
  */
 function addComponentModuleIds(value: unknown, moduleIds: Set<string>, seen = new Set<object>()) {
+  if (isAstroComponentMarker(value)) {
+    moduleIds.add(value.moduleId);
+
+    return;
+  }
+
   if (isAstroComponentFactory(value)) {
     const { moduleId } = value as AstroComponentFactory;
 

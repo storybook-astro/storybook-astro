@@ -201,20 +201,24 @@ test('publishes the images component CSS refers to by root-relative or bare /@fs
     await mkdir(join(projectDir, 'src', 'assets'), { recursive: true });
     await writeFile(bgPath, 'background bytes');
 
+    // One <style> element per block. Vite compiles `image-set("./bg.png" 1x)`
+    // to `image-set(url("/src/…") 1x)`, so it's a url() like any other.
     const html =
       '<style data-storybook-astro-styles>.a { background: url("/src/assets/bg.png"); }' +
-      `.b { background: url(/@fs${bgPath}); }` +
-      ".c { background: url('/src/assets/bg.png'); }" +
-      '.d { background: url(/images/from-public.png); }</style>';
+      `.b { background: url(/@fs${bgPath}); }</style>` +
+      "<style data-storybook-astro-styles>.c { background: url('/src/assets/bg.png'); }" +
+      '.d { background-image: image-set(url("/src/assets/bg.png") 1x); }' +
+      '.e { background: url(/images/from-public.png); }</style>';
 
     const result = rewriteAssetPaths(html, assetMap({}), join(projectDir, 'public'), outDir, projectDir);
     const [copiedFile] = await readdir(join(outDir, '_astro'));
 
     expect(result).toBe(
       `<style data-storybook-astro-styles>.a { background: url("/_astro/${copiedFile}"); }` +
-        `.b { background: url("/_astro/${copiedFile}"); }` +
-        `.c { background: url('/_astro/${copiedFile}'); }` +
-        '.d { background: url(/images/from-public.png); }</style>'
+        `.b { background: url("/_astro/${copiedFile}"); }</style>` +
+        `<style data-storybook-astro-styles>.c { background: url('/_astro/${copiedFile}'); }` +
+        `.d { background-image: image-set(url("/_astro/${copiedFile}") 1x); }` +
+        '.e { background: url(/images/from-public.png); }</style>'
     );
   } finally {
     await rm(projectDir, { recursive: true, force: true });

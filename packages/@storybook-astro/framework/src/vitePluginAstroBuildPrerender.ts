@@ -358,7 +358,7 @@ export function rewriteAssetPaths(
 }
 
 // The `<style>` element the render handler prepends with the story's component CSS.
-const STORY_STYLES = /(<style data-storybook-astro-styles>)([\s\S]*?)(<\/style>)/;
+const STORY_STYLES = /(<style data-storybook-astro-styles>)([\s\S]*?)(<\/style>)/g;
 
 // A CSS `url()` holding an absolute path: double-quoted, single-quoted or bare.
 const CSS_ABSOLUTE_URL = /url\(\s*(?:"(\/[^"]*)"|'(\/[^']*)'|(\/[^\s"')]*))\s*\)/g;

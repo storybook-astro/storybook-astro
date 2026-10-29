@@ -34,7 +34,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 - `src/astroRenderHandler.ts` - `createAstroRenderHandler`, the shared handler `handlerFactory` and the standalone server both call into. Resolves slot trees (`reconstructSlots`) and, when a render request carries a decorator tree (`node`), resolves it the same way via `renderDecoratedRoot`
 - `src/viteStorybookAstroMiddlewarePlugin.ts` - Vite plugin that handles render requests via HMR
 - `src/vitePluginAstroComponentMarker.ts` - Patches Astro's client-side `.astro` stubs (Astro 6+ and Astro 7's Rust compiler) to set `isAstroComponentFactory`. In dev it also re-imports child `.astro` files so editing a child reruns the story
-- `src/lib/componentStyles.ts` - Collects the scoped CSS Astro compiled for every component a render loaded. The render handler prepends it to the HTML as a `<style>` tag
+- `src/lib/componentStyles.ts` - Collects the scoped CSS Astro compiled for every component a render loaded. The render handler prepends it to the HTML, one `<style>` element per block
 - `src/vitePluginAstroFonts.ts` - Resolves Astro's Font Provider API in Storybook's SSR context and auto-loads fonts declared in `astro.config.*`
 - `src/portable-stories.ts` - `composeStories`/`composeStory` for testing outside Storybook
 - `src/docgen/` - Extracts component descriptions and prop tables from `.astro` frontmatter JSDoc. `index.ts` owns the runtime (guarded `typescript` import, tsconfig discovery, caching), `tsProject.ts` the one shared TypeScript language service, `extract.ts` the extraction itself. `docgen-worker.ts` and `docgen-payload.ts` are the Storybook 10.6 Docgen Server path: the worker-target module core's docgen worker imports, and the index-entry-to-`DocgenPayload` step behind it. Design record: `docs/specs/docgen.md`
@@ -73,7 +73,7 @@ Story File (.stories.jsx)
     ↓ [Astro Container API renders to HTML]
 @storybook-astro/renderer (render.tsx)
     ↓ [injects HTML into canvas]
-    ↓ [applies scoped styles, executes client scripts]
+    ↓ [scoped <style> elements arrive with the HTML; executes client scripts]
 Storybook Canvas (rendered component, decorators included)
 ```
 
@@ -371,7 +371,7 @@ export const MyStory = {
 
 ### Styles Not Applying
 **Symptom**: Component renders but styles are missing
-**Fix**: Scoped CSS ships with the render response: `createAstroRenderHandler` prepends a `<style data-storybook-astro-styles>` tag built by `loadComponentStyles` in `lib/componentStyles.ts`. That function walks the SSR server's module graph from every component the render loaded and loads each `?astro&type=style&index=N&lang.*` sub-module with `&inline`. Check that the `<style>` tag is in the response and that its selectors use the same `data-astro-cid-*` as the markup.
+**Fix**: Scoped CSS ships with the render response: `createAstroRenderHandler` prepends one `<style data-storybook-astro-styles>` element per `<style>` block, from `loadComponentStyles` in `lib/componentStyles.ts`. That function walks the SSR server's module graph from every component the render loaded and loads each `?astro&type=style&index=N&lang.*` sub-module with `&inline`. Check that the `<style>` elements are in the response and that its selectors use the same `data-astro-cid-*` as the markup.
 
 If only one component's styles are missing, check that the handler loaded it through its per-render `loadComponent` (that's what records it) or that it is reachable through the imports of a component that was.
 

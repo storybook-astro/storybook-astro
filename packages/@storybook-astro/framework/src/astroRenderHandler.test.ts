@@ -363,11 +363,13 @@ describe('createAstroRenderHandler — depth cap', () => {
 // --- Scoped component styles (issue #189) ----------------------------------
 
 describe('createAstroRenderHandler — component styles', () => {
-  test('ships the CSS for every component the story used, ahead of the HTML', async () => {
-    const loadComponentStyles = vi.fn(async (ids: string[]) => ({
-      css: `/* ${ids.sort().join(' ')} */`,
-      failures: []
-    }));
+  const stylesNamingEachComponent = async (ids: string[]): Promise<ComponentStyles> => ({
+    stylesheets: ids.map((id) => `/* ${id} */`),
+    failures: []
+  });
+
+  test('ships the CSS of every component the story used, decorators first, ahead of the HTML', async () => {
+    const loadComponentStyles = vi.fn(stylesNamingEachComponent);
     const { handler } = createHandler({
       components: {
         'Panel.astro': fakeComponent('Panel.astro'),
@@ -381,21 +383,23 @@ describe('createAstroRenderHandler — component styles', () => {
       component: 'Panel.astro',
       // A real factory, as the static build passes it straight from the story module.
       args: { Icon: fakeComponent('Icon.astro') },
-      // A marker, as the browser sends it; loaded during the render.
+      // A marker, as the browser sends it.
       slots: { default: marker('Badge.astro') },
       node: { component: marker('Wrapper.astro'), slots: { default: marker('Panel.astro') } }
     });
 
-    expect(loadComponentStyles).toHaveBeenCalledOnce();
+    // The decorator wraps the story like a layout wraps a page, so the story's
+    // CSS comes after the decorator's, as a page's does after its layout's.
+    expect(loadComponentStyles).toHaveBeenCalledWith(['Wrapper.astro', 'Panel.astro', 'Icon.astro', 'Badge.astro']);
     expect(html).toMatch(
-      /^<style data-storybook-astro-styles>\/\* Badge\.astro Icon\.astro Panel\.astro Wrapper\.astro \*\/<\/style><Wrapper\.astro/
+      /^(<style data-storybook-astro-styles>\/\* \w+\.astro \*\/<\/style>){4}<Wrapper\.astro/
     );
   });
 
   test('adds no style tag when the components have no styles', async () => {
     const { handler } = createHandler({
       components: { 'Button.astro': fakeComponent('Button.astro') },
-      loadComponentStyles: async () => ({ css: '', failures: [] })
+      loadComponentStyles: async () => ({ stylesheets: [], failures: [] })
     });
 
     const html = await handler({ component: 'Button.astro' });
@@ -411,7 +415,7 @@ describe('createAstroRenderHandler — component styles', () => {
       const { handler } = createHandler({
         components: { 'Button.astro': fakeComponent('Button.astro') },
         loadComponentStyles: async () => ({
-          css: '.button { color: red; }',
+          stylesheets: ['.button { color: red; }'],
           failures: [{ moduleId: 'Button.astro?astro&type=style&index=1&lang.css', error: brokenBlock }]
         })
       });
@@ -450,7 +454,7 @@ describe('createAstroRenderHandler — component styles', () => {
     const { handler } = createHandler({
       components: { 'Button.astro': fakeComponent('Button.astro') },
       loadComponentStyles: async () => ({
-        css: '.button { color: red; }',
+        stylesheets: ['.button { color: red; }'],
         failures: [
           { moduleId: 'Button.astro?astro&type=style&index=1&lang.scss', error: new Error('Sass syntax error') },
           { moduleId: 'Icon.astro', error: new Error('not in the SSR module graph') }
@@ -469,12 +473,49 @@ describe('createAstroRenderHandler — component styles', () => {
   test('a "</style" inside the CSS does not end the style tag early', async () => {
     const { handler } = createHandler({
       components: { 'Button.astro': fakeComponent('Button.astro') },
-      loadComponentStyles: async () => ({ css: '.button::after { content: "</style>"; }', failures: [] })
+      loadComponentStyles: async () => ({ stylesheets: ['.button::after { content: "</style>"; }'], failures: [] })
     });
 
     const html = await handler({ component: 'Button.astro' });
 
     expect(html).toContain('content: "<\\/style>"; }</style><Button.astro');
     expect(html.match(/<\/style>/g)).toHaveLength(1);
+  });
+
+  test('reloads components after a story with module mocks, so the next story is styled by the real ones', async () => {
+    // A mocked render rewrites the shared module graph's import edges to the
+    // mocks; the styles walk follows those edges.
+    const loadModule = vi.fn(async (id: string) => ({ default: fakeComponent(id) }));
+    const invalidateModuleGraph = vi.fn();
+    const handler = createAstroRenderHandler({
+      container: { renderToString: vi.fn(defaultRenderToString) } as unknown as Parameters<
+        typeof createAstroRenderHandler
+      >[0]['container'],
+      loadModule,
+      invalidateModuleGraph,
+      resolveRulesConfigModule: () => ({
+        rules: [{ match: 'card--mocked', use: ({ mock }: { mock: (id: string, factory: () => object) => void }) => mock('./data.ts', () => ({})) }]
+      }),
+      loadComponentStyles: stylesNamingEachComponent
+    });
+    const render = (storyId: string) =>
+      handler({ component: 'Card.astro', story: { id: storyId, title: 'Card', name: storyId } });
+
+    await render('card--real');
+    await render('card--mocked');
+    expect(invalidateModuleGraph).toHaveBeenCalledOnce();
+
+    loadModule.mockClear();
+    await render('card--real');
+
+    expect(invalidateModuleGraph).toHaveBeenCalledTimes(2);
+    expect(loadModule).toHaveBeenCalledWith('Card.astro');
+
+    // Once the graph is back to the real modules, renders use the cache again.
+    loadModule.mockClear();
+    await render('card--real');
+
+    expect(invalidateModuleGraph).toHaveBeenCalledTimes(2);
+    expect(loadModule).not.toHaveBeenCalled();
   });
 });

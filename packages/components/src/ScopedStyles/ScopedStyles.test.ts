@@ -14,7 +14,9 @@ function scopeAttributeOf(element: Element) {
 }
 
 function storyCss() {
-  return document.querySelector('style[data-storybook-astro-styles]')?.textContent ?? '';
+  return Array.from(document.querySelectorAll('style[data-storybook-astro-styles]'))
+    .map((style) => style.textContent)
+    .join('\n');
 }
 
 // Issue #189: Storybook used to inject the raw <style> source globally, so the
