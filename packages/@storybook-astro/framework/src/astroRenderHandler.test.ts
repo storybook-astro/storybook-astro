@@ -396,6 +396,21 @@ describe('createAstroRenderHandler — component styles', () => {
     );
   });
 
+  test('puts a decorator\'s CSS first even when its slots are written before its component', async () => {
+    const loadComponentStyles = vi.fn(stylesNamingEachComponent);
+    const { handler } = createHandler({
+      components: { 'Panel.astro': fakeComponent('Panel.astro'), 'Wrapper.astro': fakeComponent('Wrapper.astro') },
+      loadComponentStyles
+    });
+
+    await handler({
+      component: 'Panel.astro',
+      node: { slots: { default: marker('Panel.astro') }, component: marker('Wrapper.astro') }
+    });
+
+    expect(loadComponentStyles).toHaveBeenCalledWith(['Wrapper.astro', 'Panel.astro']);
+  });
+
   test('leaves out a component the request mentions but the render never loads', async () => {
     // Slots don't read components inside a plain object, so Tooltip never
     // renders. Asking for its styles would report it missing from the module
@@ -442,6 +457,10 @@ describe('createAstroRenderHandler — component styles', () => {
         '[storybook-astro] Could not load styles for Button.astro?astro&type=style&index=1&lang.css:',
         brokenBlock
       );
+
+      // The same failure on the next render isn't logged again.
+      await handler({ component: 'Button.astro' });
+      expect(warn).toHaveBeenCalledOnce();
     } finally {
       warn.mockRestore();
     }

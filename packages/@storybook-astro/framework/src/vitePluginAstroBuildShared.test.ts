@@ -160,7 +160,7 @@ describe('copyRuntimeSnapshot', () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  test('copies the stylesheets and PostCSS config a component\'s <style> blocks use, so the render server can compile them', async () => {
+  test('copies the stylesheets a component\'s <style> blocks use, so the render server can compile them', async () => {
     const project = join(tmpDir, 'project');
     const snapshotRoot = join(tmpDir, 'server', 'snapshot');
 
@@ -175,7 +175,6 @@ describe('copyRuntimeSnapshot', () => {
     await writeFile(join(project, 'src', 'styles', 'base.css'), '@import url(./reset.css);');
     await writeFile(join(project, 'src', 'styles', 'reset.css'), '* { margin: 0; }');
     await writeFile(join(project, 'src', 'styles', '_mixins.scss'), '@mixin card {}');
-    await writeFile(join(project, 'postcss.config.cjs'), 'module.exports = { plugins: {} };');
 
     await copyRuntimeSnapshot({
       resolveFrom: project,
@@ -190,9 +189,7 @@ describe('copyRuntimeSnapshot', () => {
       'src/styles/_mixins.scss',
       'src/styles/theme/_index.scss',
       'src/styles/base.css',
-      'src/styles/reset.css',
-      // Vite reads it to compile the styles, Tailwind's @apply included.
-      'postcss.config.cjs'
+      'src/styles/reset.css'
     ];
 
     for (const file of copied) {

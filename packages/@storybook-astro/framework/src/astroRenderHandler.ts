@@ -62,6 +62,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
   const sanitizationOptions = resolveSanitizationOptions(options.sanitization);
   const componentCache = new Map<string, Promise<AstroComponentFactory>>();
   let renderQueue = Promise.resolve<void>(undefined);
+  const loggedStyleFailures = new Set<string>();
 
   // The HTML is already rendered when styles load, so a style failure (a
   // broken stylesheet, a stale module) shows the story unstyled instead of
@@ -86,8 +87,16 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
       });
     }
 
+    // Each failure is logged once per handler: the same broken stylesheet
+    // fails every render that uses it. Dev makes a new handler on each file
+    // change, so a failure that comes back after an edit is logged again.
     failures.forEach(({ moduleId, error }) => {
-      console.warn(`[storybook-astro] Could not load styles for ${moduleId}:`, error);
+      const key = `${moduleId}\n${errorMessage(error)}`;
+
+      if (!loggedStyleFailures.has(key)) {
+        loggedStyleFailures.add(key);
+        console.warn(`[storybook-astro] Could not load styles for ${moduleId}:`, error);
+      }
     });
 
     return styles?.stylesheets ?? [];
@@ -285,7 +294,13 @@ function addComponentModuleIds(value: unknown, moduleIds: Map<string, boolean>, 
   }
   seen.add(value);
 
-  Object.values(value).forEach((item) => addComponentModuleIds(item, moduleIds, seen));
+  // A configured component wraps its slots, so it comes first, whichever
+  // order its keys were written in.
+  const values = isRecord(value) && 'component' in value
+    ? [value.component, ...Object.values(value)]
+    : Object.values(value);
+
+  values.forEach((item) => addComponentModuleIds(item, moduleIds, seen));
 }
 
 type ContainerRenderToString = Awaited<ReturnType<typeof AstroContainer.create>>['renderToString'];

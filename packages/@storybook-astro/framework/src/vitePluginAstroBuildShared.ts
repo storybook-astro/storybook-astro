@@ -349,18 +349,7 @@ async function listRuntimeConfigFiles(resolveFrom: string) {
     'astro.config.ts',
     'vite.config.js',
     'vite.config.ts',
-    'svelte.config.js',
-    // Vite reads these when it compiles component styles.
-    ...['js', 'cjs', 'mjs', 'ts', 'cts', 'mts'].map((extension) => `postcss.config.${extension}`),
-    '.postcssrc',
-    '.postcssrc.json',
-    '.postcssrc.yaml',
-    '.postcssrc.yml',
-    '.postcssrc.js',
-    '.postcssrc.cjs',
-    '.postcssrc.mjs',
-    ...['js', 'cjs', 'mjs', 'ts'].map((extension) => `tailwind.config.${extension}`),
-    '.browserslistrc'
+    'svelte.config.js'
   ];
   const existing: string[] = [];
 
