@@ -36,3 +36,17 @@ test('an Astro component passed as a prop renders via the parent template', asyn
   expect(within(button).getByTestId('badge')).toBeInTheDocument();
   expect(button).toHaveTextContent('Save');
 });
+
+// Issue #189: a story ships the CSS Astro compiled for every component it
+// rendered, scoped to the same `data-astro-cid-*` as the markup. Badge is only
+// passed in as slot content, so Panel's own imports never reach it.
+test('a slotted Astro component ships its compiled, scoped CSS', async () => {
+  await renderStory(ComponentInSlot);
+
+  const badge = screen.getByTestId('badge');
+  const scopeAttribute = badge.getAttributeNames().find((name) => name.startsWith('data-astro-cid-'));
+  const css = document.querySelector('style[data-storybook-astro-styles]')?.textContent ?? '';
+
+  expect(scopeAttribute).toBeDefined();
+  expect(css).toContain(`.badge[${scopeAttribute}]`);
+});

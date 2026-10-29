@@ -77,6 +77,7 @@ function createHandler(options: {
   components: Record<string, unknown>;
   sanitization?: SanitizationOptions;
   renderToString?: FakeRenderToString;
+  loadComponentStyles?: (componentIds: string[]) => Promise<string>;
 }) {
   const renderToString = vi.fn(options.renderToString ?? defaultRenderToString);
   const loadModule = vi.fn(async (id: string) => ({ default: options.components[id] }));
@@ -84,7 +85,8 @@ function createHandler(options: {
   const handler = createAstroRenderHandler({
     container: { renderToString } as unknown as Parameters<typeof createAstroRenderHandler>[0]['container'],
     sanitization: options.sanitization,
-    loadModule
+    loadModule,
+    loadComponentStyles: options.loadComponentStyles
   });
 
   return { handler, renderToString };
@@ -352,5 +354,65 @@ describe('createAstroRenderHandler — depth cap', () => {
     await expect(
       handler({ component: 'Story.astro', args: {}, slots: {}, node: node as never })
     ).rejects.toThrow(/maximum node depth/);
+  });
+});
+
+// --- Scoped component styles (issue #189) ----------------------------------
+
+describe('createAstroRenderHandler — component styles', () => {
+  test('ships the CSS for every component the story used, ahead of the HTML', async () => {
+    const loadComponentStyles = vi.fn(async (ids: string[]) => `/* ${ids.sort().join(' ')} */`);
+    const { handler } = createHandler({
+      components: {
+        'Panel.astro': fakeComponent('Panel.astro'),
+        'Badge.astro': fakeComponent('Badge.astro'),
+        'Wrapper.astro': fakeComponent('Wrapper.astro')
+      },
+      loadComponentStyles
+    });
+
+    const html = await handler({
+      component: 'Panel.astro',
+      // A real factory, as the static build passes it straight from the story module.
+      args: { Icon: fakeComponent('Icon.astro') },
+      // A marker, as the browser sends it; loaded during the render.
+      slots: { default: marker('Badge.astro') },
+      node: { component: marker('Wrapper.astro'), slots: { default: marker('Panel.astro') } }
+    });
+
+    expect(loadComponentStyles).toHaveBeenCalledOnce();
+    expect(html).toMatch(
+      /^<style data-storybook-astro-styles>\/\* Badge\.astro Icon\.astro Panel\.astro Wrapper\.astro \*\/<\/style><Wrapper\.astro/
+    );
+  });
+
+  test('adds no style tag when the components have no styles', async () => {
+    const { handler } = createHandler({
+      components: { 'Button.astro': fakeComponent('Button.astro') },
+      loadComponentStyles: async () => ''
+    });
+
+    const html = await handler({ component: 'Button.astro' });
+
+    expect(html).not.toContain('<style');
+  });
+
+  test('still shows the story, unstyled, when its styles fail to load', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { handler } = createHandler({
+      components: { 'Button.astro': fakeComponent('Button.astro') },
+      loadComponentStyles: async () => {
+        throw new Error('No Astro CSS at index 1');
+      }
+    });
+
+    const html = await handler({ component: 'Button.astro' });
+
+    expect(html).toMatch(/^<Button\.astro/);
+    expect(warn).toHaveBeenCalledWith(
+      '[storybook-astro] Could not load component styles:',
+      expect.objectContaining({ message: 'No Astro CSS at index 1' })
+    );
+    warn.mockRestore();
   });
 });

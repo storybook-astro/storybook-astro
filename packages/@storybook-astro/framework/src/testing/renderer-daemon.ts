@@ -8,6 +8,7 @@ import { createViteServer } from '../viteStorybookAstroMiddlewarePlugin.ts';
 import { resolveTestingIntegrationsForRoot } from './integration-config.ts';
 import { runWithWorkingDirectory } from './working-directory.ts';
 import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fallback.ts';
+import { loadComponentStyles } from '../lib/componentStyles.ts';
 
 const RENDER_PATH = '/render';
 
@@ -150,7 +151,9 @@ export async function startTestingRendererDaemon(): Promise<RunningDaemon> {
           loadModule: (id: string) =>
             ssrLoadModuleWithFsFallback(viteServer, id, {
               fixStacktrace: true
-            })
+            }),
+          loadComponentStyles: (componentIds: string[]) =>
+            loadComponentStyles(viteServer, componentIds)
         }) as Promise<RenderHandler>;
       })());
     }

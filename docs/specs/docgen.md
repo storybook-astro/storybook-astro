@@ -150,7 +150,7 @@ Separately, `description` carries only the free text before the first tag; every
 
 Failures are cached by content hash so a component that legitimately yields nothing does not re-run a type check on every HMR tick. In the worker path, failures are reported on `DocgenPayload.error`. Default values are narrowed to `string | number | boolean | null` before code generation so nothing can throw at serialization time.
 
-**Decision 10 — Scan frontmatter with the existing house pattern.** `vitePluginAstroComponentMarker.ts` already extracts frontmatter with a line-anchored regex in `extractAstroImportSpecifiers` and `extractStyleBlocksWithLang`. Do the same rather than adopting `@astrojs/compiler`'s asynchronous WASM `parse()` — it keeps extraction synchronous, avoids a WASM load inside a worker thread, and matches the file it sits beside.
+**Decision 10 — Scan frontmatter with the existing house pattern.** `vitePluginAstroComponentMarker.ts` already extracts frontmatter with a line-anchored regex in `extractAstroImportSpecifiers`. Do the same rather than adopting `@astrojs/compiler`'s asynchronous WASM `parse()` — it keeps extraction synchronous, avoids a WASM load inside a worker thread, and matches the file it sits beside.
 
 ## Extraction Spec
 

@@ -5,6 +5,7 @@ import { isAstroComponentSlot, serializeAstroComponentMarkers, type SlotValue } 
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
 import { separateStorySlots } from './lib/separate-story-slots.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
+import { loadComponentStyles } from './lib/componentStyles.ts';
 import { composeStory } from './portable-stories.ts';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
@@ -105,7 +106,12 @@ export async function createProductionRenderRuntime(
       },
       invalidateModuleGraph: () => {
         viteServer.moduleGraph.invalidateAll();
-      }
+      },
+      loadComponentStyles: (componentIds) =>
+        loadComponentStyles(
+          viteServer,
+          componentIds.map((id) => options.resolveComponentId?.(id) ?? id)
+        )
     });
 
     const composeDecoratedTree = async ({

@@ -88,70 +88,32 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(seenModuleIds).toEqual([]);
   });
 
-  test('inlines CSS for own <style> blocks in dev mode (hybrid approach)', async () => {
-    const filePath = writeAstroFile(
-      'Styled.astro',
-      '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
-    );
-    const plugin = createPlugin();
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+  test.each(['serve', 'build'] as const)(
+    'leaves raw <style> source out of the stub (%s)',
+    async (command) => {
+      // Scoped CSS ships with the server-rendered HTML instead (issue #189).
+      const filePath = writeAstroFile(
+        `${command}/Styled.astro`,
+        '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
+      );
+      const plugin = createPlugin(command);
+      const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
-    // Dev mode uses inline CSS instead of sub-module imports to avoid Astro cache issues
-    expect(result?.code).toContain('.a { color: red; }');
-    expect(result?.code).toContain('data-astro-dev');
-  });
+      expect(result?.code).not.toContain('color: red');
+      expect(result?.code).not.toContain('document.createElement');
+    }
+  );
 
-  test('unwraps :global() selectors so the CSS is valid in the browser', async () => {
-    const filePath = writeAstroFile(
-      'Global.astro',
-      '<div class="wrap"><slot /></div>\n<style>.wrap > :global(img) { width: 100%; }</style>'
-    );
-    const plugin = createPlugin();
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+  const parentSource = [
+    '---',
+    "import Child from './Child.astro';",
+    "import Aliased from '@components/Other.astro';",
+    '---',
+    '<div class="parent"><Child /><Aliased /></div>'
+  ].join('\n');
 
-    expect(result?.code).toContain('.wrap > img { width: 100%; }');
-    expect(result?.code).not.toContain(':global(');
-  });
-
-  test('skips preprocessed <style lang="..."> blocks with a console warning in dev mode', async () => {
-    const filePath = writeAstroFile(
-      'Scss.astro',
-      '<div class="a">Hi</div>\n<style lang="scss">.a { .b { color: red; } }</style>'
-    );
-    const plugin = createPlugin();
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
-
-    // The raw SCSS source must not be injected as a stylesheet.
-    expect(result?.code).not.toContain('document.createElement');
-    expect(result?.code).toContain('console.warn');
-    expect(result?.code).toContain('scss');
-  });
-
-  test('dedupes injected styles so repeated module evaluation does not pile up', async () => {
-    const filePath = writeAstroFile(
-      'Dedupe.astro',
-      '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
-    );
-    const plugin = createPlugin();
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
-
-    // The injection snippet bails out if a style with the same marker already exists.
-    expect(result?.code).toContain("getAttribute");
-    expect(result?.code).toContain('data-astro-dev');
-  });
-
-  test('re-imports child .astro components so their scoped styles load in dev mode', async () => {
-    const filePath = writeAstroFile(
-      'Parent.astro',
-      [
-        '---',
-        "import Child from './Child.astro';",
-        "import Aliased from '@components/Other.astro';",
-        '---',
-        '<div class="parent"><Child /><Aliased /></div>',
-        '<style>.parent { padding: 16px; }</style>'
-      ].join('\n')
-    );
+  test('re-imports child .astro components in dev mode so editing a child reruns the story', async () => {
+    const filePath = writeAstroFile('Parent.astro', parentSource);
     const plugin = createPlugin();
     const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
@@ -159,56 +121,12 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(result?.code).toContain(`import "@components/Other.astro";`);
   });
 
-  test('inlines CSS from the component and its children in build mode', async () => {
-    writeAstroFile(
-      'build/Child.astro',
-      '<div class="child">Hello</div>\n<style>.child { color: red; }</style>'
-    );
-    const parentPath = writeAstroFile(
-      'build/Parent.astro',
-      [
-        '---',
-        "import Child from './Child.astro';",
-        '---',
-        '<div class="parent"><Child /></div>',
-        '<style>.parent { padding: 16px; }</style>'
-      ].join('\n')
-    );
-    const plugin = createPlugin('build');
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, parentPath);
-
-    expect(result?.code).toContain('.parent { padding: 16px; }');
-    expect(result?.code).toContain('.child { color: red; }');
-  });
-
-  test('unwraps :global() selectors in build mode too', async () => {
-    const filePath = writeAstroFile(
-      'build/Global.astro',
-      '<div class="wrap"><slot /></div>\n<style>.wrap :global(img) { width: 100%; }</style>'
-    );
+  test('does not re-import child components in build mode', async () => {
+    const filePath = writeAstroFile('build/Parent.astro', parentSource);
     const plugin = createPlugin('build');
     const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
-    expect(result?.code).toContain('.wrap img { width: 100%; }');
-    expect(result?.code).not.toContain(':global(');
-  });
-
-  test('handles circular child imports in build mode without recursing forever', async () => {
-    const aPath = writeAstroFile(
-      'cycle/A.astro',
-      "---\nimport B from './B.astro';\n---\n<B />\n<style>.a { color: blue; }</style>"
-    );
-
-    writeAstroFile(
-      'cycle/B.astro',
-      "---\nimport A from './A.astro';\n---\n<A />\n<style>.b { color: green; }</style>"
-    );
-
-    const plugin = createPlugin('build');
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, aPath);
-
-    expect(result?.code).toContain('.a { color: blue; }');
-    expect(result?.code).toContain('.b { color: green; }');
+    expect(result?.code).not.toContain('Child.astro');
   });
 });
 

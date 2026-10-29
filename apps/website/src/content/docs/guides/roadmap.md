@@ -231,7 +231,7 @@ This table tracks compatibility of Astro's built-in framework features with Stor
 |---------|--------|-------------|
 | Component Rendering | ✅ Supported | Core Astro component rendering in Storybook |
 | Props & Slots (strings) | ✅ Supported | Passing data as props and HTML-string content to slots |
-| Scoped Styles | ✅ Supported | Component-scoped CSS (including Astro 6's style sub-module imports) |
+| Scoped Styles | ✅ Supported | `<style>` blocks, compiled and scoped by your installed Astro version. CSS imported in a component's frontmatter isn't included yet |
 | UI Framework Components | ✅ Supported | Astro components and client-side UI components render together (React, Vue, Svelte, Preact, Solid, Alpine.js) |
 | Client Directives | ✅ Supported | `client:load`, `client:only`, etc. for framework components |
 | Static Builds | ✅ Supported | `storybook build` with build-time pre-rendering of Astro component stories (default mode) |

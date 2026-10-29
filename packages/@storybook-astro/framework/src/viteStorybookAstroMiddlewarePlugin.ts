@@ -22,6 +22,7 @@ import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.t
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 import { vitePluginNoClientDepOptimizer } from './vitePluginNoClientDepOptimizer.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
+import { loadComponentStyles } from './lib/componentStyles.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import {
   appendUserVitePlugins,
@@ -61,6 +62,8 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
           ssrLoadModuleWithFsFallback(viteServer!, id, {
             fixStacktrace: true
           }),
+        loadComponentStyles: (componentIds: string[]) =>
+          loadComponentStyles(viteServer!, componentIds),
         resolveFrom
       });
 
@@ -147,11 +150,9 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   // Storybook's built-in CSS plugins), resulting in PostCSS errors.
   //
   // Solution: Don't extract Astro's CSS plugins. Storybook's built-in CSS
-  // plugins handle both Vue styles AND Astro style sub-modules (which are
-  // standard CSS imports like `Component.astro?astro&type=style&index=0&lang.css`).
-  //
-  // The Astro internal server's CSS plugins are only needed for SSR rendering
-  // within that server - they don't need to be shared with Storybook's server.
+  // plugins handle Vue styles. Astro component styles never reach Storybook's
+  // server: the SSR server compiles them and they ship with the rendered HTML
+  // (`lib/componentStyles.ts`).
   return {
     vitePlugin,
     viteConfig: {

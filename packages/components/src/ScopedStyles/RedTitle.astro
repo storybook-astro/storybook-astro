@@ -1,0 +1,12 @@
+---
+/** A heading styled with a `.title` class that BlueTitle also uses. */
+const { text = 'Red title' } = Astro.props;
+
+---
+<h2 class="title" data-testid="red-title">{text}</h2>
+
+<style>
+  .title {
+    color: #c62828;
+  }
+</style>

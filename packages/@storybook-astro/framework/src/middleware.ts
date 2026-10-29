@@ -18,6 +18,7 @@ type HandlerFactoryOptions = {
   resolveRulesConfigModule?: ResolveRulesConfigModule;
   loadModule?: (id: string) => Promise<{ default: unknown }>;
   invalidateModuleGraph?: () => void;
+  loadComponentStyles?: (componentIds: string[]) => Promise<string>;
   resolveModule?: (specifier: string) => string | undefined;
   resolveFrom?: string;
 };
@@ -87,6 +88,7 @@ export async function handlerFactory(
     rulesConfigFilePath: options?.rulesConfigFilePath,
     resolveRulesConfigModule: options?.resolveRulesConfigModule,
     loadModule,
-    invalidateModuleGraph: options?.invalidateModuleGraph
+    invalidateModuleGraph: options?.invalidateModuleGraph,
+    loadComponentStyles: options?.loadComponentStyles
   });
 }

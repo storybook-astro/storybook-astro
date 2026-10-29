@@ -190,7 +190,6 @@ Framework's Vite configuration in `preset.ts` handles:
 - Astro component `.astro` files
 - Framework-specific imports (React, Vue, etc.)
 - Virtual modules from Vite plugins
-- Scoped CSS imports from `.astro` files
 
 ## Environment and Versions
 

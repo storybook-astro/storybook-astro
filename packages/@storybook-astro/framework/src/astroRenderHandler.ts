@@ -1,10 +1,14 @@
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { markHTMLString } from 'astro/runtime/server/index.js';
-import type { SlotValue } from '@storybook-astro/renderer/types';
+import { isAstroComponentFactory, type SlotValue } from '@storybook-astro/renderer/types';
 import type { ResolvedSanitizationOptions, SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeArgs, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { reviveDateStrings } from './lib/revive-dates.ts';
-import { assertValidSlotValue, reconstructProps, reconstructSlots } from './lib/reconstruct-component-args.ts';
+import {
+  assertValidSlotValue,
+  reconstructProps,
+  reconstructSlots
+} from './lib/reconstruct-component-args.ts';
 import { runWithStoryRules, type ResolveRulesConfigModule } from './storyRulesRuntime.ts';
 import type { RenderStoryInput } from './types.ts';
 
@@ -38,6 +42,13 @@ type CreateAstroRenderHandlerOptions = {
   resolveRulesConfigModule?: ResolveRulesConfigModule;
   loadModule: (id: string) => Promise<{ default: unknown }>;
   invalidateModuleGraph?: () => void;
+  /**
+   * Returns the compiled CSS for the components a render loaded, plus their
+   * imports. Prepended to the HTML as a `<style>` tag, so the story ships with
+   * Astro's scoped styles in dev, static builds and server mode alike
+   * (issue #189).
+   */
+  loadComponentStyles?: (componentIds: string[]) => Promise<string>;
 };
 
 export function createAstroRenderHandler(options: CreateAstroRenderHandlerOptions) {
@@ -84,6 +95,19 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
       assertValidSlotValue(data.node, 'node');
     }
 
+    // The HTML is already rendered when styles load, so a style failure (a
+    // broken stylesheet, a stale module) shows the story unstyled instead of
+    // replacing it with an error.
+    const loadStylesOrWarn = async (componentIds: string[]) => {
+      try {
+        return await options.loadComponentStyles?.(componentIds);
+      } catch (error) {
+        console.warn('[storybook-astro] Could not load component styles:', error);
+
+        return undefined;
+      }
+    };
+
     const executeRender = async () => {
       return runWithStoryRules(
         {
@@ -93,6 +117,20 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           invalidateModuleGraph: options.invalidateModuleGraph
         },
         async (selectedRules) => {
+          // Every component this render uses (the story, slot and prop
+          // components, decorators) contributes its styles to the response.
+          // Components sent as markers are recorded when they load; real
+          // factories, which the static build passes straight from the story
+          // module, are already in the request.
+          const renderedComponentIds = new Set<string>([data.component]);
+
+          addComponentModuleIds([data.args, data.slots, data.node], renderedComponentIds);
+          const loadComponent = (moduleId: string) => {
+            renderedComponentIds.add(moduleId);
+
+            return loadPatchedComponent(moduleId);
+          };
+
           const patchedComponent = await loadPatchedComponent(
             data.component,
             selectedRules.moduleMocks.size === 0
@@ -101,7 +139,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           // before the other arg processing (factories pass through those
           // untouched), so the parent template can render them with `<Comp />`.
           const reconstructedArgs = await reconstructProps(data.args ?? {}, {
-            loadComponent: (moduleId) => loadPatchedComponent(moduleId)
+            loadComponent
           });
           const processedArgs = await processImageMetadata(reconstructedArgs);
           const revivedArgs = reviveDateStrings(processedArgs);
@@ -117,7 +155,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           // own markup isn't stripped by the slot allowlist (string slots above
           // still are). Markers pass through sanitization untouched.
           const renderedSlots = await reconstructSlots(sanitizedPayload.slots, {
-            loadComponent: (moduleId) => loadPatchedComponent(moduleId),
+            loadComponent,
             renderToHtml: (component, props, slots) =>
               options.container.renderToString(
                 component as Parameters<typeof options.container.renderToString>[0],
@@ -128,24 +166,25 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
               )
           });
 
-          if (data.node !== undefined) {
-            return renderDecoratedRoot(data.node, {
+          const html = data.node !== undefined
+            ? await renderDecoratedRoot(data.node, {
               storyComponentId: data.component,
               storyProps: sanitizedPayload.args,
               storySlots: renderedSlots,
               sanitizationOptions,
-              loadComponent: (moduleId) => loadPatchedComponent(moduleId),
+              loadComponent,
               renderToString: options.container.renderToString.bind(options.container)
-            });
-          }
+            })
+            : await options.container.renderToString(
+              patchedComponent as Parameters<typeof options.container.renderToString>[0],
+              {
+                props: sanitizedPayload.args,
+                slots: markRawSlots(renderedSlots)
+              }
+            );
+          const css = await loadStylesOrWarn([...renderedComponentIds]);
 
-          return options.container.renderToString(
-            patchedComponent as Parameters<typeof options.container.renderToString>[0],
-            {
-              props: sanitizedPayload.args,
-              slots: markRawSlots(renderedSlots)
-            }
-          );
+          return css ? `<style data-storybook-astro-styles>${css}</style>${html}` : html;
         }
       );
     };
@@ -159,6 +198,38 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
 
     return resultPromise;
   };
+}
+
+/**
+ * Records the `moduleId` of every Astro component factory found in a render
+ * request's args, slots or decorator tree. Astro's compiler sets `moduleId` on
+ * each component it compiles.
+ *
+ * It walks every level, guarding only against cycles: the walk is cheap, and a
+ * depth cap counted differently from the slot and prop resolvers' would drop the
+ * styles of a component they still render.
+ */
+function addComponentModuleIds(value: unknown, moduleIds: Set<string>, seen = new Set<object>()) {
+  if (isAstroComponentFactory(value)) {
+    const { moduleId } = value as AstroComponentFactory;
+
+    if (moduleId) {
+      moduleIds.add(moduleId);
+    }
+
+    return;
+  }
+
+  if (!Array.isArray(value) && !isRecord(value)) {
+    return;
+  }
+
+  if (seen.has(value)) {
+    return;
+  }
+  seen.add(value);
+
+  Object.values(value).forEach((item) => addComponentModuleIds(item, moduleIds, seen));
 }
 
 type ContainerRenderToString = Awaited<ReturnType<typeof AstroContainer.create>>['renderToString'];

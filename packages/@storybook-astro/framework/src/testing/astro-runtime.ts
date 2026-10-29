@@ -6,6 +6,7 @@ import { resolveTestingProjectRoot } from './project-root.ts';
 import { runWithWorkingDirectory } from './working-directory.ts';
 import { getComponentModuleId, isAstroComponentFactory, isStorybookAstroClientStub } from './component-utils.ts';
 import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fallback.ts';
+import { loadComponentStyles } from '../lib/componentStyles.ts';
 import { separateStorySlots } from '../lib/separate-story-slots.ts';
 import { reconstructProps, reconstructSlots } from '../lib/reconstruct-component-args.ts';
 import { patchCreateAstroCompat, markRawSlots } from '../astroRenderHandler.ts';
@@ -86,7 +87,9 @@ async function getAstroSsrHandler(resolveFrom: string) {
         loadModule: (id: string) =>
           ssrLoadModuleWithFsFallback(viteServer, id, {
             fixStacktrace: true
-          })
+          }),
+        loadComponentStyles: (componentIds: string[]) =>
+          loadComponentStyles(viteServer, componentIds)
       });
     })());
   }
