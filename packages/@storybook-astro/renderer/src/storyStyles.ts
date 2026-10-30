@@ -1,6 +1,6 @@
-// The `<style>` elements the render handler puts ahead of a story's markup,
-// one per component `<style>` block.
-const STORY_STYLE = 'style[data-storybook-astro-styles]';
+import { STORY_STYLE_ATTRIBUTE } from './types.ts';
+
+const STORY_STYLE = `style[${STORY_STYLE_ATTRIBUTE}]`;
 
 // The head styles each canvas put there. A Docs page renders several stories
 // into one head, each into its own canvas, and each canvas owns its copies.
@@ -18,7 +18,16 @@ const stylesByCanvas = new Map<Element, HTMLStyleElement[]>();
 export function moveStoryStylesToHead(fragment: DocumentFragment, canvasElement: Element) {
   const styles = Array.from(fragment.querySelectorAll<HTMLStyleElement>(STORY_STYLE));
 
+  styles.forEach((style) => style.remove());
   removeStoryStyles(canvasElement);
+
+  // A canvas can leave the page without a teardown, as when a Docs story's
+  // rerender fails and Storybook replaces it with the error. Its CSS has
+  // nothing left to style.
+  if (!canvasElement.isConnected) {
+    return;
+  }
+
   canvasElement.ownerDocument.head.append(...styles);
   stylesByCanvas.set(canvasElement, styles);
 }
@@ -30,9 +39,11 @@ export function removeStoryStyles(canvasElement: Element) {
 }
 
 /**
- * Removes the CSS of canvases that no longer show a story, as each render
- * starts: canvases that have left the page, as when a Docs page closes, and,
- * when a Docs page renders, the story canvas it hides.
+ * Clears the canvases that no longer show a story, as each render starts and
+ * when a Docs page has rendered: canvases that have left the page, as when a
+ * Docs page closes, and, on a Docs page, the story canvas it hides. The hidden
+ * canvas loses its markup too, so going back to the story doesn't show it
+ * unstyled while the next render is on its way.
  *
  * A canvas still on screen keeps its story and CSS until the next render into
  * it replaces both, so moving between stories never shows the old one blank
@@ -44,6 +55,7 @@ export function removeHiddenStoryStyles(viewMode: string | undefined) {
 
     if (!canvas.isConnected || hiddenByDocs) {
       removeStoryStyles(canvas);
+      canvas.replaceChildren();
     }
   });
 }

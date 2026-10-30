@@ -14,6 +14,7 @@ import {
   ASTRO_COMPONENT_MARKER,
   isAstroComponentSlot,
   serializeAstroComponentMarkers,
+  STORY_STYLE_ATTRIBUTE,
   type SlotValue
 } from '@storybook-astro/renderer/types';
 import { isDecoratedTree } from '@storybook-astro/renderer/decoratedTree';
@@ -137,7 +138,7 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
 }
 
 // The `<style>` elements the render handler puts ahead of the story's markup.
-const STORY_STYLES = /<style data-storybook-astro-styles>[\s\S]*?<\/style>/g;
+const STORY_STYLES = new RegExp(`<style ${STORY_STYLE_ATTRIBUTE}>[\\s\\S]*?</style>`, 'g');
 
 function setRenderedHtml(html: string) {
   // As in the Storybook canvas, the story's CSS isn't part of its markup
@@ -155,7 +156,10 @@ function setRenderedHtml(html: string) {
   // The CSS goes in the head, replacing the last story's. It's keyed on the
   // document element, which a test can't swap out the way it can the body.
   moveStoryStylesToHead(template.content, document.documentElement);
-  document.body.replaceChildren(template.content);
+
+  // Reparsed, as in the canvas: the template parses <noscript> content as
+  // live elements.
+  document.body.innerHTML = template.innerHTML;
 
   return markup;
 }

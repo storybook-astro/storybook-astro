@@ -1,4 +1,5 @@
-import { simulateDOMContentLoaded, simulatePageLoad } from 'storybook/internal/preview-api';
+import { DOCS_RENDERED } from 'storybook/internal/core-events';
+import { addons, simulateDOMContentLoaded, simulatePageLoad } from 'storybook/internal/preview-api';
 import type {
   ArgsStoryFn,
   Renderer,
@@ -105,6 +106,23 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
 // story canvas — stacking two components until a reload.
 const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 
+let listeningForDocsPages = false;
+
+/**
+ * A Docs page with no stories, such as an MDX page, never calls
+ * `renderToCanvas`, so the story canvas it hides would keep its CSS. Storybook
+ * announces every rendered Docs page, so the hidden canvas is cleared then.
+ * Registered on the first render, the earliest there is any CSS to clear.
+ */
+function listenForDocsPages() {
+  if (listeningForDocsPages) {
+    return;
+  }
+
+  listeningForDocsPages = true;
+  addons.getChannel().on(DOCS_RENDERED, () => removeHiddenStoryStyles('docs'));
+}
+
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
   canvasElement: HTMLElement
@@ -127,6 +145,7 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
+  listenForDocsPages();
   removeHiddenStoryStyles(storyContext?.viewMode);
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
@@ -259,7 +278,7 @@ async function renderAstroToCanvas(
   });
 
   astroRenderer.applyStyles?.();
-  canvasElement.replaceChildren(prepareServerRenderedHtml(response.html, canvasElement, storyContext?.viewMode));
+  canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement, storyContext?.viewMode);
   invokeScriptTags(canvasElement);
 }
 
@@ -275,7 +294,10 @@ function prepareServerRenderedHtml(html: string, canvasElement: HTMLElement, vie
   syncServerRenderedStylesheets(template.content, document, viewMode);
   moveStoryStylesToHead(template.content, canvasElement);
 
-  return template.content;
+  // Reparsed into the canvas rather than moved: the template parses with
+  // scripting off, so moving its nodes would turn <noscript> content into live
+  // elements.
+  return template.innerHTML;
 }
 
 /**

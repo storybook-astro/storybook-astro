@@ -10,7 +10,7 @@ function renderInto(canvas: HTMLElement, html: string) {
 
   template.innerHTML = html;
   moveStoryStylesToHead(template.content, canvas);
-  canvas.replaceChildren(template.content);
+  canvas.innerHTML = template.innerHTML;
 }
 
 const headStyles = () => Array.from(document.head.querySelectorAll('style[data-storybook-astro-styles]'));
@@ -25,8 +25,10 @@ function createCanvas(parent: HTMLElement = document.body) {
 }
 
 beforeEach(() => {
-  document.head.innerHTML = '<style id="global">body { margin: 0; }</style>';
+  // Drops the last test's canvases, and with them the module's record of them.
   document.body.innerHTML = '';
+  removeHiddenStoryStyles('story');
+  document.head.innerHTML = '<style id="global">body { margin: 0; }</style>';
 });
 
 describe('moveStoryStylesToHead', () => {
@@ -120,5 +122,19 @@ describe('removeHiddenStoryStyles', () => {
     removeHiddenStoryStyles('docs');
 
     expect(headCss()).toEqual(['.badge {}']);
+    expect(storyCanvas.innerHTML).toBe('');
+    expect(docsCanvas.innerHTML).toBe('<span>badge</span>');
+  });
+});
+
+describe('a canvas no longer in the page', () => {
+  test('gets no CSS in the head', () => {
+    const canvas = createCanvas();
+
+    canvas.remove();
+    renderInto(canvas, `${styleFor(':global(body) {}')}<div>card</div>`);
+
+    expect(headCss()).toEqual([]);
+    expect(canvas.innerHTML).toBe('<div>card</div>');
   });
 });

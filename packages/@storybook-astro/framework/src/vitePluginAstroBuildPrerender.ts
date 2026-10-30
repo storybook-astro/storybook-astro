@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, extname, resolve } from 'node:path';
 import type { Plugin, Rollup } from 'vite';
+import { STORY_STYLE_ATTRIBUTE } from '@storybook-astro/renderer/types';
 import type { Integration } from './integrations/index.ts';
 import {
   buildStaticModuleMap,
@@ -360,7 +361,7 @@ export function rewriteAssetPaths(
 }
 
 // The `<style>` element the render handler prepends with the story's component CSS.
-const STORY_STYLES = /(<style data-storybook-astro-styles>)([\s\S]*?)(<\/style>)/g;
+const STORY_STYLES = new RegExp(`(<style ${STORY_STYLE_ATTRIBUTE}>)([\\s\\S]*?)(</style>)`, 'g');
 
 // A CSS `url()` holding an absolute path: double-quoted, single-quoted or bare.
 const CSS_ABSOLUTE_URL = /url\(\s*(?:"(\/[^"]*)"|'(\/[^']*)'|(\/[^\s"')]*))\s*\)/g;
