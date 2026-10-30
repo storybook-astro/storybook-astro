@@ -6,5 +6,5 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
-  external: ['vite', '@storybook-astro/framework', 'wrangler']
+  external: ['@storybook-astro/framework', '@astrojs/cloudflare']
 });

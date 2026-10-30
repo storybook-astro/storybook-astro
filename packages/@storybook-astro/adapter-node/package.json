@@ -1,0 +1,56 @@
+{
+  "name": "@storybook-astro/adapter-node",
+  "version": "1.14.0",
+  "description": "Node.js adapter for Storybook Astro server mode",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/storybook-astro/storybook-astro.git",
+    "directory": "packages/@storybook-astro/adapter-node"
+  },
+  "homepage": "https://storybook-astro.org",
+  "bugs": {
+    "url": "https://github.com/storybook-astro/storybook-astro/issues"
+  },
+  "engines": {
+    "node": ">=20.16.0 || >=22.19.0 || >=24.0.0"
+  },
+  "files": [
+    "dist",
+    "src",
+    "package.json",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch --no-clean",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "prepublishOnly": "tsup"
+  },
+  "devDependencies": {
+    "@astrojs/node": "10.1.4",
+    "@storybook-astro/framework": "workspace:*",
+    "@types/node": "^20.19.0",
+    "astro": "6.4.8",
+    "eslint": "^9.39.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.9"
+  },
+  "peerDependencies": {
+    "@astrojs/node": "^9.0.0 || ^10.0.0 || ^11.0.0",
+    "@storybook-astro/framework": "workspace:^"
+  },
+  "installConfig": {
+    "hoistingLimits": "workspaces"
+  }
+}

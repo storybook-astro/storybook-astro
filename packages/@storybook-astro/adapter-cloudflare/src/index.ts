@@ -1,59 +1,52 @@
-/* eslint n/no-unsupported-features/node-builtins: ["error", {"ignores": ["fs/promises.cp"]}] */
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import astroCloudflare from '@astrojs/cloudflare';
 import type { ServerAdapter } from '@storybook-astro/framework/adapters';
-import { createWorkerViteConfig } from './workerViteConfig.ts';
+import type { AstroInlineConfig } from 'astro';
 
-export type CloudflareAdapterOptions = {
-  /** Worker name in your Cloudflare account. Defaults to `storybook`. */
+export type CloudflareAdapterOptions = NonNullable<Parameters<typeof astroCloudflare>[0]> & {
+  /** Worker name, when the adapter writes the Wrangler config. Defaults to `storybook`. */
   name?: string;
-  /** Workers compatibility date. Defaults to `2026-07-01`. */
-  compatibilityDate?: string;
 };
 
 /**
- * Packages server mode as one Cloudflare Worker: it serves the static
- * Storybook and renders Astro stories at `/api`. Deploy with
- * `wrangler deploy -c storybook-cloudflare/wrangler.jsonc`.
+ * Deploys server mode to Cloudflare Workers: one Worker serves the Storybook
+ * UI as static assets and renders Astro stories at `/api`. Built with
+ * `@astrojs/cloudflare`, so the Worker runs the compiled render app and never
+ * starts Vite.
  */
-export function cloudflare(options: CloudflareAdapterOptions = {}): ServerAdapter {
+export function cloudflare({ name = 'storybook', ...options }: CloudflareAdapterOptions = {}): ServerAdapter {
   return {
     name: 'cloudflare',
-    compiledServer: {
-      vite: createWorkerViteConfig()
+    async createAstroAdapter(appDir) {
+      let configPath = options.configPath;
+
+      // Without a Wrangler config of your own, write a minimal one: the render
+      // runtime's HTML sanitizer needs Node.js APIs on Workers.
+      if (!configPath) {
+        configPath = resolve(appDir, 'wrangler.jsonc');
+        await writeFile(
+          configPath,
+          `${JSON.stringify({ name, compatibility_flags: ['nodejs_compat'] }, null, 2)}\n`
+        );
+      }
+
+      return astroCloudflare({
+        // Images are served as they are, instead of through a Cloudflare
+        // Images binding the account may not have.
+        imageService: 'passthrough',
+        ...options,
+        configPath
+      });
     },
-    async adapt(build) {
-      const output = resolve(build.projectDir, 'storybook-cloudflare');
-
-      await rm(output, { recursive: true, force: true });
-      await mkdir(output, { recursive: true });
-      await cp(build.staticDir, resolve(output, 'static'), { recursive: true });
-      await cp(build.serverDir, resolve(output, 'server'), { recursive: true });
-      await writeFile(
-        resolve(output, 'wrangler.jsonc'),
-        `${JSON.stringify(createWranglerConfig(options), null, 2)}\n`
-      );
-    }
-  };
-}
-
-function createWranglerConfig(options: CloudflareAdapterOptions) {
-  return {
-    name: options.name ?? 'storybook',
-    main: './server/index.js',
-    compatibility_date: options.compatibilityDate ?? '2026-07-01',
-    compatibility_flags: ['nodejs_compat'],
-    // The framework already bundled the server; upload its files as they are.
-    no_bundle: true,
-    find_additional_modules: true,
-    base_dir: './server',
-    rules: [
-      { type: 'ESModule', globs: ['**/*.js'] },
-      { type: 'CompiledWasm', globs: ['**/*.wasm'] }
-    ],
-    assets: {
-      directory: './static',
-      run_worker_first: ['/api', '/api/*']
-    }
+    // Stories never use sessions; without a driver, the adapter would add a
+    // KV namespace binding that a deploy provisions in the account. Astro 6+
+    // types only driver objects, but every supported Astro still accepts the
+    // name of a built-in driver.
+    astroConfig: { session: { driver: 'memory' } as unknown as AstroInlineConfig['session'] },
+    nextSteps: [
+      'Preview locally with: wrangler dev -c storybook-server/server/wrangler.json',
+      'Deploy with: wrangler deploy -c storybook-server/server/wrangler.json'
+    ].join('\n')
   };
 }

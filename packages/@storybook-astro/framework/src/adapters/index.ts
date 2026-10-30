@@ -1,28 +1,21 @@
-import type { InlineConfig } from 'vite';
+import type { AstroInlineConfig, AstroIntegration } from 'astro';
 
-// Adapters type their Vite config against the framework's own Vite copy.
-export type { InlineConfig as ViteConfig, Plugin as VitePlugin } from 'vite';
-export { node } from './node.ts';
-export { vercel } from './vercel.ts';
-export { packageServer } from './packageServer.ts';
-
-/** A completed, host-independent Storybook server build. All paths are absolute. */
-export type ServerBuild = {
-  projectDir: string;
-  staticDir: string;
-  serverDir: string;
-};
-
-/** Providers own packaging and HTTP entrypoints; the render runtime owns neither. */
+/**
+ * Where server mode runs. The render app is a regular Astro app, so a host is
+ * an official Astro adapter (`@astrojs/node`, `@astrojs/vercel`,
+ * `@astrojs/cloudflare`, …) built by `astro build`. Adapter packages such as
+ * `@storybook-astro/adapter-node` wrap one with Storybook defaults.
+ */
 export type ServerAdapter = {
   name: string;
   /**
-   * For hosts that cannot run Vite at request time (e.g. Cloudflare Workers).
-   * The build then compiles every story component into one self-contained
-   * `storybook-server/index.js`, using this host-specific Vite config.
+   * Creates the Astro adapter that builds the render app for this host.
+   * `appDir` is where the app's sources are generated, for host config files
+   * the adapter needs beside them.
    */
-  compiledServer?: {
-    vite?: InlineConfig;
-  };
-  adapt(build: ServerBuild): Promise<void>;
+  createAstroAdapter(appDir: string): AstroIntegration | Promise<AstroIntegration>;
+  /** Astro config this host needs on top of the render app's own. */
+  astroConfig?: AstroInlineConfig;
+  /** Printed after a successful build: how to run or deploy the output. */
+  nextSteps?: string;
 };

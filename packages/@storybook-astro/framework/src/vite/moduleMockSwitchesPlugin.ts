@@ -4,18 +4,18 @@ import type { Plugin } from 'vite';
 const SWITCH_ID_PREFIX = '\0storybook-astro-mock-switch:';
 
 /**
- * Story-rule mocks for the compiled server, which cannot reload modules per render.
+ * Story-rule mocks for server mode, whose built render app cannot reload modules per render.
  *
  * Every import of a specifier the rules file mocks is routed through a switch
  * module: it re-exports the real module as live `let` bindings, and the render
  * runtime points those bindings at the story's mock for the length of one
- * render (server/moduleMockSwitches.ts). Specifiers match the import text,
+ * render (serverApp/moduleMockSwitches.ts). Specifiers match the import text,
  * exactly like the Vite runtime.
  */
 export function moduleMockSwitchesPlugin(options: {
   rulesConfigFilePath?: string;
-  /** Absolute path of server/moduleMockSwitches.ts, so the bundle holds one registry. */
-  registryModulePath: string;
+  /** The module that exports `registerModuleMockSwitch`, so the app holds one registry. */
+  registryModule: string;
 }): Plugin {
   const mockedSpecifiers = options.rulesConfigFilePath
     ? collectMockedSpecifiers(options.rulesConfigFilePath)
@@ -51,7 +51,7 @@ export function moduleMockSwitchesPlugin(options: {
       return createSwitchModuleSource({
         specifier,
         realModuleId,
-        registryModulePath: options.registryModulePath,
+        registryModule: options.registryModule,
         exportNames: realModule.exports ?? []
       });
     }
@@ -69,7 +69,7 @@ export function collectMockedSpecifiers(rulesConfigFilePath: string): Set<string
 
   if (/\bmock\(\s*[^'"`\s)]/.test(source)) {
     throw new Error(
-      `${rulesConfigFilePath}: compiled server builds need the module passed to mock() as a string literal, e.g. mock('./api.ts', ...).`
+      `${rulesConfigFilePath}: server mode needs the module passed to mock() as a string literal, e.g. mock('./api.ts', ...).`
     );
   }
 
@@ -79,7 +79,7 @@ export function collectMockedSpecifiers(rulesConfigFilePath: string): Set<string
 export function createSwitchModuleSource(options: {
   specifier: string;
   realModuleId: string;
-  registryModulePath: string;
+  registryModule: string;
   exportNames: string[];
 }) {
   // `default` is not a valid binding name, so it gets a local alias.
@@ -90,7 +90,7 @@ export function createSwitchModuleSource(options: {
 
   return [
     `import * as real from ${JSON.stringify(options.realModuleId)};`,
-    `import { registerModuleMockSwitch } from ${JSON.stringify(options.registryModulePath)};`,
+    `import { registerModuleMockSwitch } from ${JSON.stringify(options.registryModule)};`,
     ...bindings.map(({ name, local }) => `let ${local} = real[${JSON.stringify(name)}];`),
     `export { ${bindings.map(({ name, local }) => (name === local ? name : `${local} as ${name}`)).join(', ')} };`,
     `registerModuleMockSwitch(${JSON.stringify(options.specifier)}, (mocked) => {`,

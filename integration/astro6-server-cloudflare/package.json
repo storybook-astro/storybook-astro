@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "storybook dev -p 6020",
     "build": "storybook-astro build",
-    "serve": "wrangler dev -c storybook-cloudflare/wrangler.jsonc --ip 127.0.0.1 --port 6021",
+    "serve": "wrangler dev -c storybook-server/server/wrangler.json --ip 127.0.0.1 --port 6021",
     "lint": "eslint .",
     "test:browser": "playwright test"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "13.7.0",
     "@astrojs/preact": "5.0.0",
     "@storybook-astro/components": "workspace:*",
     "astro": "6.4.8",

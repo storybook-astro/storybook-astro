@@ -1,10 +1,9 @@
 import { createHash } from 'node:crypto';
-import { access, copyFile, mkdir, readFile, readdir, stat } from 'node:fs/promises';
-import { basename, dirname, resolve } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import type { Rollup } from 'vite';
 import type { Integration } from './integrations/index.ts';
-import { resolveAliasedIsland, resolveTsconfigAliasedImport } from './lib/resolve-aliased-island.ts';
-import { CONFIG_FILENAMES } from './loadUserAstroConfig.ts';
+import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 
 /** Resolves the shared virtual module ids used by both build pipelines. */
 export function resolveVirtualBuildModuleId(id: string) {
@@ -215,81 +214,6 @@ export function stripQuery(input: string | undefined) {
   return input?.replace(/\?.*$/, '');
 }
 
-/** Converts a project file path into the stable path used inside the snapshot tree. */
-export function relativePathFromRoot(resolveFrom: string, filePath: string) {
-  return filePath.slice(resolveFrom.length).replace(/^[/\\]+/, '');
-}
-
-/** Copies one file or directory tree into the standalone runtime snapshot. */
-export async function copyPath(sourcePath: string, targetPath: string): Promise<void> {
-  const sourceStats = await stat(sourcePath);
-
-  if (sourceStats.isDirectory()) {
-    await mkdir(targetPath, { recursive: true });
-    const entries = await readdir(sourcePath, { withFileTypes: true });
-
-    await Promise.all(
-      entries.map((entry) =>
-        copyPath(resolve(sourcePath, entry.name), resolve(targetPath, entry.name))
-      )
-    );
-
-    return;
-  }
-
-  await mkdir(dirname(targetPath), { recursive: true });
-  await copyFile(sourcePath, targetPath);
-}
-
-/** Maps an original source file path to its location inside the snapshot tree. */
-export function buildSnapshotFilePath(
-  resolveFrom: string,
-  filePath: string,
-  snapshotDirName: string
-) {
-  const normalizedResolveFrom = resolveFrom.replace(/\\/g, '/').replace(/\/$/, '');
-  const normalizedFilePath = filePath.replace(/\\/g, '/');
-
-  if (normalizedFilePath.startsWith(`${normalizedResolveFrom}/`)) {
-    return `${snapshotDirName}/${relativePathFromRoot(resolveFrom, filePath)}`.replace(/\\/g, '/');
-  }
-
-  return `${snapshotDirName}/__external/${normalizedFilePath.replace(/^[/\\]+/, '')}`.replace(
-    /\\/g,
-    '/'
-  );
-}
-
-/** Copies the source files and config files the standalone render server needs at runtime. */
-export async function copyRuntimeSnapshot(options: {
-  resolveFrom: string;
-  snapshotRoot: string;
-  snapshotDirName: string;
-  astroComponents: string[];
-  storyRulesConfigFilePath?: string;
-  /** Packages imported by copied runtime sources, for deployment adapters. */
-  runtimeDependencies?: Set<string>;
-}) {
-  // The standalone render server still spins up a Vite SSR runtime, so it
-  // needs the exact source/config files that runtime will read from disk.
-  const runtimeConfigFiles = await listRuntimeConfigFiles(options.resolveFrom);
-  const runtimeInputFiles = new Set<string>([
-    ...options.astroComponents,
-    ...(options.storyRulesConfigFilePath ? [options.storyRulesConfigFilePath] : []),
-    ...runtimeConfigFiles,
-    ...(await listLocalTsconfigExtendsFiles(runtimeConfigFiles))
-  ]);
-  const copiedFiles = new Set<string>();
-
-  for (const runtimeInputFile of runtimeInputFiles) {
-    await copyLocalRuntimeDependencies(runtimeInputFile, {
-      ...options,
-      // Rules are already bundled; their external imports come from that bundle.
-      runtimeDependencies: runtimeInputFile === options.storyRulesConfigFilePath ? undefined : options.runtimeDependencies
-    }, copiedFiles);
-  }
-}
-
 /** Reports whether a JS/TS source file has a default export.
  * Only call for .jsx/.tsx — Svelte and Vue SFCs have no literal `export default`
  * in source, but their compilers generate one. On read error the file is kept,
@@ -346,136 +270,6 @@ function isNonHydratableSourceFile(input: string) {
   );
 }
 
-/** Finds project config files that the standalone render server may load through Vite. */
-async function listRuntimeConfigFiles(resolveFrom: string) {
-  const candidates = [
-    'package.json',
-    'tsconfig.json',
-    'tsconfig.base.json',
-    'jsconfig.json',
-    ...CONFIG_FILENAMES,
-    'vite.config.js',
-    'vite.config.ts',
-    'svelte.config.js'
-  ];
-  const existing: string[] = [];
-
-  await Promise.all(
-    candidates.map(async (candidate) => {
-      const filePath = resolve(resolveFrom, candidate);
-
-      try {
-        await access(filePath);
-        existing.push(filePath);
-      } catch {
-        return;
-      }
-    })
-  );
-
-  return existing;
-}
-
-/** Copies one local source file and follows its local imports into the snapshot. */
-async function copyLocalRuntimeDependencies(
-  sourcePath: string,
-  options: {
-    resolveFrom: string;
-    snapshotRoot: string;
-    snapshotDirName: string;
-    runtimeDependencies?: Set<string>;
-  },
-  copiedFiles: Set<string>
-) {
-  const normalizedSourcePath = sourcePath.replace(/\\/g, '/');
-
-  if (copiedFiles.has(normalizedSourcePath)) {
-    return;
-  }
-
-  copiedFiles.add(normalizedSourcePath);
-
-  const snapshotRelativePath = buildSnapshotFilePath(
-    options.resolveFrom,
-    normalizedSourcePath,
-    options.snapshotDirName
-  );
-
-  await copyPath(
-    normalizedSourcePath,
-    resolve(dirname(options.snapshotRoot), snapshotRelativePath)
-  );
-
-  // Follow local imports: relative ones resolve against the importer, and
-  // tsconfig-aliased ones (e.g. `~/styles/tokens`, issue #136) resolve through
-  // the project's paths map. Package dependencies stay external and are
-  // resolved by Node/Vite from the deployed install, not copied into snapshot.
-  const importSpecifiers = await readAllImportSpecifiers(normalizedSourcePath);
-
-  for (const specifier of importSpecifiers) {
-    const resolvedDependency = specifier.startsWith('.')
-      ? await resolveLocalImportPath(normalizedSourcePath, specifier)
-      : await resolveTsconfigAliasedImport(specifier, normalizedSourcePath);
-
-    if (!resolvedDependency) {
-      if (!specifier.startsWith('.') && !specifier.startsWith('/') &&
-        !specifier.includes(':') && !specifier.startsWith('#')) {
-        options.runtimeDependencies?.add(specifier);
-      }
-      continue;
-    }
-
-    await copyLocalRuntimeDependencies(resolvedDependency, options, copiedFiles);
-  }
-
-  // The render server compiles each component's styles too, so the partials
-  // and stylesheets they pull in have to be there as well.
-  for (const specifier of await readStyleImportSpecifiers(normalizedSourcePath)) {
-    const stylesheet = await resolveStyleImportPath(normalizedSourcePath, specifier);
-
-    if (stylesheet) {
-      await copyLocalRuntimeDependencies(stylesheet, options, copiedFiles);
-    }
-  }
-}
-
-// `@import`, `@use` and `@forward` rules: a quoted path, or a `url()` with or without quotes.
-const STYLE_IMPORT_RE = /@(?:import|use|forward)\s+(?:url\(\s*['"]?([^'")\s]+)|['"]([^'"]+)['"])/g;
-
-/**
- * Reads the stylesheets a stylesheet, or an `.astro` file's `<style>` blocks,
- * imports from disk. Sass resolves a bare `@use 'tokens'` against the
- * importing file, so only URLs and package or built-in modules are skipped.
- */
-async function readStyleImportSpecifiers(filePath: string): Promise<string[]> {
-  if (!/\.(astro|css|scss|sass|less)$/.test(filePath)) {
-    return [];
-  }
-
-  const source = await readFile(filePath, 'utf-8');
-
-  return Array.from(source.matchAll(STYLE_IMPORT_RE), (match) => match[1] ?? match[2]).filter(
-    (specifier) => !/^([a-z][a-z0-9+.-]*:|\/|~)/i.test(specifier)
-  );
-}
-
-/** Resolves a stylesheet import the way Sass and CSS do, partials (`_name.scss`) included. */
-function resolveStyleImportPath(importerPath: string, specifier: string) {
-  const basePath = resolve(dirname(importerPath), specifier);
-  const partialPath = resolve(dirname(basePath), `_${basename(basePath)}`);
-
-  return findFirstFile([
-    basePath,
-    partialPath,
-    ...['scss', 'sass', 'css', 'less'].flatMap((extension) => [
-      `${basePath}.${extension}`,
-      `${partialPath}.${extension}`,
-      resolve(basePath, `index.${extension}`),
-      resolve(basePath, `_index.${extension}`)
-    ])
-  ]);
-}
-
 const IMPORT_RE =
   /(?:import|export)\s+(?:[^'"`]*?\s+from\s+)?['"`]([^'"`]+)['"`]|import\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
 
@@ -493,62 +287,6 @@ async function readAllImportSpecifiers(filePath: string): Promise<string[]> {
     .filter((match) => !/^(?:import|export)\s+type\s+(?!from\b)/.test(match[0]))
     .map((match) => match[1] ?? match[2])
     .filter((specifier): specifier is string => Boolean(specifier));
-}
-
-/** Finds local files reached through tsconfig/jsconfig `extends` chains so the
- * snapshot's copied tsconfig still resolves its path aliases at runtime. */
-async function listLocalTsconfigExtendsFiles(configFiles: string[]) {
-  const collected = new Set<string>();
-  const pending = configFiles.filter((filePath) => /(?:tsconfig|jsconfig)[^/\\]*\.json$/.test(filePath));
-
-  while (pending.length > 0) {
-    const configFile = pending.pop()!;
-    let source: string;
-
-    try {
-      source = await readFile(configFile, 'utf-8');
-    } catch {
-      continue;
-    }
-
-    // tsconfig allows comments, so scan for extends targets instead of
-    // JSON.parse. Handles both string and array forms.
-    const extendsMatch = source.match(/"extends"\s*:\s*("[^"]+"|\[[^\]]*\])/);
-
-    if (!extendsMatch) {
-      continue;
-    }
-
-    const targets = Array.from(extendsMatch[1].matchAll(/"([^"]+)"/g), (match) => match[1]);
-
-    for (const target of targets) {
-      // Only local extends targets need copying; package-based ones (e.g.
-      // `astro/tsconfigs/strict`) resolve from the deployed install.
-      if (!target.startsWith('.')) {
-        continue;
-      }
-
-      const basePath = resolve(dirname(configFile), target);
-      const candidates = basePath.endsWith('.json') ? [basePath] : [`${basePath}.json`, basePath];
-
-      for (const candidate of candidates) {
-        const normalized = candidate.replace(/\\/g, '/');
-
-        try {
-          if ((await stat(candidate)).isFile() && !collected.has(normalized)) {
-            collected.add(normalized);
-            pending.push(normalized);
-          }
-
-          break;
-        } catch {
-          continue;
-        }
-      }
-    }
-  }
-
-  return [...collected];
 }
 
 /** Resolves one relative import the same way the project source tree would on disk. */

@@ -15,8 +15,9 @@ import { viteStorybookAstroRendererPlugin } from './viteStorybookAstroRendererPl
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroSvgComponentMarker } from './vitePluginAstroSvgComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
-import { vitePluginAstroBuildServer } from './vitePluginAstroBuildServer.ts';
 import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
+import { storyAstroImportsFile } from './serverApp/build.ts';
+import { vitePluginStoryAstroImports } from './serverApp/vitePluginStoryAstroImports.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
@@ -49,9 +50,9 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   const { configType, presets, configDir } = storybookOptions;
   const frameworkOptions = await presets.apply<FrameworkOptions>('frameworkOptions');
 
-  if (frameworkOptions.renderMode === 'server' && typeof frameworkOptions.server?.adapter?.adapt !== 'function') {
+  if (frameworkOptions.renderMode === 'server' && typeof frameworkOptions.server?.adapter?.createAstroAdapter !== 'function') {
     throw new Error(
-      'Server mode requires server.adapter: vercel() (or node()). Configure it and run storybook-astro build.'
+      'Server mode requires server.adapter, e.g. node() from @storybook-astro/adapter-node. Configure it and run storybook-astro build.'
     );
   }
   const resolveFrom = frameworkOptions.resolveFrom ?? dirname(configDir);
@@ -104,16 +105,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   const { vitePlugin: storybookAstroMiddlewarePlugin, viteConfig } =
     await vitePluginStorybookAstroMiddleware(options);
 
-  // Every `.astro` file the iframe build's client graph reaches — story
-  // components, and anything imported only from `.storybook/preview.*` like a
-  // decorator's Wrapper.astro — passes through the marker plugin's `transform`
-  // hook. Server-mode builds need that full list to snapshot decorator/slot-only
-  // components the story index never mentions
-  // (docs/specs/decorators.md#server-snapshot), so collect it here and hand it
-  // to `vitePluginAstroBuildServer` below.
-  const clientAstroComponentIds = new Set<string>();
   const componentMarkerPlugin = vitePluginAstroComponentMarker({
-    onClientAstroModuleId: (moduleId) => clientAstroComponentIds.add(moduleId),
     docgen: await createDocgenIfEnabled(options, resolveFrom, storybookOptions)
   });
 
@@ -141,8 +133,9 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       config.plugins.push(vitePluginAstroBuildPrerender(options) as any);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      config.plugins.push(vitePluginAstroBuildServer(options, clientAstroComponentIds) as any);
+      // Server mode renders in the Astro app `storybook-astro build` builds next;
+      // this build only records which components each story file uses.
+      config.plugins.push(vitePluginStoryAstroImports(storyAstroImportsFile(resolveFrom)));
     }
 
     config.build = {

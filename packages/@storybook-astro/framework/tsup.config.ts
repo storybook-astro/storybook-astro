@@ -15,6 +15,8 @@ export default defineConfig({
     'src/renderer/renderer-dev.ts',
     'src/renderer/renderer-static.ts',
     'src/renderer/renderer-server.ts',
+    // `@storybook-astro/framework/server-app`, bundled into the generated render app.
+    'src/serverApp/runtime.ts',
     'src/middleware.ts',
     'src/vitest/global-setup.ts',
     // Its own entry because Astro loads it by path as `image.service.entrypoint`.
@@ -61,5 +63,7 @@ export default defineConfig({
     'storybook-solidjs',
     'sanitize-html',
     'virtual:astro-container-renderers',
+    // Provided by the render app's Astro build (serverApp/build.ts).
+    /^virtual:storybook-astro\//,
   ],
 });

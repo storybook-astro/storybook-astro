@@ -3,9 +3,13 @@ import { createRequire } from 'node:module';
 import { dirname, resolve as resolvePath } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadMainConfig } from 'storybook/internal/common';
+import { buildServerApp } from './serverApp/build.ts';
 import type { StorybookConfig } from './types.ts';
 
-/** Package only after Storybook has finished writing manager, preview and public files. */
+/**
+ * `storybook-astro build`: Storybook's build, then in server mode the render
+ * app, which takes the finished Storybook output as its public directory.
+ */
 export async function build(args: string[]): Promise<void> {
   const { values } = parseArgs({
     args,
@@ -48,21 +52,20 @@ export async function build(args: string[]): Promise<void> {
   process.env.NODE_ENV ??= 'production';
   const configDir = resolvePath(projectDir, String(values['config-dir'] ?? '.storybook'));
   const config = (await loadMainConfig({ configDir })) as StorybookConfig;
-  const options = config.framework.options;
+  const frameworkOptions = config.framework.options;
 
-  if (options?.renderMode !== 'server') {
+  if (frameworkOptions?.renderMode !== 'server') {
     return;
   }
 
-  if (typeof options.server?.adapter?.adapt !== 'function') {
-    throw new Error('Server mode requires server.adapter: vercel() (or node()).');
-  }
-
-  const staticDir = resolvePath(projectDir, String(values['output-dir'] ?? 'storybook-static'));
-
-  await options.server.adapter.adapt({
+  await buildServerApp({
     projectDir,
-    staticDir,
-    serverDir: resolvePath(dirname(staticDir), 'storybook-server')
+    configDir,
+    staticDir: resolvePath(projectDir, String(values['output-dir'] ?? 'storybook-static')),
+    frameworkOptions
   });
+
+  if (frameworkOptions.server.adapter.nextSteps) {
+    console.log(`\n[storybook-astro] ${frameworkOptions.server.adapter.nextSteps}\n`);
+  }
 }

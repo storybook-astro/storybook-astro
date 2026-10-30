@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/adapter-cloudflare",
-  "version": "1.12.0",
+  "version": "1.14.0",
   "description": "Cloudflare Workers adapter for Storybook Astro server mode",
   "type": "module",
   "license": "MIT",
@@ -36,20 +36,22 @@
     "test": "vitest run",
     "prepublishOnly": "tsup"
   },
-  "dependencies": {
-    "wrangler": "^4.46.0"
-  },
   "devDependencies": {
+    "@astrojs/cloudflare": "13.7.0",
     "@storybook-astro/framework": "workspace:*",
     "@types/node": "^20.19.0",
+    "astro": "6.4.8",
     "eslint": "^9.39.2",
     "tsup": "^8.5.1",
     "typescript": "^5.8.3",
-    "vite": "^6.4.1 || ^7.0.0 || ^8.0.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "wrangler": "^4.46.0"
   },
   "peerDependencies": {
-    "@storybook-astro/framework": "workspace:^",
-    "vite": "^6.4.1 || ^7.0.0 || ^8.0.0"
+    "@astrojs/cloudflare": "^12.0.0 || ^13.0.0 || ^14.0.0",
+    "@storybook-astro/framework": "workspace:^"
+  },
+  "installConfig": {
+    "hoistingLimits": "workspaces"
   }
 }

@@ -15,8 +15,6 @@ export type RenderMode = 'static' | 'server';
 export type ServerBuildOptions = {
   authToken?: string;
   authHeader?: string;
-  /** Extra packages loaded by computed imports that cannot be discovered during build. */
-  runtimeDependencies?: string[];
 };
 
 export type RenderStoryInput = {
