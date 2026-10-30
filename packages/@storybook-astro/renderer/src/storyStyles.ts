@@ -15,7 +15,7 @@ const stylesByCanvas = new WeakMap<Element, HTMLStyleElement[]>();
  * scripting off.
  *
  * The styles replace the ones this canvas's last render put there, so CSS
- * deleted in an edit stops applying. They go to the end of the head, where
+ * deleted in an edit stops applying. New CSS goes to the end of the head, where
  * Astro component CSS went before #189 too, after any CSS the story's modules
  * added on import.
  */
@@ -26,6 +26,22 @@ export function moveStoryStylesToHead(html: string, canvasElement: Element) {
   template.innerHTML = html;
 
   const styles = Array.from(template.content.querySelectorAll<HTMLStyleElement>(STORY_STYLE));
+  const previousStyles = stylesByCanvas.get(canvasElement) ?? [];
+
+  // A rerender with the same CSS, such as a Controls change, keeps the
+  // elements it has, so the CSS of a Docs page's stories keeps its order.
+  const unchanged =
+    styles.length === previousStyles.length &&
+    styles.every(
+      (style, index) =>
+        previousStyles[index].isConnected && style.textContent === previousStyles[index].textContent
+    );
+
+  if (unchanged) {
+    styles.forEach((style) => style.remove());
+
+    return template;
+  }
 
   removeStoryStyles(canvasElement);
   document.head.append(...styles);

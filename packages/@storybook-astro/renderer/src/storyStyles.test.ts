@@ -45,14 +45,26 @@ describe('moveStoryStylesToHead', () => {
     expect(headCss()).toEqual(['.card {}']);
   });
 
-  test('puts a rerender\'s CSS after stylesheets added since the last render', () => {
+  test('puts changed CSS after stylesheets added since the last render', () => {
     const canvas = createCanvas();
 
     renderInto(canvas, `${styleFor('.card {}')}<div></div>`);
     document.head.insertAdjacentHTML('beforeend', '<style id="imported">.card { color: red; }</style>');
-    renderInto(canvas, `${styleFor('.card {}')}<div></div>`);
+    renderInto(canvas, `${styleFor('.card { color: blue; }')}<div></div>`);
 
-    expect(document.head.lastElementChild?.textContent).toBe('.card {}');
+    expect(document.head.lastElementChild?.textContent).toBe('.card { color: blue; }');
+  });
+
+  test('keeps the same elements when a Controls change rerenders with the same CSS', () => {
+    const cardCanvas = createCanvas();
+    const badgeCanvas = createCanvas();
+
+    renderInto(cardCanvas, `${styleFor('.card {}')}<div>first</div>`);
+    renderInto(badgeCanvas, `${styleFor('.badge {}')}<span></span>`);
+    renderInto(cardCanvas, `${styleFor('.card {}')}<div>second</div>`);
+
+    expect(headCss()).toEqual(['.card {}', '.badge {}']);
+    expect(cardCanvas.innerHTML).toBe('<div>second</div>');
   });
 
   test('gives each story on a Docs page its own CSS', () => {

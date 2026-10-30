@@ -132,7 +132,6 @@ export async function renderToCanvas(
   lastRendererByCanvas.set(canvasElement, renderer);
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
-    removeStoryStyles(canvasElement);
     showMain();
     const teardown = await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
@@ -175,6 +174,9 @@ export async function renderToCanvas(
         return teardownAstroRender;
       }
 
+      // Storybook gets no teardown from a render that throws, so nothing else
+      // would remove CSS it already moved into the head.
+      teardownAstroRender();
       throw error;
     }
 
