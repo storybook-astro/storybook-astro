@@ -28,6 +28,7 @@ const NODE_JS_FILES = [
   `./packages/@storybook-astro/framework/**/*.{${ALL_EXTENSIONS}}`,
   `./apps/*/.storybook/**/*.{${ALL_EXTENSIONS}}`,
   `./integration/*/.storybook/**/*.{${ALL_EXTENSIONS}}`,
+  `./integration/server-shared/**/*.{${ALL_EXTENSIONS}}`,
   `./scripts/**/*.{js,ts,mjs}`,
   'eslint.config.mjs',
   'prettier.config.mjs'
@@ -227,9 +228,9 @@ export default [
       '**/storybook-static/',
       '**/storybook-server/',
       '**/storybook-node/',
-      '**/storybook-cloudflare/',
       '**/.wrangler/',
       '**/.vercel/',
+      '**/.netlify/',
       '**/dist/',
       '**/node_modules/',
       'smoke/' // template files for tarball smoke tests — linted in their own context

@@ -4,26 +4,25 @@ import { cloudflare } from '@storybook-astro/adapter-cloudflare';
 import { preact } from '@storybook-astro/framework/integrations';
 
 const componentsRoot = getAbsolutePath('@storybook-astro/components');
+const sharedRoot = getAbsolutePath('@storybook-astro/integration-server-shared');
 
 /** @type { import('@storybook-astro/framework').StorybookConfig } */
 const config = {
   stories: [
-    '../src/stories/Overview.mdx',
     `${componentsRoot}/src/NpmWeeklyDownloads/astro/NpmWeeklyDownloads.stories.js`,
     `${componentsRoot}/src/GithubContributors/astro/GithubContributors.stories.js`,
     `${componentsRoot}/src/GithubStars/astro/GithubStars.stories.js`,
-    // A decorator-only component: Wrapper.astro is referenced only from this
-    // story file, so it must still be compiled into the Worker.
-    `${componentsRoot}/src/Decorator/Decorator.stories.jsx`
+    `${componentsRoot}/src/Decorator/Decorator.stories.jsx`,
+    `${componentsRoot}/src/Decorator/AdvancedDecorator.stories.jsx`
   ],
-  addons: [getAbsolutePath('@storybook/addon-docs')],
   framework: {
     name: '@storybook-astro/framework',
     options: {
       renderMode: 'server',
-      storyRules: './.storybook/story-rules.ts',
+      storyRules: `${sharedRoot}/story-rules.ts`,
       server: {
-        adapter: cloudflare({ name: 'storybook-astro6-server' })
+        adapter: cloudflare({ name: 'storybook-astro6-server' }),
+        authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN
       },
       integrations: [
         preact({

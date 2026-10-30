@@ -12,6 +12,7 @@ import { FRAMEWORK_RUNTIME_PACKAGES } from '../lib/hydratedComponentBuild.ts';
 import { resolveRulesConfigFilePath } from '../rules-options.ts';
 import type { FrameworkOptions } from '../types.ts';
 import { moduleMockSwitchesPlugin } from '../vite/moduleMockSwitchesPlugin.ts';
+import { postcssBrowserFieldPlugin } from '../vite/postcssBrowserFieldPlugin.ts';
 import { sanitizeConfigPlugin } from '../vite/sanitizeConfigPlugin.ts';
 import { serverAuthPlugin } from '../vite/serverAuthPlugin.ts';
 import { storyRulesPlugin } from '../vite/storyRulesPlugin.ts';
@@ -119,6 +120,7 @@ export async function buildServerApp(options: {
         sanitizeConfigPlugin(frameworkOptions.sanitization),
         serverAuthPlugin(frameworkOptions.server),
         storyRulesPlugin(frameworkOptions.storyRules, resolveFrom),
+        postcssBrowserFieldPlugin(),
         moduleMockSwitchesPlugin({
           rulesConfigFilePath: resolveRulesConfigFilePath(frameworkOptions.storyRules, resolveFrom),
           registryModule: '@storybook-astro/framework/server-app'

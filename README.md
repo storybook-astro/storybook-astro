@@ -169,8 +169,8 @@ export default {
 
 Run `storybook-astro build` to produce the deployment output: a small Astro app
 built with the official Astro adapter for your host. Adapters exist for Node.js
-(`@storybook-astro/adapter-node`), Vercel (`@storybook-astro/adapter-vercel`) and
-Cloudflare Workers (`@storybook-astro/adapter-cloudflare`); each needs the
+(`@storybook-astro/adapter-node`), Vercel (`@storybook-astro/adapter-vercel`),
+Netlify (`@storybook-astro/adapter-netlify`) and Cloudflare (`@storybook-astro/adapter-cloudflare`); each needs the
 `@astrojs/*` adapter that matches your Astro version. See the
 [Deployment guide](https://storybook-astro.org/guides/deployment/).
 

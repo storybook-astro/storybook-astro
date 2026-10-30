@@ -1,12 +1,11 @@
 /**
- * Builds Storybook and the Worker, starts it locally with `wrangler dev`
- * (workerd serves the static UI and the render API at /api), then runs the
- * Playwright suite against it. The build runs inside webServer startup, so
- * the timeout is generous.
+ * Builds Storybook and the render app for Cloudflare Workers, starts the local
+ * preview (`yarn serve`), then runs the server-mode suite shared by every
+ * astro{N}-server-{platform} app against it.
  */
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 6021;
+const PORT = 6163;
 
 export default defineConfig({
   testDir: './tests',
@@ -15,9 +14,9 @@ export default defineConfig({
   },
   webServer: {
     command: `yarn build && yarn serve`,
-    url: `http://127.0.0.1:${PORT}`,
+    url: `http://127.0.0.1:${PORT}/api`,
     reuseExistingServer: !process.env.CI,
-    timeout: 240 * 1000,
+    timeout: 300 * 1000,
   },
   projects: [
     {

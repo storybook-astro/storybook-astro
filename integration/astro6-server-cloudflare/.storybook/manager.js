@@ -4,7 +4,7 @@ import { create } from 'storybook/theming/create';
 addons.setConfig({
   theme: create({
     base: 'dark',
-    brandTitle: 'Storybook Astro · Astro 6 Server · Cloudflare',
-    brandColor: '#06B6D4',
+    brandTitle: 'Storybook Astro · Astro 6 Server · Cloudflare Workers',
+    brandColor: '#F38020',
   }),
 });

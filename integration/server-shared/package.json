@@ -1,0 +1,22 @@
+{
+  "name": "@storybook-astro/integration-server-shared",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Story rules, tests and the local preview server shared by the astro{N}-server-{platform} apps",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@storybook-astro/components": "workspace:*",
+    "@storybook-astro/framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0",
+    "eslint": "^9.39.2"
+  },
+  "exports": {
+    "./server-mode-tests": "./server-mode-tests.ts",
+    "./package.json": "./package.json"
+  }
+}

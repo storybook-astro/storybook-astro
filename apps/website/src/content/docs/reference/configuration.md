@@ -154,8 +154,8 @@ export default {
 ```
 
 Use `storybook-astro build` to build the deployment. Adapters are separate packages:
-`@storybook-astro/adapter-node`, `@storybook-astro/adapter-vercel` and
-`@storybook-astro/adapter-cloudflare`, each with the official Astro adapter for your
+`@storybook-astro/adapter-node`, `@storybook-astro/adapter-vercel`,
+`@storybook-astro/adapter-netlify` and `@storybook-astro/adapter-cloudflare`, each with the official Astro adapter for your
 Astro version. The API is served at `/api/render`; no URL configuration is needed.
 See [Deployment](/guides/deployment/) for what to install and how to deploy each output.
 
@@ -165,7 +165,7 @@ See [Deployment](/guides/deployment/) for what to install and how to deploy each
 
 Required when `renderMode: 'server'`:
 
-- **`adapter`** — Deployment adapter, such as `node()`, `vercel()` or `cloudflare()`.
+- **`adapter`** — Deployment adapter, such as `node()`, `vercel()`, `netlify()` or `cloudflare()`.
   There is no default adapter.
 
 Optional server-mode settings:

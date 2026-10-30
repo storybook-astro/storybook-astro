@@ -1,6 +1,6 @@
 ---
 title: Deployment
-description: Deploy Storybook Astro to a static host, a Node.js server, Vercel, or Cloudflare Workers.
+description: Deploy Storybook Astro to a static host, a Node.js server, Vercel, Netlify, or Cloudflare.
 ---
 
 ## Static mode
@@ -27,7 +27,8 @@ install in the version that matches your Astro version:
 | --- | --- | --- | --- | --- |
 | Node.js server or container | `@storybook-astro/adapter-node` `@astrojs/node` | 9 | 10 | 11 |
 | Vercel | `@storybook-astro/adapter-vercel` `@astrojs/vercel` | 9 | 10 | 11 |
-| Cloudflare Workers | `@storybook-astro/adapter-cloudflare` `@astrojs/cloudflare` | 12 | 13 | 14 |
+| Netlify | `@storybook-astro/adapter-netlify` `@astrojs/netlify` | 6 | 7 | 8 |
+| Cloudflare | `@storybook-astro/adapter-cloudflare` `@astrojs/cloudflare` | 12 (Pages) | 13 | 14 |
 
 That's the same `@astrojs/*` version you'd use to deploy an Astro site on that
 Astro version. For example, on Astro 6 with Node:
@@ -96,6 +97,19 @@ For Git deployments, select the **Other** framework preset and use `yarn build`
 as the build command. Leave Output Directory unset. Options are passed to
 `@astrojs/vercel`, for example `vercel({ maxDuration: 60 })`.
 
+### On Netlify
+
+`netlify()` writes the Storybook UI to `storybook-server/` and the render
+function to `.netlify/v1/`. Set the site's publish directory to
+`storybook-server` (in `netlify.toml` or the Netlify UI), then:
+
+```bash
+netlify deploy --build --prod
+```
+
+For Git deployments, use `storybook-astro build` as the build command. Options
+are passed to `@astrojs/netlify`.
+
 ### On Cloudflare Workers
 
 `cloudflare()` builds one Worker that serves the UI as static assets and renders
@@ -106,6 +120,11 @@ yarn build
 npx wrangler dev -c storybook-server/server/wrangler.json     # preview locally
 npx wrangler deploy -c storybook-server/server/wrangler.json  # deploy
 ```
+
+On Astro 5, `@astrojs/cloudflare` 12 builds for Cloudflare **Pages** instead:
+`storybook-server/` holds the UI and `_worker.js`. Add a `wrangler.jsonc` with
+`"pages_build_output_dir": "./storybook-server"` and the `nodejs_compat` flag,
+then use `wrangler pages dev` and `wrangler pages deploy`.
 
 Without a Wrangler config of your own, the adapter uses a minimal one named
 after `cloudflare({ name: 'my-storybook' })` with the `nodejs_compat` flag.
@@ -123,7 +142,8 @@ MSW's Node interceptors don't run on Workers; mock `fetch` in a story rule inste
 | Any static host | Static |
 | Node.js server or container | Server with `node()` |
 | Vercel | Server with `vercel()` |
-| Cloudflare Workers | Server with `cloudflare()` |
+| Netlify | Server with `netlify()` |
+| Cloudflare Workers (Pages on Astro 5) | Server with `cloudflare()` |
 
 Another host works if Astro has an adapter for it: a `ServerAdapter`
 (exported from `@storybook-astro/framework/adapters`) is a name and a

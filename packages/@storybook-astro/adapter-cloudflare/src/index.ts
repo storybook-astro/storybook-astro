@@ -47,7 +47,8 @@ export function cloudflare({ name = 'storybook', ...options }: CloudflareAdapter
     astroConfig: { session: { driver: 'memory' } as unknown as AstroInlineConfig['session'] },
     nextSteps: [
       'Preview locally with: wrangler dev -c storybook-server/server/wrangler.json',
-      'Deploy with: wrangler deploy -c storybook-server/server/wrangler.json'
+      'Deploy with: wrangler deploy -c storybook-server/server/wrangler.json',
+      '(Astro 5 builds for Cloudflare Pages instead: wrangler pages dev / wrangler pages deploy storybook-server)'
     ].join('\n')
   };
 }

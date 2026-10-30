@@ -1,0 +1,8 @@
+// Cloudflare Pages project for the build @astrojs/cloudflare 12 writes to
+// storybook-server/ (static UI plus _worker.js).
+{
+  "name": "storybook-astro5-server",
+  "pages_build_output_dir": "./storybook-server",
+  "compatibility_date": "2026-04-15",
+  "compatibility_flags": ["nodejs_compat"]
+}
