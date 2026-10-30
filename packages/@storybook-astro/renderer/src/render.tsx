@@ -1,5 +1,4 @@
-import { DOCS_RENDERED } from 'storybook/internal/core-events';
-import { addons, simulateDOMContentLoaded, simulatePageLoad } from 'storybook/internal/preview-api';
+import { simulateDOMContentLoaded, simulatePageLoad } from 'storybook/internal/preview-api';
 import type {
   ArgsStoryFn,
   Renderer,
@@ -14,7 +13,6 @@ import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
 import {
   addStylesheetBeforeStoryStyles,
-  clearHiddenCanvases,
   moveStoryStylesToHead,
   removeStoryStyles
 } from './storyStyles.ts';
@@ -133,8 +131,6 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
-  clearHiddenCanvases();
-
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     removeStoryStyles(canvasElement);
     showMain();
@@ -155,14 +151,12 @@ export async function renderToCanvas(
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
     // Storybook calls this when it removes the story: on navigation, on a
-    // remount, and for each story on a Docs page when the page goes. A canvas
-    // still in the page keeps its story until the next render replaces it (see
-    // clearHiddenCanvases). One that has left, as when a Docs page closes,
-    // has nothing to replace it, so its CSS goes now.
+    // remount, for each story on a Docs page when the page goes, and after
+    // each portable story run. The markup goes with its CSS, so the old story
+    // never shows unstyled while the next one renders.
     const teardownAstroRender = () => {
-      if (!canvasElement.isConnected) {
-        removeStoryStyles(canvasElement);
-      }
+      removeStoryStyles(canvasElement);
+      canvasElement.innerHTML = '';
     };
 
     try {
@@ -400,17 +394,4 @@ function isAstroServerUnavailableError(error: unknown): error is Error {
   }
 
   astroRenderer.init?.();
-  clearCanvasesWhenDocsPagesRender();
 })();
-
-/**
- * A Docs page with no stories, such as an MDX page, never calls
- * `renderToCanvas`, so the story canvas it hides would keep its CSS. Storybook
- * announces every rendered Docs page, so it's cleared then. `ready()` waits
- * for the preview's real channel.
- */
-async function clearCanvasesWhenDocsPagesRender() {
-  const channel = await addons.ready();
-
-  channel.on(DOCS_RENDERED, clearHiddenCanvases);
-}

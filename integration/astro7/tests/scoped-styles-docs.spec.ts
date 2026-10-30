@@ -43,23 +43,16 @@ test.describe('Scoped styles across Docs pages', () => {
 });
 
 test.describe('Scoped styles across stories', () => {
-  test('the old story stays on screen until the next one replaces it', async ({ page }) => {
+  test('switching stories replaces the last story\'s CSS', async ({ page }) => {
     const preview = page.frameLocator('#storybook-preview-iframe');
+    const headCss = () =>
+      preview
+        .locator('head style[data-storybook-astro-styles]')
+        .evaluateAll((styles) => styles.map((style) => style.textContent).join('\n'));
 
     await page.goto('/?path=/story/astro-scoped-styles-class-name-collision--same-class-name');
     await expect(preview.getByTestId('red-title')).toBeVisible({ timeout: 30_000 });
-
-    // Records whether the canvas is ever empty while the next story renders.
-    await preview.locator('#storybook-root').evaluate((root) => {
-      const observedWindow = window as typeof window & { canvasWentBlank?: boolean };
-
-      observedWindow.canvasWentBlank = false;
-      new MutationObserver(() => {
-        if (root.childElementCount === 0) {
-          observedWindow.canvasWentBlank = true;
-        }
-      }).observe(root, { childList: true });
-    });
+    expect(await headCss()).toContain('.title[');
 
     // Straight to the next story. Clicking its component in the sidebar would
     // open the component's Docs page on the way.
@@ -75,10 +68,6 @@ test.describe('Scoped styles across stories', () => {
     );
     await expect(preview.getByTestId('slot-list')).toBeVisible();
 
-    const canvasWentBlank = await preview
-      .locator('#storybook-root')
-      .evaluate(() => (window as typeof window & { canvasWentBlank?: boolean }).canvasWentBlank);
-
-    expect(canvasWentBlank).toBe(false);
+    await expect.poll(headCss).not.toContain('.title[');
   });
 });
