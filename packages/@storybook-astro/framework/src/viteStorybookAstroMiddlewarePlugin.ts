@@ -10,7 +10,7 @@ import {
   type ViteDevServer
 } from 'vite';
 import {
-  STORY_STYLE_ATTRIBUTE,
+  FONT_STYLE_ATTRIBUTE,
   type RenderRequestMessage,
   type RenderResponseMessage
 } from '@storybook-astro/renderer/types';
@@ -93,11 +93,11 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
           // a full page, so Astro's font pipeline never gets to write them into
           // a <head>. Prepending a <style> block to the fragment is the
           // equivalent — @font-face and :root rules apply globally wherever
-          // the <style> element appears in the document. It carries the story
-          // style attribute so the renderer moves it into the head with the
-          // component CSS, and the story markup stays the canvas's first child.
+          // the <style> element appears in the document. Its attribute tells
+          // the renderer to move it into the head, so the story markup stays
+          // the canvas's first child.
           const html = fontCss
-            ? `<style ${STORY_STYLE_ATTRIBUTE}>\n${fontCss}\n</style>${componentHtml}`
+            ? `<style ${FONT_STYLE_ATTRIBUTE}>\n${fontCss}\n</style>${componentHtml}`
             : componentHtml;
 
           server.ws.send('astro:render:response', {

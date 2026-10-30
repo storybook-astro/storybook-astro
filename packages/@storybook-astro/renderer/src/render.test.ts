@@ -148,6 +148,38 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
     expect(headCss()).toEqual([]);
   });
 
+  test('belongs to the newer story when a slow response arrives after it', async () => {
+    const slowRender = serverWaits();
+    const slowRendering = renderAstro(canvas);
+
+    serverRespondsWith('second');
+    const teardown = await renderAstro(canvas);
+
+    slowRender.respond('first');
+    await slowRendering;
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+
+    await teardown?.();
+
+    expect(canvas.innerHTML).toBe('');
+    expect(headCss()).toEqual([]);
+  });
+
+  test('keeps a newer story when an older render fails after it', async () => {
+    const slowRender = serverWaits();
+    const slowRendering = renderAstro(canvas);
+
+    serverRespondsWith('second');
+    await renderAstro(canvas);
+
+    slowRender.fail();
+    await expect(slowRendering).rejects.toThrow('Render failed');
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(headCss()).toEqual(['.second {}']);
+  });
+
   test('leaves a framework story alone when it runs late', async () => {
     serverRespondsWith('first');
     const lateTeardown = await renderAstro(canvas);
@@ -157,5 +189,17 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
 
     expect(canvas.innerHTML).toBe('<div>react</div>');
     expect(headCss()).toEqual([]);
+  });
+});
+
+describe('the teardown renderToCanvas returns for a framework story', () => {
+  test('leaves a newer story alone when it runs late', async () => {
+    const reactStory = storyContext(() => null, { renderer: 'react' });
+    const lateTeardown = await renderToCanvas(reactStory, canvas);
+
+    await renderToCanvas(reactStory, canvas);
+    await lateTeardown?.();
+
+    expect(canvas.innerHTML).toBe('<div>react</div>');
   });
 });

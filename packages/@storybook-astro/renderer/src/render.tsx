@@ -109,26 +109,29 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
 // story canvas — stacking two components until a reload.
 const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 
-// The render each canvas shows. Every render that writes into a canvas gets a
-// new entry, and a teardown only clears the canvas while it still shows the
+// Each render into a canvas gets its own token. The latest token is the last
+// render that started, and only it may write the server's response, so a slow
+// response can't replace a newer story. The shown token is the render on the
+// canvas, and a teardown only clears the canvas while it still shows the
 // teardown's own render. A Docs story block runs its teardown a microtask
 // late, after the next render into the same canvas may have written, and that
 // late teardown must leave the new story alone.
+const latestRenderByCanvas = new WeakMap<HTMLElement, object>();
 const shownRenderByCanvas = new WeakMap<HTMLElement, object>();
 
-function recordRenderShown(canvasElement: HTMLElement) {
-  shownRenderByCanvas.set(canvasElement, {});
-}
-
-/** Clears an Astro render's markup and CSS, unless the canvas has moved on to a newer render. */
-function teardownAstroRender(canvasElement: HTMLElement, render: object): TeardownRenderToCanvas {
-  return () => {
-    if (shownRenderByCanvas.get(canvasElement) !== render) {
+/** Runs a teardown only while the canvas still shows the render it belongs to. */
+function teardownWhileShown(
+  canvasElement: HTMLElement,
+  renderToken: object,
+  teardown: () => void | Promise<void>
+): TeardownRenderToCanvas {
+  return async () => {
+    if (shownRenderByCanvas.get(canvasElement) !== renderToken) {
       return;
     }
 
     shownRenderByCanvas.delete(canvasElement);
-    clearAstroRender(canvasElement);
+    await teardown();
   };
 }
 
@@ -160,11 +163,15 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
+  const thisRender = {};
+
+  latestRenderByCanvas.set(canvasElement, thisRender);
+
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
-    // Recorded before the framework mounts, since it can mount at any point
-    // during the call. A late teardown of an earlier Astro render then leaves
-    // the canvas alone, so this removes that render's CSS instead.
-    recordRenderShown(canvasElement);
+    // Shown from the start, since the framework can mount at any point during
+    // the call. A late teardown of an earlier Astro render then leaves the
+    // canvas alone, so this removes that render's CSS instead.
+    shownRenderByCanvas.set(canvasElement, thisRender);
     removeStoryStyles(canvasElement);
     showMain();
     const teardown = await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
@@ -174,8 +181,8 @@ export async function renderToCanvas(
     }
 
     // The framework's own teardown unmounts its root when Storybook removes
-    // the story, with the same timing as under that framework's renderer.
-    return teardown;
+    // the story, as it would under that framework's renderer.
+    return teardown && teardownWhileShown(canvasElement, thisRender, teardown);
   }
 
   const element = storyFn();
@@ -183,16 +190,14 @@ export async function renderToCanvas(
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
-    const renderShownBefore = shownRenderByCanvas.get(canvasElement);
-
     try {
-      await renderAstroToCanvas(element, storyContext.args, canvasElement, storyContext);
+      await renderAstroToCanvas(element, storyContext.args, canvasElement, thisRender, storyContext);
     } catch (error) {
       // Storybook keeps the last render's teardown when a render throws, and
       // that teardown no longer matches once this render has written, so
-      // clean up here. A render that failed before writing leaves the last
-      // render on the canvas for its teardown, with the error shown over it.
-      if (shownRenderByCanvas.get(canvasElement) !== renderShownBefore) {
+      // clean up here. A render that failed before writing leaves the canvas
+      // to whichever render it shows, with the error shown over it.
+      if (shownRenderByCanvas.get(canvasElement) === thisRender) {
         shownRenderByCanvas.delete(canvasElement);
         clearAstroRender(canvasElement);
       }
@@ -212,17 +217,21 @@ export async function renderToCanvas(
 
     // Storybook calls this when it removes the story: on navigation, on a
     // remount, for each story on a Docs page when the page goes, and at the
-    // start of the next portable story run. After a server error it tears
-    // down whatever render the canvas still shows.
+    // start of the next portable story run. It replaces the teardown Storybook
+    // held, so when this render didn't write (a server error, or a newer
+    // render took over) it clears whatever render the canvas shows instead.
     const shownRender = shownRenderByCanvas.get(canvasElement);
 
-    return shownRender && teardownAstroRender(canvasElement, shownRender);
+    return (
+      shownRender &&
+      teardownWhileShown(canvasElement, shownRender, () => clearAstroRender(canvasElement))
+    );
   }
 
   // A story that rendered Astro before can return something else on a
   // rerender, and Storybook then drops the teardown that would remove its CSS.
   removeStoryStyles(canvasElement);
-  recordRenderShown(canvasElement);
+  shownRenderByCanvas.set(canvasElement, thisRender);
 
   if (typeof element === 'string') {
     canvasElement.innerHTML = element;
@@ -266,6 +275,7 @@ async function renderAstroToCanvas(
   element: AstroComponentFactory | AstroComponentSlot | SlotValue[],
   args: Record<string, unknown>,
   canvasElement: HTMLElement,
+  renderToken: object,
   storyContext?: StoryContext<AstroRenderer>
 ): Promise<void> {
   // An undecorated story's root moduleId is `element` itself. A decorated tree
@@ -298,9 +308,15 @@ async function renderAstroToCanvas(
       : undefined
   });
 
+  // A newer render into this canvas started while this one waited on the
+  // server, so this response is out of date.
+  if (latestRenderByCanvas.get(canvasElement) !== renderToken) {
+    return;
+  }
+
   astroRenderer.applyStyles?.();
   canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement, storyContext?.viewMode);
-  recordRenderShown(canvasElement);
+  shownRenderByCanvas.set(canvasElement, renderToken);
   invokeScriptTags(canvasElement);
 }
 

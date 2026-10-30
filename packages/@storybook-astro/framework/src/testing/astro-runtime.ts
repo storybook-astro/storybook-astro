@@ -227,9 +227,11 @@ async function renderAstroComponentToDom(
     : undefined;
 
   if (moduleId) {
+    let html: string | undefined;
+
     try {
       // Fast path: reuse a single shared SSR daemon instead of spinning SSR in each worker.
-      const html = await renderViaTestingRendererDaemon({
+      const daemonHtml = await renderViaTestingRendererDaemon({
         resolveFrom,
         component: moduleId,
         args: serializedArgs,
@@ -237,25 +239,32 @@ async function renderAstroComponentToDom(
         node
       });
 
-      if (typeof html === 'string') {
-        return setRenderedHtml(html);
+      if (typeof daemonHtml === 'string') {
+        html = daemonHtml;
       }
     } catch {
       // Fall back to in-worker rendering below when daemon render fails.
     }
 
-    try {
-      const handler = await getAstroSsrHandler(resolveFrom);
-      const html = await handler({
-        component: moduleId,
-        args: serializedArgs,
-        slots: serializedSlots,
-        node
-      });
+    if (html === undefined) {
+      try {
+        const handler = await getAstroSsrHandler(resolveFrom);
 
+        html = await handler({
+          component: moduleId,
+          args: serializedArgs,
+          slots: serializedSlots,
+          node
+        });
+      } catch {
+        // Fall back to direct Container rendering below
+      }
+    }
+
+    // Outside the try blocks, so an error writing the page isn't taken for a
+    // failed render.
+    if (html !== undefined) {
       return setRenderedHtml(html);
-    } catch {
-      // Fall back to direct Container rendering below
     }
   }
 
