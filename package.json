@@ -7,7 +7,7 @@
     "node": ">=20.16.0 || >=22.19.0 || >=24.0.0"
   },
   "scripts": {
-    "dev": "yarn build:packages && yarn workspaces foreach -A --parallel --interlaced --exclude '@storybook-astro/{integration-astro6-server,integration-astro7-server}' run dev",
+    "dev": "yarn build:packages && yarn workspaces foreach -A --parallel --interlaced --exclude '@storybook-astro/{integration-astro5-server,integration-astro6-server,integration-astro7-server}' run dev",
     "dev:packages": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{framework,renderer}' run dev",
     "website": "yarn workspace @storybook-astro/website dev",
     "build": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced --exclude '@storybook-astro/{framework,renderer}' run build",

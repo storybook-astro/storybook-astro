@@ -1,21 +1,25 @@
-# Astro 6 Server Build on Vercel
+# Astro 6 Server Build
 
-This integration app exercises the production `server` render mode with Astro 6.
-
-It intentionally includes only Astro stories that perform server-side work:
-
-- npm weekly downloads
-- GitHub contributors
-- GitHub stars
-
-The Storybook static app calls the generated Astro render server through `/api/storybook-astro/render`, which is wrapped by `api/storybook-astro/[...path].js` for Vercel.
-
-Build and preview the production artifacts locally with:
+The adapter in `.storybook/main.js` packages the build for Vercel or Node.
 
 ```bash
-yarn dev
+# From the repository root:
+yarn build:packages
+
+# From this app directory:
 yarn build
-yarn serve
+vercel deploy --prebuilt
+yarn build:node
+PORT=3000 node storybook-node/server.mjs
 ```
 
-`serve` is package-owned deployment glue for this Vercel variant. It serves `storybook-static` and mounts the generated Hono app from `storybook-server/index.js` at `/api/storybook-astro`, so local tests hit the same built server-mode boundary as deployment.
+For Vercel Git builds, use Root Directory `integration/astro6-server`, allow
+source files outside it, and build the framework packages before this app.
+Select the Other framework preset. Build on Linux with the deployment's Node
+version and CPU architecture.
+
+Run `yarn test:browser` for rendering and Controls tests. From the repository
+root, `node scripts/test-server-adapter.mjs integration/astro6-server` tests
+the packaged Vercel function outside the workspace.
+
+See the [Deployment guide](../../apps/website/src/content/docs/guides/deployment.md).

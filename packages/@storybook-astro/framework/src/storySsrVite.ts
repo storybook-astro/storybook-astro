@@ -1,9 +1,19 @@
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createServer, mergeConfig, type Plugin, type ViteDevServer } from 'vite';
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { ensureAstroPassthroughImageService, storybookImageServiceConfig } from './astroImageService.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
+import {
+  appendUserVitePlugins,
+  loadUserAstroVitePlugins,
+  loadUserAstroViteResolveAlias,
+  mergeFrameworkAndUserIntegrations
+} from './loadUserAstroConfig.ts';
+import { FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import {

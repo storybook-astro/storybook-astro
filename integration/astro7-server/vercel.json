@@ -1,4 +1,5 @@
 {
-  "buildCommand": "cd ../.. && yarn build:packages && cd - && yarn build",
-  "outputDirectory": "storybook-static"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "cd ../.. && yarn build:packages && cd - && yarn build"
 }
