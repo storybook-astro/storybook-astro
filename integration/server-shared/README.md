@@ -5,7 +5,8 @@ Storybook in server mode for each Astro major and host. This workspace holds
 what they share: the story rules (`story-rules.ts`, which mocks `fetch` for a
 render since MSW's Node interceptors don't run on Cloudflare), the Playwright
 suite (`server-mode-tests.ts`) and the local preview for Vercel and Netlify
-builds (`serve-build.mjs`).
+builds (`serve-build.mjs`, a small Hono server: neither `@astrojs/vercel` nor
+`@astrojs/netlify` supports `astro preview`).
 
 | App | Storybook dev | Local preview | Host output |
 | --- | --- | --- | --- |

@@ -8,8 +8,10 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.6",
     "@storybook-astro/components": "workspace:*",
-    "@storybook-astro/framework": "workspace:*"
+    "@storybook-astro/framework": "workspace:*",
+    "hono": "^4.11.12"
   },
   "devDependencies": {
     "@playwright/test": "1.60.0",
