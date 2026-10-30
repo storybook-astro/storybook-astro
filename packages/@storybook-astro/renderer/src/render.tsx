@@ -109,6 +109,11 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
 // story canvas — stacking two components until a reload.
 const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 
+// The render whose teardown may still clear each canvas. A Docs story block
+// runs its teardown a microtask late, after the next render into the same
+// canvas has started, and that late teardown must leave the new story alone.
+const currentRenderByCanvas = new WeakMap<HTMLElement, object>();
+
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
   canvasElement: HTMLElement
@@ -131,7 +136,14 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
+  const previousRender = currentRenderByCanvas.get(canvasElement);
+  const thisRender = {};
+
+  currentRenderByCanvas.set(canvasElement, thisRender);
+
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
+    // An Astro render's late teardown no longer clears this canvas.
+    removeStoryStyles(canvasElement);
     showMain();
     const teardown = await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
@@ -150,10 +162,15 @@ export async function renderToCanvas(
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
     // Storybook calls this when it removes the story: on navigation, on a
-    // remount, for each story on a Docs page when the page goes, and after
-    // each portable story run. The markup goes with its CSS, so the old story
-    // never shows unstyled while the next one renders.
+    // remount, for each story on a Docs page when the page goes, and at the
+    // start of the next portable story run. The markup goes with its CSS, so
+    // the old story never shows unstyled while the next one renders.
     const teardownAstroRender = () => {
+      if (currentRenderByCanvas.get(canvasElement) !== thisRender) {
+        return;
+      }
+
+      currentRenderByCanvas.delete(canvasElement);
       removeStoryStyles(canvasElement);
       canvasElement.innerHTML = '';
     };
@@ -174,9 +191,16 @@ export async function renderToCanvas(
         return teardownAstroRender;
       }
 
-      // Storybook gets no teardown from a render that throws, so nothing else
-      // would remove CSS it already moved into the head.
-      teardownAstroRender();
+      // Storybook keeps the last render's teardown when a rerender throws, so
+      // the canvas goes back to that teardown and the error shows over the
+      // last render. A first render has no teardown to fall back on and
+      // cleans up after itself.
+      if (previousRender) {
+        currentRenderByCanvas.set(canvasElement, previousRender);
+      } else {
+        teardownAstroRender();
+      }
+
       throw error;
     }
 
