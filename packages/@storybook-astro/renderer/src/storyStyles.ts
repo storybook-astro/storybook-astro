@@ -12,23 +12,26 @@ const stylesByCanvas = new Map<Element, HTMLStyleElement[]>();
  * styles replace the ones this canvas's last render put there, so CSS deleted
  * in an edit stops applying.
  *
- * Head is where Astro component CSS went before #189 too, so new styles go to
- * its end, in cascade order.
+ * Head is where Astro component CSS went before #189 too, so a first render's
+ * styles go to its end, in cascade order. A rerender puts its styles where the
+ * last render's were, so a Controls change on a Docs page doesn't reorder the
+ * page's CSS.
+ *
+ * The styles go in even when the canvas isn't in the page yet, since a caller
+ * can attach it after rendering. If it never is, the next render clears them.
  */
 export function moveStoryStylesToHead(fragment: DocumentFragment, canvasElement: Element) {
   const styles = Array.from(fragment.querySelectorAll<HTMLStyleElement>(STORY_STYLE));
+  const previousStyles = stylesByCanvas.get(canvasElement) ?? [];
+  const previousPlace = previousStyles.find((style) => style.isConnected);
 
-  styles.forEach((style) => style.remove());
-  removeStoryStyles(canvasElement);
-
-  // A canvas can leave the page without a teardown, as when a Docs story's
-  // rerender fails and Storybook replaces it with the error. Its CSS has
-  // nothing left to style.
-  if (!canvasElement.isConnected) {
-    return;
+  if (previousPlace) {
+    previousPlace.before(...styles);
+  } else {
+    canvasElement.ownerDocument.head.append(...styles);
   }
 
-  canvasElement.ownerDocument.head.append(...styles);
+  previousStyles.forEach((style) => style.remove());
   stylesByCanvas.set(canvasElement, styles);
 }
 
@@ -38,22 +41,25 @@ export function removeStoryStyles(canvasElement: Element) {
   stylesByCanvas.delete(canvasElement);
 }
 
+// Storybook hides whichever of its two roots isn't showing with `hidden`.
+const HIDDEN_STORYBOOK_ROOT = '#storybook-root[hidden], #storybook-docs[hidden]';
+
 /**
- * Clears the canvases that no longer show a story, as each render starts and
- * when a Docs page has rendered: canvases that have left the page, as when a
- * Docs page closes, and, on a Docs page, the story canvas it hides. The hidden
- * canvas loses its markup too, so going back to the story doesn't show it
- * unstyled while the next render is on its way.
+ * Clears the canvases that no longer show a story, removing their CSS and
+ * markup, as each render starts and when a Docs page has rendered. Those are
+ * canvases that have left the page, as when a Docs page closes, and canvases
+ * in whichever Storybook root is hidden: the story canvas while a Docs page
+ * shows, and a Docs page's canvases while a story shows. The markup goes too,
+ * so going back to a story doesn't show the old one unstyled while the next
+ * render is on its way.
  *
  * A canvas still on screen keeps its story and CSS until the next render into
  * it replaces both, so moving between stories never shows the old one blank
  * or unstyled during the server round trip.
  */
-export function removeHiddenStoryStyles(viewMode: string | undefined) {
+export function clearHiddenCanvases() {
   stylesByCanvas.forEach((_, canvas) => {
-    const hiddenByDocs = viewMode === 'docs' && !canvas.closest('#storybook-docs');
-
-    if (!canvas.isConnected || hiddenByDocs) {
+    if (!canvas.isConnected || canvas.closest(HIDDEN_STORYBOOK_ROOT)) {
       removeStoryStyles(canvas);
       canvas.replaceChildren();
     }

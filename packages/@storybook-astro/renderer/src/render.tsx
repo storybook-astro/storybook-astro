@@ -12,7 +12,7 @@ import 'astro:scripts/page.js';
 import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
 import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
-import { moveStoryStylesToHead, removeHiddenStoryStyles, removeStoryStyles } from './storyStyles.ts';
+import { clearHiddenCanvases, moveStoryStylesToHead, removeStoryStyles } from './storyStyles.ts';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -120,7 +120,7 @@ function listenForDocsPages() {
   }
 
   listeningForDocsPages = true;
-  addons.getChannel().on(DOCS_RENDERED, () => removeHiddenStoryStyles('docs'));
+  addons.getChannel().on(DOCS_RENDERED, clearHiddenCanvases);
 }
 
 export async function renderToCanvas(
@@ -146,7 +146,7 @@ export async function renderToCanvas(
   lastRendererByCanvas.set(canvasElement, renderer);
 
   listenForDocsPages();
-  removeHiddenStoryStyles(storyContext?.viewMode);
+  clearHiddenCanvases();
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     removeStoryStyles(canvasElement);
@@ -170,7 +170,7 @@ export async function renderToCanvas(
     // Storybook calls this when it removes the story: on navigation, on a
     // remount, and for each story on a Docs page when the page goes. A canvas
     // still in the page keeps its story until the next render replaces it (see
-    // removeHiddenStoryStyles). One that has left, as when a Docs page closes,
+    // clearHiddenCanvases). One that has left, as when a Docs page closes,
     // has nothing to replace it, so its CSS goes now.
     const teardownAstroRender = () => {
       if (!canvasElement.isConnected) {

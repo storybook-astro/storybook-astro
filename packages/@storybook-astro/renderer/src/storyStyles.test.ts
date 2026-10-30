@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, test } from 'vitest';
-import { moveStoryStylesToHead, removeHiddenStoryStyles, removeStoryStyles } from './storyStyles.ts';
+import { clearHiddenCanvases, moveStoryStylesToHead, removeStoryStyles } from './storyStyles.ts';
 
 const styleFor = (css: string) => `<style data-storybook-astro-styles>${css}</style>`;
 
@@ -27,7 +27,7 @@ function createCanvas(parent: HTMLElement = document.body) {
 beforeEach(() => {
   // Drops the last test's canvases, and with them the module's record of them.
   document.body.innerHTML = '';
-  removeHiddenStoryStyles('story');
+  clearHiddenCanvases();
   document.head.innerHTML = '<style id="global">body { margin: 0; }</style>';
 });
 
@@ -59,7 +59,7 @@ describe('moveStoryStylesToHead', () => {
     renderInto(badgeCanvas, `${styleFor('.badge {}')}<span></span>`);
     renderInto(cardCanvas, `${styleFor('.card { color: blue; }')}<div></div>`);
 
-    expect(headCss()).toEqual(['.badge {}', '.card { color: blue; }']);
+    expect(headCss()).toEqual(['.card { color: blue; }', '.badge {}']);
   });
 });
 
@@ -87,14 +87,27 @@ describe('removeStoryStyles', () => {
   });
 });
 
-describe('removeHiddenStoryStyles', () => {
-  test('keeps the CSS of a story still on screen until the next story replaces it', () => {
-    const canvas = createCanvas();
+describe('clearHiddenCanvases', () => {
+  /** Storybook's two roots, with the one that isn't showing hidden. */
+  function createStorybookRoots(showing: 'story' | 'docs') {
+    const storyRoot = createCanvas();
+    const docsRoot = document.createElement('div');
 
-    renderInto(canvas, `${styleFor('.card {}')}<div>card</div>`);
-    removeHiddenStoryStyles('story');
+    storyRoot.id = 'storybook-root';
+    docsRoot.id = 'storybook-docs';
+    document.body.appendChild(docsRoot);
+    (showing === 'docs' ? storyRoot : docsRoot).setAttribute('hidden', 'true');
 
-    expect(canvas.innerHTML).toBe('<div>card</div>');
+    return { storyRoot, docsCanvas: createCanvas(docsRoot) };
+  }
+
+  test('keeps a story on screen, and its CSS, even when a slow Docs page finishes late', () => {
+    const { storyRoot } = createStorybookRoots('story');
+
+    renderInto(storyRoot, `${styleFor('.card {}')}<div>card</div>`);
+    clearHiddenCanvases();
+
+    expect(storyRoot.innerHTML).toBe('<div>card</div>');
     expect(headCss()).toEqual(['.card {}']);
   });
 
@@ -103,38 +116,44 @@ describe('removeHiddenStoryStyles', () => {
 
     renderInto(docsCanvas, `${styleFor('.card {}')}<div>card</div>`);
     docsCanvas.remove();
-    removeHiddenStoryStyles('story');
+    clearHiddenCanvases();
 
     expect(headCss()).toEqual([]);
   });
 
-  test('removes the story canvas\'s CSS when a Docs page renders, and keeps the Docs stories\'', () => {
-    const storyCanvas = createCanvas();
-    const docsRoot = document.createElement('div');
+  test('clears the story canvas a Docs page hides, and keeps the Docs stories', () => {
+    const { storyRoot, docsCanvas } = createStorybookRoots('docs');
 
-    docsRoot.id = 'storybook-docs';
-    document.body.appendChild(docsRoot);
-
-    const docsCanvas = createCanvas(docsRoot);
-
-    renderInto(storyCanvas, `${styleFor('.card {}')}<div>card</div>`);
+    renderInto(storyRoot, `${styleFor('.card {}')}<div>card</div>`);
     renderInto(docsCanvas, `${styleFor('.badge {}')}<span>badge</span>`);
-    removeHiddenStoryStyles('docs');
+    clearHiddenCanvases();
 
     expect(headCss()).toEqual(['.badge {}']);
-    expect(storyCanvas.innerHTML).toBe('');
+    expect(storyRoot.innerHTML).toBe('');
     expect(docsCanvas.innerHTML).toBe('<span>badge</span>');
   });
 });
 
-describe('a canvas no longer in the page', () => {
-  test('gets no CSS in the head', () => {
-    const canvas = createCanvas();
+describe('a canvas not in the page yet', () => {
+  test('gets its CSS, so it is styled once attached', () => {
+    const canvas = document.createElement('div');
 
-    canvas.remove();
-    renderInto(canvas, `${styleFor(':global(body) {}')}<div>card</div>`);
+    renderInto(canvas, `${styleFor('.card {}')}<div>card</div>`);
+    document.body.appendChild(canvas);
 
-    expect(headCss()).toEqual([]);
-    expect(canvas.innerHTML).toBe('<div>card</div>');
+    expect(headCss()).toEqual(['.card {}']);
+  });
+});
+
+describe('CSS order on a Docs page', () => {
+  test('stays the same when one story rerenders', () => {
+    const cardCanvas = createCanvas();
+    const badgeCanvas = createCanvas();
+
+    renderInto(cardCanvas, `${styleFor('.card {}')}<div></div>`);
+    renderInto(badgeCanvas, `${styleFor('.badge {}')}<span></span>`);
+    renderInto(cardCanvas, `${styleFor('.card { color: blue; }')}<div></div>`);
+
+    expect(headCss()).toEqual(['.card { color: blue; }', '.badge {}']);
   });
 });
