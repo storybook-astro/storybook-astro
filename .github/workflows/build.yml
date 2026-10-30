@@ -119,29 +119,33 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Browser tests (Astro 7 server)
+      # Each app builds with the Node adapter and runs Playwright against its
+      # standalone server.
+      - name: Browser tests (Astro 7 server, Node)
         run: yarn workspace @storybook-astro/integration-astro7-server test:browser
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
-      - name: Browser tests (Astro 6 server)
+      - name: Browser tests (Astro 6 server, Node)
         run: yarn workspace @storybook-astro/integration-astro6-server test:browser
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
-      - name: Browser tests (Astro 5 server)
+      - name: Browser tests (Astro 5 server, Node)
         run: yarn workspace @storybook-astro/integration-astro5-server test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Browser tests (Astro 6 server, Cloudflare Workers)
+        run: yarn workspace @storybook-astro/integration-astro6-server-cloudflare test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Verify relocated Vercel outputs
         run: |
-          node scripts/test-server-adapter.mjs integration/astro5-server
-          node scripts/test-server-adapter.mjs integration/astro6-server
-          node scripts/test-server-adapter.mjs integration/astro7-server
-
-      - name: Verify portable Node output
-        run: |
-          yarn workspace @storybook-astro/integration-astro6-server build:node
-          node scripts/test-server-adapter.mjs integration/astro6-server node
-
-      - name: Verify isolated pnpm packaging
-        run: node scripts/test-server-adapter-pnpm.mjs
+          for app in astro5-server astro6-server astro7-server; do
+            yarn workspace @storybook-astro/integration-$app build:vercel
+            node scripts/test-server-adapter.mjs integration/$app
+          done
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1

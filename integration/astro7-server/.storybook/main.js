@@ -1,4 +1,5 @@
-import { node, vercel } from '@storybook-astro/framework/adapters';
+import { node } from '@storybook-astro/adapter-node';
+import { vercel } from '@storybook-astro/adapter-vercel';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { react, solid, preact, vue, svelte, alpinejs } from '@storybook-astro/framework/integrations';
@@ -34,7 +35,7 @@ const config = {
       renderMode: 'server',
       storyRules: './.storybook/story-rules.ts',
       server: {
-        adapter: process.env.STORYBOOK_ADAPTER === 'node' ? node() : vercel(),
+        adapter: process.env.STORYBOOK_ADAPTER === 'vercel' ? vercel() : node(),
         authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
         authHeader: process.env.STORYBOOK_ASTRO_SERVER_AUTH_HEADER
       },

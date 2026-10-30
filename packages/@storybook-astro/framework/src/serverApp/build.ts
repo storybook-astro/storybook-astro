@@ -2,7 +2,7 @@ import { mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { AstroInlineConfig } from 'astro';
+import type { AstroInlineConfig, build as astroBuild } from 'astro';
 import {
   loadUserAstroViteResolveAlias,
   loadUserAstroVitePlugins,
@@ -16,7 +16,7 @@ import { sanitizeConfigPlugin } from '../vite/sanitizeConfigPlugin.ts';
 import { serverAuthPlugin } from '../vite/serverAuthPlugin.ts';
 import { storyRulesPlugin } from '../vite/storyRulesPlugin.ts';
 import { apiRouteSource, renderPageSource, storyNodeSource } from './files.ts';
-import type { RenderPages } from './renderApi.ts';
+import type { RenderPages } from './renderRequest.ts';
 import type { StoryAstroImports } from './vitePluginStoryAstroImports.ts';
 
 type ServerFrameworkOptions = Extract<FrameworkOptions, { renderMode: 'server' }>;
@@ -104,9 +104,13 @@ export async function buildServerApp(options: {
     publicDir: options.staticDir,
     outDir: resolve(projectDir, 'storybook-server'),
     output: 'server',
-    adapter: await adapter.createAstroAdapter(appDir),
+    adapter: await adapter.createAstroAdapter({ projectDir, appDir }),
     integrations,
     devToolbar: { enabled: false },
+    // Story args carry images as the Storybook build emitted them; render
+    // them as they are, like dev and static builds do, instead of through an
+    // `/_image` endpoint that would look for them in the render app's sources.
+    image: { service: { entrypoint: '@storybook-astro/framework/image-service' } },
     // The project's Astro may use a different Vite copy than this package's
     // types come from; the config is plain objects either way.
     vite: {
@@ -192,7 +196,7 @@ function importSpecifier(fromFile: string, toFile: string) {
 }
 
 /** The project's own `astro`, so the render app is built by the Astro version it uses. */
-async function importProjectAstro(projectDir: string): Promise<typeof import('astro')> {
+async function importProjectAstro(projectDir: string): Promise<{ build: typeof astroBuild }> {
   const require = createRequire(resolve(projectDir, 'package.json'));
 
   return import(pathToFileURL(require.resolve('astro')).href);

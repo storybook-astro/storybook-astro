@@ -1,4 +1,4 @@
-import type { RenderPages } from './renderApi.ts';
+import { RENDER_REQUEST_LOCAL, type RenderPages } from './renderRequest.ts';
 
 const RUNTIME = '@storybook-astro/framework/server-app';
 
@@ -62,10 +62,18 @@ const components = {
 ${entries.map(([moduleId], index) => `  ${JSON.stringify(moduleId)}: Component${index},`).join('\n')}
 };
 
+// Set by the render API before it rewrites to this page. Requested directly,
+// without the API's auth and story rules, the page doesn't exist.
+const renderRequest = Astro.locals[${JSON.stringify(RENDER_REQUEST_LOCAL)}];
+
+if (!renderRequest) {
+  return new Response(null, { status: 404 });
+}
+
 let tree;
 
 try {
-  tree = await resolveStoryTree(await Astro.request.json(), components, sanitization);
+  tree = await resolveStoryTree(renderRequest, components, sanitization);
 } catch (error) {
   return new Response(error instanceof Error ? error.message : String(error), { status: 500 });
 }

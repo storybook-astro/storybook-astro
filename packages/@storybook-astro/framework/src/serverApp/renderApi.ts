@@ -1,3 +1,4 @@
+/* eslint n/no-unsupported-features/node-builtins: ["error", {"ignores": ["Request"]}] -- runs in the render app on Node 20+ and Workers */
 /// <reference path="../virtual.d.ts" />
 
 import type { APIContext } from 'astro';
@@ -7,6 +8,7 @@ import type { HandlerProps } from '../astroRenderHandler.ts';
 import { assertValidSlotValue } from '../lib/reconstruct-component-args.ts';
 import { runWithStoryRules } from '../storyRulesRuntime.ts';
 import { applyModuleMockSwitches } from './moduleMockSwitches.ts';
+import { RENDER_REQUEST_LOCAL, type RenderPages } from './renderRequest.ts';
 import storyRulesConfigModule, {
   storybookAstroStoryRulesConfigFilePath
 } from 'virtual:storybook-astro/story-rules';
@@ -14,12 +16,6 @@ import {
   storybookAstroServerAuthHeader,
   storybookAstroServerAuthToken
 } from 'virtual:storybook-astro/server-auth';
-
-/** Which generated render page renders a story, by story id and by component. */
-export type RenderPages = {
-  stories: Record<string, string>;
-  components: Record<string, string>;
-};
 
 /**
  * The `/api` routes of the generated render app. A render runs in this
@@ -79,13 +75,12 @@ export function createRenderApi(renderPages: RenderPages) {
           applyModuleMocks: applyModuleMockSwitches
         },
         async () => {
-          const response = await context.env.rewrite(
-            new Request(new URL(page, context.req.url), {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify(input)
-            })
-          );
+          // The page reads the request from `locals`, which a rewrite keeps;
+          // requested directly, without it, the page answers 404.
+          (context.env.locals as Record<string, unknown>)[RENDER_REQUEST_LOCAL] = input;
+
+          // A fresh request: Astro can't rewrite one whose body was already read.
+          const response = await context.env.rewrite(new Request(new URL(page, context.req.url)));
 
           return { status: response.status, html: await response.text() };
         }

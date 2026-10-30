@@ -66,6 +66,6 @@ export async function build(args: string[]): Promise<void> {
   });
 
   if (frameworkOptions.server.adapter.nextSteps) {
-    console.log(`\n[storybook-astro] ${frameworkOptions.server.adapter.nextSteps}\n`);
+    console.warn(`\n[storybook-astro] ${frameworkOptions.server.adapter.nextSteps}\n`);
   }
 }

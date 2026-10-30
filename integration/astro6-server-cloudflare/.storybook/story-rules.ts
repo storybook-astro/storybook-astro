@@ -1,3 +1,4 @@
+/* eslint n/no-unsupported-features/node-builtins: ["error", {"ignores": ["Response"]}] -- runs on Workers */
 import { defineStoryRules } from '@storybook-astro/framework/node';
 import type {
   GithubContributor,

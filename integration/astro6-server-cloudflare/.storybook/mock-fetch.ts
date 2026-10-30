@@ -1,3 +1,4 @@
+/* eslint n/no-unsupported-features/node-builtins: ["error", {"ignores": ["fetch", "Request", "Response"]}] -- runs on Workers */
 /**
  * Answers matching `fetch` requests for one render and returns the cleanup that
  * restores the real `fetch`. Renders run one at a time, so a story's mock never

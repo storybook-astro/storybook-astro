@@ -51,3 +51,12 @@ test('POST /api/render rejects a malformed decorator node', async ({ request }) 
 
   expect(response.status()).toBe(400);
 });
+
+test('render pages are reachable only through the render API', async ({ request }) => {
+  // Requested directly, a render page would skip the API's auth and story rules.
+  const response = await request.post('/storybook-astro/render/0', {
+    data: { component: githubStarsComponent, args: {}, slots: {} },
+  });
+
+  expect(response.status()).toBe(404);
+});

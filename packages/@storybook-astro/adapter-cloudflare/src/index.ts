@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import astroCloudflare from '@astrojs/cloudflare';
-import type { ServerAdapter } from '@storybook-astro/framework/adapters';
+import type astroCloudflare from '@astrojs/cloudflare';
+import { importFromProject, type ServerAdapter } from '@storybook-astro/framework/adapters';
 import type { AstroInlineConfig } from 'astro';
 
 export type CloudflareAdapterOptions = NonNullable<Parameters<typeof astroCloudflare>[0]> & {
@@ -12,26 +12,27 @@ export type CloudflareAdapterOptions = NonNullable<Parameters<typeof astroCloudf
 /**
  * Deploys server mode to Cloudflare Workers: one Worker serves the Storybook
  * UI as static assets and renders Astro stories at `/api`. Built with
- * `@astrojs/cloudflare`, so the Worker runs the compiled render app and never
+ * the project's `@astrojs/cloudflare`, so the Worker runs the compiled render app and never
  * starts Vite.
  */
 export function cloudflare({ name = 'storybook', ...options }: CloudflareAdapterOptions = {}): ServerAdapter {
   return {
     name: 'cloudflare',
-    async createAstroAdapter(appDir) {
+    async createAstroAdapter({ projectDir, appDir }) {
+      const { default: createAdapter } = await importFromProject<{ default: typeof astroCloudflare }>(projectDir, '@astrojs/cloudflare');
       let configPath = options.configPath;
 
       // Without a Wrangler config of your own, write a minimal one: the render
       // runtime's HTML sanitizer needs Node.js APIs on Workers.
       if (!configPath) {
         configPath = resolve(appDir, 'wrangler.jsonc');
-        await writeFile(
-          configPath,
-          `${JSON.stringify({ name, compatibility_flags: ['nodejs_compat'] }, null, 2)}\n`
-        );
+        // eslint-disable-next-line camelcase -- Wrangler's config key
+        const wranglerConfig = { name, compatibility_flags: ['nodejs_compat'] };
+
+        await writeFile(configPath, `${JSON.stringify(wranglerConfig, null, 2)}\n`);
       }
 
-      return astroCloudflare({
+      return createAdapter({
         // Images are served as they are, instead of through a Cloudflare
         // Images binding the account may not have.
         imageService: 'passthrough',
