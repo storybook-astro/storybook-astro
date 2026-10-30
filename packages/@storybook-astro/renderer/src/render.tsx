@@ -11,7 +11,7 @@ import 'astro:scripts/page.js';
 import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
 import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
-import { moveStoryStylesToHead, removeStoryStyles } from './storyStyles.ts';
+import { moveStoryStylesToHead, removeStoryStyles, startCanvasRender } from './storyStyles.ts';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -127,7 +127,12 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
+  // Every render starts here, so it can settle the canvases whose stories
+  // Storybook removed (see storyStyles.ts).
+  const teardownAstroRender = startCanvasRender(canvasElement);
+
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
+    removeStoryStyles(canvasElement);
     showMain();
     const teardown = await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
@@ -145,15 +150,6 @@ export async function renderToCanvas(
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
-    // Storybook calls this when it removes the story: on navigation, on a
-    // remount, and for each story on a Docs page when the page goes. The
-    // markup goes with its CSS, so the old story doesn't show unstyled while
-    // the next one renders.
-    const teardown = () => {
-      removeStoryStyles(canvasElement);
-      canvasElement.innerHTML = '';
-    };
-
     try {
       await renderAstroToCanvas(element, storyContext.args, canvasElement, storyContext);
     } catch (error) {
@@ -167,14 +163,18 @@ export async function renderToCanvas(
         });
 
         // A rerender can land here, with the last render's CSS still in the head.
-        return teardown;
+        return teardownAstroRender;
       }
 
       throw error;
     }
 
-    return teardown;
+    return teardownAstroRender;
   }
+
+  // A story that rendered Astro before can return something else on a
+  // rerender, and Storybook then drops the teardown that would remove its CSS.
+  removeStoryStyles(canvasElement);
 
   if (typeof element === 'string') {
     canvasElement.innerHTML = element;

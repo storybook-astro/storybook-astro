@@ -6,7 +6,7 @@
 // renderer's `renderToCanvas`, `render`, and `parameters` end up composed into
 // CSF4 previews — see src/index.ts for the why.
 declare module '@storybook-astro/renderer/entry-preview' {
-  import type { ArgsStoryFn, Renderer, RenderContext } from 'storybook/internal/types';
+  import type { ArgsStoryFn, Renderer, RenderContext, TeardownRenderToCanvas } from 'storybook/internal/types';
   import type { DecoratorApplicator } from 'storybook/internal/csf';
 
   export const parameters: { renderer: 'astro' };
@@ -14,7 +14,7 @@ declare module '@storybook-astro/renderer/entry-preview' {
   export const renderToCanvas: (
     context: RenderContext<Renderer>,
     canvasElement: HTMLElement
-  ) => void | Promise<void>;
+  ) => Promise<void | TeardownRenderToCanvas>;
   // Re-exported from the renderer's decorators.ts
   // (docs/specs/decorators.md#renderer-composition) so classic CSF3
   // previews pick up decorator composition too.

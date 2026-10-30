@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, test } from 'vitest';
-import { moveStoryStylesToHead, removeStoryStyles } from './storyStyles.ts';
+import { moveStoryStylesToHead, removeStoryStyles, startCanvasRender } from './storyStyles.ts';
 
 const styleFor = (css: string) => `<style data-storybook-astro-styles>${css}</style>`;
 
@@ -82,5 +82,50 @@ describe('removeStoryStyles', () => {
     renderInto(canvas, `${styleFor('.card {}')}<div></div>`);
 
     expect(headCss()).toEqual(['.card {}']);
+  });
+});
+
+describe('startCanvasRender', () => {
+  test('keeps the old story, styled, until the next story in the canvas replaces it', () => {
+    const canvas = createCanvas();
+    const teardownCard = startCanvasRender(canvas);
+
+    renderInto(canvas, `${styleFor('.card {}')}<div>card</div>`);
+    teardownCard();
+    startCanvasRender(canvas);
+
+    expect(canvas.innerHTML).toBe('<div>card</div>');
+    expect(headCss()).toEqual(['.card {}']);
+
+    renderInto(canvas, `${styleFor('.badge {}')}<span>badge</span>`);
+
+    expect(headCss()).toEqual(['.badge {}']);
+  });
+
+  test('clears a removed story when the next render goes to another canvas', () => {
+    const storyCanvas = createCanvas();
+    const docsCanvas = createCanvas();
+    const teardownCard = startCanvasRender(storyCanvas);
+
+    renderInto(storyCanvas, `${styleFor('.card {}')}<div>card</div>`);
+    teardownCard();
+    startCanvasRender(docsCanvas);
+
+    expect(storyCanvas.innerHTML).toBe('');
+    expect(headCss()).toEqual([]);
+  });
+
+  test('a late teardown leaves the newer story alone', () => {
+    const canvas = createCanvas();
+    const teardownCard = startCanvasRender(canvas);
+
+    renderInto(canvas, `${styleFor('.card {}')}<div>card</div>`);
+    startCanvasRender(canvas);
+    renderInto(canvas, `${styleFor('.badge {}')}<span>badge</span>`);
+    teardownCard();
+    startCanvasRender(createCanvas());
+
+    expect(canvas.innerHTML).toBe('<span>badge</span>');
+    expect(headCss()).toEqual(['.badge {}']);
   });
 });

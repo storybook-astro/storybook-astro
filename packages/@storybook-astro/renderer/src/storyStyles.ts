@@ -23,8 +23,48 @@ export function moveStoryStylesToHead(fragment: DocumentFragment, canvasElement:
   stylesByCanvas.set(canvasElement, styles);
 }
 
-/** Removes the component CSS this canvas put in the head, when Storybook tears its story down. */
+/** Removes the component CSS this canvas put in the head. */
 export function removeStoryStyles(canvasElement: Element) {
   stylesByCanvas.get(canvasElement)?.forEach((style) => style.remove());
   stylesByCanvas.delete(canvasElement);
+}
+
+// The latest render into each canvas, so a teardown can tell whether a newer
+// render has taken the canvas over.
+const latestRenderByCanvas = new WeakMap<Element, object>();
+
+// Canvases whose story Storybook removed, still showing it.
+const removedStoryCanvases = new Set<Element>();
+
+/**
+ * Records that a render into this canvas has started, and returns the
+ * teardown for it.
+ *
+ * Storybook calls the teardown when it removes the story: on navigation, on a
+ * remount, and for each story on a Docs page when the page goes. The next
+ * render often lands in the same canvas a server round trip later, and
+ * clearing the canvas right away would leave it blank until then. So the
+ * teardown only marks the canvas, and the next render settles it: a render
+ * into the same canvas replaces the markup and CSS together, and a render
+ * into any other canvas clears the marked ones, as when you move between a
+ * story and a Docs page. A page that renders no story keeps the last one's CSS
+ * until the next render.
+ */
+export function startCanvasRender(canvasElement: Element) {
+  const render = {};
+
+  latestRenderByCanvas.set(canvasElement, render);
+  removedStoryCanvases.delete(canvasElement);
+  removedStoryCanvases.forEach((canvas) => {
+    removeStoryStyles(canvas);
+    canvas.innerHTML = '';
+  });
+  removedStoryCanvases.clear();
+
+  return () => {
+    // A late teardown mustn't touch the render that has replaced this one.
+    if (latestRenderByCanvas.get(canvasElement) === render) {
+      removedStoryCanvases.add(canvasElement);
+    }
+  };
 }

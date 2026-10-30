@@ -140,10 +140,12 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
 const STORY_STYLES = /<style data-storybook-astro-styles>[\s\S]*?<\/style>/g;
 
 function setRenderedHtml(html: string) {
-  // As in the Storybook canvas, the returned HTML holds only the story's
-  // markup (issue #224). Without a DOM there's nowhere to put its CSS.
+  // As in the Storybook canvas, the story's CSS isn't part of its markup
+  // (issue #224). The rest of the HTML comes back exactly as rendered.
+  const markup = html.replace(STORY_STYLES, '');
+
   if (typeof document === 'undefined') {
-    return html.replace(STORY_STYLES, '');
+    return markup;
   }
 
   const template = document.createElement('template');
@@ -153,10 +155,7 @@ function setRenderedHtml(html: string) {
   // The CSS goes in the head, replacing the last story's. It's keyed on the
   // document element, which a test can't swap out the way it can the body.
   moveStoryStylesToHead(template.content, document.documentElement);
-
-  const markup = template.innerHTML;
-
-  document.body.innerHTML = markup;
+  document.body.replaceChildren(template.content);
 
   return markup;
 }
