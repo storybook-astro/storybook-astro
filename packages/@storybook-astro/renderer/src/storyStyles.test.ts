@@ -79,37 +79,6 @@ describe('moveStoryStylesToHead', () => {
   });
 });
 
-describe('font CSS', () => {
-  const fontStyleFor = (css: string) => `<style data-storybook-astro-fonts>${css}</style>`;
-  const headFontCss = () =>
-    Array.from(document.head.querySelectorAll('style[data-storybook-astro-fonts]')).map(
-      (style) => style.textContent
-    );
-
-  test('keeps one copy in the head, ahead of the story CSS, after the story is removed', () => {
-    const canvas = createCanvas();
-
-    renderInto(canvas, `${fontStyleFor('@font-face {}')}${styleFor('.card {}')}<div></div>`);
-    const fontStyle = document.head.querySelector('style[data-storybook-astro-fonts]');
-
-    removeStoryStyles(canvas);
-    renderInto(canvas, `${fontStyleFor('@font-face {}')}${styleFor('.card {}')}<div></div>`);
-
-    expect(canvas.innerHTML).toBe('<div></div>');
-    expect(document.head.querySelector('style[data-storybook-astro-fonts]')).toBe(fontStyle);
-    expect(fontStyle?.nextElementSibling?.textContent).toBe('.card {}');
-  });
-
-  test('replaces the copy when the fonts change', () => {
-    const canvas = createCanvas();
-
-    renderInto(canvas, `${fontStyleFor('@font-face { a }')}<div></div>`);
-    renderInto(canvas, `${fontStyleFor('@font-face { b }')}<div></div>`);
-
-    expect(headFontCss()).toEqual(['@font-face { b }']);
-  });
-});
-
 describe('removeStoryStyles', () => {
   test('removes only that canvas\'s CSS', () => {
     const cardCanvas = createCanvas();

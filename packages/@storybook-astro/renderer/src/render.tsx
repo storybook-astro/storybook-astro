@@ -111,27 +111,23 @@ const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 
 // Each render into a canvas gets its own token. The latest token is the last
 // render that started, and only it may write the server's response, so a slow
-// response can't replace a newer story. The shown token is the render on the
-// canvas, and a teardown only clears the canvas while it still shows the
-// teardown's own render. A Docs story block runs its teardown a microtask
-// late, after the next render into the same canvas may have written, and that
-// late teardown must leave the new story alone.
+// response can't replace a newer story. The shown token is the Astro render on
+// the canvas, if any, and an Astro teardown only clears the canvas while it
+// still shows the teardown's own render. A Docs story block runs its teardown
+// a microtask late, after the next render into the same canvas may have
+// written, and that late teardown must leave the new story alone.
 const latestRenderByCanvas = new WeakMap<HTMLElement, object>();
 const shownRenderByCanvas = new WeakMap<HTMLElement, object>();
 
-/** Runs a teardown only while the canvas still shows the render it belongs to. */
-function teardownWhileShown(
-  canvasElement: HTMLElement,
-  renderToken: object,
-  teardown: () => void | Promise<void>
-): TeardownRenderToCanvas {
-  return async () => {
+/** Clears an Astro render's markup and CSS, unless the canvas has moved on to another render. */
+function teardownAstroRender(canvasElement: HTMLElement, renderToken: object): TeardownRenderToCanvas {
+  return () => {
     if (shownRenderByCanvas.get(canvasElement) !== renderToken) {
       return;
     }
 
     shownRenderByCanvas.delete(canvasElement);
-    await teardown();
+    clearAstroRender(canvasElement);
   };
 }
 
@@ -168,21 +164,20 @@ export async function renderToCanvas(
   latestRenderByCanvas.set(canvasElement, thisRender);
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
-    // Shown from the start, since the framework can mount at any point during
-    // the call. A late teardown of an earlier Astro render then leaves the
-    // canvas alone, so this removes that render's CSS instead.
-    shownRenderByCanvas.set(canvasElement, thisRender);
+    // The canvas no longer shows an Astro render, so a late Astro teardown
+    // leaves it alone, and this removes that render's CSS instead.
+    shownRenderByCanvas.delete(canvasElement);
     removeStoryStyles(canvasElement);
     showMain();
-    const teardown = await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
+    // The framework's teardown isn't returned yet, so its root stays mounted
+    // until the next render of that framework into this canvas (#238).
+    await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
     if (renderer === 'svelte') {
       astroRenderer.applyStyles?.();
     }
 
-    // The framework's own teardown unmounts its root when Storybook removes
-    // the story, as it would under that framework's renderer.
-    return teardown && teardownWhileShown(canvasElement, thisRender, teardown);
+    return;
   }
 
   const element = storyFn();
@@ -219,19 +214,16 @@ export async function renderToCanvas(
     // remount, for each story on a Docs page when the page goes, and at the
     // start of the next portable story run. It replaces the teardown Storybook
     // held, so when this render didn't write (a server error, or a newer
-    // render took over) it clears whatever render the canvas shows instead.
+    // render took over) it clears whatever Astro render the canvas shows.
     const shownRender = shownRenderByCanvas.get(canvasElement);
 
-    return (
-      shownRender &&
-      teardownWhileShown(canvasElement, shownRender, () => clearAstroRender(canvasElement))
-    );
+    return shownRender && teardownAstroRender(canvasElement, shownRender);
   }
 
   // A story that rendered Astro before can return something else on a
   // rerender, and Storybook then drops the teardown that would remove its CSS.
   removeStoryStyles(canvasElement);
-  shownRenderByCanvas.set(canvasElement, thisRender);
+  shownRenderByCanvas.delete(canvasElement);
 
   if (typeof element === 'string') {
     canvasElement.innerHTML = element;

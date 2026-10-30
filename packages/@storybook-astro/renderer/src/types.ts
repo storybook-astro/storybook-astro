@@ -18,13 +18,6 @@ export type { AstroComponentMarker } from './astroComponentMarker';
 export const STORY_STYLE_ATTRIBUTE = 'data-storybook-astro-styles';
 
 /**
- * Marks the `<style>` element dev mode puts ahead of a story's markup with the
- * `@font-face` rules for the fonts in `astro.config.*`. It's the same for
- * every story, so the renderer keeps one copy in the preview head.
- */
-export const FONT_STYLE_ATTRIBUTE = 'data-storybook-astro-fonts';
-
-/**
  * A child component placed in a slot together with its own props and slots — the
  * "configured component" slot value. After crossing the render boundary
  * `component` is a marker; in the testing/portable path it's a real factory. Its
