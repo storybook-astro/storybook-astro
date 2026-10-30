@@ -12,7 +12,12 @@ import 'astro:scripts/page.js';
 import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
 import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
-import { clearHiddenCanvases, moveStoryStylesToHead, removeStoryStyles } from './storyStyles.ts';
+import {
+  addStylesheetBeforeStoryStyles,
+  clearHiddenCanvases,
+  moveStoryStylesToHead,
+  removeStoryStyles
+} from './storyStyles.ts';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -106,23 +111,6 @@ function cloneElementWithArgs(element: HTMLElement, args: Record<string, unknown
 // story canvas — stacking two components until a reload.
 const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 
-let listeningForDocsPages = false;
-
-/**
- * A Docs page with no stories, such as an MDX page, never calls
- * `renderToCanvas`, so the story canvas it hides would keep its CSS. Storybook
- * announces every rendered Docs page, so the hidden canvas is cleared then.
- * Registered on the first render, the earliest there is any CSS to clear.
- */
-function listenForDocsPages() {
-  if (listeningForDocsPages) {
-    return;
-  }
-
-  listeningForDocsPages = true;
-  addons.getChannel().on(DOCS_RENDERED, clearHiddenCanvases);
-}
-
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
   canvasElement: HTMLElement
@@ -145,7 +133,6 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
-  listenForDocsPages();
   clearHiddenCanvases();
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
@@ -284,19 +271,12 @@ async function renderAstroToCanvas(
 
 /** Parses the server HTML response and hoists its stylesheet links and component CSS into the iframe head. */
 function prepareServerRenderedHtml(html: string, canvasElement: HTMLElement, viewMode?: string) {
-  const document = canvasElement.ownerDocument;
-  const template = document.createElement('template');
-
-  template.innerHTML = html;
+  const template = moveStoryStylesToHead(html, canvasElement);
 
   // Server mode returns stylesheet links in the HTML response. Keep those in
   // the iframe head so controls rerenders can reuse them instead of refetching.
-  syncServerRenderedStylesheets(template.content, document, viewMode);
-  moveStoryStylesToHead(template.content, canvasElement);
+  syncServerRenderedStylesheets(template.content, canvasElement.ownerDocument, viewMode);
 
-  // Reparsed into the canvas rather than moved: the template parses with
-  // scripting off, so moving its nodes would turn <noscript> content into live
-  // elements.
   return template.innerHTML;
 }
 
@@ -336,7 +316,7 @@ function syncServerRenderedStylesheets(
       });
 
       nextLink.setAttribute('data-storybook-astro-style', href);
-      document.head.appendChild(nextLink);
+      addStylesheetBeforeStoryStyles(nextLink, document);
     }
 
     link.remove();
@@ -420,4 +400,17 @@ function isAstroServerUnavailableError(error: unknown): error is Error {
   }
 
   astroRenderer.init?.();
+  clearCanvasesWhenDocsPagesRender();
 })();
+
+/**
+ * A Docs page with no stories, such as an MDX page, never calls
+ * `renderToCanvas`, so the story canvas it hides would keep its CSS. Storybook
+ * announces every rendered Docs page, so it's cleared then. `ready()` waits
+ * for the preview's real channel.
+ */
+async function clearCanvasesWhenDocsPagesRender() {
+  const channel = await addons.ready();
+
+  channel.on(DOCS_RENDERED, clearHiddenCanvases);
+}

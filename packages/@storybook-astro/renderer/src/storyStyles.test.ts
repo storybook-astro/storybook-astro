@@ -1,16 +1,17 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, test } from 'vitest';
-import { clearHiddenCanvases, moveStoryStylesToHead, removeStoryStyles } from './storyStyles.ts';
+import {
+  addStylesheetBeforeStoryStyles,
+  clearHiddenCanvases,
+  moveStoryStylesToHead,
+  removeStoryStyles
+} from './storyStyles.ts';
 
 const styleFor = (css: string) => `<style data-storybook-astro-styles>${css}</style>`;
 
 /** Renders one story's HTML into a canvas the way render.tsx does. */
 function renderInto(canvas: HTMLElement, html: string) {
-  const template = document.createElement('template');
-
-  template.innerHTML = html;
-  moveStoryStylesToHead(template.content, canvas);
-  canvas.innerHTML = template.innerHTML;
+  canvas.innerHTML = moveStoryStylesToHead(html, canvas).innerHTML;
 }
 
 const headStyles = () => Array.from(document.head.querySelectorAll('style[data-storybook-astro-styles]'));
@@ -135,25 +136,28 @@ describe('clearHiddenCanvases', () => {
 });
 
 describe('a canvas not in the page yet', () => {
-  test('gets its CSS, so it is styled once attached', () => {
-    const canvas = document.createElement('div');
+  test('keeps its markup and CSS while other stories render, so it is styled once attached', () => {
+    const cardCanvas = document.createElement('div');
+    const badgeCanvas = document.createElement('div');
 
-    renderInto(canvas, `${styleFor('.card {}')}<div>card</div>`);
-    document.body.appendChild(canvas);
+    renderInto(cardCanvas, `${styleFor('.card {}')}<div>card</div>`);
+    clearHiddenCanvases();
+    renderInto(badgeCanvas, `${styleFor('.badge {}')}<span>badge</span>`);
+    document.body.append(cardCanvas, badgeCanvas);
 
-    expect(headCss()).toEqual(['.card {}']);
+    expect(cardCanvas.innerHTML).toBe('<div>card</div>');
+    expect(headCss()).toEqual(['.card {}', '.badge {}']);
   });
 });
 
-describe('CSS order on a Docs page', () => {
-  test('stays the same when one story rerenders', () => {
-    const cardCanvas = createCanvas();
-    const badgeCanvas = createCanvas();
+describe('addStylesheetBeforeStoryStyles', () => {
+  test('puts a stylesheet ahead of the story CSS, so the story CSS wins ties', () => {
+    renderInto(createCanvas(), `${styleFor('.card {}')}<div></div>`);
 
-    renderInto(cardCanvas, `${styleFor('.card {}')}<div></div>`);
-    renderInto(badgeCanvas, `${styleFor('.badge {}')}<span></span>`);
-    renderInto(cardCanvas, `${styleFor('.card { color: blue; }')}<div></div>`);
+    const link = document.createElement('link');
 
-    expect(headCss()).toEqual(['.card { color: blue; }', '.badge {}']);
+    addStylesheetBeforeStoryStyles(link, document);
+
+    expect(link.nextElementSibling?.textContent).toBe('.card {}');
   });
 });

@@ -149,17 +149,9 @@ function setRenderedHtml(html: string) {
     return markup;
   }
 
-  const template = document.createElement('template');
-
-  template.innerHTML = html;
-
   // The CSS goes in the head, replacing the last story's. It's keyed on the
   // document element, which a test can't swap out the way it can the body.
-  moveStoryStylesToHead(template.content, document.documentElement);
-
-  // Reparsed, as in the canvas: the template parses <noscript> content as
-  // live elements.
-  document.body.innerHTML = template.innerHTML;
+  document.body.innerHTML = moveStoryStylesToHead(html, document.documentElement).innerHTML;
 
   return markup;
 }
