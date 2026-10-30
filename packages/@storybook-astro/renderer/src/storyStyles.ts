@@ -16,27 +16,11 @@ const stylesByCanvas = new WeakMap<Element, HTMLStyleElement[]>();
  * its end, in cascade order.
  */
 export function moveStoryStylesToHead(fragment: DocumentFragment, canvasElement: Element) {
-  const nextStyles = Array.from(fragment.querySelectorAll<HTMLStyleElement>(STORY_STYLE));
-  const previousStyles = stylesByCanvas.get(canvasElement) ?? [];
+  const styles = Array.from(fragment.querySelectorAll<HTMLStyleElement>(STORY_STYLE));
 
-  nextStyles.forEach((style) => style.remove());
-
-  // A rerender with the same CSS, such as a controls change, keeps the
-  // elements it has, so the browser doesn't restyle the page for nothing.
-  const unchanged =
-    nextStyles.length === previousStyles.length &&
-    nextStyles.every(
-      (style, index) =>
-        previousStyles[index].isConnected && style.textContent === previousStyles[index].textContent
-    );
-
-  if (unchanged) {
-    return;
-  }
-
-  previousStyles.forEach((style) => style.remove());
-  canvasElement.ownerDocument.head.append(...nextStyles);
-  stylesByCanvas.set(canvasElement, nextStyles);
+  removeStoryStyles(canvasElement);
+  canvasElement.ownerDocument.head.append(...styles);
+  stylesByCanvas.set(canvasElement, styles);
 }
 
 /** Removes the component CSS this canvas put in the head, when Storybook tears its story down. */

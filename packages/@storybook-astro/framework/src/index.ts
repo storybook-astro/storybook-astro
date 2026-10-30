@@ -10,7 +10,13 @@ export type {
 import { definePreview as definePreviewBase, type PreviewAddon, type InferTypes, type Preview as CsfPreview } from 'storybook/internal/csf';
 import { combineParameters } from 'storybook/internal/preview-api';
 import { enhanceArgTypes } from 'storybook/internal/docs-tools';
-import type { ArgsStoryFn, ProjectAnnotations, RenderContext, Renderer } from 'storybook/internal/types';
+import type {
+  ArgsStoryFn,
+  ProjectAnnotations,
+  RenderContext,
+  Renderer,
+  TeardownRenderToCanvas
+} from 'storybook/internal/types';
 import { defaultPreviewParameters } from '@storybook-astro/renderer/preview-defaults';
 import { applyDecorators } from '@storybook-astro/renderer/decorators';
 import type { AstroRenderer } from './portable-stories.ts';
@@ -55,7 +61,7 @@ const composedRender: ArgsStoryFn<AstroRenderer> = (args, context) => {
 const composedRenderToCanvas = async (
   context: RenderContext<Renderer>,
   canvasElement: HTMLElement
-): Promise<void> => {
+): Promise<void | TeardownRenderToCanvas> => {
   const impl = await loadRendererEntryPreview();
 
   return impl.renderToCanvas(context, canvasElement);

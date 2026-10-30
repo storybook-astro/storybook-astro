@@ -51,6 +51,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 
 **Important Files**:
 - `src/render.tsx` - Exports `render()` and `renderToCanvas()` functions
+- `src/storyStyles.ts` - Moves the scoped `<style>` elements a render response carries into the iframe head. Each canvas owns its copies, and the teardown `renderToCanvas` returns removes them
 - `src/preset.ts` - Defines preview annotations
 - `src/extractArgTypes.ts` - Maps the `__docgenInfo` the framework attaches to a component stub into Storybook's props table. Registered through `preview-defaults.ts` so both CSF3 and CSF-factory stories pick it up, and exported as `./extractArgTypes` so the framework's docgen worker converts identically on the Docgen Server path
 - `src/docs/` - Docs "Show code" / Code Panel source. `generateAstroSource.ts` turns a story's component and args into Astro template text (pure, no Storybook imports); `sourceDecorator.ts` emits it via `emitTransformCode`. Shipped as the `entry-preview-docs` annotation, which `preset.ts` loads only when addon-docs is enabled. Design record: `docs/specs/code-panel-source.md`
@@ -371,7 +372,7 @@ export const MyStory = {
 
 ### Styles Not Applying
 **Symptom**: Component renders but styles are missing
-**Fix**: Scoped CSS ships with the render response: `createAstroRenderHandler` prepends one `<style data-storybook-astro-styles>` element per `<style>` block, from `loadComponentStyles` in `lib/componentStyles.ts`. That function walks the SSR server's module graph from every component the render loaded and loads each `?astro&type=style&index=N&lang.*` sub-module with `&inline`. The renderer then moves them into the iframe head (`moveStoryStylesToHead` in the renderer's `storyStyles.ts`). Each canvas owns its copies: a rerender replaces them, and the teardown `renderToCanvas` returns removes them when Storybook removes the story, including each story on a Docs page. Check that the `<style>` elements are in the response, that they reach the head, and that their selectors use the same `data-astro-cid-*` as the markup.
+**Fix**: Scoped CSS ships with the render response: `createAstroRenderHandler` prepends one `<style data-storybook-astro-styles>` element per `<style>` block, from `loadComponentStyles` in `lib/componentStyles.ts`. That function walks the SSR server's module graph from every component the render loaded and loads each `?astro&type=style&index=N&lang.*` sub-module with `&inline`. The renderer then moves them into the iframe head (`moveStoryStylesToHead` in the renderer's `storyStyles.ts`). Each canvas owns its copies: a rerender replaces them, and the teardown `renderToCanvas` returns removes them, with the story's markup, when Storybook removes the story, including each story on a Docs page. Check that the `<style>` elements are in the response, that they reach the head, and that their selectors use the same `data-astro-cid-*` as the markup.
 
 If only one component's styles are missing, check that the render used it: the story's `component`, a component in its args, slots or decorator tree that the handler loaded, or a component reachable through their imports. The walk doesn't follow a stylesheet's imports, so a component that only a CSS file or a PostCSS plugin refers to isn't included.
 

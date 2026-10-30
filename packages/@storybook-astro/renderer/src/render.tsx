@@ -1,5 +1,11 @@
 import { simulateDOMContentLoaded, simulatePageLoad } from 'storybook/internal/preview-api';
-import type { ArgsStoryFn, Renderer, RenderContext, StoryContext } from 'storybook/internal/types';
+import type {
+  ArgsStoryFn,
+  Renderer,
+  RenderContext,
+  StoryContext,
+  TeardownRenderToCanvas
+} from 'storybook/internal/types';
 import { dedent } from 'ts-dedent';
 import 'astro:scripts/page.js';
 import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
@@ -11,7 +17,10 @@ import * as renderers from 'virtual:storybook-renderer-fallback';
 
 type FallbackRenderer = {
   render: (args: Record<string, unknown>, context: StoryContext<Renderer>) => unknown;
-  renderToCanvas: (ctx: RenderContext<Renderer>, canvasElement: HTMLElement) => void | Promise<void>;
+  renderToCanvas: (
+    ctx: RenderContext<Renderer>,
+    canvasElement: HTMLElement
+  ) => void | TeardownRenderToCanvas | Promise<void | TeardownRenderToCanvas>;
 };
 
 type RendererRegistry = Record<string, FallbackRenderer>;
@@ -99,7 +108,7 @@ const lastRendererByCanvas = new WeakMap<HTMLElement, string | undefined>();
 export async function renderToCanvas(
   ctx: RenderContext<AstroRenderer>,
   canvasElement: HTMLElement
-): Promise<void | (() => void)> {
+): Promise<void | TeardownRenderToCanvas> {
   const { storyFn, kind, name, showMain, showError, forceRemount, storyContext } = ctx;
   const renderer = ctx.storyContext.parameters?.renderer as string | undefined;
   const typedRenderers = renderers as RendererRegistry;
@@ -120,13 +129,15 @@ export async function renderToCanvas(
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     showMain();
-    await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
+    const teardown = await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
     if (renderer === 'svelte') {
       astroRenderer.applyStyles?.();
     }
 
-    return;
+    // The framework's own teardown unmounts its root when Storybook removes
+    // the story, as it would under that framework's renderer.
+    return teardown;
   }
 
   const element = storyFn();
@@ -134,6 +145,15 @@ export async function renderToCanvas(
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
+    // Storybook calls this when it removes the story: on navigation, on a
+    // remount, and for each story on a Docs page when the page goes. The
+    // markup goes with its CSS, so the old story doesn't show unstyled while
+    // the next one renders.
+    const teardown = () => {
+      removeStoryStyles(canvasElement);
+      canvasElement.innerHTML = '';
+    };
+
     try {
       await renderAstroToCanvas(element, storyContext.args, canvasElement, storyContext);
     } catch (error) {
@@ -146,15 +166,14 @@ export async function renderToCanvas(
           `
         });
 
-        return;
+        // A rerender can land here, with the last render's CSS still in the head.
+        return teardown;
       }
 
       throw error;
     }
 
-    // Storybook calls this when it removes the story: on navigation, and for
-    // each story on a Docs page when the page goes.
-    return () => removeStoryStyles(canvasElement);
+    return teardown;
   }
 
   if (typeof element === 'string') {

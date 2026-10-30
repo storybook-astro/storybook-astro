@@ -40,17 +40,6 @@ describe('moveStoryStylesToHead', () => {
     expect(document.head.firstElementChild?.id).toBe('global');
   });
 
-  test('keeps the same elements when a controls change rerenders with the same CSS', () => {
-    const canvas = createCanvas();
-
-    renderInto(canvas, `${styleFor('.card {}')}<div>first</div>`);
-    const [before] = headStyles();
-
-    renderInto(canvas, `${styleFor('.card {}')}<div>second</div>`);
-
-    expect(headStyles()).toEqual([before]);
-  });
-
   test('drops CSS deleted in an edit when the story rerenders', () => {
     const canvas = createCanvas();
 
