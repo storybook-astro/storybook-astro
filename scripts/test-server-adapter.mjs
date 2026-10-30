@@ -70,6 +70,8 @@ try {
   for (const [id, expected] of [
     ['astro-githubstars--default', '2413'],
     ['astro-githubstars--one-k', '1000'],
+    // astro6-server mocks this one with a replacement path instead of a factory.
+    ['astro-githubstars--hundred-k', '100,000'],
     ['astro-npmweeklydownloads--default', '4,011 weekly npm downloads']
   ]) {
     const story = index.entries[id];

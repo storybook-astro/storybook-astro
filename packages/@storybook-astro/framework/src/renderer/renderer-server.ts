@@ -20,19 +20,15 @@ const ASTRO_SERVER_UNAVAILABLE_ERROR_NAME = 'AstroRenderServerUnavailableError';
 
 export function createServerRenderer(defaults: ServerRendererDefaults = {}) {
   return {
-    // Serverless render endpoints boot a full Vite SSR runtime on cold start
-    // (~10-15s on Vercel), so the server-mode timeout is far above the HMR
-    // renderer's — an aborted first render would just retry into another
-    // cold start.
+    // A serverless render function's first request also starts it; the
+    // timeout leaves room for a slow cold start rather than retrying into one.
     render(data: RenderComponentInput, timeoutMs = 60_000) {
       return renderWithHttp(data, timeoutMs, defaults);
     },
     init() {
-      // Fire-and-forget warmup at preview startup: any request boots the
-      // serverless function and its Vite SSR runtime while the Storybook UI
-      // is still loading, hiding most of the ~10-15s cold start that would
-      // otherwise land on the first story render. GET /render is unrouted
-      // (Hono 404s it) but still initializes the function module.
+      // Fire-and-forget warmup at preview startup: starts a serverless
+      // render function while the Storybook UI is still loading, so its cold
+      // start doesn't land on the first story render.
       try {
         // eslint-disable-next-line n/no-unsupported-features/node-builtins
         fetch('/api/render', { method: 'GET' }).catch(() => {});

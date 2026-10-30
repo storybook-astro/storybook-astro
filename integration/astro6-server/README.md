@@ -1,25 +1,27 @@
 # Astro 6 Server Build
 
-The adapter in `.storybook/main.js` packages the build for Vercel or Node.
+The adapter in `.storybook/main.js` builds the render app with
+`@storybook-astro/adapter-node` by default, or `@storybook-astro/adapter-vercel`
+with `build:vercel`.
 
 ```bash
 # From the repository root:
 yarn build:packages
 
 # From this app directory:
-yarn build
+yarn build              # Node: storybook-server/
+yarn serve              # starts it
+yarn build:vercel       # Vercel: .vercel/output/
 vercel deploy --prebuilt
-yarn build:node
-PORT=3000 node storybook-node/server.mjs
 ```
 
 For Vercel Git builds, use Root Directory `integration/astro6-server`, allow
-source files outside it, and build the framework packages before this app.
-Select the Other framework preset. Build on Linux with the deployment's Node
-version and CPU architecture.
+source files outside it, and select the Other framework preset; `vercel.json`
+builds the framework packages before this app.
 
-Run `yarn test:browser` for rendering and Controls tests. From the repository
-root, `node scripts/test-server-adapter.mjs integration/astro6-server` tests
-the packaged Vercel function outside the workspace.
+Run `yarn test:browser` for rendering and Controls tests against the Node
+server. From the repository root, after `yarn build:vercel`,
+`node scripts/test-server-adapter.mjs integration/astro6-server` runs the
+Vercel function from a copy outside the workspace.
 
 See the [Deployment guide](../../apps/website/src/content/docs/guides/deployment.md).

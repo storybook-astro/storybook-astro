@@ -60,3 +60,17 @@ test('render pages are reachable only through the render API', async ({ request 
 
   expect(response.status()).toBe(404);
 });
+
+test('POST /api/render applies a replacement-path module mock', async ({ request }) => {
+  const response = await request.post('/api/render', {
+    data: {
+      component: githubStarsComponent,
+      args: { repository: 'storybook-astro/storybook-astro', label: 'GitHub stars' },
+      slots: {},
+      story: { id: 'astro-githubstars--hundred-k', title: 'Astro/GitHubStars', name: 'Hundred K' },
+    },
+  });
+
+  expect(response.status()).toBe(200);
+  expect(await response.text()).toContain('100,000 GitHub stars');
+});

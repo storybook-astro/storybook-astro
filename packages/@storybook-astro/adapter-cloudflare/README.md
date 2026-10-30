@@ -1,7 +1,14 @@
 # @storybook-astro/adapter-cloudflare
 
-Deploys Storybook Astro server mode to Cloudflare Workers. One Worker serves the
-static Storybook and renders Astro stories at `/api`.
+Deploys Storybook Astro server mode to Cloudflare Workers: one Worker serves the
+Storybook UI as static assets and renders Astro stories at `/api`.
+
+```bash
+npm install -D @storybook-astro/adapter-cloudflare @astrojs/cloudflare@<version> wrangler
+```
+
+Install the `@astrojs/cloudflare` that matches your Astro version: **12** for
+Astro 5, **13** for Astro 6, **14** for Astro 7.
 
 ```js
 // .storybook/main.js
@@ -12,7 +19,7 @@ export default {
     name: '@storybook-astro/framework',
     options: {
       renderMode: 'server',
-      server: { adapter: cloudflare() },
+      server: { adapter: cloudflare({ name: 'my-storybook' }) },
     },
   },
 };
@@ -20,11 +27,15 @@ export default {
 
 ```bash
 storybook-astro build
-wrangler deploy -c storybook-cloudflare/wrangler.jsonc
+wrangler dev -c storybook-server/server/wrangler.json     # preview locally
+wrangler deploy -c storybook-server/server/wrangler.json  # deploy
 ```
 
-Use `wrangler dev -c storybook-cloudflare/wrangler.jsonc` to run it locally.
+The Worker runs the render app `astro build` compiled; it never starts Vite.
+Without a Wrangler config of your own, the adapter writes a minimal one with the
+`nodejs_compat` flag; pass `configPath` to use yours. Other options are passed to
+`@astrojs/cloudflare`.
 
-Workers cannot run Vite, so the build compiles every story component into the
-Worker. Story rules must pass the mocked module to `mock()` as a string literal
-and mock with a factory, e.g. `mock('./api.ts', () => ({ ... }))`.
+Story rules that mock modules need the mocked module as a string literal, with a
+replacement path or a factory: `mock('./api.ts', () => ({ ... }))`. MSW's Node
+interceptors don't run on Workers; mock `fetch` in a story rule instead.

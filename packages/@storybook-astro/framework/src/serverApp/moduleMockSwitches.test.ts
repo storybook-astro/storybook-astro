@@ -11,8 +11,8 @@ function loadSwitchModule(specifier: string) {
   const module = { fetchStars: (): number => 66 };
   const realFetchStars = module.fetchStars;
 
-  registerModuleMockSwitch(specifier, (mocked) => {
-    module.fetchStars = (mocked?.fetchStars as typeof realFetchStars) ?? realFetchStars;
+  registerModuleMockSwitch(specifier, (mock) => {
+    module.fetchStars = (mock?.exports?.fetchStars as typeof realFetchStars) ?? realFetchStars;
   });
 
   return module;

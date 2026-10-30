@@ -140,22 +140,24 @@ Defaults to `'static'`: Astro stories are pre-rendered with their default args.
 For interactive Astro Controls in production, choose a server adapter:
 
 ```javascript
-import { vercel } from '@storybook-astro/framework/adapters';
+import { node } from '@storybook-astro/adapter-node';
 
 export default {
   framework: {
     name: '@storybook-astro/framework',
     options: {
       renderMode: 'server',
-      server: { adapter: vercel() },
+      server: { adapter: node() },
     },
   },
 };
 ```
 
-Use `storybook-astro build` to build and package the deployment. Built-in adapters
-are `vercel()` and `node()`. The API is served at `/api/render`; no URL configuration
-is needed. See [Deployment](/guides/deployment/) for the commands to deploy each output.
+Use `storybook-astro build` to build the deployment. Adapters are separate packages:
+`@storybook-astro/adapter-node`, `@storybook-astro/adapter-vercel` and
+`@storybook-astro/adapter-cloudflare`, each with the official Astro adapter for your
+Astro version. The API is served at `/api/render`; no URL configuration is needed.
+See [Deployment](/guides/deployment/) for what to install and how to deploy each output.
 
 `storybook dev` always uses the development renderer, regardless of this setting.
 
@@ -163,8 +165,8 @@ is needed. See [Deployment](/guides/deployment/) for the commands to deploy each
 
 Required when `renderMode: 'server'`:
 
-- **`adapter`** — Deployment adapter, such as `vercel()` or `node()`. There is no
-  default adapter.
+- **`adapter`** — Deployment adapter, such as `node()`, `vercel()` or `cloudflare()`.
+  There is no default adapter.
 
 Optional server-mode settings:
 
@@ -172,8 +174,6 @@ Optional server-mode settings:
   This token is included in the client build; it does not make a public Storybook private.
   Use your host's access controls to restrict access to the whole site.
 - **`authHeader`** — Header for the token; defaults to `'authorization'`.
-- **`runtimeDependencies`** — Extra package names to include when they are loaded
-  through computed imports that the build cannot discover.
 
 #### `storyRules`
 
@@ -244,6 +244,11 @@ export default defineStoryRules({
 - **`story`** — Story metadata (name, keys, etc.)
 
 `use()` can also return a cleanup function. That lets you install and tear down user-owned runtime hooks such as MSW, fetch patches, or test doubles around each story render.
+
+In server mode, the render app is built ahead of time, so the build reads the
+`mock()` calls from the rules file: pass the mocked module and a replacement path
+as string literals (`mock('./api.ts', './mocks/api.ts')`), or a string literal and
+a factory (`mock('./api.ts', () => ({ … }))`).
 
 ### Integration options
 

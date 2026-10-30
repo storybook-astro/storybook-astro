@@ -1,7 +1,7 @@
 # Astro 6 Server Build on Cloudflare Workers
 
-Server mode packaged by `@storybook-astro/adapter-cloudflare`: one Worker serves
-the static Storybook and renders the Astro stories at `/api`.
+Server mode built by `@storybook-astro/adapter-cloudflare` with `@astrojs/cloudflare`:
+one Worker serves the static Storybook and renders the Astro stories at `/api`.
 
 ```bash
 # From the repository root:
@@ -10,7 +10,7 @@ yarn build:packages
 # From this app directory:
 yarn build
 yarn serve        # local Worker on http://127.0.0.1:6021
-npx wrangler deploy -c storybook-cloudflare/wrangler.jsonc
+npx wrangler deploy -c storybook-server/server/wrangler.json
 ```
 
 Run `yarn test:browser` to build, start the Worker locally and run the

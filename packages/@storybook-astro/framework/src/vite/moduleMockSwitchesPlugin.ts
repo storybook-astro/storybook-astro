@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
 const SWITCH_ID_PREFIX = '\0storybook-astro-mock-switch:';
@@ -10,22 +11,22 @@ const SWITCH_ID_PREFIX = '\0storybook-astro-mock-switch:';
  * module: it re-exports the real module as live `let` bindings, and the render
  * runtime points those bindings at the story's mock for the length of one
  * render (serverApp/moduleMockSwitches.ts). Specifiers match the import text,
- * exactly like the Vite runtime.
+ * exactly like the Vite runtime. A replacement-path mock's module is known from
+ * the rules file, so the switch module imports it up front.
  */
 export function moduleMockSwitchesPlugin(options: {
   rulesConfigFilePath?: string;
   /** The module that exports `registerModuleMockSwitch`, so the app holds one registry. */
   registryModule: string;
 }): Plugin {
-  const mockedSpecifiers = options.rulesConfigFilePath
-    ? collectMockedSpecifiers(options.rulesConfigFilePath)
-    : new Set<string>();
+  const rulesConfigFilePath = options.rulesConfigFilePath;
+  const moduleMocks = rulesConfigFilePath ? collectModuleMocks(rulesConfigFilePath) : new Map<string, string[]>();
 
   return {
     name: 'storybook-astro:module-mock-switches',
     enforce: 'pre',
     async resolveId(id, importer) {
-      if (!mockedSpecifiers.has(id) || !importer || importer.startsWith(SWITCH_ID_PREFIX)) {
+      if (!moduleMocks.has(id) || !importer || importer.startsWith(SWITCH_ID_PREFIX)) {
         return null;
       }
 
@@ -47,10 +48,22 @@ export function moduleMockSwitchesPlugin(options: {
         string
       ];
       const realModule = await this.load({ id: realModuleId });
+      const replacements: Record<string, string> = {};
+
+      for (const replacement of moduleMocks.get(specifier) ?? []) {
+        const resolved = await this.resolve(replacement, rulesConfigFilePath);
+
+        if (!resolved) {
+          throw new Error(`${rulesConfigFilePath}: cannot resolve the mock replacement ${replacement}`);
+        }
+
+        replacements[replacementKey(replacement, rulesConfigFilePath!)] = resolved.id;
+      }
 
       return createSwitchModuleSource({
         specifier,
         realModuleId,
+        replacements,
         registryModule: options.registryModule,
         exportNames: realModule.exports ?? []
       });
@@ -58,13 +71,23 @@ export function moduleMockSwitchesPlugin(options: {
   };
 }
 
-/** Reads the string literals passed to `mock(...)` in the rules file. */
-export function collectMockedSpecifiers(rulesConfigFilePath: string): Set<string> {
+/**
+ * Reads the string literals passed to `mock(...)` in the rules file: each
+ * mocked specifier, with the replacement paths it is mocked with.
+ */
+export function collectModuleMocks(rulesConfigFilePath: string): Map<string, string[]> {
   const source = readFileSync(rulesConfigFilePath, 'utf-8');
-  const specifiers = new Set<string>();
+  const moduleMocks = new Map<string, string[]>();
 
-  for (const match of source.matchAll(/\bmock\(\s*(['"`])([^'"`]+)\1/g)) {
-    specifiers.add(match[2]);
+  for (const match of source.matchAll(/\bmock\(\s*(['"`])([^'"`]+)\1(?:\s*,\s*(['"`])([^'"`]+)\3)?/g)) {
+    const [, , specifier, , replacement] = match;
+    const replacements = moduleMocks.get(specifier) ?? [];
+
+    if (replacement && !replacements.includes(replacement)) {
+      replacements.push(replacement);
+    }
+
+    moduleMocks.set(specifier, replacements);
   }
 
   if (/\bmock\(\s*[^'"`\s)]/.test(source)) {
@@ -73,15 +96,32 @@ export function collectMockedSpecifiers(rulesConfigFilePath: string): Set<string
     );
   }
 
-  return specifiers;
+  return moduleMocks;
+}
+
+/** The replacement as `rules.ts` records it at render time: relative paths resolve against the rules file. */
+function replacementKey(replacement: string, rulesConfigFilePath: string) {
+  if (isAbsolute(replacement)) {
+    return replacement.replace(/\\/g, '/');
+  }
+
+  if (replacement.startsWith('.')) {
+    return resolve(dirname(rulesConfigFilePath), replacement).replace(/\\/g, '/');
+  }
+
+  return replacement;
 }
 
 export function createSwitchModuleSource(options: {
   specifier: string;
   realModuleId: string;
+  /** Module ids of the replacement-path mocks, keyed as the render runtime names them. */
+  replacements?: Record<string, string>;
   registryModule: string;
   exportNames: string[];
 }) {
+  const replacements = Object.entries(options.replacements ?? {});
+
   // `default` is not a valid binding name, so it gets a local alias.
   const bindings = options.exportNames.map((name) => ({
     name,
@@ -90,13 +130,19 @@ export function createSwitchModuleSource(options: {
 
   return [
     `import * as real from ${JSON.stringify(options.realModuleId)};`,
+    ...replacements.map(([, moduleId], index) => `import * as replacement${index} from ${JSON.stringify(moduleId)};`),
     `import { registerModuleMockSwitch } from ${JSON.stringify(options.registryModule)};`,
+    `const replacements = { ${replacements.map(([key], index) => `${JSON.stringify(key)}: replacement${index}`).join(', ')} };`,
     ...bindings.map(({ name, local }) => `let ${local} = real[${JSON.stringify(name)}];`),
     `export { ${bindings.map(({ name, local }) => (name === local ? name : `${local} as ${name}`)).join(', ')} };`,
-    `registerModuleMockSwitch(${JSON.stringify(options.specifier)}, (mocked) => {`,
+    `registerModuleMockSwitch(${JSON.stringify(options.specifier)}, (mock) => {`,
+    '  const source = mock ? mock.exports ?? replacements[mock.replacement] : real;',
+    '  if (!source) {',
+    `    throw new Error(\`[storybook-astro] \${mock.replacement} replaces ${options.specifier} but is not in this build: pass it to mock() as a string literal.\`);`,
+    '  }',
     ...bindings.map(
       ({ name, local }) =>
-        `  ${local} = mocked && ${JSON.stringify(name)} in mocked ? mocked[${JSON.stringify(name)}] : real[${JSON.stringify(name)}];`
+        `  ${local} = ${JSON.stringify(name)} in source ? source[${JSON.stringify(name)}] : real[${JSON.stringify(name)}];`
     ),
     '});'
   ].join('\n');

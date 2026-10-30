@@ -63,7 +63,7 @@ Astro component stories can use one of two production build modes:
 
 - **Static mode** (`renderMode: 'static'`, default) — ✅ **Complete**. Pre-renders all stories at build time. Controls are automatically disabled for Astro components since they can't be re-rendered with different args. Works on any static hosting platform (GitHub Pages, Netlify, Cloudflare Pages, S3, etc.) with no server requirements.
 
-- **Server mode** (`renderMode: 'server', server: { adapter }`) — ✅ **Complete**. Enables an HTTP render server that processes render requests on-demand, keeping Controls fully functional for Astro components in production builds. Confirmed working on Vercel (Node serverless functions) and any Node.js server or container; not compatible with Cloudflare Workers/Pages Functions or other edge runtimes. See [Configuration Reference](/reference/configuration/#rendermode) and the [Deployment guide](/guides/deployment/) for setup details.
+- **Server mode** (`renderMode: 'server', server: { adapter }`) — ✅ **Complete**. Builds a small Astro app that renders stories on demand, keeping Controls fully functional for Astro components in production builds. It is built with Astro's official adapters, so it runs on Node.js servers and containers, Vercel and Cloudflare Workers without compiling anything at request time. See [Configuration Reference](/reference/configuration/#rendermode) and the [Deployment guide](/guides/deployment/) for setup details.
 
 **Future enhancements**:
 - Service worker-based Controls for static builds (no server required)

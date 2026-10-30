@@ -1,6 +1,6 @@
 ---
 title: Deployment
-description: Deploy Storybook Astro to a static host, Vercel, or a Node.js server.
+description: Deploy Storybook Astro to a static host, a Node.js server, Vercel, or Cloudflare Workers.
 ---
 
 ## Static mode
@@ -12,21 +12,48 @@ Controls remain available for framework components such as React and Vue.
 ## Server mode
 
 Use server mode when you need interactive Controls for Astro components in production.
-Choose an adapter in `.storybook/main.js`:
+
+`storybook-astro build` builds Storybook, then a small Astro app that renders
+your stories at `/api/render` and serves the Storybook UI from the same origin.
+That app is built by `astro build` with Astro's official adapter for your host,
+so it runs the way an Astro site runs there: compiled, without Vite at request time.
+
+### 1. Install an adapter
+
+Each host has an adapter package. It uses the official Astro adapter, which you
+install in the version that matches your Astro version:
+
+| Host | Install | Astro 5 | Astro 6 | Astro 7 |
+| --- | --- | --- | --- | --- |
+| Node.js server or container | `@storybook-astro/adapter-node` `@astrojs/node` | 9 | 10 | 11 |
+| Vercel | `@storybook-astro/adapter-vercel` `@astrojs/vercel` | 9 | 10 | 11 |
+| Cloudflare Workers | `@storybook-astro/adapter-cloudflare` `@astrojs/cloudflare` | 12 | 13 | 14 |
+
+That's the same `@astrojs/*` version you'd use to deploy an Astro site on that
+Astro version. For example, on Astro 6 with Node:
+
+```bash
+npm install -D @storybook-astro/adapter-node @astrojs/node@10
+```
+
+### 2. Configure it
 
 ```js
-import { vercel } from '@storybook-astro/framework/adapters';
+// .storybook/main.js
+import { node } from '@storybook-astro/adapter-node';
 
 export default {
   framework: {
     name: '@storybook-astro/framework',
     options: {
       renderMode: 'server',
-      server: { adapter: vercel() },
+      server: { adapter: node() },
     },
   },
 };
 ```
+
+### 3. Build
 
 Set your build script to:
 
@@ -38,14 +65,25 @@ Set your build script to:
 }
 ```
 
-This command runs the Storybook build, then packages it with your adapter.
-`storybook-static/` and `storybook-server/` are intermediate outputs.
-The render endpoint is always `/api/render` on the same origin as the UI.
+The build prints how to run or deploy its output. `storybook-static/` and
+`.astro/storybook-server/` (the generated app's sources) are intermediate outputs.
+
+### On a Node.js server or container
+
+`node()` builds a standalone server into `storybook-server/`. Start it from the
+project directory, where its `node_modules` are:
+
+```bash
+HOST=0.0.0.0 PORT=3000 node storybook-server/server/entry.mjs
+```
+
+It serves both the UI and the render API. Options are passed to `@astrojs/node`,
+for example `node({ mode: 'middleware' })` to mount it in your own server.
 
 ### On Vercel
 
-The build produces `.vercel/output/`, compatible with Vercel Build Output API v3.
-After linking your app to a Vercel project, run:
+`vercel()` writes Vercel's Build Output API to `.vercel/output/`. After linking
+your app to a Vercel project, run:
 
 ```bash
 yarn build
@@ -54,48 +92,44 @@ vercel deploy --prebuilt
 vercel deploy --prebuilt --prod
 ```
 
-Build on Linux with the same CPU architecture as the deployment.
 For Git deployments, select the **Other** framework preset and use `yarn build`
-as the build command. Leave Output Directory unset.
+as the build command. Leave Output Directory unset. Options are passed to
+`@astrojs/vercel`, for example `vercel({ maxDuration: 60 })`.
 
-The function uses Node.js 24 by default. Pass options to change it or the
-function limits: `vercel({ runtime: 'nodejs22.x', maxDuration: 60, memory: 1024 })`.
+### On Cloudflare Workers
 
-### On any Node.js server or container
-
-Replace `vercel()` with `node()`:
-
-```js
-import { node } from '@storybook-astro/framework/adapters';
-
-// framework.options
-renderMode: 'server',
-server: { adapter: node() }
-```
-
-Run `yarn build`, copy `storybook-node/` to your host, then start it:
+`cloudflare()` builds one Worker that serves the UI as static assets and renders
+stories at `/api`:
 
 ```bash
-PORT=3000 node storybook-node/server.mjs
+yarn build
+npx wrangler dev -c storybook-server/server/wrangler.json     # preview locally
+npx wrangler deploy -c storybook-server/server/wrangler.json  # deploy
 ```
 
-It serves both the UI and render API. `PORT` defaults to `3000`, and `HOST` to
-`0.0.0.0`. Use the same OS, CPU architecture, and compatible Node version for
-building and hosting.
+Without a Wrangler config of your own, the adapter uses a minimal one named
+after `cloudflare({ name: 'my-storybook' })` with the `nodejs_compat` flag.
+Pass `configPath` to use yours (keep `nodejs_compat` in it). Images are served
+as they are, and stories don't use sessions, so the Worker needs no bindings.
+
+Story rules that mock modules work on Workers when the module is passed to
+`mock()` as a string literal with a factory: `mock('./api.ts', () => ({ … }))`.
+MSW's Node interceptors don't run on Workers; mock `fetch` in a story rule instead.
 
 ## Platform support
 
 | Host | Mode |
 | --- | --- |
 | Any static host | Static |
-| Vercel | Server with `vercel()` |
 | Node.js server or container | Server with `node()` |
-| Cloudflare Workers / Pages Functions | Static only |
+| Vercel | Server with `vercel()` |
+| Cloudflare Workers | Server with `cloudflare()` |
 
-Other server platforms need a custom adapter; see the `ServerAdapter` type exported
-from `@storybook-astro/framework/adapters`.
+Another host works if Astro has an adapter for it: a `ServerAdapter`
+(exported from `@storybook-astro/framework/adapters`) is a name and a
+`createAstroAdapter()` that returns that Astro adapter.
 
 ## Latency expectations
 
-The first render in a new server process can take several seconds. Later renders
-reuse that process. The client allows up to 60 seconds for a render request.
+The render app is compiled at build time, so a cold start only loads it. Each
+render is one in-process Astro page render.

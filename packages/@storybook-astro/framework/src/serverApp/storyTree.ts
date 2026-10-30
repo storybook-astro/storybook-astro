@@ -125,7 +125,11 @@ async function resolveSlotTree(
   }
 
   if (Array.isArray(value)) {
-    return Promise.all(value.map((item) => resolveSlotTree(name, item, options, depth + 1)));
+    // Sanitizing an array slot splits its HTML around the components in it,
+    // which can leave empty pieces; they render nothing.
+    const items = value.filter((item) => item !== '');
+
+    return Promise.all(items.map((item) => resolveSlotTree(name, item, options, depth + 1)));
   }
 
   if (isAstroComponentMarker(value)) {
