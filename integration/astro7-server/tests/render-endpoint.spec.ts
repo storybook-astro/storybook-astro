@@ -60,3 +60,34 @@ test('render pages are reachable only through the render API', async ({ request 
 
   expect(response.status()).toBe(404);
 });
+
+test('a decorator can fill any number of named slots', async ({ request }) => {
+  const decorators = resolve(repoRoot, 'packages/components/src/Decorator');
+  const marker = (file: string) => ({ __astroComponent: true, moduleId: resolve(decorators, file) });
+  // LayoutWithSlots reads `default` and `sidebar`; the other slots it ignores
+  // still have to reach it without failing the render.
+  const extraSlots = Object.fromEntries(
+    Array.from({ length: 10 }, (_, index) => [`extra-${index}`, `<i>extra ${index}</i>`])
+  );
+  const response = await request.post('/api/render', {
+    data: {
+      component: resolve(repoRoot, 'packages/components/src/Card/astro/Card.astro'),
+      args: { title: 'Card in a layout' },
+      slots: {},
+      node: {
+        component: marker('LayoutWithSlots.astro'),
+        slots: {
+          default: { __astroComponent: true, moduleId: resolve(repoRoot, 'packages/components/src/Card/astro/Card.astro') },
+          sidebar: '<p>Sidebar content</p>',
+          ...extraSlots,
+        },
+      },
+      story: { id: 'astro-decorators-advanced--named-slot-wrapped' },
+    },
+  });
+  const html = await response.text();
+
+  expect(response.status(), html).toBe(200);
+  expect(html).toContain('Card in a layout');
+  expect(html).toContain('Sidebar content');
+});
