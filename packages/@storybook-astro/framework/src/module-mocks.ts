@@ -72,6 +72,15 @@ export function createInlineStoryModuleMock(
   };
 }
 
+/** The exports a factory mock provides, or `undefined` for a replacement-path mock. */
+export function getStoryModuleMockExports(
+  mockEntry: StoryModuleMockEntry
+): StoryModuleMockFactoryResult | undefined {
+  return mockEntry.inlineModuleId
+    ? moduleMockState.inlineModuleExports.get(mockEntry.inlineModuleId)
+    : undefined;
+}
+
 export function loadStoryInlineModule(resolvedId: string): string | undefined {
   const inlineModuleId = normalizeInlineModuleId(resolvedId);
 

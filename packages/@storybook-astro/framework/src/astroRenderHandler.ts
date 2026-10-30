@@ -14,7 +14,11 @@ import {
   reconstructProps,
   reconstructSlots
 } from './lib/reconstruct-component-args.ts';
-import { runWithStoryRules, type ResolveRulesConfigModule } from './storyRulesRuntime.ts';
+import {
+  runWithStoryRules,
+  type ApplyModuleMocks,
+  type ResolveRulesConfigModule
+} from './storyRulesRuntime.ts';
 import type { RenderStoryInput } from './types.ts';
 import type { ComponentStyles } from './lib/componentStyles.ts';
 
@@ -47,6 +51,7 @@ type CreateAstroRenderHandlerOptions = {
   rulesConfigFilePath?: string;
   resolveRulesConfigModule?: ResolveRulesConfigModule;
   loadModule: (id: string) => Promise<{ default: unknown }>;
+  /** Vite runtime: reload modules so a story's mocks resolve on the next import. */
   invalidateModuleGraph?: () => void;
   /**
    * Returns the compiled CSS for the components a render loaded, plus their
@@ -57,6 +62,8 @@ type CreateAstroRenderHandlerOptions = {
   loadComponentStyles?: (componentIds: string[]) => Promise<ComponentStyles>;
   /** Fail the render when styles fail to load, instead of warning. Set for static builds. */
   failOnStyleError?: boolean;
+  /** Compiled runtime: modules are already loaded, so swap their exports instead. */
+  applyModuleMocks?: ApplyModuleMocks;
 };
 
 export function createAstroRenderHandler(options: CreateAstroRenderHandlerOptions) {
@@ -148,7 +155,8 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           story: data.story,
           rulesConfigFilePath: options.rulesConfigFilePath,
           resolveRulesConfigModule: options.resolveRulesConfigModule,
-          invalidateModuleGraph: options.invalidateModuleGraph
+          invalidateModuleGraph: options.invalidateModuleGraph,
+          applyModuleMocks: options.applyModuleMocks
         },
         async (selectedRules) => {
           const usesModuleMocks = selectedRules.moduleMocks.size > 0;

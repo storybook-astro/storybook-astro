@@ -2,7 +2,7 @@ import { dirname, resolve } from 'node:path';
 import { copyFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { build, type Rollup } from 'vite';
+import { build, mergeConfig, type InlineConfig, type Rollup } from 'vite';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import type { FrameworkOptions } from './types.ts';
 import {
@@ -21,6 +21,10 @@ import { sanitizeConfigPlugin } from './vite/sanitizeConfigPlugin.ts';
 import { serverAuthPlugin } from './vite/serverAuthPlugin.ts';
 import { serverRuntimePlugin } from './vite/serverRuntimePlugin.ts';
 import { storyRulesPlugin } from './vite/storyRulesPlugin.ts';
+import { moduleMockSwitchesPlugin } from './vite/moduleMockSwitchesPlugin.ts';
+import { createVirtualModule } from './vite/virtualModulePlugin.ts';
+import { vitePluginTsconfigAliases } from './vitePluginTsconfigAliases.ts';
+import { createStorybookBrowserStubPlugin, createTrackedSpecifierStubPlugin } from './storySsrVite.ts';
 
 const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '.');
 // packageRoot works regardless of whether this file is running from src/ or dist/
@@ -110,6 +114,25 @@ export function vitePluginAstroBuildServer(
         snapshotDirName
       });
       const staticCssMap = hydratedComponentAssets.staticCssMap;
+      const compiledServer = options.server?.adapter?.compiledServer;
+
+      if (compiledServer) {
+        await buildCompiledAstroServer({
+          integrations,
+          sanitization: options.sanitization,
+          storyRules: options.storyRules,
+          server: options.server,
+          outDir: serverOutDir,
+          astroComponents: allAstroComponentPaths,
+          staticModuleMap: combinedModuleMap,
+          staticCssMap,
+          trackedSpecifiers: Array.from(trackedSpecifiers),
+          resolveFrom,
+          hostViteConfig: compiledServer.vite
+        });
+
+        return;
+      }
 
       const externalDependencies = await buildAstroServer({
         integrations,
@@ -256,6 +279,102 @@ async function buildAstroServer(options: {
   await build(finalConfig);
 
   return Array.from(externalDependencies);
+}
+
+/**
+ * Builds the self-contained render server for hosts without Vite at request
+ * time: story components, renderers and story rules all compile into one
+ * `index.js`. The adapter's Vite config supplies the host specifics
+ * (resolve conditions, how wasm and Node built-ins are loaded, …).
+ */
+async function buildCompiledAstroServer(options: {
+  integrations: NonNullable<FrameworkOptions['integrations']>;
+  sanitization?: FrameworkOptions['sanitization'];
+  storyRules?: FrameworkOptions['storyRules'];
+  server?: FrameworkOptions['server'];
+  outDir: string;
+  astroComponents: string[];
+  staticModuleMap: Record<string, string>;
+  staticCssMap: Record<string, string[]>;
+  trackedSpecifiers: string[];
+  resolveFrom: string;
+  hostViteConfig?: InlineConfig;
+}) {
+  const buildConfig: InlineConfig = {
+    root: options.resolveFrom,
+    resolve: {
+      // One copy of each framework runtime, or hooks break (see storySsrVite.ts).
+      dedupe: FRAMEWORK_RUNTIME_PACKAGES
+    },
+    ssr: {
+      noExternal: true
+    },
+    build: {
+      ssr: true,
+      outDir: options.outDir,
+      emptyOutDir: true,
+      sourcemap: true,
+      manifest: false,
+      rollupOptions: {
+        input: resolve(packageRoot, 'src/server/compiled.ts'),
+        output: {
+          format: 'es',
+          entryFileNames: 'index.js',
+          inlineDynamicImports: true
+        }
+      }
+    },
+    plugins: [
+      sanitizeConfigPlugin(options.sanitization),
+      serverAuthPlugin(options.server),
+      storyRulesPlugin(options.storyRules, options.resolveFrom),
+      compiledRuntimePlugin(options),
+      viteAstroContainerRenderersPlugin(options.integrations, {
+        mode: 'production',
+        staticModuleMap: options.staticModuleMap
+      }),
+      moduleMockSwitchesPlugin({
+        rulesConfigFilePath: resolveRulesConfigFilePath(options.storyRules, options.resolveFrom),
+        registryModulePath: resolve(packageRoot, 'src/server/moduleMockSwitches.ts')
+      }),
+      vitePluginTsconfigAliases(options.resolveFrom),
+      createTrackedSpecifierStubPlugin(new Set(options.trackedSpecifiers)),
+      createStorybookBrowserStubPlugin()
+    ]
+  };
+  const astroConfig = await mergeWithAstroConfig(
+    buildConfig,
+    options.integrations,
+    options.resolveFrom,
+    'production',
+    'build'
+  );
+
+  await build(mergeConfig(astroConfig, options.hostViteConfig ?? {}));
+}
+
+/** Hands the compiled server its component loaders and built asset maps. */
+function compiledRuntimePlugin(options: {
+  astroComponents: string[];
+  staticModuleMap: Record<string, string>;
+  staticCssMap: Record<string, string[]>;
+}) {
+  return createVirtualModule({
+    pluginName: 'storybook-astro:compiled-runtime',
+    virtualModuleId: 'virtual:storybook-astro/compiled-runtime',
+    load() {
+      const componentLoaders = options.astroComponents.map(
+        (componentPath) =>
+          `  ${JSON.stringify(componentPath)}: () => import(${JSON.stringify(componentPath)})`
+      );
+
+      return [
+        `export const components = {\n${componentLoaders.join(',\n')}\n};`,
+        `export const staticModuleMap = ${JSON.stringify(options.staticModuleMap)};`,
+        `export const staticCssMap = ${JSON.stringify(options.staticCssMap)};`
+      ].join('\n');
+    }
+  });
 }
 
 /** Rewrites Astro component module ids so the standalone server loads them from the snapshot tree. */

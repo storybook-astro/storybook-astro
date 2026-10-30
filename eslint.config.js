@@ -227,6 +227,8 @@ export default [
       '**/storybook-static/',
       '**/storybook-server/',
       '**/storybook-node/',
+      '**/storybook-cloudflare/',
+      '**/.wrangler/',
       '**/.vercel/',
       '**/dist/',
       '**/node_modules/',

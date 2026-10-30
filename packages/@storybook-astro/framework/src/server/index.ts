@@ -1,84 +1,25 @@
 /// <reference path="../virtual.d.ts" />
 
-import { timingSafeEqual } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import type { HandlerProps } from '../astroRenderHandler.ts';
-import { assertValidSlotValue } from '../lib/reconstruct-component-args.ts';
 import { createProductionRenderRuntime } from '../productionRenderRuntime.ts';
-import {
-  addStaticStylesheets,
-  rewriteBuiltModulePaths
-} from '../lib/staticHtmlRewriting.ts';
 import sanitization from 'virtual:storybook-astro/sanitize-config';
 import storyRulesConfigModule, {
   storybookAstroStoryRulesConfigFilePath
 } from 'virtual:storybook-astro/story-rules';
 import {
-  storybookAstroServerAuthHeader,
-  storybookAstroServerAuthToken
-} from 'virtual:storybook-astro/server-auth';
-import {
   integrations,
   runtimeConfig
 } from 'virtual:storybook-astro/server-runtime';
+import { createRenderServerApp } from './app.ts';
 
-// The preview calls a fixed same-origin `/api`, so every host mounts this app as-is.
-const app = new Hono().basePath('/api');
 const staticModuleMap = resolveStaticModuleMap();
-const renderAstroStoryPromise = createAstroStoryRenderer();
 
-app.use(
-  '*',
-  cors({
-    origin: '*',
-    allowMethods: ['GET', 'POST'],
-    allowHeaders: ['Content-Type', storybookAstroServerAuthHeader]
-  })
-);
-
-app.get('/', async (context) => context.text('OK'));
-
-app.post('/render', async (context) => {
-  if (!isRequestAuthorized(context.req.header(storybookAstroServerAuthHeader))) {
-    return context.text('Unauthorized', 401);
-  }
-
-  const input = (await context.req.json()) as Partial<HandlerProps>;
-
-  // `createAstroRenderHandler` validates `node` too, but that happens inside the
-  // render queue — reject a malformed decorator tree here so a bad request gets
-  // a plain 400 instead of surfacing as a queued render failure.
-  if (input.node !== undefined) {
-    try {
-      assertValidSlotValue(input.node, 'node');
-    } catch (error) {
-      return context.text(error instanceof Error ? error.message : String(error), 400);
-    }
-  }
-
-  const renderAstroStory = await renderAstroStoryPromise;
-  const html = await renderAstroStory({
-    component: input.component ?? '',
-    args: input.args ?? {},
-    slots: input.slots ?? {},
-    node: input.node,
-    story: input.story
-  });
-
-  // The server runtime renders against source modules, then rewrites the HTML
-  // so the browser only sees built asset URLs and matching stylesheets.
-  return context.text(
-    addStaticStylesheets(rewriteBuiltModulePaths(html, staticModuleMap), {
-      staticModuleMap,
-      staticCssMap: runtimeConfig.staticCssMap
-    })
-  );
+export default createRenderServerApp({
+  renderAstroStory: createAstroStoryRenderer(),
+  staticModuleMap,
+  staticCssMap: runtimeConfig.staticCssMap
 });
-
-export default app;
 
 /** Combines the build-time module map with snapshot aliases resolved against
  * THIS host's filesystem — the build machine's absolute snapshot paths never
@@ -137,50 +78,3 @@ function resolveSnapshotComponentPath(snapshotRoot: string, componentId: string)
 
   return componentId;
 }
-
-/** Checks the incoming auth header against the configured render-server token. */
-function isRequestAuthorized(headerValue: string | undefined) {
-  if (!storybookAstroServerAuthToken) {
-    return true;
-  }
-
-  const normalizedHeaderValue = normalizeAuthHeaderValue(headerValue);
-
-  if (!normalizedHeaderValue) {
-    return false;
-  }
-
-  return isSecureEqual(normalizedHeaderValue, storybookAstroServerAuthToken);
-}
-
-/** Normalizes auth header values so bearer and raw token formats compare the same way. */
-function normalizeAuthHeaderValue(value: string | undefined) {
-  if (!value) {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-
-  if (!trimmedValue) {
-    return undefined;
-  }
-
-  if (storybookAstroServerAuthHeader === 'authorization' && trimmedValue.startsWith('Bearer ')) {
-    return trimmedValue.slice('Bearer '.length).trim();
-  }
-
-  return trimmedValue;
-}
-
-/** Compares auth tokens without leaking length-matched timing differences. */
-function isSecureEqual(actual: string, expected: string) {
-  const actualBuffer = Buffer.from(actual);
-  const expectedBuffer = Buffer.from(expected);
-
-  if (actualBuffer.length !== expectedBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(actualBuffer, expectedBuffer);
-}
-

@@ -343,7 +343,7 @@ function createProjectAstroResolutionPlugin(resolveFrom: string): Plugin {
   } satisfies Plugin;
 }
 
-function createTrackedSpecifierStubPlugin(trackedSpecifiers: Set<string>): Plugin {
+export function createTrackedSpecifierStubPlugin(trackedSpecifiers: Set<string>): Plugin {
   return {
     name: 'storybook-astro:shared-ssr-stubs',
     resolveId(id: string) {

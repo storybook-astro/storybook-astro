@@ -58,4 +58,11 @@ declare module 'virtual:storybook-astro/server-runtime' {
   export const integrations: Integration[];
 }
 
+declare module 'virtual:storybook-astro/compiled-runtime' {
+  /** Every Astro component a story can render, keyed by its original module id. */
+  export const components: Record<string, () => Promise<{ default: unknown }>>;
+  export const staticModuleMap: Record<string, string>;
+  export const staticCssMap: Record<string, string[]>;
+}
+
 declare module 'virtual:storybook-renderer-fallback' {}
