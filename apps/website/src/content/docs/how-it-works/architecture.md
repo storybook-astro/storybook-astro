@@ -35,12 +35,12 @@ The client-side rendering package that manages how components display in Storybo
 - **Render Function** — Determines how to render different component types
 - **Communication Layer** — Sends render requests from the browser to the Astro middleware via Vite's HMR channel
 - **Fallback Rendering** — Delegates to framework-specific renderers when `parameters.renderer` is specified
-- **Style Management** — Keeps server-rendered stylesheet links in the iframe head. Astro's scoped styles arrive as `<style>` elements in the rendered HTML, and the renderer moves them into the iframe head until the story is replaced
+- **Style Management** — Keeps server-rendered stylesheet links in the iframe head. Astro's scoped styles arrive as `<style>` elements in the rendered HTML, and the renderer moves them into the iframe head until the story is replaced or leaves the screen
 - **Script Execution** — Manages client-side scripts and hydration
 
 **Key files:**
 - `src/render.tsx` — Main rendering logic and Canvas integration
-- `src/storyStyles.ts` — Moves each story's scoped CSS into the iframe head and removes it once the story is replaced
+- `src/storyStyles.ts` — Moves each story's scoped CSS into the iframe head and removes it once the story is replaced or leaves the screen
 - `src/preset.ts` — Client-side preview annotations
 
 ## Data flow

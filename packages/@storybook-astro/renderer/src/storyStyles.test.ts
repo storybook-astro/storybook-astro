@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, test } from 'vitest';
-import { moveStoryStylesToHead, removeStoryStyles, startCanvasRender } from './storyStyles.ts';
+import { moveStoryStylesToHead, removeHiddenStoryStyles, removeStoryStyles } from './storyStyles.ts';
 
 const styleFor = (css: string) => `<style data-storybook-astro-styles>${css}</style>`;
 
@@ -10,16 +10,16 @@ function renderInto(canvas: HTMLElement, html: string) {
 
   template.innerHTML = html;
   moveStoryStylesToHead(template.content, canvas);
-  canvas.innerHTML = template.innerHTML;
+  canvas.replaceChildren(template.content);
 }
 
 const headStyles = () => Array.from(document.head.querySelectorAll('style[data-storybook-astro-styles]'));
 const headCss = () => headStyles().map((style) => style.textContent);
 
-function createCanvas() {
+function createCanvas(parent: HTMLElement = document.body) {
   const canvas = document.createElement('div');
 
-  document.body.appendChild(canvas);
+  parent.appendChild(canvas);
 
   return canvas;
 }
@@ -85,47 +85,40 @@ describe('removeStoryStyles', () => {
   });
 });
 
-describe('startCanvasRender', () => {
-  test('keeps the old story, styled, until the next story in the canvas replaces it', () => {
+describe('removeHiddenStoryStyles', () => {
+  test('keeps the CSS of a story still on screen until the next story replaces it', () => {
     const canvas = createCanvas();
-    const teardownCard = startCanvasRender(canvas);
 
     renderInto(canvas, `${styleFor('.card {}')}<div>card</div>`);
-    teardownCard();
-    startCanvasRender(canvas);
+    removeHiddenStoryStyles('story');
 
     expect(canvas.innerHTML).toBe('<div>card</div>');
     expect(headCss()).toEqual(['.card {}']);
-
-    renderInto(canvas, `${styleFor('.badge {}')}<span>badge</span>`);
-
-    expect(headCss()).toEqual(['.badge {}']);
   });
 
-  test('clears a removed story when the next render goes to another canvas', () => {
-    const storyCanvas = createCanvas();
+  test('removes the CSS of a closed Docs page\'s stories', () => {
     const docsCanvas = createCanvas();
-    const teardownCard = startCanvasRender(storyCanvas);
 
-    renderInto(storyCanvas, `${styleFor('.card {}')}<div>card</div>`);
-    teardownCard();
-    startCanvasRender(docsCanvas);
+    renderInto(docsCanvas, `${styleFor('.card {}')}<div>card</div>`);
+    docsCanvas.remove();
+    removeHiddenStoryStyles('story');
 
-    expect(storyCanvas.innerHTML).toBe('');
     expect(headCss()).toEqual([]);
   });
 
-  test('a late teardown leaves the newer story alone', () => {
-    const canvas = createCanvas();
-    const teardownCard = startCanvasRender(canvas);
+  test('removes the story canvas\'s CSS when a Docs page renders, and keeps the Docs stories\'', () => {
+    const storyCanvas = createCanvas();
+    const docsRoot = document.createElement('div');
 
-    renderInto(canvas, `${styleFor('.card {}')}<div>card</div>`);
-    startCanvasRender(canvas);
-    renderInto(canvas, `${styleFor('.badge {}')}<span>badge</span>`);
-    teardownCard();
-    startCanvasRender(createCanvas());
+    docsRoot.id = 'storybook-docs';
+    document.body.appendChild(docsRoot);
 
-    expect(canvas.innerHTML).toBe('<span>badge</span>');
+    const docsCanvas = createCanvas(docsRoot);
+
+    renderInto(storyCanvas, `${styleFor('.card {}')}<div>card</div>`);
+    renderInto(docsCanvas, `${styleFor('.badge {}')}<span>badge</span>`);
+    removeHiddenStoryStyles('docs');
+
     expect(headCss()).toEqual(['.badge {}']);
   });
 });

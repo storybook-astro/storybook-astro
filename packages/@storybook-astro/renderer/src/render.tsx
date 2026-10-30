@@ -11,7 +11,7 @@ import 'astro:scripts/page.js';
 import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
 import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
-import { moveStoryStylesToHead, removeStoryStyles, startCanvasRender } from './storyStyles.ts';
+import { moveStoryStylesToHead, removeHiddenStoryStyles, removeStoryStyles } from './storyStyles.ts';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -127,9 +127,7 @@ export async function renderToCanvas(
   }
   lastRendererByCanvas.set(canvasElement, renderer);
 
-  // Every render starts here, so it can settle the canvases whose stories
-  // Storybook removed (see storyStyles.ts).
-  const teardownAstroRender = startCanvasRender(canvasElement);
+  removeHiddenStoryStyles(storyContext?.viewMode);
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     removeStoryStyles(canvasElement);
@@ -150,6 +148,17 @@ export async function renderToCanvas(
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
+    // Storybook calls this when it removes the story: on navigation, on a
+    // remount, and for each story on a Docs page when the page goes. A canvas
+    // still in the page keeps its story until the next render replaces it (see
+    // removeHiddenStoryStyles). One that has left, as when a Docs page closes,
+    // has nothing to replace it, so its CSS goes now.
+    const teardownAstroRender = () => {
+      if (!canvasElement.isConnected) {
+        removeStoryStyles(canvasElement);
+      }
+    };
+
     try {
       await renderAstroToCanvas(element, storyContext.args, canvasElement, storyContext);
     } catch (error) {
@@ -250,7 +259,7 @@ async function renderAstroToCanvas(
   });
 
   astroRenderer.applyStyles?.();
-  canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement, storyContext?.viewMode);
+  canvasElement.replaceChildren(prepareServerRenderedHtml(response.html, canvasElement, storyContext?.viewMode));
   invokeScriptTags(canvasElement);
 }
 
@@ -266,7 +275,7 @@ function prepareServerRenderedHtml(html: string, canvasElement: HTMLElement, vie
   syncServerRenderedStylesheets(template.content, document, viewMode);
   moveStoryStylesToHead(template.content, canvasElement);
 
-  return template.innerHTML;
+  return template.content;
 }
 
 /**

@@ -22,6 +22,24 @@ test.describe('Scoped styles across Docs pages', () => {
 
     await expect.poll(headCss).not.toContain('.title[');
   });
+
+  test('opening a Docs page removes the hidden story\'s CSS from the head', async ({ page }) => {
+    const preview = page.frameLocator('#storybook-preview-iframe');
+    const headCss = () =>
+      preview
+        .locator('head style[data-storybook-astro-styles]')
+        .evaluateAll((styles) => styles.map((style) => style.textContent).join('\n'));
+
+    await page.goto('/?path=/story/astro-scoped-styles-class-name-collision--same-class-name');
+    await expect(preview.getByTestId('red-title')).toBeVisible({ timeout: 30_000 });
+    expect(await headCss()).toContain('.title[');
+
+    await page.locator('#vue-accordion').click();
+    await page.locator('#vue-accordion--docs').click();
+    await expect(preview.locator('[data-testid="vue-accordion"]').first()).toBeVisible();
+
+    await expect.poll(headCss).not.toContain('.title[');
+  });
 });
 
 test.describe('Scoped styles across stories', () => {

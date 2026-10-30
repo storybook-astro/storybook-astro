@@ -4,7 +4,7 @@ const STORY_STYLE = 'style[data-storybook-astro-styles]';
 
 // The head styles each canvas put there. A Docs page renders several stories
 // into one head, each into its own canvas, and each canvas owns its copies.
-const stylesByCanvas = new WeakMap<Element, HTMLStyleElement[]>();
+const stylesByCanvas = new Map<Element, HTMLStyleElement[]>();
 
 /**
  * Moves a render's component CSS out of its HTML and into the document head,
@@ -29,42 +29,21 @@ export function removeStoryStyles(canvasElement: Element) {
   stylesByCanvas.delete(canvasElement);
 }
 
-// The latest render into each canvas, so a teardown can tell whether a newer
-// render has taken the canvas over.
-const latestRenderByCanvas = new WeakMap<Element, object>();
-
-// Canvases whose story Storybook removed, still showing it.
-const removedStoryCanvases = new Set<Element>();
-
 /**
- * Records that a render into this canvas has started, and returns the
- * teardown for it.
+ * Removes the CSS of canvases that no longer show a story, as each render
+ * starts: canvases that have left the page, as when a Docs page closes, and,
+ * when a Docs page renders, the story canvas it hides.
  *
- * Storybook calls the teardown when it removes the story: on navigation, on a
- * remount, and for each story on a Docs page when the page goes. The next
- * render often lands in the same canvas a server round trip later, and
- * clearing the canvas right away would leave it blank until then. So the
- * teardown only marks the canvas, and the next render settles it: a render
- * into the same canvas replaces the markup and CSS together, and a render
- * into any other canvas clears the marked ones, as when you move between a
- * story and a Docs page. A page that renders no story keeps the last one's CSS
- * until the next render.
+ * A canvas still on screen keeps its story and CSS until the next render into
+ * it replaces both, so moving between stories never shows the old one blank
+ * or unstyled during the server round trip.
  */
-export function startCanvasRender(canvasElement: Element) {
-  const render = {};
+export function removeHiddenStoryStyles(viewMode: string | undefined) {
+  stylesByCanvas.forEach((_, canvas) => {
+    const hiddenByDocs = viewMode === 'docs' && !canvas.closest('#storybook-docs');
 
-  latestRenderByCanvas.set(canvasElement, render);
-  removedStoryCanvases.delete(canvasElement);
-  removedStoryCanvases.forEach((canvas) => {
-    removeStoryStyles(canvas);
-    canvas.innerHTML = '';
-  });
-  removedStoryCanvases.clear();
-
-  return () => {
-    // A late teardown mustn't touch the render that has replaced this one.
-    if (latestRenderByCanvas.get(canvasElement) === render) {
-      removedStoryCanvases.add(canvasElement);
+    if (!canvas.isConnected || hiddenByDocs) {
+      removeStoryStyles(canvas);
     }
-  };
+  });
 }
