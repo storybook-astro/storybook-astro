@@ -3,8 +3,11 @@ import { findClosingFence } from './virtualFile.ts';
 
 // A comment Astro strips (`{/* … */}`) or keeps (`<!-- … -->`), or a `<slot>`
 // element. Matching comments in the same pass means a commented-out `<slot>`
-// is consumed as part of its comment and never counts.
-const COMMENT_OR_SLOT = /\{\/\*([\s\S]*?)\*\/\}|<!--([\s\S]*?)-->|<slot\b([^>]*)>/g;
+// is consumed as part of its comment and never counts. The `{/* … */}` body
+// can't cross a `*/`: a comment that opens an expression
+// (`{/* rows */ items.map(…)}`) isn't a whole-expression comment, and letting it
+// run on to the next `*/}` would swallow every slot in between.
+const COMMENT_OR_SLOT = /\{\/\*((?:(?!\*\/)[\s\S])*)\*\/\}|<!--([\s\S]*?)-->|<slot\b([^>]*)>/g;
 const SLOT_DESCRIPTION = /^\s*\*?\s*@slot\b\s*([\s\S]*?)\s*$/;
 const NAME_ATTRIBUTE = /\bname\s*=\s*(?:"([^"]*)"|'([^']*)'|(\{))/;
 const SLOTS_API_CALL = /\bAstro\.slots\.(?:render|has)\(\s*(?:'([^']+)'|"([^"]+)"|`([^`$]+)`)/g;

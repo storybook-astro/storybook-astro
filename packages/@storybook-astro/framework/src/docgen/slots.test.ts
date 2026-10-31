@@ -57,6 +57,22 @@ describe('readSlots', () => {
     expect(readSlots(source)).toEqual([{ name: 'kept', description: '' }]);
   });
 
+  test('still finds slots after a comment inside an expression', () => {
+    const source = [
+      '<ul>{/* render rows */ items.map((item) => <li>{item}</li>)}</ul>',
+      '<slot name="header" />',
+      '<slot />',
+      '{/* @slot Footer area */}',
+      '<slot name="footer" />'
+    ].join('\n');
+
+    expect(readSlots(source)).toEqual([
+      { name: 'header', description: '' },
+      { name: 'default', description: '' },
+      { name: 'footer', description: 'Footer area' }
+    ]);
+  });
+
   test('lists each slot once, keeping the first description found', () => {
     const source = ['<slot name="icon" />', '{/* @slot The leading icon */}', '<slot name="icon" />'].join('\n');
 
