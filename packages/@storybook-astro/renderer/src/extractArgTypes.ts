@@ -49,7 +49,9 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
       name,
       description,
       type: { name: 'other', value: 'slot', required: false },
-      control: 'text',
+      // The object form: Storybook only normalizes the `'text'` shorthand on
+      // argTypes a story writes, and addon-docs renders no control for it here.
+      control: { type: 'text' },
       table: { category: 'slots', type: { summary: name === 'default' ? 'default slot' : 'named slot' } }
     };
   }

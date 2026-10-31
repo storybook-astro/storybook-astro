@@ -28,7 +28,7 @@ describe('extractArgTypes', () => {
       name: 'default',
       description: 'The section body',
       type: { name: 'other', value: 'slot', required: false },
-      control: 'text',
+      control: { type: 'text' },
       table: { category: 'slots', type: { summary: 'default slot' } }
     });
     expect(argTypes?.['slot:actions']?.table?.type).toEqual({ summary: 'named slot' });

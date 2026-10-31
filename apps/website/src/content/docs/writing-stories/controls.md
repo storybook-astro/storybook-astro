@@ -162,9 +162,10 @@ Each slot row also has a text control, starting at the story's content for that
 slot, so you can edit a slot's HTML in the Controls panel instead of in a JSON
 object. An edit there wins over the same slot in `args.slots`. A slot whose story
 content is a component, rather than a string, has no control, since it can't be
-edited as text. Slot HTML goes through the same
-[sanitization](/guides/sanitization/) as any string slot content, so attributes
-outside the allowlist, such as `data-*`, are removed.
+edited as text. When every slot a story fills has its own row, the `slots` row
+has no JSON editor, since the slot rows would override an edit there. Slot HTML
+goes through the same [sanitization](/guides/sanitization/) as any string slot
+content, so attributes outside the allowlist, such as `data-*`, are removed.
 
 Each control is stored in a story arg named `slot:<name>`, for example
 `slot:footer`, which the renderer folds back into `args.slots`. You don't need to

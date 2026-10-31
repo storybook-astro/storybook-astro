@@ -2,8 +2,8 @@ import { describe, expect, test } from 'vitest';
 import { lockNonTextSlotControls, seedSlotArgs, slotArgName, splitStoryArgs } from './slotArgs.ts';
 
 const slotArgTypes = {
-  [slotArgName('default')]: { name: 'default', control: 'text' },
-  [slotArgName('footer')]: { name: 'footer', control: 'text' }
+  [slotArgName('default')]: { name: 'default', control: { type: 'text' } },
+  [slotArgName('footer')]: { name: 'footer', control: { type: 'text' } }
 };
 
 describe('splitStoryArgs', () => {
@@ -65,7 +65,25 @@ describe('lockNonTextSlotControls', () => {
       initialArgs: { slots: { default: [{ component: 'Card' }], footer: '<b>OK</b>' } }
     } as never);
 
-    expect(argTypes[slotArgName('default')].control).toBe(false);
-    expect(argTypes[slotArgName('footer')].control).toBe('text');
+    expect(argTypes[slotArgName('default')].control).toEqual({ disable: true });
+    expect(argTypes[slotArgName('footer')].control).toEqual({ type: 'text' });
+  });
+
+  test('removes the JSON editor from the slots row when every slot has its own control', () => {
+    const argTypes = lockNonTextSlotControls({
+      argTypes: slotArgTypes,
+      initialArgs: { slots: { default: '<p>Body</p>' } }
+    } as never);
+
+    expect(argTypes.slots?.control).toEqual({ disable: true });
+  });
+
+  test('keeps the JSON editor on the slots row for a slot the docgen didn\'t find', () => {
+    const argTypes = lockNonTextSlotControls({
+      argTypes: slotArgTypes,
+      initialArgs: { slots: { default: '<p>Body</p>', aside: '<p>Aside</p>' } }
+    } as never);
+
+    expect(argTypes.slots).toBeUndefined();
   });
 });

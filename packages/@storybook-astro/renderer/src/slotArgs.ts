@@ -47,17 +47,29 @@ export function splitStoryArgs(args: Args): { props: Args; slots: Args } {
  * An `argTypesEnhancer`: a slot whose story content is a component, an array or
  * anything else that isn't text can't be edited as text, so its row keeps no
  * control.
+ *
+ * When every slot the story fills has its own row, the inferred `slots` row
+ * loses its JSON editor too. Its edits would never show, since each per-slot arg
+ * wins over `args.slots`. The row stays in the Docs table.
  */
 export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => {
-  const storySlots = isPlainObject(context.initialArgs?.slots) ? context.initialArgs.slots : {};
+  const initialSlots = context.initialArgs?.slots;
   const argTypes = { ...context.argTypes };
 
-  for (const [slot, content] of Object.entries(storySlots)) {
+  if (!isPlainObject(initialSlots)) {
+    return argTypes;
+  }
+
+  for (const [slot, content] of Object.entries(initialSlots)) {
     const key = slotArgName(slot);
 
     if (argTypes[key] && content !== undefined && typeof content !== 'string') {
-      argTypes[key] = { ...argTypes[key], control: false };
+      argTypes[key] = { ...argTypes[key], control: { disable: true } };
     }
+  }
+
+  if (Object.keys(initialSlots).every((slot) => argTypes[slotArgName(slot)])) {
+    argTypes.slots = { ...argTypes.slots, control: { disable: true } };
   }
 
   return argTypes;

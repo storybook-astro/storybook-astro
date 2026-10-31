@@ -199,7 +199,8 @@ The renderer's `extractArgTypes` turns each slot into a row keyed `slot:<name>`,
 
 - `splitStoryArgs` splits a story's args into props and slots, folding each `slot:<name>` arg into `slots`, where it wins over the story's own value. The canvas, Show code, the static prerender, server mode and `renderStory` all read args through it.
 - The `seedSlotArgs` args enhancer starts each control at the story's string content for that slot.
-- The `lockNonTextSlotControls` argTypes enhancer removes the control from a slot whose story content isn't a string, such as a component.
+- The `lockNonTextSlotControls` argTypes enhancer removes the control from a slot whose story content isn't a string, such as a component. It sets `control: { disable: true }` rather than `control: false`, since addon-docs shows a "Setup controls" link for the latter. When every slot in the story's `args.slots` has a `slot:<name>` row, it also disables the control on the inferred `slots` row, whose JSON edits the per-slot args would override. The row stays in the table.
+- Slot rows use the object form `control: { type: 'text' }`. Storybook only normalizes the `'text'` shorthand on argTypes a story writes, not on enhancer output, and addon-docs renders no control for the bare string.
 
 ## Implementation Plan
 
