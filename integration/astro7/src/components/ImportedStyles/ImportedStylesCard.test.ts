@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/dom';
 import { test, expect } from 'vitest';
 import { composeStories, renderStory } from '@storybook-astro/framework/testing';
-import * as stories from './ImportedStylesCard.stories.jsx';
+import * as stories from '@storybook-astro/components/ScopedStyles/ImportedStylesCard.stories.jsx';
 
 const { FrontmatterImports } = composeStories(stories);
 
