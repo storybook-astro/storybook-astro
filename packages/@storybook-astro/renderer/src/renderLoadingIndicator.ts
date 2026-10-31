@@ -12,14 +12,13 @@ const SLOW_HINT_DELAY_MS = 2500;
 const GRAY = 'rgba(128, 128, 128, 0.9)';
 const LIGHT_GRAY = 'rgba(128, 128, 128, 0.3)';
 
-// Removes the latest render's indicator from each canvas. A newer render into
-// the canvas removes the older one's first, so two renders in flight show one
-// indicator.
-const stopByCanvas = new WeakMap<HTMLElement, () => void>();
+// Removes the indicator each canvas shows. A newer render into the canvas
+// removes the older one's first, so two renders in flight show one indicator.
+const hideByCanvas = new WeakMap<HTMLElement, () => void>();
 
 /**
  * Shows "Rendering story…" in the canvas if the render takes longer than
- * 200 ms, and returns the function that removes it once the render settles.
+ * 200 ms, until `hideRenderLoadingIndicator` removes it.
  *
  * What the reader sees depends on the canvas, not on what started the render.
  * A canvas whose story has been cleared (a story switch, a remount, a saved
@@ -28,8 +27,8 @@ const stopByCanvas = new WeakMap<HTMLElement, () => void>();
  * Controls changes, gets it as an overlay, so the story stays visible. Styles
  * are inline, so no `<style>` goes into the canvas.
  */
-export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => void {
-  stopByCanvas.get(canvasElement)?.();
+export function showRenderLoadingIndicator(canvasElement: HTMLElement) {
+  hideRenderLoadingIndicator(canvasElement);
 
   let root: HTMLElement | undefined;
   let previousPosition: string | undefined;
@@ -52,25 +51,55 @@ export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => vo
 
       // The overlay covers the canvas exactly, so drop the standalone
       // indicator's min-height: a short story such as a button would otherwise
-      // get a gray box spilling onto whatever sits below it. One row with a
-      // small spinner fits a button-height canvas, where the standalone
-      // column would be cut through the middle. The z-index keeps it above
-      // positioned story elements, such as a sticky header.
+      // get a gray box spilling onto whatever sits below it. The z-index keeps
+      // it above positioned story elements, such as a sticky header. `clip`
+      // rather than `hidden`, because `hidden` makes the overlay a scroll
+      // container and the sticky row below would stick inside it instead of
+      // the page.
       Object.assign(root.style, {
         position: 'absolute',
         inset: '0',
         zIndex: '2147483647',
-        flexDirection: 'row',
-        gap: '8px',
         minHeight: '',
-        overflow: 'hidden',
+        overflow: 'clip',
         background: 'rgba(128, 128, 128, 0.12)'
+      });
+
+      // On a story taller than the window, the middle of the overlay can be
+      // below the fold. The sticky row stays in view while the reader
+      // scrolls, and the overlay's own centering still applies on a short
+      // canvas. One row with a small spinner fits a button-height canvas,
+      // where the standalone column would be cut through the middle, and
+      // the text stays on one line, cut off with an ellipsis, rather than
+      // wrapping out of sight.
+      const row = canvasElement.ownerDocument.createElement('div');
+
+      Object.assign(row.style, {
+        position: 'sticky',
+        top: 'calc(50% - 12px)',
+        bottom: 'calc(50% - 12px)',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: '8px',
+        minWidth: '0',
+        maxWidth: '100%'
       });
       Object.assign(elements.spinner.style, {
         width: '16px',
         height: '16px',
-        borderWidth: '2px'
+        borderWidth: '2px',
+        flexShrink: '0'
       });
+      elements.label.style.whiteSpace = 'nowrap';
+      Object.assign(elements.hint.style, {
+        whiteSpace: 'nowrap',
+        minWidth: '0',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      });
+      row.append(elements.spinner, elements.label, elements.hint);
+      root.append(row);
     }
 
     canvasElement.appendChild(root);
@@ -79,24 +108,17 @@ export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => vo
     }, SLOW_HINT_DELAY_MS - SHOW_DELAY_MS);
   }, SHOW_DELAY_MS);
 
-  const stop = () => {
+  hideByCanvas.set(canvasElement, () => {
     clearTimeout(showTimer);
     clearTimeout(slowHintTimer);
     root?.remove();
 
     if (previousPosition !== undefined) {
       canvasElement.style.position = previousPosition;
-      previousPosition = undefined;
     }
 
-    if (stopByCanvas.get(canvasElement) === stop) {
-      stopByCanvas.delete(canvasElement);
-    }
-  };
-
-  stopByCanvas.set(canvasElement, stop);
-
-  return stop;
+    hideByCanvas.delete(canvasElement);
+  });
 }
 
 function createIndicator(document: Document) {
@@ -147,12 +169,12 @@ function createIndicator(document: Document) {
 
   root.append(spinner, label, hint);
 
-  return { root, spinner, hint };
+  return { root, spinner, label, hint };
 }
 
-/** Removes whatever indicator the canvas shows, for callers that don't hold the render's own stop function. */
+/** Removes the indicator the canvas shows, or cancels one that hasn't appeared yet. */
 export function hideRenderLoadingIndicator(canvasElement: HTMLElement) {
-  stopByCanvas.get(canvasElement)?.();
+  hideByCanvas.get(canvasElement)?.();
 }
 
 // The `min-height` each canvas had before a teardown held its height.

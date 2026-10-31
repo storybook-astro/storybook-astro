@@ -20,14 +20,14 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe('showRenderLoadingIndicator', () => {
   test('shows nothing for a render that settles within 200 ms', () => {
-    const hide = showRenderLoadingIndicator(canvas);
-
+    showRenderLoadingIndicator(canvas);
     vi.advanceTimersByTime(150);
-    hide();
+    hideRenderLoadingIndicator(canvas);
     vi.advanceTimersByTime(1000);
 
     expect(canvas.innerHTML).toBe('');
@@ -54,8 +54,7 @@ describe('showRenderLoadingIndicator', () => {
 
   test('overlays a story still on the canvas, as on a Controls change, and puts the canvas back after', () => {
     canvas.innerHTML = '<div>story</div>';
-    const hide = showRenderLoadingIndicator(canvas);
-
+    showRenderLoadingIndicator(canvas);
     vi.advanceTimersByTime(200);
 
     expect(canvas.firstElementChild?.textContent).toBe('story');
@@ -64,7 +63,7 @@ describe('showRenderLoadingIndicator', () => {
     // Above positioned story elements, such as a sticky header with z-index: 1
     expect(indicator()?.style.zIndex).toBe('2147483647');
 
-    hide();
+    hideRenderLoadingIndicator(canvas);
 
     expect(canvas.innerHTML).toBe('<div>story</div>');
     expect(canvas.style.position).toBe('');
@@ -76,7 +75,9 @@ describe('showRenderLoadingIndicator', () => {
     vi.advanceTimersByTime(200);
 
     expect(indicator()?.style.minHeight).toBe('');
-    expect(indicator()?.style.overflow).toBe('hidden');
+    // `clip`, not `hidden`, which would make the overlay a scroll container
+    // and stop the sticky row from following the page scroll.
+    expect(indicator()?.style.overflow).toBe('clip');
   });
 
   test('lays the overlay out in one row with a small spinner, so it fits a button-height canvas', () => {
@@ -84,12 +85,48 @@ describe('showRenderLoadingIndicator', () => {
     showRenderLoadingIndicator(canvas);
     vi.advanceTimersByTime(200);
 
-    const spinner = indicator()?.firstElementChild as HTMLElement;
+    const row = indicator()?.firstElementChild as HTMLElement;
+    const spinner = row.firstElementChild as HTMLElement;
 
-    expect(indicator()?.style.flexDirection).toBe('row');
-    expect(indicator()?.style.gap).toBe('8px');
+    expect(row.style.flexDirection).toBe('row');
+    expect(row.style.gap).toBe('8px');
     expect(spinner.style.width).toBe('16px');
     expect(spinner.style.height).toBe('16px');
+  });
+
+  test('keeps the overlay\'s spinner and text in view on a story taller than the window', () => {
+    canvas.innerHTML = '<div>tall story</div>';
+    showRenderLoadingIndicator(canvas);
+    vi.advanceTimersByTime(200);
+
+    const row = indicator()?.firstElementChild as HTMLElement;
+
+    expect(indicator()?.children).toHaveLength(1);
+    expect(row.style.position).toBe('sticky');
+    expect(row.style.top).toBe('calc(50% - 12px)');
+    expect(row.style.bottom).toBe('calc(50% - 12px)');
+    expect(row.textContent).toContain('Rendering story…');
+    expect(row.textContent).toContain('Still working');
+    expect(row.children).toHaveLength(3);
+  });
+
+  test('keeps the overlay\'s text on one line, cutting the slow hint off rather than wrapping it', () => {
+    canvas.innerHTML = '<button>story</button>';
+    showRenderLoadingIndicator(canvas);
+    vi.advanceTimersByTime(2500);
+
+    const row = indicator()?.firstElementChild as HTMLElement;
+    const [spinner, label, hint] = Array.from(row.children) as HTMLElement[];
+
+    expect(row.style.minWidth).toBe('0');
+    expect(row.style.maxWidth).toBe('100%');
+    expect(spinner.style.flexShrink).toBe('0');
+    expect(label.style.whiteSpace).toBe('nowrap');
+    expect(hint.hidden).toBe(false);
+    expect(hint.style.whiteSpace).toBe('nowrap');
+    expect(hint.style.minWidth).toBe('0');
+    expect(hint.style.overflow).toBe('hidden');
+    expect(hint.style.textOverflow).toBe('ellipsis');
   });
 
   test('keeps the column layout for an empty canvas', () => {
@@ -111,8 +148,7 @@ describe('showRenderLoadingIndicator', () => {
   });
 
   test('keeps the spinner still for readers who prefer reduced motion', () => {
-    const matchMedia = vi
-      .spyOn(window, 'matchMedia')
+    vi.spyOn(window, 'matchMedia')
       .mockImplementation((query) => ({ matches: query.includes('reduce') }) as MediaQueryList);
 
     showRenderLoadingIndicator(canvas);
@@ -121,7 +157,6 @@ describe('showRenderLoadingIndicator', () => {
     const spinner = indicator()?.firstElementChild as HTMLElement;
 
     expect(spinner.style.animation).toBe('');
-    matchMedia.mockRestore();
   });
 
   test('puts no <style> in the canvas', () => {
@@ -133,12 +168,10 @@ describe('showRenderLoadingIndicator', () => {
   });
 
   test('shows one indicator when a newer render starts before the older one settles', () => {
-    const hideOlder = showRenderLoadingIndicator(canvas);
-
+    showRenderLoadingIndicator(canvas);
     vi.advanceTimersByTime(300);
     showRenderLoadingIndicator(canvas);
     vi.advanceTimersByTime(300);
-    hideOlder();
 
     expect(canvas.querySelectorAll('[data-storybook-astro-loading]')).toHaveLength(1);
   });

@@ -189,7 +189,16 @@ export async function renderToCanvas(
     return;
   }
 
-  const element = storyFn();
+  let element: ReturnType<typeof storyFn>;
+
+  try {
+    element = storyFn();
+  } catch (error) {
+    // A teardown may have held the canvas height for this render, and
+    // Storybook shows the error under it.
+    releaseCanvasHeight(canvasElement);
+    throw error;
+  }
 
   // Only once the story function succeeds, so a story that throws doesn't
   // make an earlier render's response look out of date.
@@ -197,7 +206,7 @@ export async function renderToCanvas(
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
-    const hideLoadingIndicator = showRenderLoadingIndicator(canvasElement);
+    showRenderLoadingIndicator(canvasElement);
 
     try {
       await renderAstroToCanvas(element, storyContext.args, canvasElement, thisRender, storyContext);
@@ -227,11 +236,11 @@ export async function renderToCanvas(
         });
       }
     } finally {
-      hideLoadingIndicator();
-
       // Only the latest render settles what the canvas shows. An older one
-      // that finishes late leaves the height held for the newer render.
+      // that finishes late leaves the newer render's indicator and held
+      // height alone.
       if (latestRenderByCanvas.get(canvasElement) === thisRender) {
+        hideRenderLoadingIndicator(canvasElement);
         releaseCanvasHeight(canvasElement);
       }
     }

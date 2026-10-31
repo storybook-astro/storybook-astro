@@ -223,6 +223,7 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
 describe('while an Astro story renders', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   test('shows a loading indicator once the server takes over 200 ms, and replaces it with the story', async () => {
@@ -314,6 +315,42 @@ describe('while an Astro story renders', () => {
     expect(canvas.innerHTML).toBe('<div>newer</div>');
   });
 
+  test('keeps the newer render\'s indicator when an older render finishes late', async () => {
+    vi.useFakeTimers();
+    const olderRender = serverWaits();
+    const older = renderAstro(canvas);
+    const newerRender = serverWaits();
+    const newer = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+    olderRender.respond('older');
+    await older;
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+
+    newerRender.respond('newer');
+    await newer;
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+  });
+
+  test('gives the height back when the next story function throws', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    expect(canvas.style.minHeight).toBe('900px');
+
+    const brokenStory = storyContext(() => {
+      throw new Error('Story failed');
+    });
+
+    await expect(renderToCanvas(brokenStory, canvas)).rejects.toThrow('Story failed');
+    expect(canvas.style.minHeight).toBe('');
+  });
+
   test('removes the indicator when the render fails', async () => {
     vi.useFakeTimers();
     const slowRender = serverWaits();
@@ -352,7 +389,8 @@ describe('while an Astro story renders', () => {
     // happy-dom doesn't run scripts, so note the height at that moment.
     const heightWhenScriptsRan: string[] = [];
     const insertScript = Node.prototype.replaceChild;
-    const replaceChild = vi.spyOn(Node.prototype, 'replaceChild').mockImplementation(function (
+
+    vi.spyOn(Node.prototype, 'replaceChild').mockImplementation(function (
       this: Node,
       newChild,
       oldChild
@@ -366,7 +404,6 @@ describe('while an Astro story renders', () => {
 
     server.render.mockResolvedValueOnce({ html: '<div>second</div><script>measureLayout()</script>' });
     await renderAstro(canvas);
-    replaceChild.mockRestore();
 
     expect(heightWhenScriptsRan).toEqual(['']);
   });
