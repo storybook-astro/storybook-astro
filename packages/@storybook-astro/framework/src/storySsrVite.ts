@@ -6,7 +6,11 @@ import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
-import { appendUserVitePlugins, loadUserAstroVitePlugins } from './loadUserAstroConfig.ts';
+import {
+  appendUserVitePlugins,
+  loadUserAstroCompileOptions,
+  loadUserAstroVitePlugins
+} from './loadUserAstroConfig.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
 import type { FrameworkOptions } from './types.ts';
 import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
@@ -27,6 +31,7 @@ export async function createStorySsrViteServer(options: {
     { root: options.resolveFrom },
     {
       configFile: false,
+      ...(await loadUserAstroCompileOptions(options.resolveFrom)),
       integrations: await Promise.all(
         options.integrations.map((integration) => integration.loadIntegration(options.resolveFrom))
       ),

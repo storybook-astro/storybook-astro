@@ -49,6 +49,42 @@ describe('createStorySsrViteServer', () => {
     }
   }, 60_000);
 
+  test('compiles components with the project\'s scopedStyleStrategy (issue #226)', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(join(fixtureDir, 'astro.config.mjs'), `export default { scopedStyleStrategy: 'class' };`);
+      await writeFile(join(fixtureDir, 'Card.astro'), '<div class="card"></div>\n<style>.card { color: red; }</style>\n');
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        const cardPath = join(fixtureDir, 'Card.astro');
+
+        await viteServer.ssrLoadModule(cardPath);
+        const { default: css } = (await viteServer.ssrLoadModule(
+          `${cardPath}?astro&type=style&index=0&inline&lang.css`
+        )) as { default: string };
+
+        // The default `attribute` strategy scopes with `[data-astro-cid-…]`.
+        expect(css).toMatch(/\.card\.astro-\w+/);
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   test('turns off the client dependency optimizer, even after integrations add to it (issue #184)', async () => {
     const packageDir = fileURLToPath(new URL('..', import.meta.url));
     const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));

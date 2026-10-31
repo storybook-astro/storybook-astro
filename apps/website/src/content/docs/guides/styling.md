@@ -3,7 +3,7 @@ title: Styling
 description: Set up global CSS, CSS frameworks, fonts, and static assets in Storybook.
 ---
 
-Astro component scoped styles work automatically — Storybook Astro handles them during rendering. Anything declared in your `astro.config.*` (integrations, `vite.plugins`, `fonts`) is also picked up automatically, so most projects need very little Storybook-specific wiring. The patterns below cover the cases that do need attention: global stylesheets and design tokens that live outside `astro.config.*`, path aliases, fonts loaded outside the Font Provider API, and static assets.
+Astro component scoped styles work automatically — Storybook Astro handles them during rendering. Integrations, `vite.plugins`, `fonts`, `scopedStyleStrategy` and `compressHTML` from your `astro.config.*` are also picked up automatically, so most projects need very little Storybook-specific wiring. Other options, such as `site`, `base`, `markdown` or `vite` settings other than `plugins`, aren't read. The patterns below cover the cases that do need attention: global stylesheets and design tokens that live outside `astro.config.*`, path aliases, fonts loaded outside the Font Provider API, and static assets.
 
 ## Global CSS
 

@@ -9,7 +9,11 @@ import { importAstroConfig } from '../importAstroConfig.ts';
 import { vitePluginAstroComponentMarker } from '../vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroSvgComponentMarker } from '../vitePluginAstroSvgComponentMarker.ts';
 import { registerTestingIntegrationsForRoot } from '../testing/integration-config.ts';
-import { appendUserVitePlugins, loadUserAstroVitePlugins } from '../loadUserAstroConfig.ts';
+import {
+  appendUserVitePlugins,
+  loadUserAstroCompileOptions,
+  loadUserAstroVitePlugins
+} from '../loadUserAstroConfig.ts';
 import { cjsInteropPlugin } from './vite-plugins.ts';
 
 /**
@@ -118,12 +122,15 @@ export function defineConfig(options: TestingDefineConfig) {
   const astroConfigFactoryPromise = Promise
     .all([
       importAstroConfig(root),
-      Promise.all(integrations.map((integration) => integration.loadIntegration(root)))
+      Promise.all(integrations.map((integration) => integration.loadIntegration(root))),
+      // With a config file, Astro reads these options from it.
+      astroConfigFile === false ? loadUserAstroCompileOptions(root) : {}
     ])
-    .then(([astroConfigModule, resolvedIntegrations]) =>
+    .then(([astroConfigModule, resolvedIntegrations, compileOptions]) =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       astroConfigModule.getViteConfig(vitestConfig as any, {
         configFile: astroConfigFile,
+        ...compileOptions,
         integrations: resolvedIntegrations,
         // Render images the way Storybook does (issue #196), not through the
         // project's image service and an /_image endpoint tests can't serve.
