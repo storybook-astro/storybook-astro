@@ -225,6 +225,22 @@ export async function createViteServer(
     }
   )({ mode: 'development', command: 'serve' });
 
+  // Stories ship a component's CSS Modules by loading them again with
+  // `?inline`, and Astro 7.4+ names CSS Module classes in dev by hashing the
+  // full module id. Have the configured naming function (Astro 7.4+ sets one
+  // in dev) ignore the `?inline` query the story loader adds, so the shipped
+  // class names match the markup's (issue #223). Other queries stay: a Vue
+  // SFC's `<style module>` blocks differ only by theirs. Astro 5 and 6 don't
+  // set a naming function.
+  const cssModules = config.css?.modules;
+
+  if (cssModules && typeof cssModules.generateScopedName === 'function') {
+    const scopedName = cssModules.generateScopedName;
+
+    cssModules.generateScopedName = (name, filename, ...rest) =>
+      scopedName(name, filename.replace(/\?inline$/, ''), ...rest);
+  }
+
   const serverConfig: InlineConfig = {
     configFile: false,
     ...config,

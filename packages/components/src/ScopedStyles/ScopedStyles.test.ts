@@ -4,10 +4,12 @@ import { composeStories, renderStory } from '@storybook-astro/framework/testing'
 import * as slotListStories from './SlotList.stories.jsx';
 import * as titlePairStories from './TitlePair.stories.jsx';
 import * as sassCardStories from './SassCard.stories.jsx';
+import * as importedStylesStories from './ImportedStylesCard.stories.jsx';
 
 const { ListInSlot } = composeStories(slotListStories);
 const { SameClassName } = composeStories(titlePairStories);
 const { ScssStyleBlock } = composeStories(sassCardStories);
+const { FrontmatterImports } = composeStories(importedStylesStories);
 
 function scopeAttributeOf(element: Element) {
   return element.getAttributeNames().find((name) => name.startsWith('data-astro-cid-'));
@@ -76,3 +78,16 @@ test('the next story replaces the last one\'s CSS', async () => {
   expect(storyCss()).toContain('.list[');
   expect(storyCss()).not.toContain('.title[');
 });
+
+// Issue #223: stylesheets a component imports in its frontmatter ship with the
+// story, and a CSS module's class names match the rendered markup.
+test('stylesheets imported in the frontmatter ship with the story', async () => {
+  await renderStory(FrontmatterImports);
+
+  const labelClass = screen.getByTestId('imported-styles-label').className;
+
+  expect(storyCss()).toContain('.imported-card');
+  expect(labelClass).not.toBe('');
+  expect(storyCss()).toContain(`.${labelClass}`);
+});
+
