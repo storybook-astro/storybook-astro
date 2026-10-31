@@ -78,10 +78,12 @@ export async function loadComponentStyles(
 
     // A dynamic `import()` or lazy `import.meta.glob` target is only compiled
     // once something calls it, so whether its CSS is known would depend on
-    // what earlier renders loaded. Load the `.astro` ones first, as Astro's
-    // dev server does, and compile the stylesheets, so a story's CSS doesn't
-    // depend on render order (issue #245). Like Astro dev, that ships the CSS
-    // of every component a glob matches, not only the ones the story rendered.
+    // what earlier renders loaded. Load the `.astro` ones first, as Astro 5's
+    // dev server does (Astro 7's transforms them without running them), and
+    // compile the stylesheets, so a story's CSS doesn't depend on render order
+    // (issue #245). Like Astro dev, that ships the CSS of every component a
+    // glob matches, not only the ones the story rendered. A follow-up issue
+    // tracks replacing these loads with one transform-only pass.
     for (const url of module.transformResult?.dynamicDeps ?? []) {
       const isAstroComponent = url.split('?')[0].endsWith('.astro');
 
@@ -94,8 +96,12 @@ export async function loadComponentStyles(
 
         if (!isAstroComponent) {
           // Compiling a stylesheet records its CSS without running anything.
+          // A compile error, a Sass one say, is reported like a static
+          // import's, so a static build fails on it.
           if (!target?.id || !compiled.has(target.id)) {
-            await ssr.transformRequest(url);
+            await ssr.transformRequest(url).catch((error: unknown) => {
+              failures.push({ moduleId: target?.id ?? url, error });
+            });
           }
         } else if (target?.ssrError) {
           // A component that failed to load fails the render that calls it,

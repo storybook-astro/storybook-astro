@@ -48,6 +48,8 @@ function createFakeServer(options: {
   notCompiled?: string[];
   /** Compiled CSS for particular stylesheets, keyed by their id. */
   css?: Record<string, string>;
+  /** Stylesheets whose compile throws, such as a Sass file with a syntax error. */
+  failToCompile?: string[];
   /** URLs whose lookup rejects. */
   rejectUrl?: string[];
 }) {
@@ -116,6 +118,10 @@ function createFakeServer(options: {
       ssr: {
         moduleGraph,
         transformRequest: async (url: string) => {
+          if (options.failToCompile?.includes(url)) {
+            throw new Error(`${url} has a syntax error`);
+          }
+
           compile(url);
           modules.get(url)!.transformResult = { dynamicDeps: [] };
         }
@@ -296,6 +302,21 @@ describe('loadComponentStyles', () => {
 
     expect(stylesheets).toEqual([`/* ${styleOf('Card.astro')} */`, '/* dark.css */']);
     expect(failures).toEqual([]);
+  });
+
+  test('reports a dynamically imported stylesheet that fails to compile, so a static build fails', async () => {
+    // `await import('./dark.scss')`, where dark.scss has a Sass error.
+    const { server } = createFakeServer({
+      imports: { 'Card.astro': [styleOf('Card.astro')] },
+      dynamicImports: { 'Card.astro': ['dark.scss'] },
+      notCompiled: ['dark.scss'],
+      failToCompile: ['dark.scss']
+    });
+
+    const { stylesheets, failures } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual([`/* ${styleOf('Card.astro')} */`]);
+    expect(failures).toEqual([{ moduleId: 'dark.scss', error: new Error('dark.scss has a syntax error') }]);
   });
 
   test('a glob match that fails to load reports nothing and the other matches still ship', async () => {
