@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { createPathStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
 import { createStorybookBrowserStubPlugin, createStorySsrViteServer } from './storySsrVite.ts';
 
@@ -84,6 +84,48 @@ describe('createStorySsrViteServer', () => {
         await viteServer.close();
       }
     } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('still starts, without the project\'s integrations, when one fails to set up', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      // Like a deployed render server's snapshot, which lacks files a hook expects.
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'needs-missing-file',
+            hooks: {
+              'astro:config:setup': () => {
+                throw new Error('ENOENT: content.config.ts');
+              }
+            }
+          }]
+        };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      await viteServer.close();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('An astro.config integration failed to set up'),
+        expect.stringContaining('ENOENT: content.config.ts')
+      );
+    } finally {
+      warn.mockRestore();
       await rm(fixtureDir, { recursive: true, force: true });
     }
   }, 60_000);

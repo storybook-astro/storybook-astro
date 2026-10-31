@@ -40,18 +40,42 @@ export async function createStorySsrViteServer(options: {
     (integration) => !frameworkNames.has(integration.name)
   );
 
-  const astroConfig = await getViteConfig(
-    { root: options.resolveFrom },
-    {
-      configFile: false,
-      ...(await loadUserAstroCompileOptions(options.resolveFrom)),
-      integrations: [...frameworkIntegrations, ...userIntegrations],
-      image: { service: storybookImageServiceConfig() }
+  const compileOptions = await loadUserAstroCompileOptions(options.resolveFrom);
+  const resolveAstroViteConfig = (integrations: typeof frameworkIntegrations) =>
+    getViteConfig(
+      { root: options.resolveFrom },
+      {
+        configFile: false,
+        ...compileOptions,
+        integrations,
+        image: { service: storybookImageServiceConfig() }
+      }
+    )({
+      mode: 'production',
+      command: 'serve'
+    });
+
+  let astroConfig: Awaited<ReturnType<typeof resolveAstroViteConfig>>;
+
+  try {
+    astroConfig = await resolveAstroViteConfig([...frameworkIntegrations, ...userIntegrations]);
+  } catch (error) {
+    if (userIntegrations.length === 0) {
+      throw error;
     }
-  )({
-    mode: 'production',
-    command: 'serve'
-  });
+
+    // The project's hooks run here against `resolveFrom`, which in server mode
+    // is a snapshot holding only the config files, on a filesystem that may be
+    // read-only. One failing hook would otherwise fail every render, so fall
+    // back to rendering without them, as before issue #226.
+    const reason = error instanceof Error ? error.message : String(error);
+
+    console.warn(
+      "[storybook-astro] An astro.config integration failed to set up in the story render server; rendering without the project's integrations:",
+      reason
+    );
+    astroConfig = await resolveAstroViteConfig(frameworkIntegrations);
+  }
 
   // Astro 7.4+ gives `serve` configs a path-based CSS module naming scheme so
   // dev HMR keeps class names stable. This server renders production output,

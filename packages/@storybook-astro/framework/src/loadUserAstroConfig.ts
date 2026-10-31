@@ -99,7 +99,7 @@ async function readUserAstroConfig(resolveFrom: string): Promise<UserAstroConfig
     if (!warnedConfigFiles.has(configFile)) {
       warnedConfigFiles.add(configFile);
       console.warn(
-        '[storybook-astro] Could not load astro.config to discover integrations / fonts / vite plugins:',
+        '[storybook-astro] Could not load astro.config to discover integrations / fonts / vite plugins / scopedStyleStrategy / compressHTML:',
         err instanceof Error ? err.message : String(err)
       );
     }
