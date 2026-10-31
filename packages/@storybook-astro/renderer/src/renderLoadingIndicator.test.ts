@@ -33,7 +33,7 @@ describe('showRenderLoadingIndicator', () => {
     expect(canvas.innerHTML).toBe('');
   });
 
-  test('fills an empty canvas, as after a story switch, and adds a hint after 5 s', () => {
+  test('fills an empty canvas, as after a story switch, and adds a hint after 2.5 s', () => {
     showRenderLoadingIndicator(canvas);
     vi.advanceTimersByTime(200);
 
@@ -42,7 +42,11 @@ describe('showRenderLoadingIndicator', () => {
     expect(indicator()?.style.position).toBe('');
     expect(indicator()?.querySelector('[hidden]')).not.toBeNull();
 
-    vi.advanceTimersByTime(4800);
+    vi.advanceTimersByTime(2200);
+
+    expect(indicator()?.querySelector('[hidden]')).not.toBeNull();
+
+    vi.advanceTimersByTime(100);
 
     expect(indicator()?.querySelector('[hidden]')).toBeNull();
     expect(indicator()?.textContent).toContain('render server may be starting up');
@@ -62,6 +66,35 @@ describe('showRenderLoadingIndicator', () => {
 
     expect(canvas.innerHTML).toBe('<div>story</div>');
     expect(canvas.style.position).toBe('');
+  });
+
+  test('fits the overlay to a story shorter than the standalone indicator', () => {
+    canvas.innerHTML = '<button>story</button>';
+    showRenderLoadingIndicator(canvas);
+    vi.advanceTimersByTime(200);
+
+    expect(indicator()?.style.minHeight).toBe('');
+    expect(indicator()?.style.overflow).toBe('hidden');
+  });
+
+  test('cancels the spinner animation when the render settles, so Storybook stops waiting on it', () => {
+    // happy-dom has no Web Animations API, so stand in for a browser's.
+    const cancel = vi.fn();
+    const animate = vi.fn(() => ({ cancel }));
+
+    Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: animate });
+
+    const hide = showRenderLoadingIndicator(canvas);
+
+    vi.advanceTimersByTime(200);
+
+    expect(animate).toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+
+    hide();
+
+    expect(cancel).toHaveBeenCalledOnce();
+    delete (HTMLElement.prototype as Partial<HTMLElement>).animate;
   });
 
   test('puts no <style> in the canvas', () => {

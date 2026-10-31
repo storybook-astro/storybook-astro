@@ -3,7 +3,10 @@
 // render is on its way. The indicator waits a short grace period so fast
 // renders never flash a spinner (issue #236).
 const SHOW_DELAY_MS = 200;
-const SLOW_HINT_DELAY_MS = 5000;
+// Must stay below the 5000 ms render timeout in the framework's
+// renderer-dev.ts and renderer-server.ts, or the render fails before the hint
+// can show.
+const SLOW_HINT_DELAY_MS = 2500;
 
 const GRAY = 'rgba(128, 128, 128, 0.9)';
 const LIGHT_GRAY = 'rgba(128, 128, 128, 0.3)';
@@ -26,6 +29,7 @@ export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => vo
   stopByCanvas.get(canvasElement)?.();
 
   let root: HTMLElement | undefined;
+  let animation: Animation | undefined;
   let previousPosition: string | undefined;
   let slowHintTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -33,6 +37,7 @@ export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => vo
     const elements = createIndicator(canvasElement.ownerDocument);
 
     root = elements.root;
+    animation = elements.animation;
 
     if (canvasElement.childElementCount > 0) {
       // The overlay needs a positioned canvas. Remember what was there so the
@@ -44,7 +49,16 @@ export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => vo
         canvasElement.style.position = 'relative';
       }
 
-      Object.assign(root.style, { position: 'absolute', inset: '0', background: 'rgba(128, 128, 128, 0.12)' });
+      // The overlay covers the canvas exactly, so drop the standalone
+      // indicator's min-height: a short story such as a button would otherwise
+      // get a gray box spilling onto whatever sits below it.
+      Object.assign(root.style, {
+        position: 'absolute',
+        inset: '0',
+        minHeight: '',
+        overflow: 'hidden',
+        background: 'rgba(128, 128, 128, 0.12)'
+      });
     }
 
     canvasElement.appendChild(root);
@@ -56,6 +70,9 @@ export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => vo
   const stop = () => {
     clearTimeout(showTimer);
     clearTimeout(slowHintTimer);
+    // An infinite animation never finishes, and Storybook waits for running
+    // animations before it reports a story rendered. Cancelling ends the wait.
+    animation?.cancel();
     root?.remove();
 
     if (previousPosition !== undefined) {
@@ -101,9 +118,11 @@ function createIndicator(document: Document) {
     borderRadius: '50%'
   });
 
+  let animation: Animation | undefined;
+
   // A still ring reads as "busy" without motion for readers who asked for less.
   if (!document.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-    spinner.animate?.([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], {
+    animation = spinner.animate?.([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], {
       duration: 800,
       iterations: Infinity
     });
@@ -120,7 +139,7 @@ function createIndicator(document: Document) {
 
   root.append(spinner, label, hint);
 
-  return { root, hint };
+  return { root, hint, animation };
 }
 
 /** Removes the canvas's indicator, for a render that isn't an Astro one. */
@@ -133,9 +152,10 @@ const heldHeightByCanvas = new WeakMap<HTMLElement, string>();
 
 /**
  * Keeps the canvas at its current height after a teardown empties it, until
- * the next render settles. Otherwise the page shrinks while the next render is
- * on its way, and a reader scrolled down a story jumps back to the top when
- * they save an edit or remount it.
+ * the next render settles, so the page doesn't collapse and regrow while the
+ * next render is on its way. A Remount or a Docs story block then keeps the
+ * reader's scroll position. A saved edit in the Canvas tab still scrolls to
+ * the top: Storybook resets the scroll position before every story render.
  */
 export function holdCanvasHeight(canvasElement: HTMLElement) {
   const height = canvasElement.offsetHeight;
