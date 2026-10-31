@@ -36,23 +36,24 @@ export type ComponentStyles = {
  * or fail on.
  */
 export async function loadComponentStyles(
-  viteServer: Pick<ViteDevServer, 'environments' | 'config'>,
+  viteServer: Pick<ViteDevServer, 'environments' | 'config' | 'ssrLoadModule'>,
   componentIds: Iterable<string>
 ): Promise<ComponentStyles> {
   // The SSR environment's graph only: the client's holds the browser's
   // imports, and looking an id up there can fail for client-only reasons.
-  const { moduleGraph } = viteServer.environments.ssr;
+  const ssr = viteServer.environments.ssr;
+  const { moduleGraph } = ssr;
   const compiled = compiledStylesheetsFor(viteServer);
 
   if (!compiled) {
     throw new Error('This Vite server has no vitePluginCompiledStylesheets, so story styles cannot be read.');
   }
 
-  const styleModuleIds = new Set<string>();
+  const styleModules = new Map<string, EnvironmentModuleNode>();
   const visited = new Set<EnvironmentModuleNode>();
   const failures: ComponentStyles['failures'] = [];
 
-  const collect = (module: EnvironmentModuleNode) => {
+  const collect = async (module: EnvironmentModuleNode) => {
     if (visited.has(module)) {
       return;
     }
@@ -63,7 +64,7 @@ export async function loadComponentStyles(
     // #223), a Vue or Svelte component's style blocks (issue #241) and a
     // plugin's virtual stylesheet (issue #243).
     if (module.id && isAppliedStylesheet(module.id)) {
-      styleModuleIds.add(module.id);
+      styleModules.set(module.id, module);
     }
 
     // Like Astro's own crawl, don't follow the imports of a stylesheet or of a
@@ -75,15 +76,27 @@ export async function loadComponentStyles(
       return;
     }
 
-    // Nor a dynamic `import()` or lazy `import.meta.glob` target: whether one
-    // is in the graph depends on what earlier renders loaded, so following it
-    // would make a story's CSS depend on render order (issue #245).
-    const dynamicImports = new Set(module.transformResult?.dynamicDeps ?? []);
+    // A dynamic `import()` or lazy `import.meta.glob` target is only compiled
+    // once something calls it, so whether its imports are in the graph would
+    // depend on what earlier renders loaded. Load the `.astro` ones first, as
+    // Astro's dev server does, so a story's CSS doesn't depend on render order
+    // (issue #245). Like Astro dev, that ships the CSS of every component a
+    // glob matches, not only the ones the story rendered.
+    for (const url of module.transformResult?.dynamicDeps ?? []) {
+      const target = await moduleGraph.getModuleByUrl(url);
+
+      if (url.split('?')[0].endsWith('.astro') && !target?.transformResult) {
+        try {
+          await viteServer.ssrLoadModule(url);
+        } catch {
+          // Like Astro dev: a target that fails to load fails the render that
+          // calls it, so there's nothing to report here.
+        }
+      }
+    }
 
     for (const imported of module.importedModules) {
-      if (!dynamicImports.has(imported.url)) {
-        collect(imported);
-      }
+      await collect(imported);
     }
   };
 
@@ -92,7 +105,9 @@ export async function loadComponentStyles(
       const modules = await findComponentModules(moduleGraph, componentId);
 
       if (modules.length > 0) {
-        modules.forEach(collect);
+        for (const module of modules) {
+          await collect(module);
+        }
       } else if (existsSync(componentId)) {
         // A file on disk that the render loaded should be in the graph. A
         // component whose file isn't here (a precompiled package component,
@@ -109,7 +124,20 @@ export async function loadComponentStyles(
 
   const stylesheets: string[] = [];
 
-  for (const styleModuleId of styleModuleIds) {
+  for (const [styleModuleId, styleModule] of styleModules) {
+    // Vite clears a module's transform result when its file changes. A
+    // long-lived handler (the Vitest renderer daemon, say) keeps the
+    // component that imports it cached, so nothing else recompiles the
+    // edited stylesheet: compile it here, which records the new CSS.
+    if (!styleModule.transformResult && compiled.has(styleModuleId)) {
+      try {
+        await ssr.transformRequest(styleModule.url);
+      } catch (error) {
+        // The last CSS that compiled still ships, as Astro dev keeps it.
+        failures.push({ moduleId: styleModuleId, error });
+      }
+    }
+
     const css = compiled.get(styleModuleId);
 
     if (css) {
