@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import type { PluginOption } from 'vite';
+import { existsSync, readFileSync } from 'node:fs';
+import { isFileLoadingAllowed, type PluginOption, type ResolvedConfig } from 'vite';
 import type { AstroDocgen } from './docgen/index.ts';
 
 /**
@@ -32,12 +32,14 @@ export function vitePluginAstroComponentMarker(options?: {
   docgen?: AstroDocgen;
 }): PluginOption {
   let isBuild = false;
+  let resolvedConfig: ResolvedConfig;
 
   return {
     name: 'storybook-astro-component-marker',
     enforce: 'post',
 
     configResolved(config) {
+      resolvedConfig = config;
       isBuild = config.command === 'build';
     },
 
@@ -75,10 +77,32 @@ export function vitePluginAstroComponentMarker(options?: {
 
       options?.onClientAstroModuleId?.(moduleId);
 
-      // In dev, re-import the component's child .astro files so they join the
-      // client module graph: editing a child then updates this stub through HMR,
-      // and the story rerenders with the child's new markup and styles.
-      const childImports = isBuild ? '' : generateChildImports(moduleId);
+      // In dev, re-import the component's child .astro files and frontmatter
+      // stylesheets so they join the client module graph: editing one then
+      // updates this stub through HMR, and the story rerenders with the new
+      // markup and styles. Without this, a story's shipped copy of an imported
+      // stylesheet stays stale until a reload (issue #229).
+      let childImports = '';
+
+      if (!isBuild) {
+        // A stylesheet import only goes on the stub when it resolves to a file
+        // the browser may load. A plugin's virtual stylesheet (`virtual:uno.css`),
+        // a dynamic import of a file that doesn't exist, or a file outside
+        // `server.fs.allow` would otherwise fail the stub's import and break the
+        // story. Those stylesheets still ship from SSR; editing one just needs
+        // a reload to show.
+        const canLoadInBrowser = async (specifier: string) => {
+          const resolved = await this.resolve(specifier, moduleId).catch(() => null);
+
+          if (!resolved || resolved.id.startsWith('\0')) {return false;}
+
+          const filePath = resolved.id.split('?')[0];
+
+          return existsSync(filePath) && isFileLoadingAllowed(resolvedConfig, filePath);
+        };
+
+        childImports = await generateChildImports(moduleId, canLoadInBrowser);
+      }
 
       const docgenCode = await generateDocgenAssignment(options?.docgen, moduleId);
 
@@ -124,23 +148,63 @@ async function generateDocgenAssignment(
   }
 }
 
-/** Builds side-effect imports for the child .astro components a component's frontmatter imports. */
-function generateChildImports(filePath: string): string {
+/**
+ * Builds the imports that tie a component's frontmatter dependencies to its stub:
+ * a side-effect import per child `.astro` file, and a `?raw` import per
+ * stylesheet the browser can load. `?raw` resolves to the file's text without
+ * injecting the CSS, so the stylesheet joins the client graph without being
+ * applied twice, and its module id differs from a `.storybook/preview.js` import of the same file.
+ * (`?url` would be lighter, but Vite rejects it for CSS Modules.)
+ */
+async function generateChildImports(
+  filePath: string,
+  canLoadInBrowser: (specifier: string) => Promise<boolean>
+): Promise<string> {
+  let source: string;
+
   try {
-    return extractAstroImportSpecifiers(readFileSync(filePath, 'utf-8'))
-      .map((specifier) => `import ${JSON.stringify(specifier)};`)
-      .join('\n');
+    source = readFileSync(filePath, 'utf-8');
   } catch {
     return '';
   }
+
+  const astroImports = extractAstroImportSpecifiers(source).map(
+    (specifier) => `import ${JSON.stringify(specifier)};`
+  );
+  const stylesheetImports: string[] = [];
+
+  for (const specifier of extractStylesheetImportSpecifiers(source)) {
+    if (await canLoadInBrowser(specifier)) {
+      stylesheetImports.push(`import ${JSON.stringify(`${specifier}?raw`)};`);
+    }
+  }
+
+  return [...astroImports, ...stylesheetImports].join('\n');
+}
+
+/** Extracts import specifiers ending in `.astro` from a component's frontmatter. */
+export function extractAstroImportSpecifiers(source: string): string[] {
+  return extractFrontmatterImportSpecifiers(source, 'astro');
 }
 
 /**
- * Extracts import specifiers ending in `.astro` from a component's frontmatter.
- * Comments are stripped first so commented-out imports don't resurface as
- * broken module requests in the browser.
+ * Extracts stylesheet import specifiers (`.css`, Sass, Less, Stylus, PostCSS,
+ * CSS Modules) from a component's frontmatter. Imports that already carry a
+ * query (`?raw`, `?url`) are skipped: they don't ship with the story.
  */
-export function extractAstroImportSpecifiers(source: string): string[] {
+export function extractStylesheetImportSpecifiers(source: string): string[] {
+  return extractFrontmatterImportSpecifiers(
+    source,
+    '(?:css|scss|sass|less|styl|stylus|pcss|postcss)'
+  );
+}
+
+/**
+ * Extracts the frontmatter import specifiers that end in the given extension
+ * and carry no query. Comments are stripped first so commented-out imports
+ * don't resurface as broken module requests in the browser.
+ */
+function extractFrontmatterImportSpecifiers(source: string, extension: string): string[] {
   const frontmatterMatch = source.match(/^---([\s\S]*?)---/m);
 
   if (!frontmatterMatch) {return [];}
@@ -150,8 +214,11 @@ export function extractAstroImportSpecifiers(source: string): string[] {
     .replace(/\/\/[^\n]*/g, '');
 
   // Matches static imports (`import Child from './Child.astro'`), side-effect
-  // imports (`import './Child.astro'`), and dynamic imports (`import('./Child.astro')`).
-  const importPattern = /(?:from|import)\s*\(?\s*['"]([^'"]+\.astro)['"]/g;
+  // imports (`import './card.css'`), and dynamic imports (`import('./Child.astro')`).
+  const importPattern = new RegExp(
+    `(?:from|import)\\s*\\(?\\s*['"]([^'"?]+\\.${extension})['"]`,
+    'g'
+  );
   const specifiers = new Set<string>();
   let match;
 
