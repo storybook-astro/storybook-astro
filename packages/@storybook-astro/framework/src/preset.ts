@@ -125,9 +125,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       config.plugins.push(vitePluginAstroBuildServer(options, clientAstroComponentIds) as any);
     }
-  }
 
-  if (configType !== 'DEVELOPMENT') {
     config.build = {
       ...(config.build ?? {}),
       manifest: true
