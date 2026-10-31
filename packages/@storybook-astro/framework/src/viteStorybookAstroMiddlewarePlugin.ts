@@ -263,7 +263,8 @@ export async function createViteServer(
   // same plugins, or components relying on one of them (e.g. vite-svg-loader's
   // `.svg?component` imports) fail to render in dev mode.
   appendUserVitePlugins(serverConfig, await loadUserAstroVitePlugins(resolveFrom));
-  // Last, so it records each stylesheet's CSS after every other plugin.
+  // The last normal-order plugin, so it records each stylesheet's CSS after
+  // integrations and PostCSS, and before `vite:css-post` turns it into JS.
   serverConfig.plugins = [...(serverConfig.plugins ?? []), vitePluginCompiledStylesheets()];
 
   const viteServer = await createServer(serverConfig);

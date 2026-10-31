@@ -90,7 +90,8 @@ export async function createStorySsrViteServer(options: {
   // same plugins, or components relying on one of them (e.g. vite-svg-loader's
   // `.svg?component` imports) resolve differently in the static output.
   appendUserVitePlugins(config, await loadUserAstroVitePlugins(options.resolveFrom));
-  // Last, so it records each stylesheet's CSS after every other plugin.
+  // The last normal-order plugin, so it records each stylesheet's CSS after
+  // integrations and PostCSS, and before `vite:css-post` turns it into JS.
   config.plugins = [...(config.plugins ?? []), vitePluginCompiledStylesheets()];
 
   const viteServer = await createServer(config);

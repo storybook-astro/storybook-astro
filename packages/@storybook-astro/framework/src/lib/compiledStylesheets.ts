@@ -18,8 +18,11 @@ export const isAppliedStylesheet = (id: string) => isCSSRequest(id) && !NOT_APPL
  * module id, and any transform that depends on the id, such as CSS Module
  * class naming, could then disagree with the markup.
  *
- * Add it after every other plugin: it has to see the CSS once integrations and
- * PostCSS have finished with it, and before Vite turns it into a JS module.
+ * Add it after every other normal-order plugin: it has to see the CSS once
+ * integrations and PostCSS have finished with it, and before Vite's
+ * `vite:css-post` turns it into a JS module. Don't give it `enforce: 'post'`:
+ * Vite runs post plugins after `vite:css-post`, when the stylesheet is already
+ * a JS module.
  */
 export function vitePluginCompiledStylesheets(): Plugin {
   // The compiled CSS of each stylesheet, by module id. `api` is how Vite
