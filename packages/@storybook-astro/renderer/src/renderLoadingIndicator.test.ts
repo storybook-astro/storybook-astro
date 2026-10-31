@@ -61,6 +61,8 @@ describe('showRenderLoadingIndicator', () => {
     expect(canvas.firstElementChild?.textContent).toBe('story');
     expect(indicator()?.style.position).toBe('absolute');
     expect(canvas.style.position).toBe('relative');
+    // Above positioned story elements, such as a sticky header with z-index: 1
+    expect(indicator()?.style.zIndex).toBe('2147483647');
 
     hide();
 
@@ -75,6 +77,27 @@ describe('showRenderLoadingIndicator', () => {
 
     expect(indicator()?.style.minHeight).toBe('');
     expect(indicator()?.style.overflow).toBe('hidden');
+  });
+
+  test('lays the overlay out in one row with a small spinner, so it fits a button-height canvas', () => {
+    canvas.innerHTML = '<button>story</button>';
+    showRenderLoadingIndicator(canvas);
+    vi.advanceTimersByTime(200);
+
+    const spinner = indicator()?.firstElementChild as HTMLElement;
+
+    expect(indicator()?.style.flexDirection).toBe('row');
+    expect(indicator()?.style.gap).toBe('8px');
+    expect(spinner.style.width).toBe('16px');
+    expect(spinner.style.height).toBe('16px');
+  });
+
+  test('keeps the column layout for an empty canvas', () => {
+    showRenderLoadingIndicator(canvas);
+    vi.advanceTimersByTime(200);
+
+    expect(indicator()?.style.flexDirection).toBe('column');
+    expect((indicator()?.firstElementChild as HTMLElement).style.width).toBe('28px');
   });
 
   test('spins with an infinite CSS animation, which Storybook does not wait on before reporting a story rendered', () => {

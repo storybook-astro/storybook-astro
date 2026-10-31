@@ -21,10 +21,12 @@ const stopByCanvas = new WeakMap<HTMLElement, () => void>();
  * Shows "Rendering story…" in the canvas if the render takes longer than
  * 200 ms, and returns the function that removes it once the render settles.
  *
- * An empty canvas (a story switch, a remount, a saved edit) gets the indicator
- * in place of the story. A canvas that still shows the story (a Controls
- * change) gets it as an overlay, so the story stays visible. Styles are inline,
- * so no `<style>` goes into the canvas.
+ * What the reader sees depends on the canvas, not on what started the render.
+ * A canvas whose story has been cleared (a story switch, a remount, a saved
+ * edit, or a Controls change on a story that uses `mount`) gets the indicator
+ * in place of the story. A canvas that still shows a story, as on most
+ * Controls changes, gets it as an overlay, so the story stays visible. Styles
+ * are inline, so no `<style>` goes into the canvas.
  */
 export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => void {
   stopByCanvas.get(canvasElement)?.();
@@ -50,13 +52,24 @@ export function showRenderLoadingIndicator(canvasElement: HTMLElement): () => vo
 
       // The overlay covers the canvas exactly, so drop the standalone
       // indicator's min-height: a short story such as a button would otherwise
-      // get a gray box spilling onto whatever sits below it.
+      // get a gray box spilling onto whatever sits below it. One row with a
+      // small spinner fits a button-height canvas, where the standalone
+      // column would be cut through the middle. The z-index keeps it above
+      // positioned story elements, such as a sticky header.
       Object.assign(root.style, {
         position: 'absolute',
         inset: '0',
+        zIndex: '2147483647',
+        flexDirection: 'row',
+        gap: '8px',
         minHeight: '',
         overflow: 'hidden',
         background: 'rgba(128, 128, 128, 0.12)'
+      });
+      Object.assign(elements.spinner.style, {
+        width: '16px',
+        height: '16px',
+        borderWidth: '2px'
       });
     }
 
@@ -134,7 +147,7 @@ function createIndicator(document: Document) {
 
   root.append(spinner, label, hint);
 
-  return { root, hint };
+  return { root, spinner, hint };
 }
 
 /** Removes whatever indicator the canvas shows, for callers that don't hold the render's own stop function. */
@@ -147,8 +160,9 @@ const heldHeightByCanvas = new WeakMap<HTMLElement, string>();
 
 /**
  * Keeps the canvas at its current height after a teardown empties it, until
- * the next render writes its markup or fails, so the page doesn't collapse
- * and regrow while the next render is on its way. A Remount or a Docs story block then keeps the
+ * the next Astro render writes its markup or fails, so the page doesn't
+ * collapse and regrow while the next render is on its way. A framework story
+ * releases it when it starts rendering. A Remount or a Docs story block then keeps the
  * reader's scroll position. A saved edit in the Canvas tab still scrolls to
  * the top: Storybook resets the scroll position before every story render.
  */
@@ -163,7 +177,7 @@ export function holdCanvasHeight(canvasElement: HTMLElement) {
   canvasElement.style.minHeight = `${height}px`;
 }
 
-/** Gives the canvas back its own height once the next render writes its markup or fails. */
+/** Gives the canvas back its own height once the next Astro render writes its markup or fails, or a framework story starts rendering. */
 export function releaseCanvasHeight(canvasElement: HTMLElement) {
   const minHeight = heldHeightByCanvas.get(canvasElement);
 
