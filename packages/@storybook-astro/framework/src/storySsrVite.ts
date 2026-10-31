@@ -48,6 +48,23 @@ export async function createStorySsrViteServer(options: {
 
   const compileOptions = await loadUserAstroCompileOptions(options.resolveFrom);
 
+  // Astro creates a new naming function for every config it resolves, so
+  // recognize its own by comparing source with the one it sets when no
+  // integration runs. A string pattern is never Astro's.
+  const isAstroDevClassNaming = async (generateScopedName: unknown) => {
+    if (typeof generateScopedName !== 'function') {
+      return false;
+    }
+
+    const astroOnly = await getViteConfig(
+      { root: options.resolveFrom },
+      { configFile: false, integrations: [] }
+    )({ mode: 'production', command: 'serve' });
+    const astroNaming = astroOnly.css?.modules?.generateScopedName;
+
+    return typeof astroNaming === 'function' && astroNaming.toString() === generateScopedName.toString();
+  };
+
   const startServer = async (integrations: typeof frameworkIntegrations) => {
     const astroConfig = await getViteConfig(
       { root: options.resolveFrom },
@@ -66,10 +83,11 @@ export async function createStorySsrViteServer(options: {
     // dev HMR keeps class names stable. This server renders production output,
     // and the island build that emits the matching stylesheets runs as a
     // `build`, which keeps Vite's default naming. Drop Astro's so the rendered
-    // HTML references the class names the built CSS defines (issue #199).
+    // HTML references the class names the built CSS defines (issue #199). Keep
+    // one a project integration set: the island build keeps it too (#258).
     const cssModules = astroConfig.css?.modules;
 
-    if (cssModules) {
+    if (cssModules && (await isAstroDevClassNaming(cssModules.generateScopedName))) {
       delete cssModules.generateScopedName;
     }
 

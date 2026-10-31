@@ -88,6 +88,48 @@ describe('createStorySsrViteServer', () => {
     }
   }, 60_000);
 
+  test.each([
+    ['a naming pattern', `'[name]__[local]'`],
+    ['a naming function', `(name) => 'project_' + name`]
+  ])('keeps %s a project integration sets for CSS Module classes (issue #258)', async (_kind, generateScopedName) => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'css-module-naming',
+            hooks: {
+              'astro:config:setup': ({ updateConfig }) => {
+                updateConfig({ vite: { css: { modules: { generateScopedName: ${generateScopedName} } } } });
+              }
+            }
+          }]
+        };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        expect(viteServer.config.css.modules && viteServer.config.css.modules.generateScopedName).toBeDefined();
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   test('in server mode, still starts without the project\'s integrations when one fails to set up', async () => {
     const packageDir = fileURLToPath(new URL('..', import.meta.url));
     const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
