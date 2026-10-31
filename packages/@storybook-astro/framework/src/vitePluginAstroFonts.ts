@@ -133,9 +133,12 @@ export function vitePluginAstroFonts(
       await ensureResolved();
     },
 
-    // The dev middleware prepends font CSS to each rendered story. Static and
-    // server builds have no such response, so bake the @font-face rules into
-    // the iframe page.
+    // In dev, the render middleware prepends the font CSS to every story it
+    // returns. Builds don't go through that middleware, so they bake every
+    // family's @font-face rules into the iframe head instead: the font CSS
+    // variables are then defined on every story, not only where <Font>
+    // renders. Server builds still need the render runtime to receive the
+    // fonts before <Font> itself works there.
     async transformIndexHtml() {
       if (!isBuild || families.length === 0) {return;}
 
