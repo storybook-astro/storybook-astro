@@ -154,7 +154,7 @@ Match whatever aliases you have in your `astro.config.*` — `@`, `~`, `#`, etc.
 
 ### Astro Font Provider API
 
-If your project uses Astro 6's [Font Provider API](https://docs.astro.build/en/reference/font-provider-reference/) — `fonts: [...]` in `astro.config.*` with providers like `fontProviders.google()`, `fontProviders.local()`, etc. — Storybook auto-loads the array and the `<Font>` component renders real `@font-face` CSS in stories with no extra wiring.
+If your project uses Astro 6's [Font Provider API](https://docs.astro.build/en/reference/font-provider-reference/) — `fonts: [...]` in `astro.config.*` with providers like `fontProviders.google()`, `fontProviders.bunny()`, etc. — Storybook auto-loads the array and the `<Font>` component renders real `@font-face` CSS in stories with no extra wiring.
 
 ```javascript
 // astro.config.mjs
@@ -187,7 +187,7 @@ framework: {
 ```
 
 :::caution
-Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated.
+Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated. In server builds (`renderMode: 'server'`), the font CSS variables are defined, but a story that renders `<Font>` fails with `FontFamilyNotFound`. Use the CSS variables directly there. The `local` provider isn't supported yet ([#244](https://github.com/storybook-astro/storybook-astro/issues/244)): Storybook skips those families without a warning, and `<Font>` throws `FontFamilyNotFound` for them. Declare local fonts with `@font-face` in `.storybook/preview.css` instead (see [Self-hosted fonts](#self-hosted-fonts)), define the family's CSS variable there yourself (for example `:root { --font-custom: 'Custom', sans-serif; }`), and don't render `<Font>` for those families in stories.
 :::
 
 ### npm font packages

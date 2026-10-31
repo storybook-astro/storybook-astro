@@ -133,8 +133,12 @@ export function vitePluginAstroFonts(
       await ensureResolved();
     },
 
-    // The dev middleware prepends font CSS to each rendered story; static builds
-    // have no such response, so bake the @font-face rules into the iframe page.
+    // In dev, the render middleware prepends the font CSS to every story it
+    // returns. Builds don't go through that middleware, so they bake every
+    // family's @font-face rules into the iframe head instead: the font CSS
+    // variables are then defined on every story, not only where <Font>
+    // renders. Server builds don't pass the fonts to the render runtime yet,
+    // so a story that renders <Font> throws FontFamilyNotFound there.
     async transformIndexHtml() {
       if (!isBuild || families.length === 0) {return;}
 
@@ -143,7 +147,7 @@ export function vitePluginAstroFonts(
 
       if (!css) {return;}
 
-      return [{ tag: 'style', attrs: { 'data-astro-fonts': '' }, children: css, injectTo: 'head' as const }];
+      return [{ tag: 'style', attrs: { 'data-storybook-astro-fonts': '' }, children: css, injectTo: 'head' as const }];
     },
 
     resolveId(id) {
