@@ -30,8 +30,7 @@ type BaseFrameworkOptions = {
   /**
    * Astro font families to resolve and inject as @font-face CSS during story
    * rendering. Pass the same array you have in your `astro.config.ts` under
-   * `fonts:`. Currently honored in development; static/server builds fall
-   * back to no-op stubs.
+   * `fonts:`. Honored in development and in static/server builds.
    */
   fonts?: StorybookFontFamily[];
   /**

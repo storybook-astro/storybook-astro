@@ -107,6 +107,7 @@ export function vitePluginAstroFonts(
   const rootDir = options.root ?? process.cwd();
   const root = pathToFileURL(rootDir.endsWith('/') ? rootDir : rootDir + '/');
 
+  let isBuild = false;
   let resolved: ResolvedFontData | null = null;
   let resolvePromise: Promise<ResolvedFontData> | null = null;
 
@@ -124,8 +125,25 @@ export function vitePluginAstroFonts(
     name: 'storybook-astro-fonts',
     enforce: 'pre',
 
+    configResolved(config) {
+      isBuild = config.command === 'build';
+    },
+
     async buildStart() {
       await ensureResolved();
+    },
+
+    // The dev middleware prepends font CSS to each rendered story; static builds
+    // have no such response, so bake the @font-face rules into the iframe page.
+    async transformIndexHtml() {
+      if (!isBuild || families.length === 0) {return;}
+
+      const data = resolved ?? (await ensureResolved());
+      const css = data.componentEntries.map(([, entry]) => entry.css).join('\n');
+
+      if (!css) {return;}
+
+      return [{ tag: 'style', attrs: { 'data-astro-fonts': '' }, children: css, injectTo: 'head' as const }];
     },
 
     resolveId(id) {
