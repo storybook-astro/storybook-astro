@@ -9,6 +9,7 @@ import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallb
 import {
   appendUserVitePlugins,
   loadUserAstroCompileOptions,
+  loadUserAstroIntegrations,
   loadUserAstroVitePlugins
 } from './loadUserAstroConfig.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
@@ -27,14 +28,24 @@ export async function createStorySsrViteServer(options: {
   fonts?: FrameworkOptions['fonts'];
 }) {
   const { getViteConfig } = await importAstroConfig(options.resolveFrom);
+  const frameworkIntegrations = await Promise.all(
+    options.integrations.map((integration) => integration.loadIntegration(options.resolveFrom))
+  );
+
+  // The project's own integrations too, as dev's server loads them, so one
+  // that adds Vite or PostCSS config (`@astrojs/tailwind`, `astro-icon`)
+  // renders the same in a build as in dev (issue #226).
+  const frameworkNames = new Set(frameworkIntegrations.map((integration) => integration.name));
+  const userIntegrations = (await loadUserAstroIntegrations(options.resolveFrom)).filter(
+    (integration) => !frameworkNames.has(integration.name)
+  );
+
   const astroConfig = await getViteConfig(
     { root: options.resolveFrom },
     {
       configFile: false,
       ...(await loadUserAstroCompileOptions(options.resolveFrom)),
-      integrations: await Promise.all(
-        options.integrations.map((integration) => integration.loadIntegration(options.resolveFrom))
-      ),
+      integrations: [...frameworkIntegrations, ...userIntegrations],
       image: { service: storybookImageServiceConfig() }
     }
   )({

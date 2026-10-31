@@ -49,6 +49,45 @@ describe('createStorySsrViteServer', () => {
     }
   }, 60_000);
 
+  test('loads the integrations declared in the project astro.config, as dev does (issue #226)', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'user-integration',
+            hooks: {
+              'astro:config:setup': ({ updateConfig }) => {
+                updateConfig({ vite: { plugins: [{ name: 'from-user-integration' }] } });
+              }
+            }
+          }]
+        };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        expect(viteServer.config.plugins.map((plugin) => plugin.name)).toContain('from-user-integration');
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   test('compiles components with the project\'s scopedStyleStrategy (issue #226)', async () => {
     const packageDir = fileURLToPath(new URL('..', import.meta.url));
     const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
