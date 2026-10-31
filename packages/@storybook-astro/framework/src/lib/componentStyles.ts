@@ -82,8 +82,8 @@ export async function loadComponentStyles(
     // dev server does (Astro 7's transforms them without running them), and
     // compile the stylesheets, so a story's CSS doesn't depend on render order
     // (issue #245). Like Astro dev, that ships the CSS of every component a
-    // glob matches, not only the ones the story rendered. A follow-up issue
-    // tracks replacing these loads with one transform-only pass.
+    // glob matches, not only the ones the story rendered. Issue #277 tracks
+    // replacing these loads with one transform-only pass.
     for (const dynamicDep of module.transformResult?.dynamicDeps ?? []) {
       // Vite records an import of a virtual module under a `/@id/` URL, with
       // a leading `\0` written as `__x00__`. The module graph's URL lookup
