@@ -157,6 +157,20 @@ describe('an Astro story', () => {
   });
 });
 
+describe('slots on the Docgen Server path', () => {
+  test('are listed without a control, since the preview cannot seed or lock it', async () => {
+    const docgen = stubSource({ slots: [{ name: 'default', description: 'The card body' }] });
+    const payload = await build(storyEntry('Card.stories.jsx', 'Astro/Card'), docgen);
+
+    expect(payload?.argTypes?.['slot:default']).toMatchObject({
+      name: 'default',
+      description: 'The card body',
+      control: { disable: true },
+      table: { category: 'slots' }
+    });
+  });
+});
+
 describe('stories that are not ours', () => {
   test('a framework component is left to its own provider', async () => {
     const docgen = stubSource();

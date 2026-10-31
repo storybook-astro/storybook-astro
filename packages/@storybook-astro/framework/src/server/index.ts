@@ -92,7 +92,8 @@ async function createAstroStoryRenderer() {
     trackedSpecifiers: new Set(runtimeConfig.trackedSpecifiers),
     resolveFrom: snapshotRoot,
     resolveComponentId: (componentId: string) =>
-      resolveSnapshotComponentPath(snapshotRoot, componentId)
+      resolveSnapshotComponentPath(snapshotRoot, componentId),
+    renderWithoutProjectIntegrationsOnFailure: true
   });
 
   return runtime.renderAstroStory;

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import type { ViteDevServer } from 'vite';
 import { isAstroComponentSlot, serializeAstroComponentMarkers, type SlotValue } from '@storybook-astro/renderer/types';
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
-import { separateStorySlots } from './lib/separate-story-slots.ts';
+import { splitStoryArgs } from '@storybook-astro/renderer/slotArgs';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { loadComponentStyles } from './lib/componentStyles.ts';
 import { composeStory } from './portable-stories.ts';
@@ -56,6 +56,8 @@ type ProductionRenderRuntimeOptions = {
   fonts?: FrameworkOptions['fonts'];
   /** Fail a render whose component styles fail to load. Set by the static build's prerender. */
   failOnStyleError?: boolean;
+  /** Start without the project's integrations when they break setup. Set by server mode only. */
+  renderWithoutProjectIntegrationsOnFailure?: boolean;
 };
 
 /** Creates the shared SSR runtime used by both build-time prerendering and the standalone render server. */
@@ -66,7 +68,8 @@ export async function createProductionRenderRuntime(
     integrations: options.integrations,
     trackedSpecifiers: options.trackedSpecifiers,
     resolveFrom: options.resolveFrom,
-    fonts: options.fonts
+    fonts: options.fonts,
+    renderWithoutProjectIntegrationsOnFailure: options.renderWithoutProjectIntegrationsOnFailure
   });
 
   try {
@@ -264,7 +267,7 @@ export async function renderProductionStoryToHtml(options: {
   }
 
   const storyArgs = mergeMetaArgsWithStoryArgs(metaArgs, storyLevelArgs);
-  const { componentArgs, storySlots } = separateStorySlots(storyArgs);
+  const { props: componentArgs, slots: storySlots } = splitStoryArgs(storyArgs);
 
   let node: SlotValue | undefined;
 

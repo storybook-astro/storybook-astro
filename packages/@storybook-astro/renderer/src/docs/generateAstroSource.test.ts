@@ -71,6 +71,18 @@ describe('serializing prop values', () => {
   });
 });
 
+describe('slots edited in Controls (issue #203)', () => {
+  test('a per-slot arg becomes slot content, not an attribute', () => {
+    const source = generateAstroSource('Card', {
+      title: 'Hi',
+      slots: { default: 'Old' },
+      'slot:default': 'Edited'
+    });
+
+    expect(source).toBe(['<Card title="Hi">', '  Edited', '</Card>'].join('\n'));
+  });
+});
+
 describe('hoisting complex values into frontmatter', () => {
   test('an object becomes a const and an attribute reference', () => {
     const source = generateAstroSource('Card', { author: { name: 'Ada', role: 'Engineer' } });
