@@ -3,6 +3,7 @@ import { markHTMLString } from 'astro/runtime/server/index.js';
 import {
   isAstroComponentFactory,
   isAstroComponentMarker,
+  STORY_STYLE_ATTRIBUTE,
   type SlotValue
 } from '@storybook-astro/renderer/types';
 import type { ResolvedSanitizationOptions, SanitizationOptions } from './lib/sanitization.ts';
@@ -236,7 +237,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           // `</style` inside the CSS (in a string or comment) would end the
           // tag early. `<\/style` reads the same to the CSS parser.
           const styleTags = stylesheets.map(
-            (css) => `<style data-storybook-astro-styles>${css.replace(/<\/(style)/gi, '<\\/$1')}</style>`
+            (css) => `<style ${STORY_STYLE_ATTRIBUTE}>${css.replace(/<\/(style)/gi, '<\\/$1')}</style>`
           );
 
           return styleTags.join('') + html;

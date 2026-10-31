@@ -14,9 +14,11 @@ import {
   ASTRO_COMPONENT_MARKER,
   isAstroComponentSlot,
   serializeAstroComponentMarkers,
+  STORY_STYLE_ATTRIBUTE,
   type SlotValue
 } from '@storybook-astro/renderer/types';
 import { isDecoratedTree } from '@storybook-astro/renderer/decoratedTree';
+import { moveStoryStylesToHead } from '@storybook-astro/renderer/storyStyles';
 import type { ComposedStory } from './types.ts';
 import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
 
@@ -135,12 +137,23 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
   return resolvedComponent;
 }
 
+// The `<style>` elements the render handler puts ahead of the story's markup.
+const STORY_STYLES = new RegExp(`<style ${STORY_STYLE_ATTRIBUTE}>[\\s\\S]*?</style>`, 'g');
+
 function setRenderedHtml(html: string) {
-  if (typeof document !== 'undefined') {
-    document.body.innerHTML = html;
+  // As in the Storybook canvas, the story's CSS isn't part of its markup
+  // (issue #224). The rest of the HTML comes back exactly as rendered.
+  const markup = html.replace(STORY_STYLES, '');
+
+  if (typeof document === 'undefined') {
+    return markup;
   }
 
-  return html;
+  // The CSS goes in the head, replacing the last story's. It's keyed on the
+  // document element, which a test can't swap out the way it can the body.
+  document.body.innerHTML = moveStoryStylesToHead(html, document.documentElement).innerHTML;
+
+  return markup;
 }
 
 /**
@@ -214,9 +227,11 @@ async function renderAstroComponentToDom(
     : undefined;
 
   if (moduleId) {
+    let html: string | undefined;
+
     try {
       // Fast path: reuse a single shared SSR daemon instead of spinning SSR in each worker.
-      const html = await renderViaTestingRendererDaemon({
+      const daemonHtml = await renderViaTestingRendererDaemon({
         resolveFrom,
         component: moduleId,
         args: serializedArgs,
@@ -224,25 +239,32 @@ async function renderAstroComponentToDom(
         node
       });
 
-      if (typeof html === 'string') {
-        return setRenderedHtml(html);
+      if (typeof daemonHtml === 'string') {
+        html = daemonHtml;
       }
     } catch {
       // Fall back to in-worker rendering below when daemon render fails.
     }
 
-    try {
-      const handler = await getAstroSsrHandler(resolveFrom);
-      const html = await handler({
-        component: moduleId,
-        args: serializedArgs,
-        slots: serializedSlots,
-        node
-      });
+    if (html === undefined) {
+      try {
+        const handler = await getAstroSsrHandler(resolveFrom);
 
+        html = await handler({
+          component: moduleId,
+          args: serializedArgs,
+          slots: serializedSlots,
+          node
+        });
+      } catch {
+        // Fall back to direct Container rendering below
+      }
+    }
+
+    // Outside the try blocks, so an error writing the page isn't taken for a
+    // failed render.
+    if (html !== undefined) {
       return setRenderedHtml(html);
-    } catch {
-      // Fall back to direct Container rendering below
     }
   }
 

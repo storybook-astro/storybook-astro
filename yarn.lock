@@ -6022,6 +6022,7 @@ __metadata:
     "@types/node": "npm:^20.19.0"
     astro: "npm:^6.4.8"
     eslint: "npm:^9.39.2"
+    happy-dom: "npm:^20.10.6"
     tsup: "npm:^8.5.1"
     vitest: "npm:^4.1.9"
   peerDependencies:
