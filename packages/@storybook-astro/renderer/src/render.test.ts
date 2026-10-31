@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { RenderContext } from 'storybook/internal/types';
 import type { AstroRenderer } from './types.ts';
 
@@ -78,6 +78,7 @@ beforeEach(() => {
   document.head.innerHTML = '';
   document.body.innerHTML = '<div id="storybook-root"></div>';
   canvas = document.getElementById('storybook-root')!;
+  canvas.removeAttribute('style');
 });
 
 describe('the teardown renderToCanvas returns for an Astro story', () => {
@@ -217,5 +218,64 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
 
     expect(canvas.innerHTML).toBe('<div>react</div>');
     expect(headCss()).toEqual([]);
+  });
+});
+
+describe('while an Astro story renders', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('shows a loading indicator once the server takes over 200 ms, and replaces it with the story', async () => {
+    vi.useFakeTimers();
+    const slowRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+
+    slowRender.respond('first');
+    await rendering;
+
+    expect(canvas.innerHTML).toBe('<div>first</div>');
+  });
+
+  test('removes the indicator when the render fails', async () => {
+    vi.useFakeTimers();
+    const slowRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+    slowRender.fail();
+    await expect(rendering).rejects.toThrow('Render failed');
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+  });
+
+  test('keeps the canvas height from a teardown until the next render writes', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    expect(canvas.style.minHeight).toBe('900px');
+
+    serverRespondsWith('second');
+    await renderAstro(canvas);
+
+    expect(canvas.style.minHeight).toBe('');
+  });
+
+  test('gives the height back when a framework story renders next', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+    await renderToCanvas(storyContext(() => null, { renderer: 'react' }), canvas);
+
+    expect(canvas.style.minHeight).toBe('');
   });
 });

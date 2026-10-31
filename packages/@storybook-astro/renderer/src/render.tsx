@@ -16,6 +16,12 @@ import {
   moveStoryStylesToHead,
   removeStoryStyles
 } from './storyStyles.ts';
+import {
+  hideRenderLoadingIndicator,
+  holdCanvasHeight,
+  releaseCanvasHeight,
+  showRenderLoadingIndicator
+} from './renderLoadingIndicator.ts';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -127,6 +133,7 @@ function teardownAstroRender(canvasElement: HTMLElement, renderToken: object): T
     }
 
     shownRenderByCanvas.delete(canvasElement);
+    holdCanvasHeight(canvasElement);
     clearAstroRender(canvasElement);
   };
 }
@@ -168,6 +175,8 @@ export async function renderToCanvas(
     // leaves it alone, and this removes that render's CSS instead.
     shownRenderByCanvas.delete(canvasElement);
     removeStoryStyles(canvasElement);
+    hideRenderLoadingIndicator(canvasElement);
+    releaseCanvasHeight(canvasElement);
     showMain();
     // The framework's teardown isn't returned yet, so its root stays mounted
     // until the next render of that framework into this canvas (#238).
@@ -188,6 +197,8 @@ export async function renderToCanvas(
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
+    const hideLoadingIndicator = showRenderLoadingIndicator(canvasElement);
+
     try {
       await renderAstroToCanvas(element, storyContext.args, canvasElement, thisRender, storyContext);
     } catch (error) {
@@ -215,6 +226,14 @@ export async function renderToCanvas(
           `
         });
       }
+    } finally {
+      hideLoadingIndicator();
+
+      // Only the latest render settles what the canvas shows. An older one
+      // that finishes late leaves the height held for the newer render.
+      if (latestRenderByCanvas.get(canvasElement) === thisRender) {
+        releaseCanvasHeight(canvasElement);
+      }
     }
 
     // Storybook calls this when it removes the story: on navigation, on a
@@ -231,6 +250,8 @@ export async function renderToCanvas(
   // rerender, and Storybook then drops the teardown that would remove its CSS.
   removeStoryStyles(canvasElement);
   shownRenderByCanvas.delete(canvasElement);
+  hideRenderLoadingIndicator(canvasElement);
+  releaseCanvasHeight(canvasElement);
 
   if (typeof element === 'string') {
     canvasElement.innerHTML = element;
