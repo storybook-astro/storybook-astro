@@ -34,7 +34,7 @@ The handler returns one string. After rendering, it calls `loadStylesOrWarn`, wh
 - **Renderer.** `moveStoryStylesToHead` (`renderer/src/storyStyles.ts`) parses the HTML into a `<template>` and moves the `style[data-storybook-astro-styles]` elements into the head. This is a DOM query, not a regex.
 - **Testing runtime.** `setRenderedHtml` strips the elements with a regex (`STORY_STYLES`), so `renderStory` returns only the markup. It also passes the full HTML to `moveStoryStylesToHead` to put the CSS in the test document's head.
 - **Static prerender.** `pointStoryCssUrlsAtFsPaths`, called from `rewriteAssetPaths`, finds the elements with a regex (`STORY_STYLES`) to rewrite `url()` paths in the CSS only, never in HTML attributes.
-- **Server mode and static prerender.** `addStaticStylesheets` (`lib/staticHtmlRewriting.ts`) prepends `<link rel="stylesheet">` tags for hydrated framework components. The renderer's `syncServerRenderedStylesheets` moves them into the head. These are unrelated to #235 and stay in the HTML (see [Open questions](#open-questions)).
+- **Server mode and static prerender.** `addStaticStylesheets` (`lib/staticHtmlRewriting.ts`) prepends `<link rel="stylesheet">` tags for hydrated framework components. The renderer's `syncServerRenderedStylesheets` moves them into the head. These are unrelated to #235 and stay in the HTML (see [Settled questions](#settled-questions)).
 
 `render.tsx` has also changed since this spec was first written. Each render into a canvas gets a token (`latestRenderByCanvas`, `shownRenderByCanvas`). A response that arrives after a newer render into the same canvas has started is dropped. The teardown `renderToCanvas` returns clears a canvas only while the canvas still shows that render.
 
@@ -101,6 +101,8 @@ export type AstroRenderInfo = {
   timings?: RenderTimings;
   /** Absent in static builds, where the "render" is a lookup in a cached file. */
   roundTripMs?: number;
+  /** Set when the render failed. `html` is then empty and there are no stylesheet sources. */
+  error?: string;
 };
 ```
 
@@ -180,6 +182,7 @@ if (storyContext?.viewMode === 'story') {
 - The HTML comes from the response, not from `canvasElement.innerHTML`. The canvas copy has had its links and scripts moved or replaced, and with #236 it can contain the loading indicator.
 - `addons.getChannel()` returns a mock channel when the preview has none installed, so this is safe in portable stories and in `render.test.ts`.
 - Framework-delegated stories, string stories and DOM-node stories never reach `renderAstroToCanvas`, so they don't emit.
+- A failed render emits too, so the panel never presents an earlier render of the story as the current one. In the `catch` in `renderToCanvas`, inside the existing `latestRenderByCanvas.get(canvasElement) === thisRender` check and only in story view, emit the same event with `html: ''`, `stylesheetSources: []` and `error` set to the error's message. An out-of-date render's error stays silent, as it does today.
 
 ## Renderer virtual module: `viteStorybookAstroRendererPlugin.ts`
 
@@ -208,6 +211,7 @@ import { ASTRO_RENDER_INFO_EVENT, type AstroRenderInfo } from '@storybook-astro/
   - Server render time, style loading time, and round trip when present. Static: "Rendered at build time".
   - The stylesheet sources, in the order they apply.
   - The HTML, in a scrollable monospace block.
+  - For a failed render, the error message in place of the HTML and stylesheet sources.
   - With nothing to show: "No Astro render for this story. Stories rendered by React, Vue and other frameworks don't use the Astro server."
 - Keep it one small file, with no state beyond the latest event.
 
@@ -277,11 +281,13 @@ Manual checks, after `yarn build:packages`:
   Whichever lands second makes a small change: switch `/render` to `context.json(...)` and `renderWithHttp` to the JSON-or-text read. Keep that change in its own commit, so a rebase of #153 resolves in a few lines. This spec doesn't depend on any of #153's changes, and #153 doesn't need to be redesigned for it. When #153 is updated, drop its loading indicator in favor of #236's.
 - **#164 (render performance).** If its Step 1 lands later, it adds detail to `RenderTimings` (queue wait, module load) instead of adding a second field (Decision 4).
 
-## Open questions
+## Settled questions
 
-1. **Should hydrated-component `<link>` stylesheets move out of the HTML too?** `addStaticStylesheets` still prepends `<link rel="stylesheet">` tags in server and static builds, and `syncServerRenderedStylesheets` moves them. Returning their hrefs in the response would finish #235's idea. It would also touch `staticHtmlRewriting.ts`, which #153 changes. The recommendation is to leave them for a follow-up.
-2. **Should the server-mode text fallback (Decision 7) stay, or should a version mismatch fail loudly?** The fallback keeps an older deployed render server working, with the CSS inline in the canvas. It costs one branch in `renderWithHttp`. A release or two later it can go.
-3. **Should a failed render send an event?** In server mode, a render that throws shows Storybook's error overlay, and the panel keeps the last successful render of that story. In dev mode, errors come back as HTML, so the panel shows them. Sending `{ storyId, error }` would close the gap with a little more code in the `catch` in `renderToCanvas`.
-4. **Should integrations be shown per story?** Storybook's configuration gives the list for the whole Storybook. The panel could list the renderers the story actually hydrated, by reading `renderer-url` on the `<astro-island>` elements in the HTML. That is cheap, but it parses HTML in the manager. The recommendation is to show the configured list first.
-5. **Should static builds keep build-time timings?** Decision 4 drops them. Keeping them is two numbers per story in the manifest, if a maintainer finds them useful for spotting slow stories in CI.
-6. **Should the panel show the CSS text?** The sources are cheap to send. Sending the CSS as well roughly doubles the event payload for heavily styled stories, and DevTools already shows the `<style>` elements in the head. The recommendation is sources only.
+These were open when the spec was refreshed for 1.16.0 and have been decided.
+
+1. **Hydrated-component `<link>` stylesheets stay in the HTML for now.** `addStaticStylesheets` still prepends `<link rel="stylesheet">` tags in server and static builds, and `syncServerRenderedStylesheets` moves them. Returning their hrefs in the response would finish #235's idea, but it touches `staticHtmlRewriting.ts`, which #153 changes. It's a follow-up after both land.
+2. **The server-mode text fallback stays** (Decision 7). It keeps an older deployed render server working, with the CSS inline in the canvas, for one branch in `renderWithHttp`. It can go a release or two later.
+3. **A failed render sends an event**, with `error` set (see [Preview emission](#preview-emission-renderersrcrendertsx)). Without it, in server mode the panel would keep showing the last successful render of a story whose latest render failed.
+4. **The panel shows the configured integrations**, labeled as such. Listing the renderers a story actually hydrated would mean parsing `<astro-island renderer-url>` in the manager. It can be added later if the configured list proves too coarse.
+5. **Static builds don't keep build-time timings** (Decision 4).
+6. **The panel shows stylesheet sources, not CSS text.** The CSS roughly doubles the event payload for heavily styled stories, and DevTools already shows the `<style>` elements in the head.
