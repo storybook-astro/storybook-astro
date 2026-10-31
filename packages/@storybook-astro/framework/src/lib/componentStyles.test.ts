@@ -1,8 +1,19 @@
+import type * as NodeFs from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { loadComponentStyles } from './componentStyles.ts';
+
+// The fake graph's imported stylesheets stand in for files on disk. Anything
+// else, such as a plugin's virtual stylesheet, isn't one.
+const STYLESHEETS_ON_DISK = new Set(['card.css', 'card.module.scss', 'global.css', 'tokens.css']);
+
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof NodeFs>();
+
+  return { ...fs, existsSync: (path: string) => STYLESHEETS_ON_DISK.has(path) || fs.existsSync(path) };
+});
 
 // A fake SSR module graph: each module lists the ids it imports. Like Vite's,
 // a file lookup returns every module for the file, sub-modules included. Style
@@ -49,7 +60,7 @@ function createFakeServer(options: {
       throw new Error(`No Astro CSS at index ${id}`);
     }
 
-    const styleModuleId = id.replace('&inline', '');
+    const styleModuleId = id.replace(/&inline|\?inline$/, '');
 
     return { default: options.css?.[styleModuleId] ?? `/* ${styleModuleId} */` };
   });
@@ -116,6 +127,45 @@ describe('loadComponentStyles', () => {
     await loadComponentStyles(server, ['Card.astro']);
 
     expect(ssrLoadModule).toHaveBeenCalledWith('Card.astro?astro&type=style&index=0&inline&lang.scss');
+  });
+
+  test('ships the stylesheets a component imports, in import order with its style blocks', async () => {
+    const { server, ssrLoadModule } = createFakeServer({
+      imports: {
+        'Card.astro': ['card.css', 'card.module.scss', styleOf('Card.astro'), 'icon.svg?raw', 'print.css?url']
+      }
+    });
+
+    const { stylesheets } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual(['/* card.css */', '/* card.module.scss */', `/* ${styleOf('Card.astro')} */`]);
+    expect(ssrLoadModule).toHaveBeenCalledWith('card.css?inline');
+    expect(ssrLoadModule).toHaveBeenCalledWith('card.module.scss?inline');
+  });
+
+  test('ships a stylesheet that a module the component imports brings in', async () => {
+    const { server } = createFakeServer({
+      imports: { 'Card.astro': ['theme.ts', styleOf('Card.astro')], 'theme.ts': ['tokens.css'] }
+    });
+
+    const { stylesheets } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual(['/* tokens.css */', `/* ${styleOf('Card.astro')} */`]);
+  });
+
+  test('skips a plugin\'s virtual stylesheet, which Vite can\'t inline', async () => {
+    // UnoCSS's `virtual:uno.css`, for one, resolves to `/__uno.css`, without
+    // the `\0` prefix.
+    const { server, ssrLoadModule } = createFakeServer({
+      imports: { 'Card.astro': ['\0virtual:plugin.css', 'virtual:brand.css', styleOf('Card.astro')] }
+    });
+
+    const { stylesheets, failures } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual([`/* ${styleOf('Card.astro')} */`]);
+    expect(failures).toEqual([]);
+    expect(ssrLoadModule).not.toHaveBeenCalledWith('\0virtual:plugin.css?inline');
+    expect(ssrLoadModule).not.toHaveBeenCalledWith('virtual:brand.css?inline');
   });
 
   test('returns each block as its own stylesheet, so a later block\'s @import still applies', async () => {

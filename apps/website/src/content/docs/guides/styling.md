@@ -42,6 +42,10 @@ const preview = {
 export default preview;
 ```
 
+A stylesheet imported by a component a story renders ships with that story, as it does on an Astro page, but only with the stories that render that component. Keep the `.storybook/preview.js` import if any story doesn't render the component or layout that imports the stylesheet. A story that does render it then loads the stylesheet twice, and the story's copy comes later in the `<head>`, so it wins over overrides in `preview.js` (removing the duplicate in dev is tracked in [issue #240](https://github.com/storybook-astro/storybook-astro/issues/240)).
+
+The same goes for any stylesheet a story ships, from a component, a layout or a module either of them imports: it comes after the styles imported in `.storybook/preview.js`, so at equal specificity it wins. For example, a `:root` variable that `preview.css` sets and a component's `tokens.css` also sets takes the value from `tokens.css`. To override it in Storybook, use a more specific selector in `preview.css`, such as `html:root`.
+
 ### CSS custom properties and design tokens
 
 Some projects define CSS custom properties (colors, font names, spacing scales) inside an Astro component rendered in the page `<head>` rather than in a plain CSS file:
@@ -72,13 +76,15 @@ Because Storybook never renders that component, the variables won't exist. Copy 
 
 ## CSS utility frameworks
 
-CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) configured in `astro.config.*` — either as an Astro integration (`@astrojs/tailwind`, `unocss/astro`) or as a Vite plugin under `vite.plugins` (`@tailwindcss/vite`, `unocss/vite`) — are picked up by Storybook automatically. You only need to import the framework's CSS entry or virtual module in `.storybook/preview.js` so it reaches the story canvas.
+CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) configured in `astro.config.*` — either as an Astro integration (`@astrojs/tailwind`, `unocss/astro`) or as a Vite plugin under `vite.plugins` (`@tailwindcss/vite`, `unocss/vite`) — are picked up by Storybook automatically. You only need to import the framework's CSS entry or virtual module in `.storybook/preview.js` so it reaches the story canvas. A CSS entry imported by a component or layout ships with the stories that render it, so you can skip the `.storybook/preview.js` import only if every story renders that component or layout. Otherwise keep it (see [Global CSS](#global-css)).
+
+A plugin's virtual stylesheet, such as `virtual:uno.css`, doesn't ship with a story even when a component imports it, because it isn't a file on disk. Import it in `.storybook/preview.js` instead.
 
 ### Tailwind CSS
 
 ```javascript
 // .storybook/preview.js
-import '../src/styles/tailwind.css'; // your project's @import 'tailwindcss' entrypoint
+import '../src/styles/tailwind.css'; // your project's @import 'tailwindcss' entrypoint; keep this unless every story renders a layout that imports it
 import './preview.css';
 ```
 
