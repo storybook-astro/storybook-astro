@@ -8,7 +8,8 @@ const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 // A stylesheet imported by a component a story renders or by a module it
 // imports, such as `./card.css`, `./card.scss` or `./card.module.css`, as an
 // Astro page ships them (issue #223). One with a query, such as `?url` or
-// `?raw`, isn't applied as a stylesheet, and a plugin's virtual stylesheet
+// `?raw`, isn't applied as a stylesheet. That also skips a Vue or Svelte
+// component's style blocks for now (issue #241). A plugin's virtual stylesheet
 // (`\0virtual:*.css`, or UnoCSS's `/__uno.css`) isn't a file on disk, so Vite
 // can't inline it.
 const isImportedStylesheet = (id: string) =>
@@ -103,9 +104,11 @@ export async function loadComponentStyles(
       // `inline` asks Vite's CSS plugin for the CSS text instead of a module
       // that injects it. In a style block's id it goes before `lang.*`, which
       // must stay last.
-      const inlineId = isImportedStylesheet(styleModuleId)
-        ? `${styleModuleId}?inline`
-        : styleModuleId.replace(/&lang\.(\w+)$/, '&inline&lang.$1');
+      // The walk already classified the id, so this doesn't check the disk
+      // again: a file deleted since then fails to load and is reported.
+      const inlineId = ASTRO_STYLE_MODULE.test(styleModuleId)
+        ? styleModuleId.replace(/&lang\.(\w+)$/, '&inline&lang.$1')
+        : `${styleModuleId}?inline`;
       const { default: css } = (await viteServer.ssrLoadModule(inlineId)) as { default: string };
 
       return css;

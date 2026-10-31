@@ -7,7 +7,7 @@ import { loadComponentStyles } from './componentStyles.ts';
 
 // The fake graph's imported stylesheets stand in for files on disk. Anything
 // else, such as a plugin's virtual stylesheet, isn't one.
-const STYLESHEETS_ON_DISK = new Set(['card.css', 'card.module.scss', 'global.css']);
+const STYLESHEETS_ON_DISK = new Set(['card.css', 'card.module.scss', 'global.css', 'tokens.css']);
 
 vi.mock('node:fs', async (importOriginal) => {
   const fs = await importOriginal<typeof NodeFs>();
@@ -141,6 +141,16 @@ describe('loadComponentStyles', () => {
     expect(stylesheets).toEqual(['/* card.css */', '/* card.module.scss */', `/* ${styleOf('Card.astro')} */`]);
     expect(ssrLoadModule).toHaveBeenCalledWith('card.css?inline');
     expect(ssrLoadModule).toHaveBeenCalledWith('card.module.scss?inline');
+  });
+
+  test('ships a stylesheet that a module the component imports brings in', async () => {
+    const { server } = createFakeServer({
+      imports: { 'Card.astro': ['theme.ts', styleOf('Card.astro')], 'theme.ts': ['tokens.css'] }
+    });
+
+    const { stylesheets } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual(['/* tokens.css */', `/* ${styleOf('Card.astro')} */`]);
   });
 
   test('skips a plugin\'s virtual stylesheet, which Vite can\'t inline', async () => {
