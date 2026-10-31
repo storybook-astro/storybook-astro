@@ -351,6 +351,26 @@ describe('while an Astro story renders', () => {
     expect(canvas.style.minHeight).toBe('');
   });
 
+  test('removes an earlier render\'s indicator when the next story function throws, so it doesn\'t cover the error', async () => {
+    vi.useFakeTimers();
+    const slowRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+
+    const brokenStory = storyContext(() => {
+      throw new Error('Story failed');
+    });
+
+    await expect(renderToCanvas(brokenStory, canvas)).rejects.toThrow('Story failed');
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+
+    slowRender.respond('first');
+    await rendering;
+  });
+
   test('removes the indicator when the render fails', async () => {
     vi.useFakeTimers();
     const slowRender = serverWaits();

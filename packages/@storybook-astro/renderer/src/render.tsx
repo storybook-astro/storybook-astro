@@ -194,8 +194,10 @@ export async function renderToCanvas(
   try {
     element = storyFn();
   } catch (error) {
-    // A teardown may have held the canvas height for this render, and
-    // Storybook shows the error under it.
+    // Storybook shows the error in place of the story, so neither a height a
+    // teardown held for this render nor an earlier render's indicator, still
+    // waiting on the server, should stay over it.
+    hideRenderLoadingIndicator(canvasElement);
     releaseCanvasHeight(canvasElement);
     throw error;
   }
