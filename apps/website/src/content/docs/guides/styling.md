@@ -78,7 +78,7 @@ Because Storybook never renders that component, the variables won't exist. Copy 
 
 CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) configured in `astro.config.*` — either as an Astro integration (`@astrojs/tailwind`, `unocss/astro`) or as a Vite plugin under `vite.plugins` (`@tailwindcss/vite`, `unocss/vite`) — are picked up by Storybook automatically. You only need to import the framework's CSS entry or virtual module in `.storybook/preview.js` so it reaches the story canvas. A CSS entry imported by a component or layout ships with the stories that render it, so you can skip the `.storybook/preview.js` import only if every story renders that component or layout. Otherwise keep it (see [Global CSS](#global-css)).
 
-A plugin's virtual stylesheet, such as `virtual:uno.css`, doesn't ship with a story even when a component imports it, because it isn't a file on disk. Import it in `.storybook/preview.js` instead.
+A plugin's virtual stylesheet, such as `virtual:uno.css`, ships with a story when a component or layout it renders imports it, with the CSS the plugin produced on the server. A generator such as UnoCSS builds that CSS from the files it has scanned so far, so if a story is missing utility classes, import the virtual module in `.storybook/preview.js` as well.
 
 ### Tailwind CSS
 

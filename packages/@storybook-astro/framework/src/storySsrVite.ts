@@ -15,6 +15,7 @@ import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.t
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginNoClientDepOptimizer } from './vitePluginNoClientDepOptimizer.ts';
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
+import { vitePluginCompiledStylesheets } from './lib/compiledStylesheets.ts';
 
 export async function createStorySsrViteServer(options: {
   integrations: Integration[];
@@ -89,6 +90,8 @@ export async function createStorySsrViteServer(options: {
   // same plugins, or components relying on one of them (e.g. vite-svg-loader's
   // `.svg?component` imports) resolve differently in the static output.
   appendUserVitePlugins(config, await loadUserAstroVitePlugins(options.resolveFrom));
+  // Last, so it records each stylesheet's CSS after every other plugin.
+  config.plugins = [...(config.plugins ?? []), vitePluginCompiledStylesheets()];
 
   const viteServer = await createServer(config);
 

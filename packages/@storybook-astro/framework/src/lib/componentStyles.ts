@@ -1,29 +1,20 @@
 import { existsSync } from 'node:fs';
 import { isCSSRequest, normalizePath, type EnvironmentModuleNode, type ViteDevServer } from 'vite';
+import { compiledStylesheetsFor, isAppliedStylesheet } from './compiledStylesheets.ts';
 
 // The sub-module Astro's Vite plugin creates for each `<style>` block, e.g.
 // `Card.astro?astro&type=style&index=0&lang.css` (or `&lang.scss`, …).
 const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 
-// A stylesheet imported by a component a story renders or by a module it
-// imports, such as `./card.css`, `./card.scss` or `./card.module.css`, as an
-// Astro page ships them (issue #223). One with a query, such as `?url` or
-// `?raw`, isn't applied as a stylesheet. That also skips a Vue or Svelte
-// component's style blocks for now (issue #241). A plugin's virtual stylesheet
-// (`\0virtual:*.css`, or UnoCSS's `/__uno.css`) isn't a file on disk, so Vite
-// can't inline it.
-const isImportedStylesheet = (id: string) =>
-  isCSSRequest(id) && !id.includes('?') && existsSync(id);
-
 export type ComponentStyles = {
   /**
-   * The compiled CSS of each `<style>` block and imported stylesheet, in
-   * cascade order. Each one ships as its own `<style>` element, as Astro's dev
+   * The compiled CSS of each `<style>` block and stylesheet the rendered
+   * components import, in cascade order. Each one ships as its own `<style>` element, as Astro's dev
    * server ships them, so a stylesheet's `@import`, `@layer` and `@charset`
    * rules mean what they mean there.
    */
   stylesheets: string[];
-  /** What couldn't be styled: a component missing from the module graph, or a stylesheet that failed to load. */
+  /** What couldn't be styled: a component missing from the module graph, or a `<style>` block the server didn't compile. */
   failures: Array<{ moduleId: string; error: unknown }>;
 };
 
@@ -33,9 +24,10 @@ export type ComponentStyles = {
  * along with the stylesheets imported by those components and the modules
  * they import, as an Astro page ships them (issue #223).
  *
- * The story HTML comes from this same SSR server, so the compiled CSS carries
- * the same `data-astro-cid-*` scope as the markup, scoped the way the
- * installed compiler scopes it.
+ * The story HTML comes from this same SSR server, and the CSS is what that
+ * server compiled while rendering it (`vitePluginCompiledStylesheets`), so it
+ * carries the same `data-astro-cid-*` scope and CSS Module class names as the
+ * markup, scoped the way the installed compiler scopes it.
  *
  * `componentIds` must already be loaded through `viteServer`, so their imports
  * are in its module graph, and come in cascade order: a component's CSS comes
@@ -44,12 +36,18 @@ export type ComponentStyles = {
  * or fail on.
  */
 export async function loadComponentStyles(
-  viteServer: Pick<ViteDevServer, 'environments' | 'ssrLoadModule'>,
+  viteServer: Pick<ViteDevServer, 'environments' | 'config'>,
   componentIds: Iterable<string>
 ): Promise<ComponentStyles> {
   // The SSR environment's graph only: the client's holds the browser's
   // imports, and looking an id up there can fail for client-only reasons.
   const { moduleGraph } = viteServer.environments.ssr;
+  const compiled = compiledStylesheetsFor(viteServer);
+
+  if (!compiled) {
+    throw new Error('This Vite server has no vitePluginCompiledStylesheets, so story styles cannot be read.');
+  }
+
   const styleModuleIds = new Set<string>();
   const visited = new Set<EnvironmentModuleNode>();
   const failures: ComponentStyles['failures'] = [];
@@ -60,7 +58,11 @@ export async function loadComponentStyles(
     }
     visited.add(module);
 
-    if (module.id && (ASTRO_STYLE_MODULE.test(module.id) || isImportedStylesheet(module.id))) {
+    // Every stylesheet the page applies, as an Astro page ships them: `<style>`
+    // blocks, imported stylesheets (`./card.css`, Sass, CSS Modules, issue
+    // #223), a Vue or Svelte component's style blocks (issue #241) and a
+    // plugin's virtual stylesheet (issue #243).
+    if (module.id && isAppliedStylesheet(module.id)) {
       styleModuleIds.add(module.id);
     }
 
@@ -73,8 +75,15 @@ export async function loadComponentStyles(
       return;
     }
 
+    // Nor a dynamic `import()` or lazy `import.meta.glob` target: whether one
+    // is in the graph depends on what earlier renders loaded, so following it
+    // would make a story's CSS depend on render order (issue #245).
+    const dynamicImports = new Set(module.transformResult?.dynamicDeps ?? []);
+
     for (const imported of module.importedModules) {
-      collect(imported);
+      if (!dynamicImports.has(imported.url)) {
+        collect(imported);
+      }
     }
   };
 
@@ -98,32 +107,23 @@ export async function loadComponentStyles(
     }
   }
 
-  const styleModules = [...styleModuleIds];
-  const results = await Promise.allSettled(
-    styleModules.map(async (styleModuleId) => {
-      // `inline` asks Vite's CSS plugin for the CSS text instead of a module
-      // that injects it. In a style block's id it goes before `lang.*`, which
-      // must stay last.
-      // The walk already classified the id, so this doesn't check the disk
-      // again: a file deleted since then fails to load and is reported.
-      const inlineId = ASTRO_STYLE_MODULE.test(styleModuleId)
-        ? styleModuleId.replace(/&lang\.(\w+)$/, '&inline&lang.$1')
-        : `${styleModuleId}?inline`;
-      const { default: css } = (await viteServer.ssrLoadModule(inlineId)) as { default: string };
+  const stylesheets: string[] = [];
 
-      return css;
-    })
-  );
+  for (const styleModuleId of styleModuleIds) {
+    const css = compiled.get(styleModuleId);
 
-  const stylesheets = results.flatMap((result, index) => {
-    if (result.status === 'fulfilled') {
-      return result.value ? [result.value] : [];
+    if (css) {
+      stylesheets.push(css);
+    } else if (css === undefined && ASTRO_STYLE_MODULE.test(styleModuleId)) {
+      // The render loaded the component, which imports its style blocks, so
+      // the server compiled them. One it didn't compile is reported. Any other
+      // stylesheet it didn't compile wasn't loaded by this render.
+      failures.push({
+        moduleId: styleModuleId,
+        error: new Error('The SSR server did not compile this <style> block, so its CSS was not found.')
+      });
     }
-
-    failures.push({ moduleId: styleModules[index], error: result.reason });
-
-    return [];
-  });
+  }
 
   return { stylesheets, failures };
 }
