@@ -109,4 +109,23 @@ describe('lockNonTextSlotControls', () => {
 
     expect(argTypes.slots).toBeUndefined();
   });
+
+  test('keeps the JSON editor on the slots row for a slot holding an array, which has no text control', () => {
+    const argTypes = lockNonTextSlotControls({
+      argTypes: slotArgTypes,
+      initialArgs: { slots: { default: ['<p>a</p>', '<p>b</p>'] } }
+    } as never);
+
+    expect(argTypes[slotArgName('default')].control).toEqual({ disable: true });
+    expect(argTypes.slots).toBeUndefined();
+  });
+
+  test('keeps the JSON editor on the slots row when the story fills no slots', () => {
+    const argTypes = lockNonTextSlotControls({
+      argTypes: {},
+      initialArgs: { slots: {} }
+    } as never);
+
+    expect(argTypes.slots).toBeUndefined();
+  });
 });

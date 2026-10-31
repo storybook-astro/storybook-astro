@@ -55,9 +55,12 @@ export function splitStoryArgs(args: Args, initialArgs?: Args): { props: Args; s
  * anything else that isn't text can't be edited as text, so its row keeps no
  * control.
  *
- * When every slot the story fills has its own row, the inferred `slots` row
- * loses its JSON editor too: the per-slot controls cover every slot, and a slot
- * edited there would override the JSON. The row stays in the Docs table.
+ * When the story fills at least one slot and every slot it fills has its own
+ * text control, the inferred `slots` row loses its JSON editor too: the
+ * per-slot controls cover every slot, and a slot edited there would override
+ * the JSON. A slot without a text control, or `slots: {}`, keeps the JSON
+ * editor, since it's the only way to edit that content. The row stays in the
+ * Docs table.
  */
 export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => {
   const initialSlots = context.initialArgs?.slots;
@@ -75,7 +78,14 @@ export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => 
     }
   }
 
-  if (Object.keys(initialSlots).every((slot) => argTypes[slotArgName(slot)])) {
+  const slotNames = Object.keys(initialSlots);
+  const everySlotHasTextControl = slotNames.every(
+    (slot) =>
+      argTypes[slotArgName(slot)] &&
+      (initialSlots[slot] === undefined || typeof initialSlots[slot] === 'string')
+  );
+
+  if (slotNames.length > 0 && everySlotHasTextControl) {
     argTypes.slots = { ...argTypes.slots, control: { disable: true } };
   }
 

@@ -164,12 +164,13 @@ object. Once you edit a slot's control, your edit wins over the same slot in
 `args.slots`. Until then `args.slots` decides, so a play function's
 `updateArgs({ slots })` still shows. A slot whose story content is a component,
 rather than a string, has no control, since it can't be edited as text. When
-every slot a story fills has its own row, the `slots` row has no JSON editor,
-since an edit in a slot's control would override it. Slot HTML goes through the
-same [sanitization](/guides/sanitization/) as any string slot content, so
-attributes outside the allowlist, such as `data-*`, are removed. With the
-[Docgen Server](#moving-extraction-off-the-dev-server) enabled, slots are listed
-but have no text control yet
+every slot a story fills has its own text control, the `slots` row has no JSON
+editor, since an edit in a slot's control would override it. If any slot lacks
+a text control, the JSON editor stays so that slot can still be edited. Slot
+HTML goes through the same [sanitization](/guides/sanitization/) as any string
+slot content, so attributes outside the allowlist, such as `data-*`, are
+removed. With the [Docgen Server](#moving-extraction-off-the-dev-server)
+enabled, slots are listed but have no text control yet
 ([#267](https://github.com/storybook-astro/storybook-astro/issues/267)). Slot
 rows and their controls come from the same extraction as the props table, so
 they need `@storybook/addon-docs` and TypeScript installed (see
