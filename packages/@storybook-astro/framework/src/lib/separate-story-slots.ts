@@ -1,20 +1,16 @@
+import { splitStoryArgs } from '@storybook-astro/renderer/slotArgs';
+
 /**
  * Splits a story's `args` into component props and slot content. Slot content
- * lives under the reserved `slots` key (`args.slots.<name>`); everything else is
- * a prop. Returns `{}` for slots when `args.slots` is absent or not an object.
+ * lives under the reserved `slots` key (`args.slots.<name>`), or in a per-slot
+ * `slot:<name>` arg from the Controls panel, which wins; everything else is a
+ * prop. Returns `{}` for slots when there are none.
  */
 export function separateStorySlots(storyArgs: Record<string, unknown>): {
   componentArgs: Record<string, unknown>;
   storySlots: Record<string, unknown>;
 } {
-  const componentArgs = { ...storyArgs };
-  const storySlots = componentArgs.slots;
+  const { props, slots } = splitStoryArgs(storyArgs);
 
-  delete componentArgs.slots;
-
-  if (typeof storySlots !== 'object' || storySlots === null) {
-    return { componentArgs, storySlots: {} };
-  }
-
-  return { componentArgs, storySlots: storySlots as Record<string, unknown> };
+  return { componentArgs: props, storySlots: slots };
 }

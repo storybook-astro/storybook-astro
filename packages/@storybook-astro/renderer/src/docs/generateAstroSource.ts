@@ -9,6 +9,8 @@
  * derived with plain string work.
  */
 
+import { splitStoryArgs } from '../slotArgs.ts';
+
 /** Values Storybook can put in `args`. Narrowed as we serialize. */
 type ArgValue = unknown;
 
@@ -70,7 +72,7 @@ export function generateAstroSource(
   options: AstroSourceOptions = {}
 ): string {
   const printWidth = options.printWidth ?? DEFAULT_PRINT_WIDTH;
-  const { slots, ...props } = args;
+  const { props, slots } = splitStoryArgs(args);
   const hoisted: string[] = [];
   const attributes: string[] = [];
 

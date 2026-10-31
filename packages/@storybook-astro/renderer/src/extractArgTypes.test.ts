@@ -10,7 +10,7 @@ const titleProp = {
 };
 
 describe('extractArgTypes', () => {
-  test('documents each slot under a slots category, without a control (issue #188)', () => {
+  test('documents each slot under a slots category, with a text control (issues #188, #203)', () => {
     const argTypes = extractArgTypes({
       __docgenInfo: {
         displayName: 'Section',
@@ -28,7 +28,7 @@ describe('extractArgTypes', () => {
       name: 'default',
       description: 'The section body',
       type: { name: 'other', value: 'slot', required: false },
-      control: false,
+      control: 'text',
       table: { category: 'slots', type: { summary: 'default slot' } }
     });
     expect(argTypes?.['slot:actions']?.table?.type).toEqual({ summary: 'named slot' });

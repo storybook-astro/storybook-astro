@@ -146,8 +146,8 @@ To describe a slot, put a comment starting with `@slot` directly before it:
 `{/* … */}` comments are removed from the rendered HTML. An HTML comment
 (`<!-- @slot … -->`) works too, but Astro keeps it in the page.
 
-Astro slots are always optional, so none are marked **Required**. The rows document
-the slots and have no control. Pass slot content through `args.slots`:
+Astro slots are always optional, so none are marked **Required**. Pass slot
+content through `args.slots`:
 
 ```jsx
 export const WithMain = {
@@ -157,6 +157,18 @@ export const WithMain = {
   },
 };
 ```
+
+Each slot row also has a text control, starting at the story's content for that
+slot, so you can edit a slot's HTML in the Controls panel instead of in a JSON
+object. An edit there wins over the same slot in `args.slots`. A slot whose story
+content is a component, rather than a string, has no control, since it can't be
+edited as text. Slot HTML goes through the same
+[sanitization](/guides/sanitization/) as any string slot content, so attributes
+outside the allowlist, such as `data-*`, are removed.
+
+Each control is stored in a story arg named `slot:<name>`, for example
+`slot:footer`, which the renderer folds back into `args.slots`. You don't need to
+write these yourself.
 
 ## Moving extraction off the dev server
 

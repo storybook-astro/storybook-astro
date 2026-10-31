@@ -195,7 +195,11 @@ A comment starting with `@slot`, directly before a `<slot>` with only whitespace
 
 The template is scanned with one regex that matches comments and `<slot>` elements together, so a commented-out slot is consumed by its comment. That keeps extraction synchronous, as [Decision 10](#design-decisions) chose for the frontmatter. A component with slots but no frontmatter still yields docgen, with an empty props table.
 
-The renderer's `extractArgTypes` turns each slot into a row keyed `slot:<name>`, in the `slots` table category, with `control: false`. Slot content lives in `args.slots`, so these rows document the API rather than add args, and the prefixed key can't collide with a prop. Per-slot controls (#203) would build on the same list.
+The renderer's `extractArgTypes` turns each slot into a row keyed `slot:<name>`, in the `slots` table category, with a text control (issue #203). The prefixed key can't collide with a prop. Slot content lives in `args.slots`, so `renderer/src/slotArgs.ts` owns the mapping between the two:
+
+- `splitStoryArgs` splits a story's args into props and slots, folding each `slot:<name>` arg into `slots`, where it wins over the story's own value. The canvas, Show code, the static prerender, server mode and `renderStory` all read args through it.
+- The `seedSlotArgs` args enhancer starts each control at the story's string content for that slot.
+- The `lockNonTextSlotControls` argTypes enhancer removes the control from a slot whose story content isn't a string, such as a component.
 
 ## Implementation Plan
 

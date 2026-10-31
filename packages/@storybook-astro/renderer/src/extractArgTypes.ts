@@ -1,6 +1,7 @@
 import { extractComponentProps } from 'storybook/internal/docs-tools';
 import type { ArgTypesExtractor } from 'storybook/internal/docs-tools';
 import type { StrictArgTypes } from 'storybook/internal/types';
+import { slotArgName } from './slotArgs.ts';
 
 /**
  * Turns the `__docgenInfo` the framework attached to an Astro component stub
@@ -41,15 +42,14 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
     };
   }
 
-  // Slot content goes in `args.slots`, so these rows document the slots rather
-  // than add args: the key can't clash with a prop, and there's no control
-  // (issue #188).
+  // One row per slot (issue #188), with a text control whose arg the renderer
+  // folds back into `args.slots` (issue #203, see slotArgs.ts).
   for (const { name, description } of slots) {
-    argTypes[`slot:${name}`] = {
+    argTypes[slotArgName(name)] = {
       name,
       description,
       type: { name: 'other', value: 'slot', required: false },
-      control: false,
+      control: 'text',
       table: { category: 'slots', type: { summary: name === 'default' ? 'default slot' : 'named slot' } }
     };
   }

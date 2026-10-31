@@ -18,6 +18,7 @@ import type {
   TeardownRenderToCanvas
 } from 'storybook/internal/types';
 import { defaultPreviewParameters } from '@storybook-astro/renderer/preview-defaults';
+import { lockNonTextSlotControls, seedSlotArgs } from '@storybook-astro/renderer/slotArgs';
 import { applyDecorators } from '@storybook-astro/renderer/decorators';
 import type { AstroRenderer } from './portable-stories.ts';
 
@@ -128,7 +129,8 @@ export function definePreview<Addons extends PreviewAddon<never>[] = []>(
     // calls it without this enhancer — and CSF-factory stories never see the
     // renderer's entry-preview annotation that registers it there
     // (docs/specs/docgen.md#design-decisions).
-    argTypesEnhancers: [enhanceArgTypes, ...(input.argTypesEnhancers ?? [])],
+    argTypesEnhancers: [enhanceArgTypes, lockNonTextSlotControls, ...(input.argTypesEnhancers ?? [])],
+    argsEnhancers: [seedSlotArgs, ...(input.argsEnhancers ?? [])],
     render: input.render ?? composedRender,
     renderToCanvas: input.renderToCanvas ?? composedRenderToCanvas,
     applyDecorators: input.applyDecorators ?? applyDecorators
