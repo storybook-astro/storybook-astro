@@ -58,7 +58,8 @@ export async function createStorySsrViteServer(options: {
     {
       plugins: [
         createProjectAstroResolutionPlugin(options.resolveFrom),
-        vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }),
+        // Builds put every family's font CSS in the iframe head (preset.ts).
+        vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom, fontCssInHead: true }),
         vitePluginAstroIntegrationOptsFallback(),
         vitePluginAstroVueFallback(),
         vitePluginAstroRoutesFallback(),

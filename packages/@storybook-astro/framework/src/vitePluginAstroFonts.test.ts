@@ -1,6 +1,7 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import {
   buildFamilyCss,
+  generateFontCss,
   vitePluginAstroFonts,
   type FontFaceData,
   type StorybookFontFamily,
@@ -174,5 +175,55 @@ describe('vitePluginAstroFonts virtual modules', () => {
 
     expect(result?.code).toContain('--font-inter');
     expect(result?.code).not.toContain('--font-broken');
+  });
+});
+
+describe('resolving each family once (issue #248)', () => {
+  const inter = (resolveFont: StorybookFontProvider['resolveFont']): StorybookFontFamily => ({
+    name: 'Inter',
+    cssVariable: '--font-inter',
+    provider: { name: 'counting', resolveFont }
+  });
+  const face = { src: [{ url: 'https://example.com/inter.woff2', format: 'woff2' }], weight: 400 };
+
+  async function loadInternalModule(plugin: ReturnType<typeof vitePluginAstroFonts>) {
+    const load = plugin.load as (id: string) => Promise<{ code: string }>;
+
+    return (await load('\0virtual:astro:assets/fonts/internal')).code;
+  }
+
+  test('asks the provider once for every plugin instance and generateFontCss in the process', async () => {
+    const resolveFont = vi.fn(() => ({ fonts: [face] }));
+    const family = inter(resolveFont);
+
+    // The build's head injection, the prerender server's instance, and dev's font CSS.
+    await (vitePluginAstroFonts({ fonts: [family] }).buildStart as () => Promise<void>)();
+    await (vitePluginAstroFonts({ fonts: [family] }).buildStart as () => Promise<void>)();
+    await generateFontCss([family], process.cwd());
+
+    expect(resolveFont).toHaveBeenCalledTimes(1);
+  });
+
+  test('asks again after a family fails to resolve', async () => {
+    const resolveFont = vi
+      .fn<StorybookFontProvider['resolveFont']>()
+      .mockRejectedValueOnce(new Error('rate limited'))
+      .mockResolvedValue({ fonts: [face] });
+    const family = inter(resolveFont);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(await generateFontCss([family], process.cwd())).toBe('');
+    expect(await generateFontCss([family], process.cwd())).toContain('@font-face');
+    expect(resolveFont).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  test('leaves the CSS out of <Font> when the iframe head already has it', async () => {
+    const family = inter(() => ({ fonts: [face] }));
+
+    expect(await loadInternalModule(vitePluginAstroFonts({ fonts: [family] }))).toContain('@font-face');
+    expect(
+      await loadInternalModule(vitePluginAstroFonts({ fonts: [family], fontCssInHead: true }))
+    ).not.toContain('@font-face');
   });
 });
