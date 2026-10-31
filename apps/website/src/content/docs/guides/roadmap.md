@@ -172,7 +172,7 @@ Storybook Astro now supports Astro 7 alongside Astro 5 and 6. Astro 7's Rust com
 
 **Shipped in**: 1.4.0
 
-Anything declared in `astro.config.*` is picked up by Storybook automatically: `integrations:` (e.g. `astro-icon`, `unocss/astro`, `@astrojs/tailwind`), top-level `fonts:`, and `vite.plugins:` (e.g. `@tailwindcss/vite`, `unocss/vite`). Users no longer need to duplicate any of these into `.storybook/main.js`.
+Storybook picks up these `astro.config.*` options automatically: `integrations:` (e.g. `astro-icon`, `unocss/astro`, `@astrojs/tailwind`), top-level `fonts:`, `vite.plugins:` (e.g. `@tailwindcss/vite`, `unocss/vite`), and the compile options `scopedStyleStrategy` and `compressHTML`. Users no longer need to duplicate any of these into `.storybook/main.js`.
 
 **Documentation**: See [Configuration guide](/getting-started/configuration/)
 

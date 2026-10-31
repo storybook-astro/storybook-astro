@@ -30,6 +30,7 @@ import { loadComponentStyles } from './lib/componentStyles.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import {
   appendUserVitePlugins,
+  loadUserAstroCompileOptions,
   loadUserAstroIntegrations,
   loadUserAstroVitePlugins
 } from './loadUserAstroConfig.ts';
@@ -217,6 +218,7 @@ export async function createViteServer(
     { root: resolveFrom },
     {
       configFile: false,
+      ...(await loadUserAstroCompileOptions(resolveFrom)),
       integrations: [...frameworkIntegrations, ...extraIntegrations],
       // Use the passthrough image service so nested components that use <Image>
       // from astro:assets render as plain <img> tags without triggering image
