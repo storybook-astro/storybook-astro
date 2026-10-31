@@ -16,6 +16,7 @@ import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker
 import { vitePluginAstroSvgComponentMarker } from './vitePluginAstroSvgComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
 import { vitePluginAstroBuildServer } from './vitePluginAstroBuildServer.ts';
+import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
@@ -115,9 +116,11 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   if (configType === 'DEVELOPMENT') {
     config.plugins.push(storybookAstroMiddlewarePlugin, ...viteConfig.plugins);
   } else if (renderMode === 'static') {
+    config.plugins.push(vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config.plugins.push(vitePluginAstroBuildPrerender(options) as any);
   } else {
+    config.plugins.push(vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config.plugins.push(vitePluginAstroBuildServer(options, clientAstroComponentIds) as any);
   }

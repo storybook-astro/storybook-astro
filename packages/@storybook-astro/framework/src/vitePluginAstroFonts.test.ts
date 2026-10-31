@@ -110,6 +110,31 @@ describe('vitePluginAstroFonts virtual modules', () => {
     expect(result?.code).toContain('https://example.com/inter.woff2');
   });
 
+  test('bakes the font CSS into the iframe head in builds, but not in dev', async () => {
+    const family: StorybookFontFamily = {
+      name: 'Inter',
+      cssVariable: '--font-inter',
+      provider: makeProvider([
+        { src: [{ url: 'https://example.com/inter.woff2', format: 'woff2' }], weight: 400 }
+      ])
+    };
+    const plugin = vitePluginAstroFonts({ fonts: [family] });
+    const configResolved = plugin.configResolved as (config: { command: string }) => void;
+    const transformIndexHtml = plugin.transformIndexHtml as () => Promise<
+      Array<{ tag: string; children: string; injectTo: string }> | undefined
+    >;
+
+    configResolved({ command: 'serve' });
+    expect(await transformIndexHtml()).toBeUndefined();
+
+    configResolved({ command: 'build' });
+    const [tag] = (await transformIndexHtml())!;
+
+    expect(tag).toMatchObject({ tag: 'style', injectTo: 'head' });
+    expect(tag.children).toContain('@font-face');
+    expect(tag.children).toContain('--font-inter');
+  });
+
   test('emits empty maps when no families are configured (no-op behavior preserved)', async () => {
     const plugin = vitePluginAstroFonts();
 
