@@ -51,6 +51,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 
 **Important Files**:
 - `src/render.tsx` - Exports `render()` and `renderToCanvas()` functions
+- `src/renderLoadingIndicator.ts` - Shows "Rendering story…" in a canvas when an Astro render takes over 200 ms, in place of an emptied canvas or over a story the canvas still shows, and holds the canvas height from a teardown until the next Astro render writes its markup or fails (a framework story releases it when it starts rendering)
 - `src/storyStyles.ts` - Moves the scoped `<style>` elements a render response carries into the iframe head. Each canvas owns its copies until the next render into it replaces them or the teardown `renderToCanvas` returns removes them
 - `src/preset.ts` - Defines preview annotations
 - `src/extractArgTypes.ts` - Maps the `__docgenInfo` the framework attaches to a component stub into Storybook's props table. Registered through `preview-defaults.ts` so both CSF3 and CSF-factory stories pick it up, and exported as `./extractArgTypes` so the framework's docgen worker converts identically on the Docgen Server path
