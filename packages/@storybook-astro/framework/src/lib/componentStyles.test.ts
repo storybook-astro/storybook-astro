@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { loadComponentStyles } from './componentStyles.ts';
-import { vitePluginCompiledStylesheets } from './compiledStylesheets.ts';
+import { isAppliedStylesheet, vitePluginCompiledStylesheets } from './compiledStylesheets.ts';
 
 // A fake SSR module graph: each module lists the ids it imports. Like Vite's,
 // a file lookup returns every module for the file, sub-modules included. The
@@ -16,8 +16,8 @@ type FakeModule = {
   url: string;
   importedModules: Set<FakeModule>;
   transformResult?: { dynamicDeps: string[] };
-  /** Set once the server has run the module. */
-  ssrModule?: object;
+  /** Set once the server has run the module: a stylesheet's holds the CSS it ran with. */
+  ssrModule?: { css?: string };
   /** Set when running the module threw. */
   ssrError?: Error;
 };
@@ -27,7 +27,10 @@ const styleOf = (component: string, index = 0) =>
 
 function createFakeServer(options: {
   imports: Record<string, string[]>;
-  /** Imports each module loads with a dynamic `import()`, by the importer's id. */
+  /**
+   * Imports each module loads with a dynamic `import()`, by the importer's id.
+   * A virtual module's is listed under its `/@id/` URL, as Vite records it.
+   */
   dynamicImports?: Record<string, string[]>;
   /**
    * Dynamic import targets no render has called yet. Vite has a node for each
@@ -73,8 +76,12 @@ function createFakeServer(options: {
     imported.forEach((importedId) => moduleFor(id).importedModules.add(moduleFor(importedId)));
   }
 
+  // The graph keys a virtual module by its id, not the `/@id/` URL.
+  const idForUrl = (url: string) =>
+    url.startsWith('/@id/__x00__') ? `\0${url.slice('/@id/__x00__'.length)}` : url;
+
   for (const [id, imported] of Object.entries(options.dynamicImports ?? {})) {
-    imported.forEach((importedId) => moduleFor(id).importedModules.add(moduleFor(importedId)));
+    imported.forEach((importedUrl) => moduleFor(id).importedModules.add(moduleFor(idForUrl(importedUrl))));
     moduleFor(id).transformResult = { dynamicDeps: imported };
   }
 
@@ -113,6 +120,17 @@ function createFakeServer(options: {
   const ssr = { environment: { name: 'ssr' } };
   const compile = (id: string) =>
     (plugin.transform as (this: object, code: string, id: string) => void).call(ssr, css[id] ?? `/* ${id} */`, id);
+  // Like Vite's module runner, a module that has a transform result isn't
+  // run again, so a transform outside the runner leaves its exports stale.
+  const run = (id: string) => {
+    const module = modules.get(id)!;
+
+    if (!module.transformResult) {
+      compile(id);
+      module.transformResult = { dynamicDeps: [] };
+      module.ssrModule = { css: css[id] ?? `/* ${id} */` };
+    }
+  };
   const server = {
     environments: {
       ssr: {
@@ -128,10 +146,21 @@ function createFakeServer(options: {
       }
     },
     config: { plugins: [plugin] },
-    // Running a dynamic import target compiles it and the stylesheets it
-    // imports. One that throws has its imports in the graph, but they never
-    // ran, so its stylesheets didn't compile.
+    // Running a stylesheet compiles it. Running a dynamic import target
+    // compiles it and the stylesheets it imports. One that throws has its
+    // imports in the graph, but they never ran, so its stylesheets didn't
+    // compile.
     ssrLoadModule: async (url: string) => {
+      if (isAppliedStylesheet(url)) {
+        if (options.failToCompile?.includes(url)) {
+          throw new Error(`${url} has a syntax error`);
+        }
+
+        run(url);
+
+        return;
+      }
+
       const module = modules.get(url)!;
       const fails = options.failToLoad?.includes(url);
 
@@ -153,9 +182,13 @@ function createFakeServer(options: {
     }
   };
 
-  for (const id of modules.keys()) {
+  for (const [id, module] of modules) {
     if (!options.notCompiled?.includes(id) && !notLoadedImports.has(id)) {
       compile(id);
+
+      if (isAppliedStylesheet(id)) {
+        module.ssrModule = { css: css[id] ?? `/* ${id} */` };
+      }
     }
   }
 
@@ -165,7 +198,9 @@ function createFakeServer(options: {
     editStylesheet: (id: string, newCss: string) => {
       css[id] = newCss;
       modules.get(id)!.transformResult = undefined;
-    }
+    },
+    /** The CSS the module runner last ran a stylesheet with, which its exports (CSS Module class names) come from. */
+    ranWith: (id: string) => modules.get(id)!.ssrModule?.css
   };
 }
 
@@ -304,6 +339,20 @@ describe('loadComponentStyles', () => {
     expect(failures).toEqual([]);
   });
 
+  test('ships the CSS of a dynamically imported virtual stylesheet', async () => {
+    // `await import('virtual:theme.css')`, which Vite records as `/@id/__x00__virtual:theme.css`.
+    const { server } = createFakeServer({
+      imports: { 'Card.astro': [styleOf('Card.astro')] },
+      dynamicImports: { 'Card.astro': ['/@id/__x00__virtual:theme.css'] },
+      notCompiled: ['\0virtual:theme.css']
+    });
+
+    const { stylesheets, failures } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual([`/* ${styleOf('Card.astro')} */`, '/* \0virtual:theme.css */']);
+    expect(failures).toEqual([]);
+  });
+
   test('reports a dynamically imported stylesheet that fails to compile, so a static build fails', async () => {
     // `await import('./dark.scss')`, where dark.scss has a Sass error.
     const { server } = createFakeServer({
@@ -370,6 +419,37 @@ describe('loadComponentStyles', () => {
     editStylesheet('card.css', '.card { color: blue; }');
 
     expect((await loadComponentStyles(server, ['Card.astro'])).stylesheets).toEqual(['.card { color: blue; }']);
+  });
+
+  test('recompiles an edited CSS Module through the module runner, so its class names match the CSS', async () => {
+    // A transform outside the runner would ship the new CSS while the next
+    // render still used the old class map.
+    const { server, editStylesheet, ranWith } = createFakeServer({
+      imports: { 'Card.astro': ['card.module.css'] },
+      css: { 'card.module.css': '._label_aaaaa { color: red; }' }
+    });
+
+    editStylesheet('card.module.css', '._label_bbbbb { color: blue; }');
+
+    const { stylesheets } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual(['._label_bbbbb { color: blue; }']);
+    expect(ranWith('card.module.css')).toBe('._label_bbbbb { color: blue; }');
+  });
+
+  test('reports an edited stylesheet that no longer compiles and keeps its last CSS', async () => {
+    const { server, editStylesheet } = createFakeServer({
+      imports: { 'Card.astro': ['card.scss'] },
+      css: { 'card.scss': '.card { color: red; }' },
+      failToCompile: ['card.scss']
+    });
+
+    editStylesheet('card.scss', '.card { color: ');
+
+    const { stylesheets, failures } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual(['.card { color: red; }']);
+    expect(failures).toEqual([{ moduleId: 'card.scss', error: new Error('card.scss has a syntax error') }]);
   });
 
   test('reports only a style block the server didn\'t compile, not another stylesheet', async () => {

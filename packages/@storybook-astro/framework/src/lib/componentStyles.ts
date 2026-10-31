@@ -84,7 +84,13 @@ export async function loadComponentStyles(
     // (issue #245). Like Astro dev, that ships the CSS of every component a
     // glob matches, not only the ones the story rendered. A follow-up issue
     // tracks replacing these loads with one transform-only pass.
-    for (const url of module.transformResult?.dynamicDeps ?? []) {
+    for (const dynamicDep of module.transformResult?.dynamicDeps ?? []) {
+      // Vite records an import of a virtual module under a `/@id/` URL, with
+      // a leading `\0` written as `__x00__`. The module graph's URL lookup
+      // doesn't unwrap it, so unwrap it here the way Vite's `unwrapId` does.
+      const url = dynamicDep.startsWith('/@id/')
+        ? dynamicDep.slice('/@id/'.length).replace(/^__x00__/, '\0')
+        : dynamicDep;
       const isAstroComponent = url.split('?')[0].endsWith('.astro');
 
       if (!isAstroComponent && !isAppliedStylesheet(url)) {
@@ -156,10 +162,14 @@ export async function loadComponentStyles(
     // Vite clears a module's transform result when its file changes. A
     // long-lived handler (the Vitest renderer daemon, say) keeps the
     // component that imports it cached, so nothing else recompiles the
-    // edited stylesheet: compile it here, which records the new CSS.
+    // edited stylesheet: load it here, which records the new CSS. It goes
+    // through the module runner, not `transformRequest`: a transform outside
+    // the runner refills the transform result, so the runner's next import
+    // reuses its old evaluation, and a CSS Module's class names would no
+    // longer match the CSS (Astro 7's `ensureModulesLoaded` notes the same).
     if (!styleModule.transformResult && compiled.has(styleModuleId)) {
       try {
-        await ssr.transformRequest(styleModule.url);
+        await viteServer.ssrLoadModule(styleModule.url);
       } catch (error) {
         // The last CSS that compiled still ships, as Astro dev keeps it.
         failures.push({ moduleId: styleModuleId, error });
