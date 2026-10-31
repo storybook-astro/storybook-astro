@@ -4,23 +4,37 @@ import { resolve } from 'node:path';
 import type { AstroIntegration } from 'astro';
 import type { StorybookFontFamily } from './vitePluginAstroFonts.ts';
 
-const CONFIG_FILENAMES = [
+export const CONFIG_FILENAMES = [
   'astro.config.ts',
   'astro.config.mjs',
   'astro.config.js',
   'astro.config.cjs',
+  'astro.config.mts',
+  'astro.config.cts'
 ];
+
+/**
+ * The `astro.config.*` options that change how Astro compiles a component, so
+ * Storybook's SSR servers must use them to render what the site renders
+ * (issue #226).
+ */
+export type UserAstroCompileOptions = {
+  scopedStyleStrategy?: 'where' | 'class' | 'attribute';
+  compressHTML?: boolean;
+};
 
 interface UserAstroConfigData {
   integrations: AstroIntegration[];
   fonts: StorybookFontFamily[];
   vitePlugins: Plugin[];
+  compileOptions: UserAstroCompileOptions;
 }
 
 const EMPTY: UserAstroConfigData = {
   integrations: [],
   fonts: [],
-  vitePlugins: []
+  vitePlugins: [],
+  compileOptions: {}
 };
 
 // Cache by resolveFrom — config rarely changes during a Storybook session and
@@ -70,12 +84,15 @@ async function readUserAstroConfig(resolveFrom: string): Promise<UserAstroConfig
       integrations?: unknown;
       fonts?: unknown;
       vite?: { plugins?: unknown };
+      scopedStyleStrategy?: unknown;
+      compressHTML?: unknown;
     };
 
     return {
       integrations: extractIntegrations(config.integrations),
       fonts: extractFonts(config.fonts),
-      vitePlugins: extractVitePlugins(config.vite?.plugins)
+      vitePlugins: extractVitePlugins(config.vite?.plugins),
+      compileOptions: extractCompileOptions(config)
     };
   } catch (err) {
     // Vite plugins are read once per render pipeline (see
@@ -84,7 +101,7 @@ async function readUserAstroConfig(resolveFrom: string): Promise<UserAstroConfig
     if (!warnedConfigFiles.has(configFile)) {
       warnedConfigFiles.add(configFile);
       console.warn(
-        '[storybook-astro] Could not load astro.config to discover integrations / fonts / vite plugins:',
+        '[storybook-astro] Could not load astro.config to discover integrations / fonts / vite plugins / scopedStyleStrategy / compressHTML:',
         err instanceof Error ? err.message : String(err)
       );
     }
@@ -122,6 +139,26 @@ function extractFonts(raw: unknown): StorybookFontFamily[] {
   );
 }
 
+function extractCompileOptions(config: {
+  scopedStyleStrategy?: unknown;
+  compressHTML?: unknown;
+}): UserAstroCompileOptions {
+  const options: UserAstroCompileOptions = {};
+
+  if (
+    config.scopedStyleStrategy === 'where' ||
+    config.scopedStyleStrategy === 'class' ||
+    config.scopedStyleStrategy === 'attribute'
+  ) {
+    options.scopedStyleStrategy = config.scopedStyleStrategy;
+  }
+  if (typeof config.compressHTML === 'boolean') {
+    options.compressHTML = config.compressHTML;
+  }
+
+  return options;
+}
+
 function extractVitePlugins(raw: unknown): Plugin[] {
   if (!raw) {
     return [];
@@ -155,6 +192,18 @@ export async function loadUserAstroIntegrations(resolveFrom: string): Promise<As
  */
 export async function loadUserAstroFonts(resolveFrom: string): Promise<StorybookFontFamily[]> {
   return (await loadUserAstroConfigData(resolveFrom)).fonts;
+}
+
+/**
+ * Loads the `astro.config.*` options that change compiled output, such as
+ * `scopedStyleStrategy`, for the Astro config each render pipeline builds.
+ * Those pipelines pass `configFile: false`, so without these a component
+ * would compile differently in Storybook than on the site.
+ */
+export async function loadUserAstroCompileOptions(
+  resolveFrom: string
+): Promise<UserAstroCompileOptions> {
+  return (await loadUserAstroConfigData(resolveFrom)).compileOptions;
 }
 
 /**

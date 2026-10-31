@@ -11,6 +11,7 @@ import 'astro:scripts/page.js';
 import type { AstroComponentFactory, AstroComponentSlot, AstroRenderer, SlotValue } from './types';
 import { serializeAstroComponentMarkers } from './astroComponentMarker';
 import { isDecoratedTree } from './decoratedTree';
+import { splitStoryArgs } from './slotArgs.ts';
 import {
   addStylesheetBeforeStoryStyles,
   moveStoryStylesToHead,
@@ -290,7 +291,7 @@ async function renderAstroToCanvas(
     throw new Error('Astro component missing moduleId');
   }
 
-  const { slots = {}, ...componentArgs } = args;
+  const { props: componentArgs, slots } = splitStoryArgs(args, storyContext?.initialArgs);
   const decoratedTree = isDecoratedTree(element) ? element : undefined;
 
   const response = await astroRenderer.render({

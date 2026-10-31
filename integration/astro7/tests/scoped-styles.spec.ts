@@ -13,4 +13,12 @@ test.describe('Scoped styles', () => {
     expect(await canvas.locator('style').count()).toBe(0);
     expect(await page.locator('head style[data-storybook-astro-styles]').count()).toBeGreaterThan(0);
   });
+
+  // Issue #223: stylesheets imported in the frontmatter ship with the story.
+  test('stylesheets a component imports in its frontmatter apply', async ({ page }) => {
+    await page.goto('/iframe.html?id=astro-scoped-styles-imported-stylesheets--frontmatter-imports&viewMode=story');
+
+    await expect(page.getByTestId('imported-styles-card')).toHaveCSS('border-top-color', 'rgb(106, 27, 154)');
+    await expect(page.getByTestId('imported-styles-label')).toHaveCSS('color', 'rgb(239, 108, 0)');
+  });
 });

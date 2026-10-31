@@ -80,6 +80,26 @@ beforeEach(() => {
   canvas = document.getElementById('storybook-root')!;
 });
 
+describe('rendering an Astro story', () => {
+  test('sends a slot edited in Controls as slot content, not a prop (issue #203)', async () => {
+    serverRespondsWith('first');
+    const component = astroComponent();
+    const context = storyContext(() => component);
+
+    Object.assign(context.storyContext.args, {
+      title: 'Hello',
+      slots: { default: 'Old' },
+      'slot:default': 'Edited'
+    });
+
+    await renderToCanvas(context, canvas);
+
+    expect(server.render).toHaveBeenCalledWith(
+      expect.objectContaining({ args: { title: 'Hello' }, slots: { default: 'Edited' } })
+    );
+  });
+});
+
 describe('the teardown renderToCanvas returns for an Astro story', () => {
   test('clears the story markup and its CSS', async () => {
     serverRespondsWith('first');

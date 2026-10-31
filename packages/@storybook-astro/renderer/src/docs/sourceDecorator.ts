@@ -91,7 +91,8 @@ function astroSourceFor(context: StoryContext<AstroRenderer>): string | null {
 
   return generateAstroSource(name, context.args ?? {}, {
     importPath: resolveImportPath(component.moduleId, name),
-    objectProps: objectProps === 'inline' ? 'inline' : 'frontmatter'
+    objectProps: objectProps === 'inline' ? 'inline' : 'frontmatter',
+    initialArgs: context.initialArgs
   });
 }
 
