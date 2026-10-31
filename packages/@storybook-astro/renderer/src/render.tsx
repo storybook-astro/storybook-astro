@@ -334,9 +334,10 @@ async function renderAstroToCanvas(
     return;
   }
 
-  // The overlay set the canvas to position: relative. Put it back before the
+  // Put back the overlay's position and the height a teardown held before the
   // story's markup goes in and its scripts measure the layout.
   hideRenderLoadingIndicator(canvasElement);
+  releaseCanvasHeight(canvasElement);
   astroRenderer.applyStyles?.();
   canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement, storyContext?.viewMode);
   shownRenderByCanvas.set(canvasElement, renderToken);

@@ -248,7 +248,7 @@ describe('while an Astro story renders', () => {
     await vi.advanceTimersByTimeAsync(4900);
 
     const hint = Array.from(canvas.querySelectorAll('span')).find((span) =>
-      span.textContent?.includes('render server may be starting up')
+      span.textContent?.includes('Still working')
     );
 
     expect(hint?.hidden).toBe(false);
@@ -339,6 +339,36 @@ describe('while an Astro story renders', () => {
     await renderAstro(canvas);
 
     expect(canvas.style.minHeight).toBe('');
+  });
+
+  test('gives the canvas its own height back before the next story runs its inline scripts', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    // A browser runs a classic inline script as it goes into the document.
+    // happy-dom doesn't run scripts, so note the height at that moment.
+    const heightWhenScriptsRan: string[] = [];
+    const insertScript = Node.prototype.replaceChild;
+    const replaceChild = vi.spyOn(Node.prototype, 'replaceChild').mockImplementation(function (
+      this: Node,
+      newChild,
+      oldChild
+    ) {
+      if (newChild instanceof HTMLScriptElement) {
+        heightWhenScriptsRan.push(canvas.style.minHeight);
+      }
+
+      return insertScript.call(this, newChild, oldChild);
+    });
+
+    server.render.mockResolvedValueOnce({ html: '<div>second</div><script>measureLayout()</script>' });
+    await renderAstro(canvas);
+    replaceChild.mockRestore();
+
+    expect(heightWhenScriptsRan).toEqual(['']);
   });
 
   test('gives the height back when a framework story renders next', async () => {

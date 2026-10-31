@@ -49,7 +49,7 @@ describe('showRenderLoadingIndicator', () => {
     vi.advanceTimersByTime(100);
 
     expect(indicator()?.querySelector('[hidden]')).toBeNull();
-    expect(indicator()?.textContent).toContain('render server may be starting up');
+    expect(indicator()?.textContent).toContain('Still working');
   });
 
   test('overlays a story still on the canvas, as on a Controls change, and puts the canvas back after', () => {
@@ -77,24 +77,28 @@ describe('showRenderLoadingIndicator', () => {
     expect(indicator()?.style.overflow).toBe('hidden');
   });
 
-  test('cancels the spinner animation when the render settles, so Storybook stops waiting on it', () => {
-    // happy-dom has no Web Animations API, so stand in for a browser's.
-    const cancel = vi.fn();
-    const animate = vi.fn(() => ({ cancel }));
-
-    Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: animate });
-
-    const hide = showRenderLoadingIndicator(canvas);
-
+  test('spins with an infinite CSS animation, which Storybook does not wait on before reporting a story rendered', () => {
+    showRenderLoadingIndicator(canvas);
     vi.advanceTimersByTime(200);
 
-    expect(animate).toHaveBeenCalled();
-    expect(cancel).not.toHaveBeenCalled();
+    const spinner = indicator()?.firstElementChild as HTMLElement;
 
-    hide();
+    expect(spinner.style.animation).toContain('sb-rotate360');
+    expect(spinner.style.animation).toContain('infinite');
+  });
 
-    expect(cancel).toHaveBeenCalledOnce();
-    delete (HTMLElement.prototype as Partial<HTMLElement>).animate;
+  test('keeps the spinner still for readers who prefer reduced motion', () => {
+    const matchMedia = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation((query) => ({ matches: query.includes('reduce') }) as MediaQueryList);
+
+    showRenderLoadingIndicator(canvas);
+    vi.advanceTimersByTime(200);
+
+    const spinner = indicator()?.firstElementChild as HTMLElement;
+
+    expect(spinner.style.animation).toBe('');
+    matchMedia.mockRestore();
   });
 
   test('puts no <style> in the canvas', () => {
