@@ -2,9 +2,14 @@ import { STORY_STYLE_ATTRIBUTE } from './types.ts';
 
 const STORY_STYLE = `style[${STORY_STYLE_ATTRIBUTE}]`;
 
-// The head styles each canvas put there. A Docs page renders several stories
-// into one head, each into its own canvas, and each canvas owns its copies.
-const stylesByCanvas = new WeakMap<Element, HTMLStyleElement[]>();
+// One head element per distinct CSS text, shared by every canvas that renders
+// it. A Docs page renders several stories into one head, each into its own
+// canvas, and stories of one component ship the same CSS, so each stylesheet
+// goes in once (issue #234). An element leaves when its last canvas lets go.
+type SharedStyle = { element: HTMLStyleElement; canvases: Set<Element> };
+
+const sharedStylesByDocument = new WeakMap<Document, Map<string, SharedStyle>>();
+const stylesByCanvas = new WeakMap<Element, SharedStyle[]>();
 
 /**
  * Parses a render's HTML and moves its component CSS into the document head,
@@ -17,7 +22,10 @@ const stylesByCanvas = new WeakMap<Element, HTMLStyleElement[]>();
  * The styles replace the ones this canvas's last render put there, so CSS
  * deleted in an edit stops applying. New CSS goes to the end of the head, where
  * Astro component CSS went before #189 too, after any CSS the story's modules
- * added on import.
+ * added on import. CSS another canvas already put in the head is shared and
+ * stays where it is, so one copy of a global stylesheet doesn't land after a
+ * component's CSS and override it, as on an Astro page, which ships each
+ * stylesheet once.
  */
 export function moveStoryStylesToHead(html: string, canvasElement: Element) {
   const document = canvasElement.ownerDocument;
@@ -26,26 +34,47 @@ export function moveStoryStylesToHead(html: string, canvasElement: Element) {
   template.innerHTML = html;
 
   const styles = Array.from(template.content.querySelectorAll<HTMLStyleElement>(STORY_STYLE));
+  const cssTexts = [...new Set(styles.map((style) => style.textContent ?? ''))];
   const previousStyles = stylesByCanvas.get(canvasElement) ?? [];
+
+  styles.forEach((style) => style.remove());
 
   // A rerender with the same CSS, such as a Controls change, keeps the
   // elements it has, so the CSS of a Docs page's stories keeps its order.
   const unchanged =
-    styles.length === previousStyles.length &&
-    styles.every(
-      (style, index) =>
-        previousStyles[index].isConnected && style.textContent === previousStyles[index].textContent
+    cssTexts.length === previousStyles.length &&
+    cssTexts.every(
+      (css, index) =>
+        previousStyles[index].element.isConnected && css === previousStyles[index].element.textContent
     );
 
   if (unchanged) {
-    styles.forEach((style) => style.remove());
-
     return template;
   }
 
-  removeStoryStyles(canvasElement);
-  document.head.append(...styles);
-  stylesByCanvas.set(canvasElement, styles);
+  const sharedStyles = sharedStylesFor(document);
+  // Take the new CSS before letting go of the old, so CSS this canvas keeps
+  // across the edit isn't removed and added back at the end.
+  const nextStyles = cssTexts.map((css) => {
+    let shared = sharedStyles.get(css);
+
+    if (!shared || !shared.element.isConnected) {
+      const element = document.createElement('style');
+
+      element.setAttribute(STORY_STYLE_ATTRIBUTE, '');
+      element.textContent = css;
+      document.head.append(element);
+      shared = { element, canvases: new Set() };
+      sharedStyles.set(css, shared);
+    }
+
+    shared.canvases.add(canvasElement);
+
+    return shared;
+  });
+
+  releaseStyles(canvasElement, previousStyles.filter((shared) => !nextStyles.includes(shared)));
+  stylesByCanvas.set(canvasElement, nextStyles);
 
   return template;
 }
@@ -58,8 +87,35 @@ export function addStylesheetBeforeStoryStyles(stylesheet: Element, document: Do
   document.head.insertBefore(stylesheet, document.head.querySelector(STORY_STYLE));
 }
 
-/** Removes the component CSS this canvas put in the head. */
+/** Removes the component CSS this canvas put in the head, unless another canvas still uses it. */
 export function removeStoryStyles(canvasElement: Element) {
-  stylesByCanvas.get(canvasElement)?.forEach((style) => style.remove());
+  releaseStyles(canvasElement, stylesByCanvas.get(canvasElement) ?? []);
   stylesByCanvas.delete(canvasElement);
+}
+
+function releaseStyles(canvasElement: Element, styles: SharedStyle[]) {
+  const sharedStyles = sharedStylesFor(canvasElement.ownerDocument);
+
+  for (const shared of styles) {
+    shared.canvases.delete(canvasElement);
+
+    if (shared.canvases.size === 0) {
+      shared.element.remove();
+
+      if (sharedStyles.get(shared.element.textContent ?? '') === shared) {
+        sharedStyles.delete(shared.element.textContent ?? '');
+      }
+    }
+  }
+}
+
+function sharedStylesFor(document: Document) {
+  let sharedStyles = sharedStylesByDocument.get(document);
+
+  if (!sharedStyles) {
+    sharedStyles = new Map();
+    sharedStylesByDocument.set(document, sharedStyles);
+  }
+
+  return sharedStyles;
 }

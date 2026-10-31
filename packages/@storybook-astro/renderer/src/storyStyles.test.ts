@@ -77,9 +77,71 @@ describe('moveStoryStylesToHead', () => {
 
     expect(headCss()).toEqual(['.badge {}', '.card { color: blue; }']);
   });
+
+  test('puts CSS that several stories on a Docs page ship in the head once (issue #234)', () => {
+    const firstCard = createCanvas();
+    const secondCard = createCanvas();
+
+    renderInto(firstCard, `${styleFor('.card {}')}<div>first</div>`);
+    renderInto(secondCard, `${styleFor('.card {}')}<div>second</div>`);
+
+    expect(headCss()).toEqual(['.card {}']);
+  });
+
+  test('keeps a shared global stylesheet ahead of the component CSS that overrides it', () => {
+    // Button ships global.css then button.css, which sets `a`'s color. Link
+    // ships global.css too. A second copy of global.css after button.css would
+    // override Button's links.
+    const buttonCanvas = createCanvas();
+    const linkCanvas = createCanvas();
+
+    renderInto(buttonCanvas, `${styleFor('a { color: inherit; }')}${styleFor('a { color: red; }')}<a></a>`);
+    renderInto(linkCanvas, `${styleFor('a { color: inherit; }')}<a></a>`);
+
+    expect(headCss()).toEqual(['a { color: inherit; }', 'a { color: red; }']);
+  });
+
+  test('keeps CSS another story still uses when one story changes', () => {
+    const firstCard = createCanvas();
+    const secondCard = createCanvas();
+
+    renderInto(firstCard, `${styleFor('.card {}')}<div></div>`);
+    renderInto(secondCard, `${styleFor('.card {}')}<div></div>`);
+    renderInto(firstCard, `${styleFor('.card { color: blue; }')}<div></div>`);
+
+    expect(headCss()).toEqual(['.card {}', '.card { color: blue; }']);
+  });
+
+  test('keeps CSS the canvas still ships in place when other CSS changes', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('.global {}')}${styleFor('.card {}')}<div></div>`);
+    const globalStyle = headStyles()[0];
+
+    renderInto(canvas, `${styleFor('.global {}')}${styleFor('.card { color: blue; }')}<div></div>`);
+
+    expect(headStyles()[0]).toBe(globalStyle);
+    expect(headCss()).toEqual(['.global {}', '.card { color: blue; }']);
+  });
 });
 
 describe('removeStoryStyles', () => {
+  test('keeps CSS another canvas still uses', () => {
+    const firstCard = createCanvas();
+    const secondCard = createCanvas();
+
+    renderInto(firstCard, `${styleFor('.card {}')}<div></div>`);
+    renderInto(secondCard, `${styleFor('.card {}')}<div></div>`);
+    removeStoryStyles(firstCard);
+
+    expect(headCss()).toEqual(['.card {}']);
+
+    removeStoryStyles(secondCard);
+
+    expect(headCss()).toEqual([]);
+  });
+
+
   test('removes only that canvas\'s CSS', () => {
     const cardCanvas = createCanvas();
     const badgeCanvas = createCanvas();
