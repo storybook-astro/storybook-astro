@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, test } from 'vitest';
 import {
   extractAstroImportSpecifiers,
+  extractStylesheetImportSpecifiers,
   vitePluginAstroComponentMarker
 } from './vitePluginAstroComponentMarker.ts';
 
@@ -121,6 +122,22 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(result?.code).toContain(`import "@components/Other.astro";`);
   });
 
+  // Without this, editing a frontmatter stylesheet leaves the story's shipped
+  // copy stale until a reload (issue #229). `?raw` keeps the CSS from being
+  // injected a second time, and unlike `?url` Vite accepts it for CSS Modules.
+  test('re-imports frontmatter stylesheets as raw text in dev mode so editing one reruns the story', async () => {
+    const filePath = writeAstroFile(
+      'StyledParent.astro',
+      ['---', "import './card.css';", "import styles from './card.module.css';", '---', '<div />'].join('\n')
+    );
+    const plugin = createPlugin();
+    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    expect(result?.code).toContain(`import "./card.css?raw";`);
+    expect(result?.code).toContain(`import "./card.module.css?raw";`);
+    expect(result?.code).not.toContain(`import "./card.css";`);
+  });
+
   test('does not re-import child components in build mode', async () => {
     const filePath = writeAstroFile('build/Parent.astro', parentSource);
     const plugin = createPlugin('build');
@@ -175,6 +192,41 @@ describe('extractAstroImportSpecifiers', () => {
     ].join('\n');
 
     expect(extractAstroImportSpecifiers(source)).toEqual(['./Child.astro']);
+  });
+});
+
+describe('extractStylesheetImportSpecifiers', () => {
+  test('finds plain, CSS Module, and preprocessor stylesheet imports', () => {
+    const source = [
+      '---',
+      "import './card.css';",
+      "import styles from './x.module.css';",
+      "import './y.scss';",
+      "import Child from './Child.astro';",
+      '---',
+      '<div />'
+    ].join('\n');
+
+    expect(extractStylesheetImportSpecifiers(source)).toEqual([
+      './card.css',
+      './x.module.css',
+      './y.scss'
+    ]);
+  });
+
+  test('skips commented-out imports and imports with a query', () => {
+    const source = [
+      '---',
+      "// import './old.css';",
+      "/* import './older.css'; */",
+      "import cssUrl from './linked.css?url';",
+      "import raw from './raw.css?raw';",
+      "import './current.css';",
+      '---',
+      '<div />'
+    ].join('\n');
+
+    expect(extractStylesheetImportSpecifiers(source)).toEqual(['./current.css']);
   });
 });
 

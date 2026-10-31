@@ -75,9 +75,11 @@ export function vitePluginAstroComponentMarker(options?: {
 
       options?.onClientAstroModuleId?.(moduleId);
 
-      // In dev, re-import the component's child .astro files so they join the
-      // client module graph: editing a child then updates this stub through HMR,
-      // and the story rerenders with the child's new markup and styles.
+      // In dev, re-import the component's child .astro files and frontmatter
+      // stylesheets so they join the client module graph: editing one then
+      // updates this stub through HMR, and the story rerenders with the new
+      // markup and styles. Without this, a story's shipped copy of an imported
+      // stylesheet stays stale until a reload (issue #229).
       const childImports = isBuild ? '' : generateChildImports(moduleId);
 
       const docgenCode = await generateDocgenAssignment(options?.docgen, moduleId);
@@ -124,23 +126,53 @@ async function generateDocgenAssignment(
   }
 }
 
-/** Builds side-effect imports for the child .astro components a component's frontmatter imports. */
+/**
+ * Builds the imports that tie a component's frontmatter dependencies to its stub:
+ * a side-effect import per child `.astro` file, and a `?raw` import per
+ * stylesheet. `?raw` resolves to the file's text without injecting the CSS, so
+ * the stylesheet joins the client graph without being applied twice, and its
+ * module id differs from a `.storybook/preview.js` import of the same file.
+ * (`?url` would be lighter, but Vite rejects it for CSS Modules.)
+ */
 function generateChildImports(filePath: string): string {
   try {
-    return extractAstroImportSpecifiers(readFileSync(filePath, 'utf-8'))
-      .map((specifier) => `import ${JSON.stringify(specifier)};`)
-      .join('\n');
+    const source = readFileSync(filePath, 'utf-8');
+    const astroImports = extractAstroImportSpecifiers(source).map(
+      (specifier) => `import ${JSON.stringify(specifier)};`
+    );
+    const stylesheetImports = extractStylesheetImportSpecifiers(source).map(
+      (specifier) => `import ${JSON.stringify(`${specifier}?raw`)};`
+    );
+
+    return [...astroImports, ...stylesheetImports].join('\n');
   } catch {
     return '';
   }
 }
 
-/**
- * Extracts import specifiers ending in `.astro` from a component's frontmatter.
- * Comments are stripped first so commented-out imports don't resurface as
- * broken module requests in the browser.
- */
+/** Extracts import specifiers ending in `.astro` from a component's frontmatter. */
 export function extractAstroImportSpecifiers(source: string): string[] {
+  return extractFrontmatterImportSpecifiers(source, 'astro');
+}
+
+/**
+ * Extracts stylesheet import specifiers (`.css`, Sass, Less, Stylus, PostCSS,
+ * CSS Modules) from a component's frontmatter. Imports that already carry a
+ * query (`?raw`, `?url`) are skipped: they don't ship with the story.
+ */
+export function extractStylesheetImportSpecifiers(source: string): string[] {
+  return extractFrontmatterImportSpecifiers(
+    source,
+    '(?:css|scss|sass|less|styl|stylus|pcss|postcss)'
+  );
+}
+
+/**
+ * Extracts the frontmatter import specifiers that end in the given extension
+ * and carry no query. Comments are stripped first so commented-out imports
+ * don't resurface as broken module requests in the browser.
+ */
+function extractFrontmatterImportSpecifiers(source: string, extension: string): string[] {
   const frontmatterMatch = source.match(/^---([\s\S]*?)---/m);
 
   if (!frontmatterMatch) {return [];}
@@ -150,8 +182,11 @@ export function extractAstroImportSpecifiers(source: string): string[] {
     .replace(/\/\/[^\n]*/g, '');
 
   // Matches static imports (`import Child from './Child.astro'`), side-effect
-  // imports (`import './Child.astro'`), and dynamic imports (`import('./Child.astro')`).
-  const importPattern = /(?:from|import)\s*\(?\s*['"]([^'"]+\.astro)['"]/g;
+  // imports (`import './card.css'`), and dynamic imports (`import('./Child.astro')`).
+  const importPattern = new RegExp(
+    `(?:from|import)\\s*\\(?\\s*['"]([^'"?]+\\.${extension})['"]`,
+    'g'
+  );
   const specifiers = new Set<string>();
   let match;
 

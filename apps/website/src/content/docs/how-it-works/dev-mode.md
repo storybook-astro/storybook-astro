@@ -23,7 +23,7 @@ In dev mode (`storybook dev`), Astro components are rendered on-demand through a
 
 8. **Framework delegation** — For non-Astro framework components (React, Solid, Vue, etc.), the renderer delegates directly to the framework-specific `renderToCanvas` *before* calling `storyFn()`. This ordering is critical — it lets reactive frameworks like Solid manage their own rendering lifecycle without orphaned effects.
 
-9. **HMR updates** — Changes to components trigger re-renders. The Vite HMR event listeners in `render.tsx` handle updates while preserving state when possible.
+9. **HMR updates** — Changes to components, and to the stylesheets their frontmatter imports, trigger re-renders. The Vite HMR event listeners in `render.tsx` handle updates while preserving state when possible.
 
 ## The Vite HMR channel
 
