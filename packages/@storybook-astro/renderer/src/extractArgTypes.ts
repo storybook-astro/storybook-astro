@@ -18,8 +18,9 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
   }
 
   const props = extractComponentProps(component, 'props');
+  const slots: Array<{ name: string; description: string }> = component.__docgenInfo?.slots ?? [];
 
-  if (props.length === 0) {
+  if (props.length === 0 && slots.length === 0) {
     return null;
   }
 
@@ -37,6 +38,19 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
         jsDocTags,
         defaultValue: defaultValue ?? undefined
       }
+    };
+  }
+
+  // Slot content goes in `args.slots`, so these rows document the slots rather
+  // than add args: the key can't clash with a prop, and there's no control
+  // (issue #188).
+  for (const { name, description } of slots) {
+    argTypes[`slot:${name}`] = {
+      name,
+      description,
+      type: { name: 'other', value: 'slot', required: false },
+      control: false,
+      table: { category: 'slots', type: { summary: name === 'default' ? 'default slot' : 'named slot' } }
     };
   }
 

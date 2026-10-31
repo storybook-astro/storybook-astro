@@ -179,6 +179,24 @@ Default values are read from the top-level `Astro.props` destructuring, includin
 | `const { a } = Astro.props` + `/** @default 'x' */` | `"x"` |
 | `const { a } = Astro.props` | absent → prop is required |
 
+## Slots
+
+Slots are part of an Astro component's API but have no TypeScript declaration, so `docgen/slots.ts` reads them from the `.astro` source text, without the checker (issue #188). `AstroDocgenInfo.slots` lists them in the order they first appear:
+
+| Source | Slot |
+|---|---|
+| `<slot />` in the template | `default` |
+| `<slot name="x" />` or `name='x'` | `x` |
+| `<slot name={expr} />` | none: the name is only known at render time |
+| `Astro.slots.render('x')` or `Astro.slots.has('x')` in the frontmatter | `x`, after the template's slots |
+| A `<slot>` inside `<!-- … -->` or `{/* … */}` | none |
+
+A comment starting with `@slot`, directly before a `<slot>` with only whitespace between them, is that slot's description. It's the convention `vue-docgen-api` uses. Each name is listed once, with the first description found. Every slot is optional, as Astro slots are.
+
+The template is scanned with one regex that matches comments and `<slot>` elements together, so a commented-out slot is consumed by its comment. That keeps extraction synchronous, as [Decision 10](#design-decisions) chose for the frontmatter. A component with slots but no frontmatter still yields docgen, with an empty props table.
+
+The renderer's `extractArgTypes` turns each slot into a row keyed `slot:<name>`, in the `slots` table category, with `control: false`. Slot content lives in `args.slots`, so these rows document the API rather than add args, and the prefixed key can't collide with a prop. Per-slot controls (#203) would build on the same list.
+
 ## Implementation Plan
 
 ### Step 1 — The extractor
@@ -257,7 +275,7 @@ Two components make good first tests. `PageCard.astro` is the only one with both
 
 ## Known Limitations
 
-- **Slots are not documented.** Named `<slot name="…">` elements are part of an Astro component's API but have no TypeScript representation, so they do not appear in the props table. Authors continue to describe them in prose.
+- **Slots are read from the source text.** They have no TypeScript representation, so [Slots](#slots) reads `<slot>` elements and `Astro.slots` calls with a regex. A slot whose name is an expression is not listed, and a `<slot>` written inside a template expression's string is.
 - **Static builds keep controls disabled.** Extracted props render in the table with their types and defaults, but the existing static-mode enhancer still disables every control, because pre-rendered components cannot re-render with new args.
 - **`node_modules` changes need a restart.** Vite's watcher ignores `node_modules`, so installing or upgrading a package that contributes types will not invalidate the language service.
 - **Untyped components get no props.** A component that destructures `Astro.props` without declaring `Props` yields a description and an empty table; inferring props from the destructuring pattern alone would type every one of them `any`.

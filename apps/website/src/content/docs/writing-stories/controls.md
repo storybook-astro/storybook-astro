@@ -53,6 +53,7 @@ type, and the defaults read from the `Astro.props` destructuring.
 | A union of string literals | A select control with those options |
 | A prop that is neither optional nor defaulted | Marked **Required** |
 | `@default` on a prop | The **Default** column, when the destructuring has none |
+| A `<slot>` in the template | A row in the **Slots** section (see [Slots](#slots)) |
 
 Types imported from another file work too, including via tsconfig `paths`
 aliases — the extractor uses your project's `tsconfig.json`.
@@ -123,8 +124,30 @@ apart and the story file quietly wins.
 
 ## Slots
 
-Slots have no TypeScript representation, so they never appear in the props table.
-Describe them in the component's JSDoc block, and pass them through `args.slots`:
+The props table lists the slots a component accepts in a **Slots** section, even
+when no story passes content to them. The extractor finds every `<slot>` in the
+template, named or default, and the slot names the frontmatter reads with
+`Astro.slots.render()` or `Astro.slots.has()`. A slot whose name is an expression
+(`<slot name={name} />`) isn't listed, since its name is only known at render time.
+
+To describe a slot, put a comment starting with `@slot` directly before it:
+
+```astro
+<article>
+  {/* @slot The card body */}
+  <slot />
+  <footer>
+    {/* @slot Buttons shown under the body */}
+    <slot name="actions" />
+  </footer>
+</article>
+```
+
+`{/* … */}` comments are removed from the rendered HTML. An HTML comment
+(`<!-- @slot … -->`) works too, but Astro keeps it in the page.
+
+Astro slots are always optional, so none are marked **Required**. The rows document
+the slots and have no control. Pass slot content through `args.slots`:
 
 ```jsx
 export const WithMain = {
