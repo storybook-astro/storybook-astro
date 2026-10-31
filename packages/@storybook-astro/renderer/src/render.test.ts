@@ -166,7 +166,7 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
     expect(headCss()).toEqual([]);
   });
 
-  test('keeps a newer story when an older render fails after it', async () => {
+  test('keeps a newer story, without the error, when an older render fails after it', async () => {
     const slowRender = serverWaits();
     const slowRendering = renderAstro(canvas);
 
@@ -174,10 +174,24 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
     await renderAstro(canvas);
 
     slowRender.fail();
-    await expect(slowRendering).rejects.toThrow('Render failed');
+    await slowRendering;
 
     expect(canvas.innerHTML).toBe('<div>second</div>');
     expect(headCss()).toEqual(['.second {}']);
+  });
+
+  test('keeps an earlier render\'s response when a rerender\'s story function throws', async () => {
+    const slowRender = serverWaits();
+    const slowRendering = renderAstro(canvas);
+    const failingStory = storyContext(() => {
+      throw new Error('Decorator failed');
+    });
+
+    await expect(renderToCanvas(failingStory, canvas)).rejects.toThrow('Decorator failed');
+    slowRender.respond('first');
+    await slowRendering;
+
+    expect(canvas.innerHTML).toBe('<div>first</div>');
   });
 
   test('leaves a framework story alone when the Astro response arrives after it', async () => {

@@ -161,9 +161,9 @@ export async function renderToCanvas(
 
   const thisRender = {};
 
-  latestRenderByCanvas.set(canvasElement, thisRender);
-
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
+    latestRenderByCanvas.set(canvasElement, thisRender);
+
     // The canvas no longer shows an Astro render, so a late Astro teardown
     // leaves it alone, and this removes that render's CSS instead.
     shownRenderByCanvas.delete(canvasElement);
@@ -182,6 +182,9 @@ export async function renderToCanvas(
 
   const element = storyFn();
 
+  // Only once the story function succeeds, so a story that throws doesn't
+  // make an earlier render's response look out of date.
+  latestRenderByCanvas.set(canvasElement, thisRender);
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
@@ -197,17 +200,21 @@ export async function renderToCanvas(
         clearAstroRender(canvasElement);
       }
 
-      if (!isAstroServerUnavailableError(error)) {
-        throw error;
-      }
+      // A newer render has taken over the canvas, so this one's error is
+      // out of date and shouldn't show over the newer story.
+      if (latestRenderByCanvas.get(canvasElement) === thisRender) {
+        if (!isAstroServerUnavailableError(error)) {
+          throw error;
+        }
 
-      showError({
-        title: 'Unable to reach Astro rendering server.',
-        description: dedent`
-          Storybook could not connect to the Astro rendering server, so this Astro story cannot be rendered.
-          ${error.message}
-        `
-      });
+        showError({
+          title: 'Unable to reach Astro rendering server.',
+          description: dedent`
+            Storybook could not connect to the Astro rendering server, so this Astro story cannot be rendered.
+            ${error.message}
+          `
+        });
+      }
     }
 
     // Storybook calls this when it removes the story: on navigation, on a
