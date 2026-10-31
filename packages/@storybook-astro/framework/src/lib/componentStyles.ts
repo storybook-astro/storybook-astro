@@ -77,21 +77,43 @@ export async function loadComponentStyles(
     }
 
     // A dynamic `import()` or lazy `import.meta.glob` target is only compiled
-    // once something calls it, so whether its imports are in the graph would
-    // depend on what earlier renders loaded. Load the `.astro` ones first, as
-    // Astro's dev server does, so a story's CSS doesn't depend on render order
-    // (issue #245). Like Astro dev, that ships the CSS of every component a
-    // glob matches, not only the ones the story rendered.
+    // once something calls it, so whether its CSS is known would depend on
+    // what earlier renders loaded. Load the `.astro` ones first, as Astro's
+    // dev server does, and compile the stylesheets, so a story's CSS doesn't
+    // depend on render order (issue #245). Like Astro dev, that ships the CSS
+    // of every component a glob matches, not only the ones the story rendered.
     for (const url of module.transformResult?.dynamicDeps ?? []) {
-      const target = await moduleGraph.getModuleByUrl(url);
+      const isAstroComponent = url.split('?')[0].endsWith('.astro');
 
-      if (url.split('?')[0].endsWith('.astro') && !target?.transformResult) {
-        try {
-          await viteServer.ssrLoadModule(url);
-        } catch {
-          // Like Astro dev: a target that fails to load fails the render that
-          // calls it, so there's nothing to report here.
+      if (!isAstroComponent && !isAppliedStylesheet(url)) {
+        continue;
+      }
+
+      try {
+        const target = await moduleGraph.getModuleByUrl(url);
+
+        if (!isAstroComponent) {
+          // Compiling a stylesheet records its CSS without running anything.
+          if (!target?.id || !compiled.has(target.id)) {
+            await ssr.transformRequest(url);
+          }
+        } else if (target?.ssrError) {
+          // A component that failed to load fails the render that calls it,
+          // as in Astro dev. Its style blocks never compiled, so don't walk
+          // it and report them.
+          visited.add(target);
+        } else if (!target?.ssrModule) {
+          await viteServer.ssrLoadModule(url).catch(async () => {
+            const failedTarget = await moduleGraph.getModuleByUrl(url);
+
+            if (failedTarget) {
+              visited.add(failedTarget);
+            }
+          });
         }
+      } catch {
+        // A target that can't be resolved or compiled fails the render that
+        // calls it. The rest of this component's styles still ship.
       }
     }
 
@@ -144,8 +166,9 @@ export async function loadComponentStyles(
       stylesheets.push(css);
     } else if (css === undefined && ASTRO_STYLE_MODULE.test(styleModuleId)) {
       // The render loaded the component, which imports its style blocks, so
-      // the server compiled them. One it didn't compile is reported. Any other
-      // stylesheet it didn't compile wasn't loaded by this render.
+      // the server compiled them. One it didn't compile is reported. A
+      // stylesheet the walk reaches that the server never compiled is one no
+      // render loaded with a static import, so it has no CSS to ship.
       failures.push({
         moduleId: styleModuleId,
         error: new Error('The SSR server did not compile this <style> block, so its CSS was not found.')
