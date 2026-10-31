@@ -181,7 +181,7 @@ framework: {
 ```
 
 :::caution
-Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated. The `local` provider isn't supported yet: declare local fonts with `@font-face` instead (see [Self-hosted fonts](#self-hosted-fonts)).
+Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated. In server builds (`renderMode: 'server'`), the font CSS variables are defined, but a story that renders `<Font>` fails with `FontFamilyNotFound`. Use the CSS variables directly there. The `local` provider isn't supported yet ([#244](https://github.com/storybook-astro/storybook-astro/issues/244)): Storybook skips those families with a warning, and `<Font>` throws `FontFamilyNotFound` for them. Declare local fonts with `@font-face` instead (see [Self-hosted fonts](#self-hosted-fonts)), and either don't render `<Font>` for them in stories or set `framework.options.fonts` to the families without the local ones.
 :::
 
 ### npm font packages

@@ -183,7 +183,7 @@ Anything declared in `astro.config.*` is picked up by Storybook automatically: `
 
 **Shipped in**: 1.4.0
 
-The `<Font>` component renders real `@font-face` CSS in dev and static builds, driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required). Server builds get the `@font-face` CSS in the iframe head, so the font CSS variables are defined, but `<Font>` doesn't render there yet.
+The `<Font>` component renders real `@font-face` CSS in dev and static builds, driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required). In server builds, the font CSS variables are defined in the iframe head, but a story that renders `<Font>` fails with a `FontFamilyNotFound` error because the render server doesn't receive the fonts yet.
 
 **Documentation**: See [Styling guide](/guides/styling/#astro-font-provider-api)
 
@@ -191,7 +191,7 @@ The `<Font>` component renders real `@font-face` CSS in dev and static builds, d
 - Preload `<link>` tag emission
 - Capsize-optimized fallback metrics
 - Build-time font file emission to the static output (current builds rely on the remote URLs returned by the provider)
-- Pass fonts to the server-mode render runtime so `<Font>` renders there (the iframe head already gets the CSS)
+- Pass fonts to the server-mode render runtime so `<Font>` stops throwing `FontFamilyNotFound` (the iframe head already gets the CSS)
 - Support the `local` font provider (its font files aren't passed to it or served yet)
 
 ### Support Astro Components as Props (Phase 1 — Template Nesting)
@@ -238,7 +238,7 @@ This table tracks compatibility of Astro's built-in framework features with Stor
 | Static Builds | ✅ Supported | `storybook build` with build-time pre-rendering of Astro component stories (default mode) |
 | Server Builds | 🚧 In Progress | `renderMode: 'server'` with on-demand rendering via HTTP server. Requires Node.js runtime. |
 | `astro:assets` (Image) | ✅ Supported | Components using `<Image>` render correctly. Import image assets as `ImageMetadata` and pass as props. [See Images guide](/guides/images/) |
-| Font Provider API | 🚧 Partial | `<Font>` component renders with provider-resolved URLs (Google, Bunny, Fontsource) in dev and static builds. Missing: server-build `<Font>` rendering, the `local` provider, preload links, Capsize fallback metrics, font file emission. [See Styling guide](/guides/styling/#astro-font-provider-api) |
+| Font Provider API | 🚧 Partial | `<Font>` component renders with provider-resolved URLs (Google, Bunny, Fontsource) in dev and static builds. In server builds, `<Font>` throws `FontFamilyNotFound` (the CSS variables still work). Missing: the `local` provider, preload links, Capsize fallback metrics, font file emission. [See Styling guide](/guides/styling/#astro-font-provider-api) |
 | Nested Components (Template) | ✅ Supported | Components using other Astro components in templates render correctly |
 | Nested Components (Props) | ✅ Supported | Pass Astro component factories as props (e.g. `args: { Icon: MyIcon }`). See [Props guide](/writing-stories/props/) |
 | Nested Components (Slots) | ✅ Supported | Pass Astro component factories as slot content (e.g. `slots: { default: ChildComponent }`). See [Slots guide](/writing-stories/slots/) |

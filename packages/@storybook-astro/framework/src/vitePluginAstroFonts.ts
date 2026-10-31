@@ -137,8 +137,8 @@ export function vitePluginAstroFonts(
     // returns. Builds don't go through that middleware, so they bake every
     // family's @font-face rules into the iframe head instead: the font CSS
     // variables are then defined on every story, not only where <Font>
-    // renders. Server builds still need the render runtime to receive the
-    // fonts before <Font> itself works there.
+    // renders. Server builds don't pass the fonts to the render runtime yet,
+    // so a story that renders <Font> throws FontFamilyNotFound there.
     async transformIndexHtml() {
       if (!isBuild || families.length === 0) {return;}
 
