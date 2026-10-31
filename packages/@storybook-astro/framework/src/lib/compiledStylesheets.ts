@@ -32,7 +32,9 @@ export function vitePluginCompiledStylesheets(): Plugin {
 
     transform(code, id) {
       if (this.environment?.name === 'ssr' && isAppliedStylesheet(id)) {
-        compiled.set(id, code);
+        // Vite strips a UTF-8 byte order mark later, in `vite:css-post`. Left
+        // in, it would be part of the first selector and break that rule.
+        compiled.set(id, code.replace(/^\uFEFF/, ''));
       }
     }
   };

@@ -18,6 +18,10 @@ describe('vitePluginCompiledStylesheets', () => {
     expect(transformIn('ssr', '.a{}', '/src/card.css')?.get('/src/card.css')).toBe('.a{}');
   });
 
+  test('drops a byte order mark, so the first rule still applies', () => {
+    expect(transformIn('ssr', '\uFEFF.a{}', '/src/card.css')?.get('/src/card.css')).toBe('.a{}');
+  });
+
   test('ignores the browser\'s copy', () => {
     expect(transformIn('client', '.a{}', '/src/card.css')?.has('/src/card.css')).toBe(false);
   });
