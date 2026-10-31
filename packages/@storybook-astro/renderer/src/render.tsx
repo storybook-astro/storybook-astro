@@ -17,6 +17,12 @@ import {
   moveStoryStylesToHead,
   removeStoryStyles
 } from './storyStyles.ts';
+import {
+  hideRenderLoadingIndicator,
+  holdCanvasHeight,
+  releaseCanvasHeight,
+  showRenderLoadingIndicator
+} from './renderLoadingIndicator.ts';
 import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import * as renderers from 'virtual:storybook-renderer-fallback';
 
@@ -128,6 +134,7 @@ function teardownAstroRender(canvasElement: HTMLElement, renderToken: object): T
     }
 
     shownRenderByCanvas.delete(canvasElement);
+    holdCanvasHeight(canvasElement);
     clearAstroRender(canvasElement);
   };
 }
@@ -169,6 +176,8 @@ export async function renderToCanvas(
     // leaves it alone, and this removes that render's CSS instead.
     shownRenderByCanvas.delete(canvasElement);
     removeStoryStyles(canvasElement);
+    hideRenderLoadingIndicator(canvasElement);
+    releaseCanvasHeight(canvasElement);
     showMain();
     // The framework's teardown isn't returned yet, so its root stays mounted
     // until the next render of that framework into this canvas (#238).
@@ -181,7 +190,18 @@ export async function renderToCanvas(
     return;
   }
 
-  const element = storyFn();
+  let element: ReturnType<typeof storyFn>;
+
+  try {
+    element = storyFn();
+  } catch (error) {
+    // Storybook shows the error in place of the story, so neither a height a
+    // teardown held for this render nor an earlier render's indicator, still
+    // waiting on the server, should stay over it.
+    hideRenderLoadingIndicator(canvasElement);
+    releaseCanvasHeight(canvasElement);
+    throw error;
+  }
 
   // Only once the story function succeeds, so a story that throws doesn't
   // make an earlier render's response look out of date.
@@ -189,6 +209,8 @@ export async function renderToCanvas(
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
+    showRenderLoadingIndicator(canvasElement);
+
     try {
       await renderAstroToCanvas(element, storyContext.args, canvasElement, thisRender, storyContext);
     } catch (error) {
@@ -216,6 +238,14 @@ export async function renderToCanvas(
           `
         });
       }
+    } finally {
+      // Only the latest render settles what the canvas shows. An older one
+      // that finishes late leaves the newer render's indicator and held
+      // height alone.
+      if (latestRenderByCanvas.get(canvasElement) === thisRender) {
+        hideRenderLoadingIndicator(canvasElement);
+        releaseCanvasHeight(canvasElement);
+      }
     }
 
     // Storybook calls this when it removes the story: on navigation, on a
@@ -232,6 +262,8 @@ export async function renderToCanvas(
   // rerender, and Storybook then drops the teardown that would remove its CSS.
   removeStoryStyles(canvasElement);
   shownRenderByCanvas.delete(canvasElement);
+  hideRenderLoadingIndicator(canvasElement);
+  releaseCanvasHeight(canvasElement);
 
   if (typeof element === 'string') {
     canvasElement.innerHTML = element;
@@ -314,6 +346,10 @@ async function renderAstroToCanvas(
     return;
   }
 
+  // Put back the overlay's position and the height a teardown held before the
+  // story's markup goes in and its scripts measure the layout.
+  hideRenderLoadingIndicator(canvasElement);
+  releaseCanvasHeight(canvasElement);
   astroRenderer.applyStyles?.();
   canvasElement.innerHTML = prepareServerRenderedHtml(response.html, canvasElement, storyContext?.viewMode);
   shownRenderByCanvas.set(canvasElement, renderToken);

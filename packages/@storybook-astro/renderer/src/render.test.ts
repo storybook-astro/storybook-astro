@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { RenderContext } from 'storybook/internal/types';
 import type { AstroRenderer } from './types.ts';
 
@@ -237,5 +237,225 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
 
     expect(canvas.innerHTML).toBe('<div>react</div>');
     expect(headCss()).toEqual([]);
+  });
+});
+
+describe('while an Astro story renders', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test('shows a loading indicator once the server takes over 200 ms, and replaces it with the story', async () => {
+    vi.useFakeTimers();
+    const slowRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+
+    slowRender.respond('first');
+    await rendering;
+
+    expect(canvas.innerHTML).toBe('<div>first</div>');
+  });
+
+  test('shows the slow hint well before the render times out at 5 s', async () => {
+    vi.useFakeTimers();
+    const slowRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(4900);
+
+    const hint = Array.from(canvas.querySelectorAll('span')).find((span) =>
+      span.textContent?.includes('Still working')
+    );
+
+    expect(hint?.hidden).toBe(false);
+
+    slowRender.respond('first');
+    await rendering;
+  });
+
+  test('overlays a story a slow Controls change rerenders, and puts the canvas back before the new markup goes in', async () => {
+    serverRespondsWith('first');
+    await renderAstro(canvas);
+
+    vi.useFakeTimers();
+    const slowRender = serverWaits();
+    const rerendering = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+    expect(canvas.style.position).toBe('relative');
+
+    let positionWhenMarkupWritten: string | undefined;
+    const writeMarkup = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')!;
+
+    Object.defineProperty(canvas, 'innerHTML', {
+      configurable: true,
+      get: () => writeMarkup.get!.call(canvas),
+      set: (html: string) => {
+        positionWhenMarkupWritten = canvas.style.position;
+        writeMarkup.set!.call(canvas, html);
+      }
+    });
+
+    slowRender.respond('second');
+    await rerendering;
+
+    expect(positionWhenMarkupWritten).toBe('');
+    expect(canvas.style.position).toBe('');
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+  });
+
+  test('keeps the held height when an older render finishes after a newer one started', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    const olderRender = serverWaits();
+    const older = renderAstro(canvas);
+    const newerRender = serverWaits();
+    const newer = renderAstro(canvas);
+
+    olderRender.respond('older');
+    await older;
+
+    expect(canvas.style.minHeight).toBe('900px');
+
+    newerRender.respond('newer');
+    await newer;
+
+    expect(canvas.style.minHeight).toBe('');
+    expect(canvas.innerHTML).toBe('<div>newer</div>');
+  });
+
+  test('keeps the newer render\'s indicator when an older render finishes late', async () => {
+    vi.useFakeTimers();
+    const olderRender = serverWaits();
+    const older = renderAstro(canvas);
+    const newerRender = serverWaits();
+    const newer = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+    olderRender.respond('older');
+    await older;
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+
+    newerRender.respond('newer');
+    await newer;
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+  });
+
+  test('gives the height back when the next story function throws', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    expect(canvas.style.minHeight).toBe('900px');
+
+    const brokenStory = storyContext(() => {
+      throw new Error('Story failed');
+    });
+
+    await expect(renderToCanvas(brokenStory, canvas)).rejects.toThrow('Story failed');
+    expect(canvas.style.minHeight).toBe('');
+  });
+
+  test('removes an earlier render\'s indicator when the next story function throws, so it doesn\'t cover the error', async () => {
+    vi.useFakeTimers();
+    const slowRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+
+    const brokenStory = storyContext(() => {
+      throw new Error('Story failed');
+    });
+
+    await expect(renderToCanvas(brokenStory, canvas)).rejects.toThrow('Story failed');
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+
+    slowRender.respond('first');
+    await rendering;
+  });
+
+  test('removes the indicator when the render fails', async () => {
+    vi.useFakeTimers();
+    const slowRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+    slowRender.fail();
+    await expect(rendering).rejects.toThrow('Render failed');
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+  });
+
+  test('keeps the canvas height from a teardown until the next render writes', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    expect(canvas.style.minHeight).toBe('900px');
+
+    serverRespondsWith('second');
+    await renderAstro(canvas);
+
+    expect(canvas.style.minHeight).toBe('');
+  });
+
+  test('gives the canvas its own height back before the next story runs its inline scripts', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    // A browser runs a classic inline script as it goes into the document.
+    // happy-dom doesn't run scripts, so note the height at that moment.
+    const heightWhenScriptsRan: string[] = [];
+    const insertScript = Node.prototype.replaceChild;
+
+    vi.spyOn(Node.prototype, 'replaceChild').mockImplementation(function (
+      this: Node,
+      newChild,
+      oldChild
+    ) {
+      if (newChild instanceof HTMLScriptElement) {
+        heightWhenScriptsRan.push(canvas.style.minHeight);
+      }
+
+      return insertScript.call(this, newChild, oldChild);
+    });
+
+    server.render.mockResolvedValueOnce({ html: '<div>second</div><script>measureLayout()</script>' });
+    await renderAstro(canvas);
+
+    expect(heightWhenScriptsRan).toEqual(['']);
+  });
+
+  test('gives the height back when a framework story renders next', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+    await renderToCanvas(storyContext(() => null, { renderer: 'react' }), canvas);
+
+    expect(canvas.style.minHeight).toBe('');
   });
 });
