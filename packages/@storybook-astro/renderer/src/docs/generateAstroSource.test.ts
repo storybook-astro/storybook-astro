@@ -24,13 +24,20 @@ describe('serializing prop values', () => {
 
   test('a multi-line string becomes a template literal', () => {
     expect(generateAstroSource('Card', { body: 'one\ntwo' })).toBe(
-      '<Card body={`one\ntwo`} />'
+      ['<Card', '  body={`one', 'two`}', '/>'].join('\n')
+    );
+  });
+
+  test('a multi-line string breaks the tag, leaving its continuation line unindented', () => {
+    // Re-indenting the continuation would change the string's value.
+    expect(generateAstroSource('Card', { text: 'a\nb', title: 'Hi' })).toBe(
+      ['<Card', '  text={`a', 'b`}', '  title="Hi"', '/>'].join('\n')
     );
   });
 
   test('backticks and interpolation in a template literal are escaped', () => {
     expect(generateAstroSource('Card', { body: 'a `b` ${c}\nd' })).toBe(
-      '<Card body={`a \\`b\\` \\${c}\nd`} />'
+      ['<Card', '  body={`a \\`b\\` \\${c}', 'd`}', '/>'].join('\n')
     );
   });
 
@@ -68,6 +75,69 @@ describe('serializing prop values', () => {
     expect(generateAstroSource('Card', { zeta: 'z', alpha: 'a' })).toBe(
       '<Card alpha="a" zeta="z" />'
     );
+  });
+});
+
+describe('writing complex values inline (issue #190)', () => {
+  test('an object is written out in its attribute, and the tag breaks onto lines', () => {
+    const source = generateAstroSource(
+      'Card',
+      { media: { src: '/a.png', width: 600 }, title: 'Title', slots: { default: 'Content' } },
+      { importPath: './Card.astro', objectProps: 'inline' }
+    );
+
+    expect(source).toBe(
+      [
+        '---',
+        "import Card from './Card.astro';",
+        '---',
+        '<Card',
+        '  media={{',
+        '    src: "/a.png",',
+        '    width: 600',
+        '  }}',
+        '  title="Title"',
+        '>',
+        '  Content',
+        '</Card>'
+      ].join('\n')
+    );
+  });
+
+  test('an array is written out the same way, with no frontmatter const', () => {
+    const source = generateAstroSource('List', { items: ['a', 'b'] }, { objectProps: 'inline' });
+
+    expect(source).toBe(['<List', '  items={[', '    "a",', '    "b"', '  ]}', '/>'].join('\n'));
+  });
+
+  test('an empty array keeps the tag on one line', () => {
+    expect(generateAstroSource('List', { items: [] }, { objectProps: 'inline' })).toBe(
+      '<List items={[]} />'
+    );
+  });
+
+  test('each level of a nested object is indented two more spaces', () => {
+    const source = generateAstroSource(
+      'Card',
+      { media: { size: { w: 600 } } },
+      { objectProps: 'inline' }
+    );
+
+    expect(source).toBe(
+      ['<Card', '  media={{', '    size: {', '      w: 600', '    }', '  }}', '/>'].join('\n')
+    );
+  });
+});
+
+describe('slots edited in Controls (issue #203)', () => {
+  test('a per-slot arg becomes slot content, not an attribute', () => {
+    const source = generateAstroSource('Card', {
+      title: 'Hi',
+      slots: { default: 'Old' },
+      'slot:default': 'Edited'
+    });
+
+    expect(source).toBe(['<Card title="Hi">', '  Edited', '</Card>'].join('\n'));
   });
 });
 

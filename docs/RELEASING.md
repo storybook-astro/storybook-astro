@@ -10,6 +10,13 @@ Step-by-step guide for publishing a new version of `@storybook-astro/framework` 
 
 **Branch rule**: Releases always tag from `main`. Never tag on `develop` or a feature branch — the publish workflow triggers on any `v*` tag push, regardless of branch.
 
+**Milestone**: Each release has a GitHub milestone named for its version (`1.15.0`). Before you tag, every open issue on it is either fixed on `develop` or moved to the next release's milestone. Setting a milestone needs the API, because `gh issue edit --milestone` and `gh pr edit --milestone` fail in this repo (they still query the retired classic Projects):
+
+```bash
+gh api 'repos/storybook-astro/storybook-astro/milestones?state=all' --jq '.[] | "\(.number) \(.title) \(.state)"'
+gh api -X PATCH repos/storybook-astro/storybook-astro/issues/<issue> -F milestone=<milestone-number>
+```
+
 ---
 
 ## Decide the version number
@@ -155,6 +162,28 @@ git merge main
 git push origin develop
 ```
 
+### 10. Close out the milestone and the project board
+
+Once the publish is verified:
+
+1. **Close the milestone.** `gh` has no milestone command, so use the API:
+
+   ```bash
+   gh api -X PATCH repos/storybook-astro/storybook-astro/milestones/<milestone-number> -f state=closed
+   ```
+
+2. **Create the next release's milestone** if it doesn't exist yet:
+
+   ```bash
+   gh api -X POST repos/storybook-astro/storybook-astro/milestones -f title=1.16.0
+   ```
+
+3. **Check the [Storybook Astro Roadmap](https://github.com/orgs/storybook-astro/projects/1) board.** Issues the release closed should be in Done. Issues moved to the next milestone go to Ready if they're planned for it, or Backlog if not.
+
+4. **Add a view for the next release** if it doesn't have one: board layout, filtered to `milestone:<version>`, columns by Status, like the existing per-release views. A view can be added in the project's UI, or with the GraphQL `createProjectV2View` and `updateProjectV2View` mutations.
+
+5. **Thank outside contributors and reporters.** Comment on each issue or PR from outside the core team that shipped in the release, saying which version has it.
+
 ---
 
 ## Hotfix release
@@ -284,4 +313,6 @@ yarn smoke 6 fresh                 # Smoke test Astro 6 only
 yarn smoke both upgrade            # Upgrade scenario (requires packages on npm)
 git tag vX.Y.Z && git push origin vX.Y.Z   # Trigger publish workflow
 gh run watch                       # Follow publish workflow live
+gh api -X PATCH repos/storybook-astro/storybook-astro/milestones/<n> -f state=closed   # Close the release's milestone
+gh api -X PATCH repos/storybook-astro/storybook-astro/issues/<issue> -F milestone=<n>  # Set an issue or PR's milestone
 ```
