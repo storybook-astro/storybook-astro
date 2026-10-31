@@ -225,6 +225,18 @@ export async function createViteServer(
     }
   )({ mode: 'development', command: 'serve' });
 
+  // Stories ship a component's CSS Modules by loading them again with
+  // `?inline`, and Astro 7.4+ names CSS Module classes in dev by hashing the
+  // full module id. Ignore the query so the shipped class names match the
+  // markup's (issue #223). Astro 5 and 6 don't set a naming function.
+  const cssModules = config.css?.modules;
+  const astroClassNaming = cssModules ? cssModules.generateScopedName : undefined;
+
+  if (cssModules && typeof astroClassNaming === 'function') {
+    cssModules.generateScopedName = (name, filename, css) =>
+      astroClassNaming(name, filename.split('?')[0], css);
+  }
+
   const serverConfig: InlineConfig = {
     configFile: false,
     ...config,

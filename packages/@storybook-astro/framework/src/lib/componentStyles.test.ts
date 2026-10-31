@@ -132,6 +132,18 @@ describe('loadComponentStyles', () => {
     expect(ssrLoadModule).toHaveBeenCalledWith('card.module.scss?inline');
   });
 
+  test('skips a plugin\'s virtual stylesheet, which Vite can\'t inline', async () => {
+    const { server, ssrLoadModule } = createFakeServer({
+      imports: { 'Card.astro': ['\0virtual:plugin.css', styleOf('Card.astro')] }
+    });
+
+    const { stylesheets, failures } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual([`/* ${styleOf('Card.astro')} */`]);
+    expect(failures).toEqual([]);
+    expect(ssrLoadModule).not.toHaveBeenCalledWith('\0virtual:plugin.css?inline');
+  });
+
   test('returns each block as its own stylesheet, so a later block\'s @import still applies', async () => {
     const cardCss = '@layer base;\n@import "https://fonts.example/inter.css";\n.card { color: blue; }';
     const { server } = createFakeServer({

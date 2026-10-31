@@ -5,27 +5,31 @@ import { isCSSRequest, normalizePath, type EnvironmentModuleNode, type ViteDevSe
 // `Card.astro?astro&type=style&index=0&lang.css` (or `&lang.scss`, …).
 const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 
-// A stylesheet a component imports in its frontmatter, such as `./card.css`,
-// `./card.scss` or `./card.module.css` (issue #223). One with a query, such as
-// `?url` or `?raw`, isn't applied as a stylesheet.
-const isImportedStylesheet = (id: string) => isCSSRequest(id) && !id.includes('?');
+// A stylesheet imported by a component a story renders or by a module it
+// imports, such as `./card.css`, `./card.scss` or `./card.module.css`, as an
+// Astro page ships them (issue #223). One with a query, such as `?url` or
+// `?raw`, isn't applied as a stylesheet, and a plugin's virtual module
+// (`\0virtual:*.css`) isn't a file Vite can inline.
+const isImportedStylesheet = (id: string) =>
+  isCSSRequest(id) && !id.includes('?') && !id.startsWith('\0');
 
 export type ComponentStyles = {
   /**
-   * The compiled CSS of each `<style>` block, in cascade order. Each one ships
-   * as its own `<style>` element, as Astro's dev server ships them, so a
-   * block's `@import`, `@layer` and `@charset` rules mean what they mean there.
+   * The compiled CSS of each `<style>` block and imported stylesheet, in
+   * cascade order. Each one ships as its own `<style>` element, as Astro's dev
+   * server ships them, so a stylesheet's `@import`, `@layer` and `@charset`
+   * rules mean what they mean there.
    */
   stylesheets: string[];
-  /** What couldn't be styled: a component missing from the module graph, or a block that failed to load. */
+  /** What couldn't be styled: a component missing from the module graph, or a stylesheet that failed to load. */
   failures: Array<{ moduleId: string; error: unknown }>;
 };
 
 /**
  * Returns the scoped CSS Astro compiled for the given components and every
  * module they import, for the story render that loaded them (issue #189),
- * along with the stylesheets those modules import, as an Astro page ships
- * them (issue #223).
+ * along with the stylesheets imported by those components and the modules
+ * they import, as an Astro page ships them (issue #223).
  *
  * The story HTML comes from this same SSR server, so the compiled CSS carries
  * the same `data-astro-cid-*` scope as the markup, scoped the way the

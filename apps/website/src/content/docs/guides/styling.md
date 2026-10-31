@@ -42,6 +42,8 @@ const preview = {
 export default preview;
 ```
 
+Import a global stylesheet in one place: either `.storybook/preview.js` or the component or layout a story renders, not both. A stylesheet imported by a component a story renders ships with the story, as it does on an Astro page. If it's also imported in `.storybook/preview.js`, it loads twice, and the story's copy comes later in the `<head>`, so it wins over overrides in `preview.js`.
+
 ### CSS custom properties and design tokens
 
 Some projects define CSS custom properties (colors, font names, spacing scales) inside an Astro component rendered in the page `<head>` rather than in a plain CSS file:
