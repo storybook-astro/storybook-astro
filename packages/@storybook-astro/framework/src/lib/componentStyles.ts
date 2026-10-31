@@ -5,6 +5,11 @@ import { isCSSRequest, normalizePath, type EnvironmentModuleNode, type ViteDevSe
 // `Card.astro?astro&type=style&index=0&lang.css` (or `&lang.scss`, …).
 const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 
+// A stylesheet a component imports in its frontmatter, such as `./card.css`,
+// `./card.scss` or `./card.module.css` (issue #223). One with a query, such as
+// `?url` or `?raw`, isn't applied as a stylesheet.
+const isImportedStylesheet = (id: string) => isCSSRequest(id) && !id.includes('?');
+
 export type ComponentStyles = {
   /**
    * The compiled CSS of each `<style>` block, in cascade order. Each one ships
@@ -18,7 +23,9 @@ export type ComponentStyles = {
 
 /**
  * Returns the scoped CSS Astro compiled for the given components and every
- * module they import, for the story render that loaded them (issue #189).
+ * module they import, for the story render that loaded them (issue #189),
+ * along with the stylesheets those modules import, as an Astro page ships
+ * them (issue #223).
  *
  * The story HTML comes from this same SSR server, so the compiled CSS carries
  * the same `data-astro-cid-*` scope as the markup, scoped the way the
@@ -47,7 +54,7 @@ export async function loadComponentStyles(
     }
     visited.add(module);
 
-    if (module.id && ASTRO_STYLE_MODULE.test(module.id)) {
+    if (module.id && (ASTRO_STYLE_MODULE.test(module.id) || isImportedStylesheet(module.id))) {
       styleModuleIds.add(module.id);
     }
 
@@ -89,8 +96,11 @@ export async function loadComponentStyles(
   const results = await Promise.allSettled(
     styleModules.map(async (styleModuleId) => {
       // `inline` asks Vite's CSS plugin for the CSS text instead of a module
-      // that injects it. It goes before `lang.*`, which must stay last.
-      const inlineId = styleModuleId.replace(/&lang\.(\w+)$/, '&inline&lang.$1');
+      // that injects it. In a style block's id it goes before `lang.*`, which
+      // must stay last.
+      const inlineId = isImportedStylesheet(styleModuleId)
+        ? `${styleModuleId}?inline`
+        : styleModuleId.replace(/&lang\.(\w+)$/, '&inline&lang.$1');
       const { default: css } = (await viteServer.ssrLoadModule(inlineId)) as { default: string };
 
       return css;

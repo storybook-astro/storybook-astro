@@ -49,7 +49,7 @@ function createFakeServer(options: {
       throw new Error(`No Astro CSS at index ${id}`);
     }
 
-    const styleModuleId = id.replace('&inline', '');
+    const styleModuleId = id.replace(/&inline|\?inline$/, '');
 
     return { default: options.css?.[styleModuleId] ?? `/* ${styleModuleId} */` };
   });
@@ -116,6 +116,20 @@ describe('loadComponentStyles', () => {
     await loadComponentStyles(server, ['Card.astro']);
 
     expect(ssrLoadModule).toHaveBeenCalledWith('Card.astro?astro&type=style&index=0&inline&lang.scss');
+  });
+
+  test('ships the stylesheets a component imports, in import order with its style blocks', async () => {
+    const { server, ssrLoadModule } = createFakeServer({
+      imports: {
+        'Card.astro': ['card.css', 'card.module.scss', styleOf('Card.astro'), 'icon.svg?raw', 'print.css?url']
+      }
+    });
+
+    const { stylesheets } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual(['/* card.css */', '/* card.module.scss */', `/* ${styleOf('Card.astro')} */`]);
+    expect(ssrLoadModule).toHaveBeenCalledWith('card.css?inline');
+    expect(ssrLoadModule).toHaveBeenCalledWith('card.module.scss?inline');
   });
 
   test('returns each block as its own stylesheet, so a later block\'s @import still applies', async () => {
