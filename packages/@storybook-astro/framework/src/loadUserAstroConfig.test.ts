@@ -88,6 +88,12 @@ describe('loadUserAstroCompileOptions', () => {
     });
   });
 
+  test('reads an astro.config.mts', async () => {
+    await writeFile(join(tmpDir, 'astro.config.mts'), `export default { scopedStyleStrategy: 'where' };`);
+
+    expect(await loadUserAstroCompileOptions(tmpDir)).toEqual({ scopedStyleStrategy: 'where' });
+  });
+
   test('leaves out values Astro wouldn\'t accept', async () => {
     await writeConfig(`export default { scopedStyleStrategy: 'inline', compressHTML: 'yes' };`);
 

@@ -4,11 +4,13 @@ import { resolve } from 'node:path';
 import type { AstroIntegration } from 'astro';
 import type { StorybookFontFamily } from './vitePluginAstroFonts.ts';
 
-const CONFIG_FILENAMES = [
+export const CONFIG_FILENAMES = [
   'astro.config.ts',
   'astro.config.mjs',
   'astro.config.js',
   'astro.config.cjs',
+  'astro.config.mts',
+  'astro.config.cts'
 ];
 
 /**

@@ -4,6 +4,7 @@ import { basename, dirname, resolve } from 'node:path';
 import type { Rollup } from 'vite';
 import type { Integration } from './integrations/index.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
+import { CONFIG_FILENAMES } from './loadUserAstroConfig.ts';
 
 /** Resolves the shared virtual module ids used by both build pipelines. */
 export function resolveVirtualBuildModuleId(id: string) {
@@ -344,9 +345,7 @@ async function listRuntimeConfigFiles(resolveFrom: string) {
     'tsconfig.json',
     'tsconfig.base.json',
     'jsconfig.json',
-    'astro.config.mjs',
-    'astro.config.js',
-    'astro.config.ts',
+    ...CONFIG_FILENAMES,
     'vite.config.js',
     'vite.config.ts',
     'svelte.config.js'

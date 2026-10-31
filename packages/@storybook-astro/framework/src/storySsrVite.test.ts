@@ -88,7 +88,7 @@ describe('createStorySsrViteServer', () => {
     }
   }, 60_000);
 
-  test('still starts, without the project\'s integrations, when one fails to set up', async () => {
+  test('in server mode, still starts without the project\'s integrations when one fails to set up', async () => {
     const packageDir = fileURLToPath(new URL('..', import.meta.url));
     const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -116,16 +116,105 @@ describe('createStorySsrViteServer', () => {
       const viteServer = await createStorySsrViteServer({
         integrations: [],
         trackedSpecifiers: new Set(),
-        resolveFrom: fixtureDir
+        resolveFrom: fixtureDir,
+        renderWithoutProjectIntegrationsOnFailure: true
       });
 
       await viteServer.close();
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('An astro.config integration failed to set up'),
-        expect.stringContaining('ENOENT: content.config.ts')
+        expect.objectContaining({ message: 'ENOENT: content.config.ts' })
       );
     } finally {
       warn.mockRestore();
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('in server mode, still starts when a plugin an integration adds fails as the server starts', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'adds-a-failing-plugin',
+            hooks: {
+              'astro:config:setup': ({ updateConfig }) => {
+                updateConfig({ vite: { plugins: [{
+                  name: 'fails-on-config-resolved',
+                  configResolved() {
+                    throw new Error('read-only file system');
+                  }
+                }] } });
+              }
+            }
+          }]
+        };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir,
+        renderWithoutProjectIntegrationsOnFailure: true
+      });
+
+      try {
+        expect(viteServer.config.plugins.map((plugin) => plugin.name)).not.toContain(
+          'fails-on-config-resolved'
+        );
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining('An astro.config integration failed to set up'),
+          expect.objectContaining({ message: 'read-only file system' })
+        );
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      warn.mockRestore();
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('in a static build, fails when an integration fails to set up', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'needs-missing-file',
+            hooks: {
+              'astro:config:setup': () => {
+                throw new Error('ENOENT: content.config.ts');
+              }
+            }
+          }]
+        };`
+      );
+
+      await expect(
+        createStorySsrViteServer({
+          integrations: [],
+          trackedSpecifiers: new Set(),
+          resolveFrom: fixtureDir
+        })
+      ).rejects.toThrow('ENOENT: content.config.ts');
+    } finally {
       await rm(fixtureDir, { recursive: true, force: true });
     }
   }, 60_000);
