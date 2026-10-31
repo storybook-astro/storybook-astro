@@ -183,7 +183,7 @@ Anything declared in `astro.config.*` is picked up by Storybook automatically: `
 
 **Shipped in**: 1.4.0
 
-The `<Font>` component renders real `@font-face` CSS in dev and static builds, driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required).
+The `<Font>` component renders real `@font-face` CSS in dev, static builds and server builds, driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required).
 
 **Documentation**: See [Styling guide](/guides/styling/#astro-font-provider-api)
 
@@ -191,7 +191,7 @@ The `<Font>` component renders real `@font-face` CSS in dev and static builds, d
 - Preload `<link>` tag emission
 - Capsize-optimized fallback metrics
 - Build-time font file emission to the static output (current builds rely on the remote URLs returned by the provider)
-- Wire fonts through the server-build pipeline (only the static prerender path is plumbed today)
+- Support the `local` font provider (its font files aren't passed to it or served yet)
 
 ### Support Astro Components as Props (Phase 1 — Template Nesting)
 
@@ -237,7 +237,7 @@ This table tracks compatibility of Astro's built-in framework features with Stor
 | Static Builds | ✅ Supported | `storybook build` with build-time pre-rendering of Astro component stories (default mode) |
 | Server Builds | 🚧 In Progress | `renderMode: 'server'` with on-demand rendering via HTTP server. Requires Node.js runtime. |
 | `astro:assets` (Image) | ✅ Supported | Components using `<Image>` render correctly. Import image assets as `ImageMetadata` and pass as props. [See Images guide](/guides/images/) |
-| Font Provider API | 🚧 Partial | `<Font>` component renders with provider-resolved URLs (Google, Bunny, Fontsource, local). Missing: preload links, Capsize fallback metrics, font file emission, server-build pipeline. [See Styling guide](/guides/styling/#astro-font-provider-api) |
+| Font Provider API | 🚧 Partial | `<Font>` component renders with provider-resolved URLs (Google, Bunny, Fontsource) in dev, static and server builds. Missing: the `local` provider, preload links, Capsize fallback metrics, font file emission. [See Styling guide](/guides/styling/#astro-font-provider-api) |
 | Nested Components (Template) | ✅ Supported | Components using other Astro components in templates render correctly |
 | Nested Components (Props) | ✅ Supported | Pass Astro component factories as props (e.g. `args: { Icon: MyIcon }`). See [Props guide](/writing-stories/props/) |
 | Nested Components (Slots) | ✅ Supported | Pass Astro component factories as slot content (e.g. `slots: { default: ChildComponent }`). See [Slots guide](/writing-stories/slots/) |

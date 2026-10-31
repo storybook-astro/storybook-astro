@@ -115,14 +115,16 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
 
   if (configType === 'DEVELOPMENT') {
     config.plugins.push(storybookAstroMiddlewarePlugin, ...viteConfig.plugins);
-  } else if (renderMode === 'static') {
-    config.plugins.push(vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    config.plugins.push(vitePluginAstroBuildPrerender(options) as any);
   } else {
     config.plugins.push(vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    config.plugins.push(vitePluginAstroBuildServer(options, clientAstroComponentIds) as any);
+
+    if (renderMode === 'static') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      config.plugins.push(vitePluginAstroBuildPrerender(options) as any);
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      config.plugins.push(vitePluginAstroBuildServer(options, clientAstroComponentIds) as any);
+    }
   }
 
   if (configType !== 'DEVELOPMENT') {

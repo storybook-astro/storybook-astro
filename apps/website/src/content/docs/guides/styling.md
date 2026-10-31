@@ -181,7 +181,7 @@ framework: {
 ```
 
 :::caution
-Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated.
+Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated. The `local` provider isn't supported yet: declare local fonts with `@font-face` instead (see [Self-hosted fonts](#self-hosted-fonts)).
 :::
 
 ### npm font packages

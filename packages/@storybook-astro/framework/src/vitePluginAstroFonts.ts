@@ -133,8 +133,9 @@ export function vitePluginAstroFonts(
       await ensureResolved();
     },
 
-    // The dev middleware prepends font CSS to each rendered story; static builds
-    // have no such response, so bake the @font-face rules into the iframe page.
+    // The dev middleware prepends font CSS to each rendered story. Static and
+    // server builds have no such response, so bake the @font-face rules into
+    // the iframe page.
     async transformIndexHtml() {
       if (!isBuild || families.length === 0) {return;}
 
@@ -143,7 +144,7 @@ export function vitePluginAstroFonts(
 
       if (!css) {return;}
 
-      return [{ tag: 'style', attrs: { 'data-astro-fonts': '' }, children: css, injectTo: 'head' as const }];
+      return [{ tag: 'style', attrs: { 'data-storybook-astro-fonts': '' }, children: css, injectTo: 'head' as const }];
     },
 
     resolveId(id) {
