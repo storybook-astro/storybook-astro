@@ -1,8 +1,19 @@
+import type * as NodeFs from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { loadComponentStyles } from './componentStyles.ts';
+
+// The fake graph's imported stylesheets stand in for files on disk. Anything
+// else, such as a plugin's virtual stylesheet, isn't one.
+const STYLESHEETS_ON_DISK = new Set(['card.css', 'card.module.scss', 'global.css']);
+
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof NodeFs>();
+
+  return { ...fs, existsSync: (path: string) => STYLESHEETS_ON_DISK.has(path) || fs.existsSync(path) };
+});
 
 // A fake SSR module graph: each module lists the ids it imports. Like Vite's,
 // a file lookup returns every module for the file, sub-modules included. Style
@@ -133,8 +144,10 @@ describe('loadComponentStyles', () => {
   });
 
   test('skips a plugin\'s virtual stylesheet, which Vite can\'t inline', async () => {
+    // UnoCSS's `virtual:uno.css`, for one, resolves to `/__uno.css`, without
+    // the `\0` prefix.
     const { server, ssrLoadModule } = createFakeServer({
-      imports: { 'Card.astro': ['\0virtual:plugin.css', styleOf('Card.astro')] }
+      imports: { 'Card.astro': ['\0virtual:plugin.css', 'virtual:brand.css', styleOf('Card.astro')] }
     });
 
     const { stylesheets, failures } = await loadComponentStyles(server, ['Card.astro']);
@@ -142,6 +155,7 @@ describe('loadComponentStyles', () => {
     expect(stylesheets).toEqual([`/* ${styleOf('Card.astro')} */`]);
     expect(failures).toEqual([]);
     expect(ssrLoadModule).not.toHaveBeenCalledWith('\0virtual:plugin.css?inline');
+    expect(ssrLoadModule).not.toHaveBeenCalledWith('virtual:brand.css?inline');
   });
 
   test('returns each block as its own stylesheet, so a later block\'s @import still applies', async () => {

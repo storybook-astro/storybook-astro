@@ -8,10 +8,11 @@ const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 // A stylesheet imported by a component a story renders or by a module it
 // imports, such as `./card.css`, `./card.scss` or `./card.module.css`, as an
 // Astro page ships them (issue #223). One with a query, such as `?url` or
-// `?raw`, isn't applied as a stylesheet, and a plugin's virtual module
-// (`\0virtual:*.css`) isn't a file Vite can inline.
+// `?raw`, isn't applied as a stylesheet, and a plugin's virtual stylesheet
+// (`\0virtual:*.css`, or UnoCSS's `/__uno.css`) isn't a file on disk, so Vite
+// can't inline it.
 const isImportedStylesheet = (id: string) =>
-  isCSSRequest(id) && !id.includes('?') && !id.startsWith('\0');
+  isCSSRequest(id) && !id.includes('?') && existsSync(id);
 
 export type ComponentStyles = {
   /**
