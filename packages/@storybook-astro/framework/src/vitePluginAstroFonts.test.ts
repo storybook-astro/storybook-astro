@@ -130,7 +130,7 @@ describe('vitePluginAstroFonts virtual modules', () => {
     configResolved({ command: 'build' });
     const [tag] = (await transformIndexHtml())!;
 
-    expect(tag).toMatchObject({ tag: 'style', injectTo: 'head' });
+    expect(tag).toMatchObject({ tag: 'style', attrs: { 'data-storybook-astro-fonts': '' }, injectTo: 'head' });
     expect(tag.children).toContain('@font-face');
     expect(tag.children).toContain('--font-inter');
   });

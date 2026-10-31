@@ -196,4 +196,23 @@ describe('copyRuntimeSnapshot', () => {
       await expect(access(join(snapshotRoot, file)), file).resolves.toBeUndefined();
     }
   });
+
+  test('copies every astro.config.* filename the render server reads (issue #226)', async () => {
+    for (const configFile of ['astro.config.cjs', 'astro.config.mts', 'astro.config.cts']) {
+      const project = join(tmpDir, configFile, 'project');
+      const snapshotRoot = join(tmpDir, configFile, 'server', 'snapshot');
+
+      await mkdir(project, { recursive: true });
+      await writeFile(join(project, configFile), 'export default {};');
+
+      await copyRuntimeSnapshot({
+        resolveFrom: project,
+        snapshotRoot,
+        snapshotDirName: 'snapshot',
+        astroComponents: []
+      });
+
+      await expect(access(join(snapshotRoot, configFile)), configFile).resolves.toBeUndefined();
+    }
+  });
 });

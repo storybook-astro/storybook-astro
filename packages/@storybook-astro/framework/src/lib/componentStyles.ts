@@ -5,20 +5,33 @@ import { isCSSRequest, normalizePath, type EnvironmentModuleNode, type ViteDevSe
 // `Card.astro?astro&type=style&index=0&lang.css` (or `&lang.scss`, …).
 const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 
+// A stylesheet imported by a component a story renders or by a module it
+// imports, such as `./card.css`, `./card.scss` or `./card.module.css`, as an
+// Astro page ships them (issue #223). One with a query, such as `?url` or
+// `?raw`, isn't applied as a stylesheet. That also skips a Vue or Svelte
+// component's style blocks for now (issue #241). A plugin's virtual stylesheet
+// (`\0virtual:*.css`, or UnoCSS's `/__uno.css`) isn't a file on disk, so Vite
+// can't inline it.
+const isImportedStylesheet = (id: string) =>
+  isCSSRequest(id) && !id.includes('?') && existsSync(id);
+
 export type ComponentStyles = {
   /**
-   * The compiled CSS of each `<style>` block, in cascade order. Each one ships
-   * as its own `<style>` element, as Astro's dev server ships them, so a
-   * block's `@import`, `@layer` and `@charset` rules mean what they mean there.
+   * The compiled CSS of each `<style>` block and imported stylesheet, in
+   * cascade order. Each one ships as its own `<style>` element, as Astro's dev
+   * server ships them, so a stylesheet's `@import`, `@layer` and `@charset`
+   * rules mean what they mean there.
    */
   stylesheets: string[];
-  /** What couldn't be styled: a component missing from the module graph, or a block that failed to load. */
+  /** What couldn't be styled: a component missing from the module graph, or a stylesheet that failed to load. */
   failures: Array<{ moduleId: string; error: unknown }>;
 };
 
 /**
  * Returns the scoped CSS Astro compiled for the given components and every
- * module they import, for the story render that loaded them (issue #189).
+ * module they import, for the story render that loaded them (issue #189),
+ * along with the stylesheets imported by those components and the modules
+ * they import, as an Astro page ships them (issue #223).
  *
  * The story HTML comes from this same SSR server, so the compiled CSS carries
  * the same `data-astro-cid-*` scope as the markup, scoped the way the
@@ -47,7 +60,7 @@ export async function loadComponentStyles(
     }
     visited.add(module);
 
-    if (module.id && ASTRO_STYLE_MODULE.test(module.id)) {
+    if (module.id && (ASTRO_STYLE_MODULE.test(module.id) || isImportedStylesheet(module.id))) {
       styleModuleIds.add(module.id);
     }
 
@@ -89,8 +102,13 @@ export async function loadComponentStyles(
   const results = await Promise.allSettled(
     styleModules.map(async (styleModuleId) => {
       // `inline` asks Vite's CSS plugin for the CSS text instead of a module
-      // that injects it. It goes before `lang.*`, which must stay last.
-      const inlineId = styleModuleId.replace(/&lang\.(\w+)$/, '&inline&lang.$1');
+      // that injects it. In a style block's id it goes before `lang.*`, which
+      // must stay last.
+      // The walk already classified the id, so this doesn't check the disk
+      // again: a file deleted since then fails to load and is reported.
+      const inlineId = ASTRO_STYLE_MODULE.test(styleModuleId)
+        ? styleModuleId.replace(/&lang\.(\w+)$/, '&inline&lang.$1')
+        : `${styleModuleId}?inline`;
       const { default: css } = (await viteServer.ssrLoadModule(inlineId)) as { default: string };
 
       return css;

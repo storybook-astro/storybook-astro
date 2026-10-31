@@ -56,6 +56,8 @@ type ProductionRenderRuntimeOptions = {
   fonts?: FrameworkOptions['fonts'];
   /** Fail a render whose component styles fail to load. Set by the static build's prerender. */
   failOnStyleError?: boolean;
+  /** Start without the project's integrations when they break setup. Set by server mode only. */
+  renderWithoutProjectIntegrationsOnFailure?: boolean;
 };
 
 /** Creates the shared SSR runtime used by both build-time prerendering and the standalone render server. */
@@ -66,7 +68,8 @@ export async function createProductionRenderRuntime(
     integrations: options.integrations,
     trackedSpecifiers: options.trackedSpecifiers,
     resolveFrom: options.resolveFrom,
-    fonts: options.fonts
+    fonts: options.fonts,
+    renderWithoutProjectIntegrationsOnFailure: options.renderWithoutProjectIntegrationsOnFailure
   });
 
   try {
