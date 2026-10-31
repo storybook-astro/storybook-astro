@@ -160,12 +160,16 @@ export const WithMain = {
 
 Each slot row also has a text control, starting at the story's content for that
 slot, so you can edit a slot's HTML in the Controls panel instead of in a JSON
-object. An edit there wins over the same slot in `args.slots`. A slot whose story
-content is a component, rather than a string, has no control, since it can't be
-edited as text. When every slot a story fills has its own row, the `slots` row
-has no JSON editor, since the slot rows would override an edit there. Slot HTML
-goes through the same [sanitization](/guides/sanitization/) as any string slot
-content, so attributes outside the allowlist, such as `data-*`, are removed.
+object. Once you edit a slot's control, your edit wins over the same slot in
+`args.slots`. Until then `args.slots` decides, so a play function's
+`updateArgs({ slots })` still shows. A slot whose story content is a component,
+rather than a string, has no control, since it can't be edited as text. When
+every slot a story fills has its own row, the `slots` row has no JSON editor,
+since an edit in a slot's control would override it. Slot HTML goes through the
+same [sanitization](/guides/sanitization/) as any string slot content, so
+attributes outside the allowlist, such as `data-*`, are removed. With the
+[Docgen Server](#moving-extraction-off-the-dev-server) enabled, slots are listed
+but have no text control yet.
 
 Each control is stored in a story arg named `slot:<name>`, for example
 `slot:footer`, which the renderer folds back into `args.slots`. You don't need to
@@ -194,7 +198,8 @@ extraction stays in the builder and Storybook Astro logs a warning naming the
 right flag.
 
 The props table and description are the same either way — it is the same
-extractor, just running somewhere else. What you gain is that a large component
+extractor, just running somewhere else. The one difference is that slot rows
+have no text control on this path yet. What you gain is that a large component
 library no longer blocks story transforms while its types are checked, and
 static builds get per-component JSON snapshots under
 `services/core/docgen/` instead of inlining docgen into the preview bundle.

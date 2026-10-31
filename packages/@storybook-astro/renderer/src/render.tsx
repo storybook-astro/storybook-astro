@@ -291,7 +291,7 @@ async function renderAstroToCanvas(
     throw new Error('Astro component missing moduleId');
   }
 
-  const { props: componentArgs, slots } = splitStoryArgs(args);
+  const { props: componentArgs, slots } = splitStoryArgs(args, storyContext?.initialArgs);
   const decoratedTree = isDecoratedTree(element) ? element : undefined;
 
   const response = await astroRenderer.render({

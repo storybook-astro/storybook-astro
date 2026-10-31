@@ -19,6 +19,8 @@ export type AstroSourceOptions = {
   importPath?: string;
   /** Width at which a tag switches to one-attribute-per-line. */
   printWidth?: number;
+  /** The story's initial args, so an unedited `slot:<name>` arg defers to `args.slots`. */
+  initialArgs?: Record<string, ArgValue>;
 };
 
 const DEFAULT_PRINT_WIDTH = 80;
@@ -72,7 +74,7 @@ export function generateAstroSource(
   options: AstroSourceOptions = {}
 ): string {
   const printWidth = options.printWidth ?? DEFAULT_PRINT_WIDTH;
-  const { props, slots } = splitStoryArgs(args);
+  const { props, slots } = splitStoryArgs(args, options.initialArgs);
   const hoisted: string[] = [];
   const attributes: string[] = [];
 

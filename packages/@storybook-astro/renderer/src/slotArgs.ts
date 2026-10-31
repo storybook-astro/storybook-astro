@@ -18,10 +18,15 @@ export function slotArgName(slot: string): string {
 
 /**
  * Splits a story's args into component props and slot content. A per-slot arg
- * wins over the same slot in `args.slots`, since it's what the reader just
- * edited in Controls.
+ * the reader edited in Controls wins over the same slot in `args.slots`.
+ *
+ * Pass `initialArgs` when `args` may have changed since the story loaded. A
+ * per-slot arg still equal to its initial value is only the seeded copy of the
+ * story's content, so `args.slots` wins instead, and a play function's
+ * `updateArgs({ slots })`, a `slots.*` URL arg or the `slots` JSON editor still
+ * show. Without `initialArgs`, every per-slot arg counts as an edit.
  */
-export function splitStoryArgs(args: Args): { props: Args; slots: Args } {
+export function splitStoryArgs(args: Args, initialArgs?: Args): { props: Args; slots: Args } {
   const props: Args = {};
   const slots: Args = isPlainObject(args.slots) ? { ...args.slots } : {};
 
@@ -31,7 +36,9 @@ export function splitStoryArgs(args: Args): { props: Args; slots: Args } {
     }
 
     if (key.startsWith(SLOT_ARG_PREFIX)) {
-      if (value !== undefined) {
+      const wasEdited = !initialArgs || value !== initialArgs[key];
+
+      if (value !== undefined && wasEdited) {
         slots[key.slice(SLOT_ARG_PREFIX.length)] = value;
       }
       continue;
@@ -49,8 +56,8 @@ export function splitStoryArgs(args: Args): { props: Args; slots: Args } {
  * control.
  *
  * When every slot the story fills has its own row, the inferred `slots` row
- * loses its JSON editor too. Its edits would never show, since each per-slot arg
- * wins over `args.slots`. The row stays in the Docs table.
+ * loses its JSON editor too: the per-slot controls cover every slot, and a slot
+ * edited there would override the JSON. The row stays in the Docs table.
  */
 export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => {
   const initialSlots = context.initialArgs?.slots;

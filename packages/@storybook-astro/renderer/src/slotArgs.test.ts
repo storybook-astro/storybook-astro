@@ -34,6 +34,29 @@ describe('splitStoryArgs', () => {
     });
   });
 
+  test('a play function\'s change to args.slots shows while the slot control is unedited', () => {
+    const initialArgs = {
+      slots: { default: '<p>Body</p>' },
+      [slotArgName('default')]: '<p>Body</p>'
+    };
+    const args = { ...initialArgs, slots: { default: '<p>From updateArgs</p>' } };
+
+    expect(splitStoryArgs(args, initialArgs).slots).toEqual({ default: '<p>From updateArgs</p>' });
+  });
+
+  test('a slot edited in Controls still wins over a changed args.slots', () => {
+    const initialArgs = {
+      slots: { default: '<p>Body</p>' },
+      [slotArgName('default')]: '<p>Body</p>'
+    };
+    const args = {
+      slots: { default: '<p>From updateArgs</p>' },
+      [slotArgName('default')]: '<p>Edited</p>'
+    };
+
+    expect(splitStoryArgs(args, initialArgs).slots).toEqual({ default: '<p>Edited</p>' });
+  });
+
   test('ignores a slots arg that isn\'t an object', () => {
     expect(splitStoryArgs({ slots: 'nope' }).slots).toEqual({});
   });
