@@ -66,7 +66,7 @@ Props (all args except `slots`), sorted alphabetically:
 | `false` | `name={false}` |
 | number / bigint | `name={42}` |
 | `Date` | `name={new Date("2026-06-11T…")}` |
-| object / array | `name={items}` + frontmatter `const items = <pretty-printed literal>;` (collision-suffixed if needed) |
+| object / array | `name={items}` + frontmatter `const items = <pretty-printed literal>;` (collision-suffixed if needed). With `parameters.docs.source.objectProps: 'inline'`, `name={<pretty-printed literal>}` and the tag breaks onto lines (issue #190) |
 | function | omitted |
 
 Slots (`args.slots`):

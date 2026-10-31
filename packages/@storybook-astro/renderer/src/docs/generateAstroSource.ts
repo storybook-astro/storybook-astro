@@ -17,6 +17,12 @@ export type AstroSourceOptions = {
   importPath?: string;
   /** Width at which a tag switches to one-attribute-per-line. */
   printWidth?: number;
+  /**
+   * Where object and array props go: a frontmatter `const` the attribute
+   * refers to (the default), or written out in the attribute itself
+   * (issue #190).
+   */
+  objectProps?: 'frontmatter' | 'inline';
 };
 
 const DEFAULT_PRINT_WIDTH = 80;
@@ -79,7 +85,7 @@ export function generateAstroSource(
   Object.keys(props)
     .sort()
     .forEach((name) => {
-      const attribute = serializeProp(name, props[name], componentName, hoisted);
+      const attribute = serializeProp(name, props[name], componentName, hoisted, options.objectProps);
 
       if (attribute) {
         attributes.push(attribute);
@@ -87,7 +93,13 @@ export function generateAstroSource(
     });
 
   const children = serializeSlots(slots);
-  const tag = formatTag(componentName, attributes, children, printWidth);
+  // An object written out in an attribute spans lines, so the tag does too.
+  const breakTag =
+    options.objectProps === 'inline' &&
+    Object.values(props).some(
+      (value) => typeof value === 'object' && value !== null && !(value instanceof Date)
+    );
+  const tag = formatTag(componentName, attributes, children, printWidth, breakTag);
   const frontmatter = formatFrontmatter(componentName, options.importPath, hoisted);
 
   return frontmatter ? `${frontmatter}\n${tag}` : tag;
@@ -98,7 +110,8 @@ function serializeProp(
   name: string,
   value: ArgValue,
   componentName: string,
-  hoisted: string[]
+  hoisted: string[],
+  objectProps: AstroSourceOptions['objectProps']
 ): string | null {
   // An absent or empty value is what the component would get by default, so
   // showing it is noise. Functions have no Astro template representation.
@@ -130,8 +143,13 @@ function serializeProp(
     return `${name}={new Date(${JSON.stringify(value.toISOString())})}`;
   }
 
-  // Objects and arrays would be unreadable inline, so they become a frontmatter
-  // `const` and the attribute references it — the same shape Vue's script-setup
+  if (objectProps === 'inline') {
+    // Indented one level past the attribute, which sits on its own line.
+    return `${name}={${prettyPrint(value).replaceAll('\n', '\n  ')}}`;
+  }
+
+  // By default objects and arrays become a frontmatter `const` the attribute
+  // refers to, which keeps the tag short. It's the shape Vue's script-setup
   // snippets use.
   const constName = uniqueConstName(name, componentName, hoisted);
 
@@ -209,19 +227,21 @@ function formatTag(
   name: string,
   attributes: string[],
   children: string[],
-  printWidth: number
+  printWidth: number,
+  breakTag: boolean
 ): string {
   const inline = attributes.length > 0 ? ` ${attributes.join(' ')}` : '';
   const openInline = `<${name}${inline}>`;
   const selfClosingInline = `<${name}${inline} />`;
   const fitsOnOneLine =
-    (children.length > 0 ? openInline.length : selfClosingInline.length) <= printWidth;
+    !breakTag && (children.length > 0 ? openInline.length : selfClosingInline.length) <= printWidth;
+  const attributeLines = indent(attributes);
 
   if (children.length === 0) {
-    return fitsOnOneLine ? selfClosingInline : `<${name}\n${indent(attributes)}\n/>`;
+    return fitsOnOneLine ? selfClosingInline : `<${name}\n${attributeLines}\n/>`;
   }
 
-  const open = fitsOnOneLine ? openInline : `<${name}\n${indent(attributes)}\n>`;
+  const open = fitsOnOneLine ? openInline : `<${name}\n${attributeLines}\n>`;
 
   return `${open}\n${indent(children.flatMap((child) => child.split('\n')))}\n</${name}>`;
 }

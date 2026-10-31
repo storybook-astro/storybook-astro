@@ -71,6 +71,39 @@ describe('serializing prop values', () => {
   });
 });
 
+describe('writing complex values inline (issue #190)', () => {
+  test('an object is written out in its attribute, and the tag breaks onto lines', () => {
+    const source = generateAstroSource(
+      'Card',
+      { media: { src: '/a.png', width: 600 }, title: 'Title', slots: { default: 'Content' } },
+      { importPath: './Card.astro', objectProps: 'inline' }
+    );
+
+    expect(source).toBe(
+      [
+        '---',
+        "import Card from './Card.astro';",
+        '---',
+        '<Card',
+        '  media={{',
+        '    src: "/a.png",',
+        '    width: 600',
+        '  }}',
+        '  title="Title"',
+        '>',
+        '  Content',
+        '</Card>'
+      ].join('\n')
+    );
+  });
+
+  test('an array is written out the same way, with no frontmatter const', () => {
+    const source = generateAstroSource('List', { items: ['a', 'b'] }, { objectProps: 'inline' });
+
+    expect(source).toBe(['<List', '  items={[', '    "a",', '    "b"', '  ]}', '/>'].join('\n'));
+  });
+});
+
 describe('hoisting complex values into frontmatter', () => {
   test('an object becomes a const and an attribute reference', () => {
     const source = generateAstroSource('Card', { author: { name: 'Ada', role: 'Engineer' } });

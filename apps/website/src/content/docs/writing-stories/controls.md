@@ -223,7 +223,7 @@ so it stays the usage you would copy into a page.
 | `false` | `featured={false}` |
 | number / bigint | `count={42}` |
 | `Date` | `published={new Date("2026-06-11T10:00:00.000Z")}` |
-| object / array | `author={author}`, with `const author = …` hoisted into the frontmatter |
+| object / array | `author={author}`, with `const author = …` hoisted into the frontmatter, or written out in the attribute with `objectProps: 'inline'` (see below) |
 | `''`, `null`, `undefined`, functions | omitted |
 
 `args.slots` becomes the component's children — the `default` slot inline, and
@@ -234,6 +234,41 @@ literal template form.
 The import path is always written as a sibling (`./Card.astro`). It is a usage
 sample rather than a copy of your file layout, so adjust it to wherever the
 component actually lives.
+
+### Writing object props inline
+
+By default an object or array prop goes into the frontmatter as a `const`, which
+keeps the tag short. To write it out in the attribute instead, as you would when
+using the component, set `docs.source.objectProps` to `'inline'`:
+
+```javascript
+export default {
+  component: Card,
+  parameters: {
+    docs: { source: { objectProps: 'inline' } },
+  },
+};
+```
+
+```astro
+---
+import Card from './Card.astro';
+---
+<Card
+  media={{
+    src: "/images/card.png",
+    width: 600
+  }}
+  title="Title"
+>
+  Content
+</Card>
+```
+
+It's an ordinary parameter, so it can go in `.storybook/preview.js` for every
+story, on a component's meta as above, or on a single story. The snippet still
+follows Controls. Set it back to `'frontmatter'` to restore the default for a
+component or story.
 
 ### Turning the Code panel on everywhere
 
