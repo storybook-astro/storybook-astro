@@ -139,7 +139,7 @@ export async function createStorySsrViteServer(options: {
     // filesystem that may be read-only. One failure would otherwise fail every
     // render, so fall back to rendering without them, as before issue #226.
     console.warn(
-      "[storybook-astro] An astro.config integration failed to set up in the story render server; rendering without the project's integrations:",
+      "[storybook-astro] The story render server failed to start with the project's astro.config integrations; retrying without them. If the retry fails with the same error, the cause is elsewhere:",
       error
     );
 

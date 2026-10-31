@@ -122,7 +122,7 @@ describe('createStorySsrViteServer', () => {
 
       await viteServer.close();
       expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('An astro.config integration failed to set up'),
+        expect.stringContaining("failed to start with the project's astro.config integrations; retrying without them"),
         expect.objectContaining({ message: 'ENOENT: content.config.ts' })
       );
     } finally {
@@ -172,7 +172,7 @@ describe('createStorySsrViteServer', () => {
           'fails-on-config-resolved'
         );
         expect(warn).toHaveBeenCalledWith(
-          expect.stringContaining('An astro.config integration failed to set up'),
+          expect.stringContaining("failed to start with the project's astro.config integrations; retrying without them"),
           expect.objectContaining({ message: 'read-only file system' })
         );
       } finally {
