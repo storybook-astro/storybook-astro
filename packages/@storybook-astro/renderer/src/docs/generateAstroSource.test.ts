@@ -24,13 +24,20 @@ describe('serializing prop values', () => {
 
   test('a multi-line string becomes a template literal', () => {
     expect(generateAstroSource('Card', { body: 'one\ntwo' })).toBe(
-      '<Card body={`one\ntwo`} />'
+      ['<Card', '  body={`one', 'two`}', '/>'].join('\n')
+    );
+  });
+
+  test('a multi-line string breaks the tag, leaving its continuation line unindented', () => {
+    // Re-indenting the continuation would change the string's value.
+    expect(generateAstroSource('Card', { text: 'a\nb', title: 'Hi' })).toBe(
+      ['<Card', '  text={`a', 'b`}', '  title="Hi"', '/>'].join('\n')
     );
   });
 
   test('backticks and interpolation in a template literal are escaped', () => {
     expect(generateAstroSource('Card', { body: 'a `b` ${c}\nd' })).toBe(
-      '<Card body={`a \\`b\\` \\${c}\nd`} />'
+      ['<Card', '  body={`a \\`b\\` \\${c}', 'd`}', '/>'].join('\n')
     );
   });
 
@@ -101,6 +108,24 @@ describe('writing complex values inline (issue #190)', () => {
     const source = generateAstroSource('List', { items: ['a', 'b'] }, { objectProps: 'inline' });
 
     expect(source).toBe(['<List', '  items={[', '    "a",', '    "b"', '  ]}', '/>'].join('\n'));
+  });
+
+  test('an empty array keeps the tag on one line', () => {
+    expect(generateAstroSource('List', { items: [] }, { objectProps: 'inline' })).toBe(
+      '<List items={[]} />'
+    );
+  });
+
+  test('each level of a nested object is indented two more spaces', () => {
+    const source = generateAstroSource(
+      'Card',
+      { media: { size: { w: 600 } } },
+      { objectProps: 'inline' }
+    );
+
+    expect(source).toBe(
+      ['<Card', '  media={{', '    size: {', '      w: 600', '    }', '  }}', '/>'].join('\n')
+    );
   });
 });
 

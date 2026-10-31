@@ -66,7 +66,7 @@ Props (all args except `slots`), sorted alphabetically:
 | `false` | `name={false}` |
 | number / bigint | `name={42}` |
 | `Date` | `name={new Date("2026-06-11T…")}` |
-| object / array | `name={items}` + frontmatter `const items = <pretty-printed literal>;` (collision-suffixed if needed). With `parameters.docs.source.objectProps: 'inline'`, `name={<pretty-printed literal>}` and the tag breaks onto lines (issue #190) |
+| object / array | `name={items}` + frontmatter `const items = <pretty-printed literal>;` (collision-suffixed if needed). With `parameters.docs.source.objectProps: 'inline'`, `name={<pretty-printed literal>}`, which breaks the tag onto lines when the literal spans lines (issue #190) |
 | function | omitted |
 
 Slots (`args.slots`):
@@ -75,7 +75,7 @@ Slots (`args.slots`):
 - named → `<Fragment slot="name">…</Fragment>` children.
 - any slots present → open/close tag form; none → self-closing `<Name … />`.
 
-Formatting: single line while the tag fits in ~80 characters, otherwise one attribute per line. Frontmatter is emitted only when there is an import or at least one `const` (always at least the import, unless the component name couldn't be resolved to a module).
+Formatting: single line while the tag fits in ~80 characters and no attribute spans lines (an inline object prop or a multi-line string), otherwise one attribute per line. Frontmatter is emitted only when there is an import or at least one `const` (always at least the import, unless the component name couldn't be resolved to a module).
 
 Example with the full surface:
 

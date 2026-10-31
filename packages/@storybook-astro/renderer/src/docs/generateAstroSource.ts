@@ -93,12 +93,9 @@ export function generateAstroSource(
     });
 
   const children = serializeSlots(slots);
-  // An object written out in an attribute spans lines, so the tag does too.
-  const breakTag =
-    options.objectProps === 'inline' &&
-    Object.values(props).some(
-      (value) => typeof value === 'object' && value !== null && !(value instanceof Date)
-    );
+  // An attribute that spans lines (an inline object, a multi-line string)
+  // breaks the tag.
+  const breakTag = attributes.some((attribute) => attribute.includes('\n'));
   const tag = formatTag(componentName, attributes, children, printWidth, breakTag);
   const frontmatter = formatFrontmatter(componentName, options.importPath, hoisted);
 
