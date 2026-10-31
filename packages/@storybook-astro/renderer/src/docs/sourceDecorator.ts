@@ -86,7 +86,8 @@ function astroSourceFor(context: StoryContext<AstroRenderer>): string | null {
   });
 
   return generateAstroSource(name, context.args ?? {}, {
-    importPath: resolveImportPath(component.moduleId, name)
+    importPath: resolveImportPath(component.moduleId, name),
+    initialArgs: context.initialArgs
   });
 }
 

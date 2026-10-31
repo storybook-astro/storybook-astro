@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import type { ViteDevServer } from 'vite';
 import { isAstroComponentSlot, serializeAstroComponentMarkers, type SlotValue } from '@storybook-astro/renderer/types';
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
-import { separateStorySlots } from './lib/separate-story-slots.ts';
+import { splitStoryArgs } from '@storybook-astro/renderer/slotArgs';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { loadComponentStyles } from './lib/componentStyles.ts';
 import { composeStory } from './portable-stories.ts';
@@ -267,7 +267,7 @@ export async function renderProductionStoryToHtml(options: {
   }
 
   const storyArgs = mergeMetaArgsWithStoryArgs(metaArgs, storyLevelArgs);
-  const { componentArgs, storySlots } = separateStorySlots(storyArgs);
+  const { props: componentArgs, slots: storySlots } = splitStoryArgs(storyArgs);
 
   let node: SlotValue | undefined;
 

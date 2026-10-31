@@ -7,7 +7,7 @@ import { runWithWorkingDirectory } from './working-directory.ts';
 import { getComponentModuleId, isAstroComponentFactory, isStorybookAstroClientStub } from './component-utils.ts';
 import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fallback.ts';
 import { loadComponentStyles } from '../lib/componentStyles.ts';
-import { separateStorySlots } from '../lib/separate-story-slots.ts';
+import { splitStoryArgs } from '@storybook-astro/renderer/slotArgs';
 import { reconstructProps, reconstructSlots } from '../lib/reconstruct-component-args.ts';
 import { patchCreateAstroCompat, markRawSlots } from '../astroRenderHandler.ts';
 import {
@@ -219,7 +219,7 @@ async function renderAstroComponentToDom(
   // a prop or slot into a moduleId marker. The handler reconstructs each marker —
   // loading the real server component by moduleId — so a story can nest Astro
   // components without the unrenderable client stub leaking through.
-  const { componentArgs, storySlots } = separateStorySlots(args);
+  const { props: componentArgs, slots: storySlots } = splitStoryArgs(args);
   const serializedArgs = serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>;
   const serializedSlots = serializeAstroComponentMarkers(storySlots) as Record<string, unknown>;
   const node = decoratedTree && moduleId
