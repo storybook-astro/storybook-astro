@@ -183,8 +183,9 @@ export function vitePluginAstroFonts(
     async load(id) {
       if (id === '\0' + VIRTUAL_INTERNAL_ID) {
         const data = resolved ?? (await ensureResolved());
-        // A family that failed to resolve for the head and resolved here on a
-        // retry keeps its CSS in <Font>, since the head doesn't have it.
+        // A family that failed or found no faces for the head and resolved
+        // here on a retry keeps its CSS in <Font>, since the head doesn't
+        // have it.
         const variablesInHead = new Set(
           families.filter((family) => familiesInHead.has(family)).map((family) => family.cssVariable)
         );
@@ -274,8 +275,18 @@ function resolveFamilyFaces(family: StorybookFontFamily, root: URL): Promise<Fon
       return result?.fonts ?? [];
     })();
     facesByRoot.set(root.href, faces);
-    // A family that failed is asked again next time, as before the cache.
-    faces.catch(() => facesByRoot!.delete(root.href));
+    // A family that failed or came back with no faces is asked again next
+    // time, as before the cache, so a transient empty answer isn't kept for
+    // the whole build.
+    faces
+      .then((resolvedFaces) => {
+        if (resolvedFaces.length === 0) {
+          facesByRoot!.delete(root.href);
+        }
+
+        return resolvedFaces;
+      })
+      .catch(() => facesByRoot!.delete(root.href));
   }
 
   return faces;

@@ -218,6 +218,18 @@ describe('resolving each family once (issue #248)', () => {
     warn.mockRestore();
   });
 
+  test('asks again after a family comes back with no faces', async () => {
+    const resolveFont = vi
+      .fn<StorybookFontProvider['resolveFont']>()
+      .mockResolvedValueOnce({ fonts: [] })
+      .mockResolvedValue({ fonts: [face] });
+    const family = inter(resolveFont);
+
+    expect(await generateFontCss([family], process.cwd())).not.toContain('@font-face');
+    expect(await generateFontCss([family], process.cwd())).toContain('@font-face');
+    expect(resolveFont).toHaveBeenCalledTimes(2);
+  });
+
   async function buildIframeHead(plugin: ReturnType<typeof vitePluginAstroFonts>) {
     (plugin.configResolved as (config: { command: string }) => void)({ command: 'build' });
 
