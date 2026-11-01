@@ -230,6 +230,32 @@ describe('resolving each family once (issue #248)', () => {
     expect(resolveFont).toHaveBeenCalledTimes(2);
   });
 
+  test('asks again when the empty result came through the provider storage', async () => {
+    // unifont's providers read each family's faces through the storage `init` hands them.
+    const fetchFaces = vi
+      .fn<() => Promise<FontFaceData[]>>()
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([face]);
+    let storage: Parameters<NonNullable<StorybookFontProvider['init']>>[0]['storage'];
+    const family: StorybookFontFamily = {
+      name: 'Inter',
+      cssVariable: '--font-inter',
+      provider: {
+        name: 'storage-backed',
+        init(context) {
+          storage = context.storage;
+        },
+        async resolveFont({ familyName }) {
+          return { fonts: (await storage.getItem(`storage-test:${familyName}-data.json`, fetchFaces)) ?? [] };
+        }
+      }
+    };
+
+    expect(await generateFontCss([family], process.cwd())).not.toContain('@font-face');
+    expect(await generateFontCss([family], process.cwd())).toContain('@font-face');
+    expect(fetchFaces).toHaveBeenCalledTimes(2);
+  });
+
   async function buildIframeHead(plugin: ReturnType<typeof vitePluginAstroFonts>) {
     (plugin.configResolved as (config: { command: string }) => void)({ command: 'build' });
 

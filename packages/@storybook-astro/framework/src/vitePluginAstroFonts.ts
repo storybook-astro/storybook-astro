@@ -403,7 +403,12 @@ function createMemoryStorage(): FontStorage {
       if (init) {
         const value = await init();
 
-        store.set(key, value);
+        // An empty result is usually a transient provider failure. Caching it
+        // would hand every later resolve of the family the same nothing, so the
+        // next resolve asks the provider again instead.
+        if (!(Array.isArray(value) && value.length === 0)) {
+          store.set(key, value);
+        }
 
         return value as never;
       }
