@@ -212,31 +212,50 @@ describe('moveStoryStylesToHead', () => {
     expect(headCss()).toEqual(['.reset {}', '.global {}', '.button {}', '.link {}']);
   });
 
-  test('keeps a story\'s own CSS in order when the CSS it shares sits in the opposite order', () => {
+  test('keeps a story\'s own CSS in its order when another story put the shared stylesheets in the opposite order', () => {
     const otherCanvas = createCanvas();
     const canvas = createCanvas();
 
-    renderInto(otherCanvas, `${styleFor('.r2 {}')}${styleFor('.r1 {}')}<div></div>`);
-    renderInto(canvas, `${styleFor('.n1 {}')}${styleFor('.r1 {}')}${styleFor('.n2 {}')}${styleFor('.r2 {}')}<div></div>`);
+    renderInto(otherCanvas, `${styleFor('.theme {}')}${styleFor('.reset {}')}<div></div>`);
+    renderInto(
+      canvas,
+      `${styleFor('.card {}')}${styleFor('.reset {}')}${styleFor('.badge {}')}${styleFor('.theme {}')}<div></div>`
+    );
 
     const css = headCss();
 
-    expect(css.indexOf('.n1 {}')).toBeLessThan(css.indexOf('.n2 {}'));
-    expect(css.indexOf('.n1 {}')).toBeLessThan(css.indexOf('.r1 {}'));
-    expect(css.indexOf('.r1 {}')).toBeLessThan(css.indexOf('.n2 {}'));
+    expect(css.indexOf('.card {}')).toBeLessThan(css.indexOf('.badge {}'));
+    expect(css.indexOf('.card {}')).toBeLessThan(css.indexOf('.reset {}'));
+    expect(css.indexOf('.reset {}')).toBeLessThan(css.indexOf('.badge {}'));
   });
 
-  test('keeps a story\'s own CSS after a shared stylesheet the render places ahead of it, when shared CSS sits out of order', () => {
+  test('keeps a story\'s own CSS after the shared stylesheets it ships ahead of it, when another story put them in another order', () => {
     const otherCanvas = createCanvas();
     const canvas = createCanvas();
 
-    renderInto(otherCanvas, `${styleFor('.r1 {}')}${styleFor('.r3 {}')}${styleFor('.r2 {}')}<div></div>`);
-    renderInto(canvas, `${styleFor('.r2 {}')}${styleFor('.r1 {}')}${styleFor('.n1 {}')}${styleFor('.r3 {}')}<div></div>`);
+    renderInto(otherCanvas, `${styleFor('.reset {}')}${styleFor('.theme {}')}${styleFor('.global {}')}<div></div>`);
+    renderInto(
+      canvas,
+      `${styleFor('.global {}')}${styleFor('.reset {}')}${styleFor('.card {}')}${styleFor('.theme {}')}<div></div>`
+    );
 
     const css = headCss();
 
-    expect(css.indexOf('.r2 {}')).toBeLessThan(css.indexOf('.n1 {}'));
-    expect(css.indexOf('.r1 {}')).toBeLessThan(css.indexOf('.n1 {}'));
+    expect(css.indexOf('.global {}')).toBeLessThan(css.indexOf('.card {}'));
+    expect(css.indexOf('.reset {}')).toBeLessThan(css.indexOf('.card {}'));
+  });
+
+  test('keeps a story\'s own CSS ahead of every shared stylesheet it ships after it, when another story put them in another order', () => {
+    const linkCanvas = createCanvas();
+    const cardCanvas = createCanvas();
+
+    renderInto(linkCanvas, `${styleFor('.reset {}')}${styleFor('.link {}')}<a></a>`);
+    renderInto(cardCanvas, `${styleFor('.card {}')}${styleFor('.link {}')}${styleFor('.reset {}')}<div></div>`);
+
+    const css = headCss();
+
+    expect(css.indexOf('.card {}')).toBeLessThan(css.indexOf('.link {}'));
+    expect(css.indexOf('.card {}')).toBeLessThan(css.indexOf('.reset {}'));
   });
 });
 
