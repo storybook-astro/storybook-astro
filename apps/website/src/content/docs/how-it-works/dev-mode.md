@@ -19,7 +19,7 @@ In dev mode (`storybook dev`), Astro components are rendered on-demand through a
 
 6. **Hydration** — Client-side scripts are re-executed to add interactivity. This handles framework islands (e.g. React components inside Astro with `client:load`) and Alpine.js directives.
 
-7. **Style application** — The rendered HTML is preceded by `<style>` elements holding the scoped CSS Astro compiled for every component the story rendered, one per `<style>` block, so styles are scoped the way Astro scopes them, and the stylesheets imported by those components and the modules they import, as an Astro page ships them. The renderer moves them into the preview's `<head>` before injecting the HTML, and removes them, along with the story's markup, when Storybook removes the story.
+7. **Style application** — The rendered HTML is preceded by `<style>` elements holding the scoped CSS Astro compiled for every component the story rendered, one per `<style>` block, so styles are scoped the way Astro scopes them, and the stylesheets imported by those components and the modules they import, as an Astro page ships them. The renderer moves them into the preview's `<head>` before injecting the HTML, and removes them, along with the story's markup, when Storybook removes the story. Stories that ship the same CSS, such as a Docs page's stories, share one copy of it, which stays until the last story using it is removed.
 
 8. **Framework delegation** — For non-Astro framework components (React, Solid, Vue, etc.), the renderer delegates directly to the framework-specific `renderToCanvas` *before* calling `storyFn()`. This ordering is critical — it lets reactive frameworks like Solid manage their own rendering lifecycle without orphaned effects.
 
