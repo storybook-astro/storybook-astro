@@ -55,6 +55,54 @@ describe('moveStoryStylesToHead', () => {
     expect(document.head.lastElementChild?.textContent).toBe('.card { color: blue; }');
   });
 
+  test('puts edited CSS and the CSS it still ships after stylesheets added since the last render', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('.card {}')}${styleFor('.global {}')}<div></div>`);
+    document.head.insertAdjacentHTML('beforeend', '<style id="island">.card { color: red; }</style>');
+    renderInto(canvas, `${styleFor('.card { color: blue; }')}${styleFor('.global {}')}<div></div>`);
+
+    expect(Array.from(document.head.children).map((element) => element.id || element.textContent)).toEqual([
+      'global',
+      'island',
+      '.card { color: blue; }',
+      '.global {}',
+    ]);
+  });
+
+  test('follows a rerender that ships the same stylesheets in a new order', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('.a {}')}${styleFor('.b {}')}<div></div>`);
+    renderInto(canvas, `${styleFor('.b {}')}${styleFor('.a {}')}<div></div>`);
+
+    expect(headCss()).toEqual(['.b {}', '.a {}']);
+  });
+
+  test('keeps the last copy of a stylesheet a render ships twice, so the cascade matches', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('.a {}')}${styleFor('.b {}')}${styleFor('.a {}')}<div></div>`);
+
+    expect(headCss()).toEqual(['.b {}', '.a {}']);
+  });
+
+  test('puts CSS in the head again when something moved its element out of the head', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('.card {}')}<div></div>`);
+    document.body.appendChild(headStyles()[0]);
+    renderInto(canvas, `${styleFor('.card {}')}${styleFor('.badge {}')}<div></div>`);
+
+    expect(headCss()).toEqual(['.card {}', '.badge {}']);
+  });
+
+  test('keeps the server\'s attributes on the style elements it adds', () => {
+    renderInto(createCanvas(), `<style data-storybook-astro-styles media="print">.card {}</style><div></div>`);
+
+    expect(headStyles()[0].getAttribute('media')).toBe('print');
+  });
+
   test('keeps the same elements when a Controls change rerenders with the same CSS', () => {
     const cardCanvas = createCanvas();
     const badgeCanvas = createCanvas();
@@ -163,6 +211,20 @@ describe('moveStoryStylesToHead', () => {
 
     expect(headCss()).toEqual(['.reset {}', '.global {}', '.button {}', '.link {}']);
   });
+
+  test('keeps a story\'s own CSS in order when the CSS it shares sits in the opposite order', () => {
+    const otherCanvas = createCanvas();
+    const canvas = createCanvas();
+
+    renderInto(otherCanvas, `${styleFor('.r2 {}')}${styleFor('.r1 {}')}<div></div>`);
+    renderInto(canvas, `${styleFor('.n1 {}')}${styleFor('.r1 {}')}${styleFor('.n2 {}')}${styleFor('.r2 {}')}<div></div>`);
+
+    const css = headCss();
+
+    expect(css.indexOf('.n1 {}')).toBeLessThan(css.indexOf('.n2 {}'));
+    expect(css.indexOf('.n1 {}')).toBeLessThan(css.indexOf('.r1 {}'));
+    expect(css.indexOf('.r1 {}')).toBeLessThan(css.indexOf('.n2 {}'));
+  });
 });
 
 describe('removeStoryStyles', () => {
@@ -180,7 +242,6 @@ describe('removeStoryStyles', () => {
 
     expect(headCss()).toEqual([]);
   });
-
 
   test('removes only that canvas\'s CSS', () => {
     const cardCanvas = createCanvas();
