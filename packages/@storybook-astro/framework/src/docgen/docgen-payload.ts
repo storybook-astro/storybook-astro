@@ -126,7 +126,7 @@ export async function buildDocgenPayload(
 }
 
 /**
- * Keeps each `slot:<name>` row but drops its text control. On this path the
+ * Keeps each `slot-<name>` row but drops its text control. On this path the
  * preview never sees `__docgenInfo`, so `seedSlotArgs` can't start the control
  * at the story's content and `lockNonTextSlotControls` can't lock a slot that
  * holds a component. A blank control that replaces the component on the first
