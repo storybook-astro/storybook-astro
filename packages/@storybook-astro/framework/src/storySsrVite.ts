@@ -58,7 +58,10 @@ export async function createStorySsrViteServer(options: {
     {
       plugins: [
         createProjectAstroResolutionPlugin(options.resolveFrom),
-        // Builds put every family's font CSS in the iframe head (preset.ts).
+        // Static builds put every family's font CSS in the iframe head
+        // (preset.ts), and the prerender runs in the same process, so <Font>
+        // drops its copy of those families. The standalone server-mode render
+        // server runs in its own process, where this strips nothing yet (#247).
         vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom, fontCssInHead: true }),
         vitePluginAstroIntegrationOptsFallback(),
         vitePluginAstroVueFallback(),

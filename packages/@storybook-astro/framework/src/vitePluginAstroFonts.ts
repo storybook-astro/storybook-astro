@@ -246,12 +246,9 @@ const providerStorage = createMemoryStorage();
 const familiesInHead = new WeakSet<StorybookFontFamily>();
 
 function resolveFamilyFaces(family: StorybookFontFamily, root: URL): Promise<FontFaceData[]> {
-  let facesByRoot = facesByFamily.get(family);
+  const facesByRoot = facesByFamily.get(family) ?? new Map<string, Promise<FontFaceData[]>>();
 
-  if (!facesByRoot) {
-    facesByRoot = new Map();
-    facesByFamily.set(family, facesByRoot);
-  }
+  facesByFamily.set(family, facesByRoot);
 
   let faces = facesByRoot.get(root.href);
 
@@ -281,12 +278,12 @@ function resolveFamilyFaces(family: StorybookFontFamily, root: URL): Promise<Fon
     faces
       .then((resolvedFaces) => {
         if (resolvedFaces.length === 0) {
-          facesByRoot!.delete(root.href);
+          facesByRoot.delete(root.href);
         }
 
         return resolvedFaces;
       })
-      .catch(() => facesByRoot!.delete(root.href));
+      .catch(() => facesByRoot.delete(root.href));
   }
 
   return faces;
