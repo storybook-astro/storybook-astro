@@ -2,6 +2,7 @@ import { describe, test, expect, vi } from 'vitest';
 import { ASTRO_COMPONENT_MARKER } from '@storybook-astro/renderer/types';
 import { createAstroRenderHandler, processImageMetadata } from './astroRenderHandler.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
+import type { ComponentStyles } from './lib/componentStyles.ts';
 
 // In the static-build/testing path, story args arrive as real JS objects (no
 // JSON transport), so a Date reaches processImageMetadata as an actual Date.
@@ -77,6 +78,8 @@ function createHandler(options: {
   components: Record<string, unknown>;
   sanitization?: SanitizationOptions;
   renderToString?: FakeRenderToString;
+  loadComponentStyles?: (componentIds: string[]) => Promise<ComponentStyles>;
+  failOnStyleError?: boolean;
 }) {
   const renderToString = vi.fn(options.renderToString ?? defaultRenderToString);
   const loadModule = vi.fn(async (id: string) => ({ default: options.components[id] }));
@@ -84,7 +87,9 @@ function createHandler(options: {
   const handler = createAstroRenderHandler({
     container: { renderToString } as unknown as Parameters<typeof createAstroRenderHandler>[0]['container'],
     sanitization: options.sanitization,
-    loadModule
+    loadModule,
+    loadComponentStyles: options.loadComponentStyles,
+    failOnStyleError: options.failOnStyleError
   });
 
   return { handler, renderToString };
@@ -352,5 +357,219 @@ describe('createAstroRenderHandler — depth cap', () => {
     await expect(
       handler({ component: 'Story.astro', args: {}, slots: {}, node: node as never })
     ).rejects.toThrow(/maximum node depth/);
+  });
+});
+
+// --- Scoped component styles (issue #189) ----------------------------------
+
+describe('createAstroRenderHandler — component styles', () => {
+  const stylesNamingEachComponent = async (ids: string[]): Promise<ComponentStyles> => ({
+    stylesheets: ids.map((id) => `/* ${id} */`),
+    failures: []
+  });
+
+  test('ships the CSS of every component the story used, decorators first, ahead of the HTML', async () => {
+    const loadComponentStyles = vi.fn(stylesNamingEachComponent);
+    const { handler } = createHandler({
+      components: {
+        'Panel.astro': fakeComponent('Panel.astro'),
+        'Badge.astro': fakeComponent('Badge.astro'),
+        'Wrapper.astro': fakeComponent('Wrapper.astro')
+      },
+      loadComponentStyles
+    });
+
+    const html = await handler({
+      component: 'Panel.astro',
+      // A real factory, as the static build passes it straight from the story module.
+      args: { Icon: fakeComponent('Icon.astro') },
+      // A marker, as the browser sends it.
+      slots: { default: marker('Badge.astro') },
+      node: { component: marker('Wrapper.astro'), slots: { default: marker('Panel.astro') } }
+    });
+
+    // The decorator wraps the story like a layout wraps a page, so the story's
+    // CSS comes after the decorator's, as a page's does after its layout's.
+    expect(loadComponentStyles).toHaveBeenCalledWith(['Wrapper.astro', 'Panel.astro', 'Icon.astro', 'Badge.astro']);
+    expect(html).toMatch(
+      /^(<style data-storybook-astro-styles>\/\* \w+\.astro \*\/<\/style>){4}<Wrapper\.astro/
+    );
+  });
+
+  test('puts a decorator\'s CSS first even when its slots are written before its component', async () => {
+    const loadComponentStyles = vi.fn(stylesNamingEachComponent);
+    const { handler } = createHandler({
+      components: { 'Panel.astro': fakeComponent('Panel.astro'), 'Wrapper.astro': fakeComponent('Wrapper.astro') },
+      loadComponentStyles
+    });
+
+    await handler({
+      component: 'Panel.astro',
+      node: { slots: { default: marker('Panel.astro') }, component: marker('Wrapper.astro') }
+    });
+
+    expect(loadComponentStyles).toHaveBeenCalledWith(['Wrapper.astro', 'Panel.astro']);
+  });
+
+  test('leaves out a component the request mentions but the render never loads', async () => {
+    // Slots don't read components inside a plain object, so Tooltip never
+    // renders. Asking for its styles would report it missing from the module
+    // graph, and fail a static build.
+    const loadComponentStyles = vi.fn(stylesNamingEachComponent);
+    const { handler } = createHandler({
+      components: { 'Panel.astro': fakeComponent('Panel.astro') },
+      loadComponentStyles
+    });
+
+    await handler({ component: 'Panel.astro', slots: { default: { note: marker('Tooltip.astro') } } });
+
+    expect(loadComponentStyles).toHaveBeenCalledWith(['Panel.astro']);
+  });
+
+  test('adds no style tag when the components have no styles', async () => {
+    const { handler } = createHandler({
+      components: { 'Button.astro': fakeComponent('Button.astro') },
+      loadComponentStyles: async () => ({ stylesheets: [], failures: [] })
+    });
+
+    const html = await handler({ component: 'Button.astro' });
+
+    expect(html).not.toContain('<style');
+  });
+
+  test('ships the styles that loaded and warns about the ones that failed', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const brokenBlock = new Error('No Astro CSS at index 1');
+
+    try {
+      const { handler } = createHandler({
+        components: { 'Button.astro': fakeComponent('Button.astro') },
+        loadComponentStyles: async () => ({
+          stylesheets: ['.button { color: red; }'],
+          failures: [{ moduleId: 'Button.astro?astro&type=style&index=1&lang.css', error: brokenBlock }]
+        })
+      });
+
+      const html = await handler({ component: 'Button.astro' });
+
+      expect(html).toMatch(/^<style data-storybook-astro-styles>\.button \{ color: red; \}<\/style><Button\.astro/);
+      expect(warn).toHaveBeenCalledWith(
+        '[storybook-astro] Could not load styles for Button.astro?astro&type=style&index=1&lang.css:',
+        brokenBlock
+      );
+
+      // The same failure on the next render isn't logged again.
+      await handler({ component: 'Button.astro' });
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test('still shows the story, unstyled, when loading styles throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const { handler } = createHandler({
+        components: { 'Button.astro': fakeComponent('Button.astro') },
+        loadComponentStyles: async () => {
+          throw new Error('module graph unavailable');
+        }
+      });
+
+      expect(await handler({ component: 'Button.astro' })).toMatch(/^<Button\.astro/);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test('fails the render in a static build, naming each module whose styles failed', async () => {
+    const { handler } = createHandler({
+      components: { 'Button.astro': fakeComponent('Button.astro') },
+      loadComponentStyles: async () => ({
+        stylesheets: ['.button { color: red; }'],
+        failures: [
+          { moduleId: 'Button.astro?astro&type=style&index=1&lang.scss', error: new Error('Sass syntax error') },
+          { moduleId: 'Icon.astro', error: new Error('not in the SSR module graph') }
+        ]
+      }),
+      failOnStyleError: true
+    });
+
+    await expect(handler({ component: 'Button.astro' })).rejects.toThrow(
+      '[storybook-astro] Could not load component styles:\n' +
+        '- Button.astro?astro&type=style&index=1&lang.scss: Sass syntax error\n' +
+        '- Icon.astro: not in the SSR module graph'
+    );
+  });
+
+  test('a "</style" inside the CSS does not end the style tag early', async () => {
+    const { handler } = createHandler({
+      components: { 'Button.astro': fakeComponent('Button.astro') },
+      loadComponentStyles: async () => ({ stylesheets: ['.button::after { content: "</style>"; }'], failures: [] })
+    });
+
+    const html = await handler({ component: 'Button.astro' });
+
+    expect(html).toContain('content: "<\\/style>"; }</style><Button.astro');
+    expect(html.match(/<\/style>/g)).toHaveLength(1);
+  });
+
+  function createMockingHandler() {
+    const loadModule = vi.fn(async (id: string) => ({ default: fakeComponent(id) }));
+    const invalidateModuleGraph = vi.fn();
+    const handler = createAstroRenderHandler({
+      container: { renderToString: vi.fn(defaultRenderToString) } as unknown as Parameters<
+        typeof createAstroRenderHandler
+      >[0]['container'],
+      loadModule,
+      invalidateModuleGraph,
+      resolveRulesConfigModule: () => ({
+        rules: [{ match: 'card--mocked', use: ({ mock }: { mock: (id: string, factory: () => object) => void }) => mock('./data.ts', () => ({})) }]
+      }),
+      loadComponentStyles: stylesNamingEachComponent
+    });
+    const render = (storyId: string, request: Partial<Parameters<typeof handler>[0]> = {}) =>
+      handler({ component: 'Card.astro', story: { id: storyId, title: 'Card', name: storyId }, ...request });
+
+    return { loadModule, invalidateModuleGraph, render };
+  }
+
+  test('restores the real modules after a story with module mocks, for whichever handler renders next', async () => {
+    // The modules a mocked render loads import the mocks. The module graph
+    // outlives the handler (dev makes a new one on every file change), so it
+    // is reset as soon as the mocked render ends.
+    const { loadModule, invalidateModuleGraph, render } = createMockingHandler();
+
+    await render('card--real');
+    await render('card--mocked');
+
+    expect(invalidateModuleGraph).toHaveBeenCalledTimes(2);
+
+    // The next story reloads its components, so it and its styles come from
+    // the real modules. After that, renders use the cache again.
+    loadModule.mockClear();
+    await render('card--real');
+    expect(loadModule).toHaveBeenCalledWith('Card.astro');
+
+    loadModule.mockClear();
+    await render('card--real');
+    expect(loadModule).not.toHaveBeenCalled();
+    expect(invalidateModuleGraph).toHaveBeenCalledTimes(2);
+  });
+
+  test('a mocked story\'s decorators load with the mocks, and the next story does not reuse them', async () => {
+    const { loadModule, render } = createMockingHandler();
+    const node = { component: marker('Wrapper.astro'), slots: { default: marker('Card.astro') } };
+
+    await render('card--real', { node });
+    loadModule.mockClear();
+    await render('card--mocked', { node });
+    expect(loadModule).toHaveBeenCalledWith('Wrapper.astro');
+
+    loadModule.mockClear();
+    await render('card--real', { node });
+    expect(loadModule).toHaveBeenCalledWith('Wrapper.astro');
   });
 });

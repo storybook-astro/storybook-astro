@@ -9,9 +9,10 @@ import { importAstroConfig } from './importAstroConfig.ts';
 import type { Integration } from './integrations/index.ts';
 import {
   appendUserVitePlugins,
+  loadUserAstroCompileOptions,
+  loadUserAstroIntegrations,
   loadUserAstroVitePlugins,
-  loadUserAstroViteResolveAlias,
-  mergeFrameworkAndUserIntegrations
+  loadUserAstroViteResolveAlias
 } from './loadUserAstroConfig.ts';
 import { FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
@@ -25,136 +26,199 @@ import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginNoClientDepOptimizer } from './vitePluginNoClientDepOptimizer.ts';
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 import { vitePluginTsconfigAliases } from './vitePluginTsconfigAliases.ts';
+import { vitePluginCompiledStylesheets } from './lib/compiledStylesheets.ts';
 
 export async function createStorySsrViteServer(options: {
   integrations: Integration[];
   trackedSpecifiers: Set<string>;
   resolveFrom: string;
   fonts?: FrameworkOptions['fonts'];
+  /**
+   * Server mode only: when the project's own integrations break the server's
+   * setup, warn and start without them instead of failing. The static build
+   * leaves this off so it fails rather than publish stories without them.
+   */
+  renderWithoutProjectIntegrationsOnFailure?: boolean;
 }) {
   const { getViteConfig } = await importAstroConfig(options.resolveFrom);
   const frameworkIntegrations = await Promise.all(
     options.integrations.map((integration) => integration.loadIntegration(options.resolveFrom))
   );
-  // Match the dev SSR server: integrations declared only in the user's
-  // astro.config.* must also apply to production/server-mode renders.
-  const integrations = await mergeFrameworkAndUserIntegrations(
-    frameworkIntegrations,
-    options.resolveFrom
+
+  // The project's own integrations too, as dev's server loads them, so one
+  // that adds Vite or PostCSS config (`@astrojs/tailwind`, `astro-icon`)
+  // renders the same in a build as in dev (issue #226).
+  const frameworkNames = new Set(frameworkIntegrations.map((integration) => integration.name));
+  const userIntegrations = (await loadUserAstroIntegrations(options.resolveFrom)).filter(
+    (integration) => !frameworkNames.has(integration.name)
   );
+
+  const compileOptions = await loadUserAstroCompileOptions(options.resolveFrom);
   const userResolveAlias = await loadUserAstroViteResolveAlias(options.resolveFrom);
 
-  const astroConfig = await getViteConfig(
-    { root: options.resolveFrom },
-    {
-      configFile: false,
-      integrations,
-      image: { service: storybookImageServiceConfig() },
-      // The render server is headless; the toolbar plugin also breaks the
-      // Vite dep-optimizer build under vitest ("Not implemented" in
-      // astro:strip-toolbar-sourcemap generateBundle).
-      devToolbar: { enabled: false }
+  // Astro creates a new naming function for every config it resolves, so
+  // recognize its own by comparing source with the one it sets when no
+  // integration runs. A string pattern is never Astro's.
+  const isAstroDevClassNaming = async (generateScopedName: unknown) => {
+    if (typeof generateScopedName !== 'function') {
+      return false;
     }
-  )({
-    mode: 'production',
-    command: 'serve'
-  });
 
-  // Astro registers its dev-toolbar plugins even with the toolbar disabled.
-  // They are useless in a headless render server, and on Vite 8 the
-  // `astro:strip-toolbar-sourcemap` generateBundle hook crashes the rolldown
-  // dep-optimizer build ("Not implemented").
-  astroConfig.plugins = (astroConfig.plugins ?? [])
-    .flat(Infinity as 1)
-    .filter(
-      (plugin) =>
-        !(plugin && typeof plugin === 'object' && 'name' in plugin) ||
-        !String(plugin.name).includes('toolbar')
+    const astroOnly = await getViteConfig(
+      { root: options.resolveFrom },
+      { configFile: false, integrations: [] }
+    )({ mode: 'production', command: 'serve' });
+    const astroNaming = astroOnly.css?.modules?.generateScopedName;
+
+    return typeof astroNaming === 'function' && astroNaming.toString() === generateScopedName.toString();
+  };
+
+  const startServer = async (integrations: typeof frameworkIntegrations) => {
+    const astroConfig = await getViteConfig(
+      { root: options.resolveFrom },
+      {
+        configFile: false,
+        ...compileOptions,
+        integrations,
+        image: { service: storybookImageServiceConfig() },
+        // The render server is headless; the toolbar plugin also breaks the
+        // Vite dep-optimizer build under vitest ("Not implemented" in
+        // astro:strip-toolbar-sourcemap generateBundle).
+        devToolbar: { enabled: false }
+      }
+    )({
+      mode: 'production',
+      command: 'serve'
+    });
+
+    // Astro registers its dev-toolbar plugins even with the toolbar disabled.
+    // They are useless in a headless render server, and on Vite 8 the
+    // `astro:strip-toolbar-sourcemap` generateBundle hook crashes the rolldown
+    // dep-optimizer build ("Not implemented").
+    astroConfig.plugins = (astroConfig.plugins ?? [])
+      .flat(Infinity as 1)
+      .filter(
+        (plugin) =>
+          !(plugin && typeof plugin === 'object' && 'name' in plugin) ||
+          !String(plugin.name).includes('toolbar')
+      );
+
+    // Astro 7.4+ gives `serve` configs a path-based CSS module naming scheme so
+    // dev HMR keeps class names stable. This server renders production output,
+    // and the island build that emits the matching stylesheets runs as a
+    // `build`, which keeps Vite's default naming. Drop Astro's so the rendered
+    // HTML references the class names the built CSS defines (issue #199). Keep
+    // one a project integration set: the island build keeps it too (#258).
+    const cssModules = astroConfig.css?.modules;
+
+    if (cssModules && (await isAstroDevClassNaming(cssModules.generateScopedName))) {
+      delete cssModules.generateScopedName;
+    }
+
+    // mergeConfig appends the second config's plugins after the first's, so
+    // the fallbacks and story module mocks go in the first config to run ahead
+    // of Astro's plugins, matching dev's createViteServer. Several of Astro's
+    // plugins are `enforce: 'pre'` too (its astro:content resolver, for one),
+    // and array order decides which resolveId answers first — after Astro's, a
+    // storyRules mock of `astro:content` was never consulted (issue #194).
+    const config = mergeConfig(
+      {
+        plugins: [
+          createProjectAstroResolutionPlugin(options.resolveFrom),
+          vitePluginTsconfigAliases(options.resolveFrom),
+          // Static builds put every family's font CSS in the iframe head
+          // (preset.ts), and the prerender runs in the same process, so <Font>
+          // drops its copy of those families. The standalone server-mode render
+          // server runs in its own process, where this strips nothing yet (#247).
+          vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom, fontCssInHead: true }),
+          vitePluginAstroIntegrationOptsFallback(),
+          vitePluginAstroVueFallback(),
+          vitePluginAstroRoutesFallback(),
+          vitePluginStoryModuleMocks()
+        ]
+      },
+      mergeConfig(astroConfig, {
+        appType: 'custom',
+        // Vite and some plugins (e.g. @sveltejs/vite-plugin-svelte's optimizer
+        // metadata) write into cacheDir at boot. The default node_modules/.vite
+        // lives on a read-only filesystem on serverless hosts, so keep the cache
+        // in the OS temp dir instead.
+        cacheDir: join(
+          tmpdir(),
+          `storybook-astro-vite-${createHash('sha1').update(options.resolveFrom).digest('hex').slice(0, 8)}`
+        ),
+        server: {
+          middlewareMode: true
+        },
+        resolve: {
+          // Same same-instance constraint as the dev SSR server and preview build:
+          // one physical copy of each framework runtime in this SSR graph, or a
+          // duplicate (e.g. an app-local preact under yarn hoistingLimits) breaks
+          // hooks with "Cannot read properties of undefined (reading '__H')".
+          dedupe: FRAMEWORK_RUNTIME_PACKAGES,
+          // `configFile: false` drops the user's astro.config `vite.resolve.alias`;
+          // re-apply it so aliased imports resolve like they do in a real Astro build.
+          ...(userResolveAlias ? { alias: userResolveAlias } : {})
+        },
+        ssr: {
+          // Keep Astro runtime classes in the Vite SSR graph so containers and
+          // components share SlotString/HTMLString instances during prerendering.
+          // Renderer packages (@astrojs/preact etc.) must also stay in the graph:
+          // since Astro 7 / @astrojs/preact 6 their server entrypoints import
+          // integration-provided virtuals (astro:preact:opts) that only resolve
+          // through Vite — externalized, node imports them directly and crashes
+          // with ERR_UNSUPPORTED_ESM_URL_SCHEME. Astro's own explicit `external`
+          // entries (e.g. @astrojs/compiler) still win over this pattern.
+          noExternal: [/^astro(\/.+)?$/, /^@astrojs\//]
+        },
+        // Only stubs for what Astro's plugins can't answer, so they stay after them.
+        plugins: [
+          createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
+          createStorybookBrowserStubPlugin(),
+          vitePluginNoClientDepOptimizer()
+        ]
+      })
     );
 
-  // Astro 7.4+ gives `serve` configs a path-based CSS module naming scheme so
-  // dev HMR keeps class names stable. This server renders production output,
-  // and the island build that emits the matching stylesheets runs as a
-  // `build`, which keeps Vite's default naming. Drop Astro's so the rendered
-  // HTML references the class names the built CSS defines (issue #199).
-  const cssModules = astroConfig.css?.modules;
+    // The main Storybook build auto-loads `vite.plugins` from the user's
+    // astro.config (see preset.ts). The prerender SSR server must receive the
+    // same plugins, or components relying on one of them (e.g. vite-svg-loader's
+    // `.svg?component` imports) resolve differently in the static output.
+    appendUserVitePlugins(config, await loadUserAstroVitePlugins(options.resolveFrom));
+    // The last normal-order plugin, so it records each stylesheet's CSS after
+    // integrations and PostCSS, and before `vite:css-post` turns it into JS.
+    config.plugins = [...(config.plugins ?? []), vitePluginCompiledStylesheets()];
 
-  if (cssModules) {
-    delete cssModules.generateScopedName;
+    const viteServer = await createServer(config);
+
+    try {
+      await viteServer.pluginContainer.buildStart({});
+    } catch (error) {
+      await viteServer.close();
+      throw error;
+    }
+
+    return viteServer;
+  };
+
+  try {
+    return await startServer([...frameworkIntegrations, ...userIntegrations]);
+  } catch (error) {
+    if (!options.renderWithoutProjectIntegrationsOnFailure || userIntegrations.length === 0) {
+      throw error;
+    }
+
+    // In server mode the project's hooks, and the Vite plugins they add, run
+    // against `resolveFrom`, a snapshot holding only the config files, on a
+    // filesystem that may be read-only. One failure would otherwise fail every
+    // render, so fall back to rendering without them, as before issue #226.
+    console.warn(
+      "[storybook-astro] The story render server failed to start with the project's astro.config integrations; retrying without them. If the retry fails with the same error, the cause is elsewhere:",
+      error
+    );
+
+    return await startServer(frameworkIntegrations);
   }
-
-  // mergeConfig appends the second config's plugins after the first's, so
-  // the fallbacks and story module mocks go in the first config to run ahead
-  // of Astro's plugins, matching dev's createViteServer. Several of Astro's
-  // plugins are `enforce: 'pre'` too (its astro:content resolver, for one),
-  // and array order decides which resolveId answers first — after Astro's, a
-  // storyRules mock of `astro:content` was never consulted (issue #194).
-  const config = mergeConfig(
-    {
-      plugins: [
-        createProjectAstroResolutionPlugin(options.resolveFrom),
-        vitePluginTsconfigAliases(options.resolveFrom),
-        vitePluginAstroFonts({ fonts: options.fonts, root: options.resolveFrom }),
-        vitePluginAstroIntegrationOptsFallback(),
-        vitePluginAstroVueFallback(),
-        vitePluginAstroRoutesFallback(),
-        vitePluginStoryModuleMocks()
-      ]
-    },
-    mergeConfig(astroConfig, {
-      appType: 'custom',
-      // Vite and some plugins (e.g. @sveltejs/vite-plugin-svelte's optimizer
-      // metadata) write into cacheDir at boot. The default node_modules/.vite
-      // lives on a read-only filesystem on serverless hosts, so keep the cache
-      // in the OS temp dir instead.
-      cacheDir: join(
-        tmpdir(),
-        `storybook-astro-vite-${createHash('sha1').update(options.resolveFrom).digest('hex').slice(0, 8)}`
-      ),
-      server: {
-        middlewareMode: true
-      },
-      resolve: {
-        // Same same-instance constraint as the dev SSR server and preview build:
-        // one physical copy of each framework runtime in this SSR graph, or a
-        // duplicate (e.g. an app-local preact under yarn hoistingLimits) breaks
-        // hooks with "Cannot read properties of undefined (reading '__H')".
-        dedupe: FRAMEWORK_RUNTIME_PACKAGES,
-        // `configFile: false` drops the user's astro.config `vite.resolve.alias`;
-        // re-apply it so aliased imports resolve like they do in a real Astro build.
-        ...(userResolveAlias ? { alias: userResolveAlias } : {})
-      },
-      ssr: {
-        // Keep Astro runtime classes in the Vite SSR graph so containers and
-        // components share SlotString/HTMLString instances during prerendering.
-        // Renderer packages (@astrojs/preact etc.) must also stay in the graph:
-        // since Astro 7 / @astrojs/preact 6 their server entrypoints import
-        // integration-provided virtuals (astro:preact:opts) that only resolve
-        // through Vite — externalized, node imports them directly and crashes
-        // with ERR_UNSUPPORTED_ESM_URL_SCHEME. Astro's own explicit `external`
-        // entries (e.g. @astrojs/compiler) still win over this pattern.
-        noExternal: [/^astro(\/.+)?$/, /^@astrojs\//]
-      },
-      // Only stubs for what Astro's plugins can't answer, so they stay after them.
-      plugins: [
-        createTrackedSpecifierStubPlugin(options.trackedSpecifiers),
-        createStorybookBrowserStubPlugin(),
-        vitePluginNoClientDepOptimizer()
-      ]
-    })
-  );
-
-  // The main Storybook build auto-loads `vite.plugins` from the user's
-  // astro.config (see preset.ts). The prerender SSR server must receive the
-  // same plugins, or components relying on one of them (e.g. vite-svg-loader's
-  // `.svg?component` imports) resolve differently in the static output.
-  appendUserVitePlugins(config, await loadUserAstroVitePlugins(options.resolveFrom));
-
-  const viteServer = await createServer(config);
-
-  await viteServer.pluginContainer.buildStart({});
-
-  return viteServer;
 }
 
 export async function loadRulesConfigModule(viteServer: ViteDevServer, configFilePath?: string) {

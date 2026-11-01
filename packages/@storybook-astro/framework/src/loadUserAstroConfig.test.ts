@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { Plugin, PluginOption } from 'vite';
 import {
   appendUserVitePlugins,
+  loadUserAstroCompileOptions,
   loadUserAstroFonts,
   loadUserAstroIntegrations,
   loadUserAstroVitePlugins,
@@ -76,6 +77,29 @@ describe('loadUserAstroFonts', () => {
 
     expect(fonts).toHaveLength(1);
     expect(fonts[0].cssVariable).toBe('--font-inter');
+  });
+});
+
+describe('loadUserAstroCompileOptions', () => {
+  test('returns the options that change how components compile', async () => {
+    await writeConfig(`export default { scopedStyleStrategy: 'class', compressHTML: false, site: 'https://example.com' };`);
+
+    expect(await loadUserAstroCompileOptions(tmpDir)).toEqual({
+      scopedStyleStrategy: 'class',
+      compressHTML: false
+    });
+  });
+
+  test('reads an astro.config.mts', async () => {
+    await writeFile(join(tmpDir, 'astro.config.mts'), `export default { scopedStyleStrategy: 'where' };`);
+
+    expect(await loadUserAstroCompileOptions(tmpDir)).toEqual({ scopedStyleStrategy: 'where' });
+  });
+
+  test('leaves out values Astro wouldn\'t accept', async () => {
+    await writeConfig(`export default { scopedStyleStrategy: 'inline', compressHTML: 'yes' };`);
+
+    expect(await loadUserAstroCompileOptions(tmpDir)).toEqual({});
   });
 });
 

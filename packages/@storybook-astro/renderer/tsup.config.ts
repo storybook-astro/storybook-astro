@@ -11,6 +11,8 @@ export default defineConfig({
     'src/preview-defaults.ts',
     'src/decorators.ts',
     'src/decoratedTree.ts',
+    'src/storyStyles.ts',
+    'src/slotArgs.ts',
     'src/index.ts',
   ],
   format: ['esm'],
@@ -18,9 +20,9 @@ export default defineConfig({
     // render.tsx and entry-preview.ts import virtual modules that cannot be
     // resolved during isolated DTS compilation. Both are runtime-only entries
     // loaded by Vite/Storybook — they have no public API consumers needing DTS.
-    // extractArgTypes.ts, preview-defaults.ts, decorators.ts, and
-    // decoratedTree.ts are virtual-module-free, so the framework imports their
-    // types directly.
+    // extractArgTypes.ts, preview-defaults.ts, decorators.ts, decoratedTree.ts,
+    // storyStyles.ts and slotArgs.ts are virtual-module-free, so the framework
+    // imports their types directly.
     entry: [
       'src/preset.ts',
       'src/types.ts',
@@ -28,6 +30,8 @@ export default defineConfig({
       'src/preview-defaults.ts',
       'src/decorators.ts',
       'src/decoratedTree.ts',
+      'src/storyStyles.ts',
+      'src/slotArgs.ts',
       'src/index.ts',
     ],
   },

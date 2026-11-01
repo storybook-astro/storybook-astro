@@ -67,6 +67,24 @@ describe('emitting Astro source', () => {
   });
 });
 
+describe('the objectProps parameter', () => {
+  test('writes object props inline when set to inline (issue #190)', () => {
+    sourceDecorator(
+      storyFn,
+      context({ args: { media: { src: '/a.png' } }, parameters: { docs: { source: { objectProps: 'inline' } } } })
+    );
+
+    expect(emitTransformCode.mock.calls[0][0]).toContain('media={{');
+    expect(emitTransformCode.mock.calls[0][0]).not.toContain('const media');
+  });
+
+  test('keeps them in the frontmatter by default', () => {
+    sourceDecorator(storyFn, context({ args: { media: { src: '/a.png' } } }));
+
+    expect(emitTransformCode.mock.calls[0][0]).toContain('const media = {');
+  });
+});
+
 describe('skipping', () => {
   test('a story with docs.source.code set — the documented workaround wins', () => {
     sourceDecorator(storyFn, context({ parameters: { docs: { source: { code: 'custom' } } } }));

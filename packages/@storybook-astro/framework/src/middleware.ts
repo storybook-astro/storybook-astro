@@ -6,6 +6,7 @@ import { ensureAstroPassthroughImageService } from './astroImageService.ts';
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
 import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
+import type { ComponentStyles } from './lib/componentStyles.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
 import { addRenderers, resolveClientModules } from 'virtual:astro-container-renderers';
@@ -18,6 +19,7 @@ type HandlerFactoryOptions = {
   resolveRulesConfigModule?: ResolveRulesConfigModule;
   loadModule?: (id: string) => Promise<{ default: unknown }>;
   invalidateModuleGraph?: () => void;
+  loadComponentStyles?: (componentIds: string[]) => Promise<ComponentStyles>;
   resolveModule?: (specifier: string) => string | undefined;
   resolveFrom?: string;
 };
@@ -87,6 +89,7 @@ export async function handlerFactory(
     rulesConfigFilePath: options?.rulesConfigFilePath,
     resolveRulesConfigModule: options?.resolveRulesConfigModule,
     loadModule,
-    invalidateModuleGraph: options?.invalidateModuleGraph
+    invalidateModuleGraph: options?.invalidateModuleGraph,
+    loadComponentStyles: options?.loadComponentStyles
   });
 }

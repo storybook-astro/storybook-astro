@@ -32,8 +32,10 @@ type BaseFrameworkOptions = {
   /**
    * Astro font families to resolve and inject as @font-face CSS during story
    * rendering. Pass the same array you have in your `astro.config.ts` under
-   * `fonts:`. Currently honored in development; static/server builds fall
-   * back to no-op stubs.
+   * `fonts:`. Honored in development and static builds. Server builds define
+   * the font CSS variables in the iframe head, but `<Font>` throws
+   * FontFamilyNotFound there because the render server doesn't receive the
+   * fonts yet. The `local` provider isn't supported (#244).
    */
   fonts?: StorybookFontFamily[];
   /**

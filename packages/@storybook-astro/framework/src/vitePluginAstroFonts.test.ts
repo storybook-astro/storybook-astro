@@ -1,6 +1,7 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import {
   buildFamilyCss,
+  generateFontCss,
   vitePluginAstroFonts,
   type FontFaceData,
   type StorybookFontFamily,
@@ -110,6 +111,31 @@ describe('vitePluginAstroFonts virtual modules', () => {
     expect(result?.code).toContain('https://example.com/inter.woff2');
   });
 
+  test('bakes the font CSS into the iframe head in builds, but not in dev', async () => {
+    const family: StorybookFontFamily = {
+      name: 'Inter',
+      cssVariable: '--font-inter',
+      provider: makeProvider([
+        { src: [{ url: 'https://example.com/inter.woff2', format: 'woff2' }], weight: 400 }
+      ])
+    };
+    const plugin = vitePluginAstroFonts({ fonts: [family] });
+    const configResolved = plugin.configResolved as (config: { command: string }) => void;
+    const transformIndexHtml = plugin.transformIndexHtml as () => Promise<
+      Array<{ tag: string; children: string; injectTo: string }> | undefined
+    >;
+
+    configResolved({ command: 'serve' });
+    expect(await transformIndexHtml()).toBeUndefined();
+
+    configResolved({ command: 'build' });
+    const [tag] = (await transformIndexHtml())!;
+
+    expect(tag).toMatchObject({ tag: 'style', attrs: { 'data-storybook-astro-fonts': '' }, injectTo: 'head' });
+    expect(tag.children).toContain('@font-face');
+    expect(tag.children).toContain('--font-inter');
+  });
+
   test('emits empty maps when no families are configured (no-op behavior preserved)', async () => {
     const plugin = vitePluginAstroFonts();
 
@@ -149,5 +175,136 @@ describe('vitePluginAstroFonts virtual modules', () => {
 
     expect(result?.code).toContain('--font-inter');
     expect(result?.code).not.toContain('--font-broken');
+  });
+});
+
+describe('resolving each family once (issue #248)', () => {
+  const inter = (resolveFont: StorybookFontProvider['resolveFont']): StorybookFontFamily => ({
+    name: 'Inter',
+    cssVariable: '--font-inter',
+    provider: { name: 'counting', resolveFont }
+  });
+  const face = { src: [{ url: 'https://example.com/inter.woff2', format: 'woff2' }], weight: 400 };
+
+  async function loadInternalModule(plugin: ReturnType<typeof vitePluginAstroFonts>) {
+    const load = plugin.load as (id: string) => Promise<{ code: string }>;
+
+    return (await load('\0virtual:astro:assets/fonts/internal')).code;
+  }
+
+  test('asks the provider once for every plugin instance and generateFontCss in the process', async () => {
+    const resolveFont = vi.fn(() => ({ fonts: [face] }));
+    const family = inter(resolveFont);
+
+    // The build's head injection, the prerender server's instance, and dev's font CSS.
+    await (vitePluginAstroFonts({ fonts: [family] }).buildStart as () => Promise<void>)();
+    await (vitePluginAstroFonts({ fonts: [family] }).buildStart as () => Promise<void>)();
+    await generateFontCss([family], process.cwd());
+
+    expect(resolveFont).toHaveBeenCalledTimes(1);
+  });
+
+  test('asks again after a family fails to resolve', async () => {
+    const resolveFont = vi
+      .fn<StorybookFontProvider['resolveFont']>()
+      .mockRejectedValueOnce(new Error('rate limited'))
+      .mockResolvedValue({ fonts: [face] });
+    const family = inter(resolveFont);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(await generateFontCss([family], process.cwd())).toBe('');
+    expect(await generateFontCss([family], process.cwd())).toContain('@font-face');
+    expect(resolveFont).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  test('asks again after a family comes back with no faces', async () => {
+    const resolveFont = vi
+      .fn<StorybookFontProvider['resolveFont']>()
+      .mockResolvedValueOnce({ fonts: [] })
+      .mockResolvedValue({ fonts: [face] });
+    const family = inter(resolveFont);
+
+    expect(await generateFontCss([family], process.cwd())).not.toContain('@font-face');
+    expect(await generateFontCss([family], process.cwd())).toContain('@font-face');
+    expect(resolveFont).toHaveBeenCalledTimes(2);
+  });
+
+  test('asks again when the empty result came through the provider storage', async () => {
+    // unifont's providers read each family's faces through the storage `init` hands them.
+    const fetchFaces = vi
+      .fn<() => Promise<FontFaceData[]>>()
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([face]);
+    let storage: Parameters<NonNullable<StorybookFontProvider['init']>>[0]['storage'];
+    const family: StorybookFontFamily = {
+      name: 'Inter',
+      cssVariable: '--font-inter',
+      provider: {
+        name: 'storage-backed',
+        init(context) {
+          storage = context.storage;
+        },
+        async resolveFont({ familyName }) {
+          return { fonts: (await storage.getItem(`storage-test:${familyName}-data.json`, fetchFaces)) ?? [] };
+        }
+      }
+    };
+
+    expect(await generateFontCss([family], process.cwd())).not.toContain('@font-face');
+    expect(await generateFontCss([family], process.cwd())).toContain('@font-face');
+    expect(fetchFaces).toHaveBeenCalledTimes(2);
+  });
+
+  async function buildIframeHead(plugin: ReturnType<typeof vitePluginAstroFonts>) {
+    (plugin.configResolved as (config: { command: string }) => void)({ command: 'build' });
+
+    return (plugin.transformIndexHtml as () => Promise<unknown>)();
+  }
+
+  test('leaves the CSS out of <Font> when the iframe head already has it', async () => {
+    const family = inter(() => ({ fonts: [face] }));
+
+    expect(await loadInternalModule(vitePluginAstroFonts({ fonts: [family] }))).toContain('@font-face');
+
+    await buildIframeHead(vitePluginAstroFonts({ fonts: [family] }));
+    expect(
+      await loadInternalModule(vitePluginAstroFonts({ fonts: [family], fontCssInHead: true }))
+    ).not.toContain('@font-face');
+  });
+
+  test('keeps the CSS in <Font> for a family the iframe head is missing after a failed resolve', async () => {
+    const resolveFont = vi
+      .fn<StorybookFontProvider['resolveFont']>()
+      .mockRejectedValueOnce(new Error('rate limited'))
+      .mockResolvedValue({ fonts: [face] });
+    const family = inter(resolveFont);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // The head transform's resolve fails, and the prerender's retry succeeds.
+    expect(await buildIframeHead(vitePluginAstroFonts({ fonts: [family] }))).toBeUndefined();
+    expect(
+      await loadInternalModule(vitePluginAstroFonts({ fonts: [family], fontCssInHead: true }))
+    ).toContain('@font-face');
+    warn.mockRestore();
+  });
+
+  test('fetches provider metadata once for every family that shares the provider', async () => {
+    const fetchMetadata = vi.fn(async () => ({ families: ['Inter', 'Roboto'] }));
+    const provider: StorybookFontProvider = {
+      name: 'shared',
+      async init({ storage }) {
+        await storage.getItem('shared-provider-test:meta.json', fetchMetadata);
+      },
+      resolveFont: () => ({ fonts: [face] })
+    };
+    const families: StorybookFontFamily[] = [
+      { name: 'Inter', cssVariable: '--font-inter', provider },
+      { name: 'Roboto', cssVariable: '--font-roboto', provider }
+    ];
+
+    await generateFontCss(families, process.cwd());
+
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
   });
 });

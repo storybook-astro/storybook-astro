@@ -10,8 +10,15 @@ export type {
 import { definePreview as definePreviewBase, type PreviewAddon, type InferTypes, type Preview as CsfPreview } from 'storybook/internal/csf';
 import { combineParameters } from 'storybook/internal/preview-api';
 import { enhanceArgTypes } from 'storybook/internal/docs-tools';
-import type { ArgsStoryFn, ProjectAnnotations, RenderContext, Renderer } from 'storybook/internal/types';
+import type {
+  ArgsStoryFn,
+  ProjectAnnotations,
+  RenderContext,
+  Renderer,
+  TeardownRenderToCanvas
+} from 'storybook/internal/types';
 import { defaultPreviewParameters } from '@storybook-astro/renderer/preview-defaults';
+import { lockNonTextSlotControls, seedSlotArgs } from '@storybook-astro/renderer/slotArgs';
 import { applyDecorators } from '@storybook-astro/renderer/decorators';
 import type { AstroRenderer } from './portable-stories.ts';
 
@@ -55,7 +62,7 @@ const composedRender: ArgsStoryFn<AstroRenderer> = (args, context) => {
 const composedRenderToCanvas = async (
   context: RenderContext<Renderer>,
   canvasElement: HTMLElement
-): Promise<void> => {
+): Promise<void | TeardownRenderToCanvas> => {
   const impl = await loadRendererEntryPreview();
 
   return impl.renderToCanvas(context, canvasElement);
@@ -122,7 +129,8 @@ export function definePreview<Addons extends PreviewAddon<never>[] = []>(
     // calls it without this enhancer — and CSF-factory stories never see the
     // renderer's entry-preview annotation that registers it there
     // (docs/specs/docgen.md#design-decisions).
-    argTypesEnhancers: [enhanceArgTypes, ...(input.argTypesEnhancers ?? [])],
+    argTypesEnhancers: [enhanceArgTypes, lockNonTextSlotControls, ...(input.argTypesEnhancers ?? [])],
+    argsEnhancers: [seedSlotArgs, ...(input.argsEnhancers ?? [])],
     render: input.render ?? composedRender,
     renderToCanvas: input.renderToCanvas ?? composedRenderToCanvas,
     applyDecorators: input.applyDecorators ?? applyDecorators

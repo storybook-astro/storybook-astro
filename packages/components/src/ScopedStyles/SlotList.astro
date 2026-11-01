@@ -1,0 +1,21 @@
+---
+/**
+ * Wraps a list passed into its slot. The styles target that slotted list, which
+ * Astro scopes differently by version (issue #189 reproduction).
+ */
+---
+<div class="list" data-testid="slot-list">
+  <slot />
+</div>
+
+<style>
+  .list {
+    > :where(ul, ol) {
+      border: 1px solid red;
+
+      > :where(li) {
+        border: 1px solid blue;
+      }
+    }
+  }
+</style>

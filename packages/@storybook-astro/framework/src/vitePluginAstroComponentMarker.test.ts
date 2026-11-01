@@ -1,9 +1,11 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { resolveConfig, type ResolvedConfig } from 'vite';
 import { afterAll, describe, expect, test } from 'vitest';
 import {
   extractAstroImportSpecifiers,
+  extractStylesheetImportSpecifiers,
   vitePluginAstroComponentMarker
 } from './vitePluginAstroComponentMarker.ts';
 
@@ -28,25 +30,43 @@ function writeAstroFile(relativePath: string, source: string): string {
   return filePath;
 }
 
+type ResolveResult = { id: string } | null;
+type Resolve = (specifier: string, importer: string) => Promise<ResolveResult>;
+
 type TransformablePlugin = {
-  configResolved: (config: { command: string }) => void;
+  configResolved: (config: ResolvedConfig) => void;
   transform: (code: string, id: string) => Promise<{ code: string } | null>;
 };
 
-function createPlugin(
+/** Resolves relative specifiers the way Vite would for a real file, and nothing else. */
+const resolveRelative: Resolve = async (specifier, importer) =>
+  specifier.startsWith('.') ? { id: join(dirname(importer), specifier) } : null;
+
+/**
+ * Builds the plugin with a real resolved Vite config, so the `server.fs.allow`
+ * check runs as it does in `storybook dev`. Only the temp directory is allowed.
+ */
+async function createPlugin(
   command: 'serve' | 'build' = 'serve',
-  options?: Parameters<typeof vitePluginAstroComponentMarker>[0]
+  options?: Parameters<typeof vitePluginAstroComponentMarker>[0],
+  resolve: Resolve = resolveRelative
 ) {
   const plugin = vitePluginAstroComponentMarker(options) as unknown as TransformablePlugin;
+  const config = await resolveConfig(
+    { configFile: false, root: tempDir, logLevel: 'silent', server: { fs: { allow: [tempDir] } } },
+    command
+  );
 
-  plugin.configResolved({ command });
+  plugin.configResolved(config);
 
-  return plugin;
+  return {
+    transform: (code: string, id: string) => plugin.transform.call({ resolve }, code, id)
+  };
 }
 
 describe('vitePluginAstroComponentMarker transform', () => {
   test('ignores non-astro modules and non-stub code', async () => {
-    const plugin = createPlugin();
+    const plugin = await createPlugin();
 
     expect(await plugin.transform(ASTRO6_CLIENT_STUB, '/some/module.ts')).toBeNull();
     expect(await plugin.transform('export default {};', '/some/Component.astro')).toBeNull();
@@ -54,7 +74,7 @@ describe('vitePluginAstroComponentMarker transform', () => {
 
   test('replaces the stub with a marked component factory', async () => {
     const filePath = writeAstroFile('Plain.astro', '<div>Hello</div>');
-    const plugin = createPlugin();
+    const plugin = await createPlugin();
     const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
     expect(result?.code).toContain('isAstroComponentFactory = true');
@@ -67,7 +87,7 @@ describe('vitePluginAstroComponentMarker transform', () => {
   test('reports every marked module id via onClientAstroModuleId', async () => {
     const filePath = writeAstroFile('Wrapper.astro', '<div><slot /></div>');
     const seenModuleIds: string[] = [];
-    const plugin = createPlugin('serve', {
+    const plugin = await createPlugin('serve', {
       onClientAstroModuleId: (moduleId) => seenModuleIds.push(moduleId)
     });
 
@@ -79,7 +99,7 @@ describe('vitePluginAstroComponentMarker transform', () => {
   test('does not report modules that are not the Astro browser stub', async () => {
     const filePath = writeAstroFile('Untouched.astro', '<div>Hello</div>');
     const seenModuleIds: string[] = [];
-    const plugin = createPlugin('serve', {
+    const plugin = await createPlugin('serve', {
       onClientAstroModuleId: (moduleId) => seenModuleIds.push(moduleId)
     });
 
@@ -88,127 +108,117 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(seenModuleIds).toEqual([]);
   });
 
-  test('inlines CSS for own <style> blocks in dev mode (hybrid approach)', async () => {
-    const filePath = writeAstroFile(
-      'Styled.astro',
-      '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
-    );
-    const plugin = createPlugin();
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+  test.each(['serve', 'build'] as const)(
+    'leaves raw <style> source out of the stub (%s)',
+    async (command) => {
+      // Scoped CSS ships with the server-rendered HTML instead (issue #189).
+      const filePath = writeAstroFile(
+        `${command}/Styled.astro`,
+        '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
+      );
+      const plugin = await createPlugin(command);
+      const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
-    // Dev mode uses inline CSS instead of sub-module imports to avoid Astro cache issues
-    expect(result?.code).toContain('.a { color: red; }');
-    expect(result?.code).toContain('data-astro-dev');
-  });
+      expect(result?.code).not.toContain('color: red');
+      expect(result?.code).not.toContain('document.createElement');
+    }
+  );
 
-  test('unwraps :global() selectors so the CSS is valid in the browser', async () => {
-    const filePath = writeAstroFile(
-      'Global.astro',
-      '<div class="wrap"><slot /></div>\n<style>.wrap > :global(img) { width: 100%; }</style>'
-    );
-    const plugin = createPlugin();
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+  const parentSource = [
+    '---',
+    "import Child from './Child.astro';",
+    "import Aliased from '@components/Other.astro';",
+    '---',
+    '<div class="parent"><Child /><Aliased /></div>'
+  ].join('\n');
 
-    expect(result?.code).toContain('.wrap > img { width: 100%; }');
-    expect(result?.code).not.toContain(':global(');
-  });
-
-  test('skips preprocessed <style lang="..."> blocks with a console warning in dev mode', async () => {
-    const filePath = writeAstroFile(
-      'Scss.astro',
-      '<div class="a">Hi</div>\n<style lang="scss">.a { .b { color: red; } }</style>'
-    );
-    const plugin = createPlugin();
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
-
-    // The raw SCSS source must not be injected as a stylesheet.
-    expect(result?.code).not.toContain('document.createElement');
-    expect(result?.code).toContain('console.warn');
-    expect(result?.code).toContain('scss');
-  });
-
-  test('dedupes injected styles so repeated module evaluation does not pile up', async () => {
-    const filePath = writeAstroFile(
-      'Dedupe.astro',
-      '<div class="a">Hi</div>\n<style>.a { color: red; }</style>'
-    );
-    const plugin = createPlugin();
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
-
-    // The injection snippet bails out if a style with the same marker already exists.
-    expect(result?.code).toContain("getAttribute");
-    expect(result?.code).toContain('data-astro-dev');
-  });
-
-  test('re-imports child .astro components so their scoped styles load in dev mode', async () => {
-    const filePath = writeAstroFile(
-      'Parent.astro',
-      [
-        '---',
-        "import Child from './Child.astro';",
-        "import Aliased from '@components/Other.astro';",
-        '---',
-        '<div class="parent"><Child /><Aliased /></div>',
-        '<style>.parent { padding: 16px; }</style>'
-      ].join('\n')
-    );
-    const plugin = createPlugin();
+  test('re-imports child .astro components in dev mode so editing a child reruns the story', async () => {
+    const filePath = writeAstroFile('Parent.astro', parentSource);
+    const plugin = await createPlugin();
     const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
     expect(result?.code).toContain(`import "./Child.astro";`);
     expect(result?.code).toContain(`import "@components/Other.astro";`);
   });
 
-  test('inlines CSS from the component and its children in build mode', async () => {
-    writeAstroFile(
-      'build/Child.astro',
-      '<div class="child">Hello</div>\n<style>.child { color: red; }</style>'
-    );
-    const parentPath = writeAstroFile(
-      'build/Parent.astro',
-      [
-        '---',
-        "import Child from './Child.astro';",
-        '---',
-        '<div class="parent"><Child /></div>',
-        '<style>.parent { padding: 16px; }</style>'
-      ].join('\n')
-    );
-    const plugin = createPlugin('build');
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, parentPath);
-
-    expect(result?.code).toContain('.parent { padding: 16px; }');
-    expect(result?.code).toContain('.child { color: red; }');
-  });
-
-  test('unwraps :global() selectors in build mode too', async () => {
+  // Without this, editing a frontmatter stylesheet leaves the story's shipped
+  // copy stale until a reload (issue #229). `?raw` keeps the CSS from being
+  // injected a second time, and unlike `?url` Vite accepts it for CSS Modules.
+  test('re-imports frontmatter stylesheets as raw text in dev mode so editing one reruns the story', async () => {
+    writeAstroFile('card.css', '.card { color: red; }');
+    writeAstroFile('card.module.css', '.title { color: blue; }');
     const filePath = writeAstroFile(
-      'build/Global.astro',
-      '<div class="wrap"><slot /></div>\n<style>.wrap :global(img) { width: 100%; }</style>'
+      'StyledParent.astro',
+      ['---', "import './card.css';", "import styles from './card.module.css';", '---', '<div />'].join('\n')
     );
-    const plugin = createPlugin('build');
+    const plugin = await createPlugin();
     const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
-    expect(result?.code).toContain('.wrap img { width: 100%; }');
-    expect(result?.code).not.toContain(':global(');
+    expect(result?.code).toContain(`import "./card.css?raw";`);
+    expect(result?.code).toContain(`import "./card.module.css?raw";`);
+    expect(result?.code).not.toContain(`import "./card.css";`);
   });
 
-  test('handles circular child imports in build mode without recursing forever', async () => {
-    const aPath = writeAstroFile(
-      'cycle/A.astro',
-      "---\nimport B from './B.astro';\n---\n<B />\n<style>.a { color: blue; }</style>"
+  // A stylesheet the browser can't load would fail the stub's import and break
+  // the story, where before #223 the stub never imported stylesheets at all.
+  // These still ship from SSR; editing one just needs a reload.
+  test('leaves plugin virtual stylesheets off the stub so the story still loads', async () => {
+    const filePath = writeAstroFile(
+      'virtual/Uno.astro',
+      ['---', "import 'virtual:brand.css';", "import 'uno.css';", '---', '<div />'].join('\n')
     );
-
-    writeAstroFile(
-      'cycle/B.astro',
-      "---\nimport A from './A.astro';\n---\n<A />\n<style>.b { color: green; }</style>"
+    const plugin = await createPlugin('serve', undefined, async (specifier) =>
+      ({ id: `\0${specifier}` })
     );
+    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
-    const plugin = createPlugin('build');
-    const result = await plugin.transform(ASTRO6_CLIENT_STUB, aPath);
+    expect(result?.code).not.toContain('?raw');
+    expect(result?.code).toContain('isAstroComponentFactory = true');
+  });
 
-    expect(result?.code).toContain('.a { color: blue; }');
-    expect(result?.code).toContain('.b { color: green; }');
+  test('leaves a conditional dynamic import of a missing stylesheet off the stub', async () => {
+    const filePath = writeAstroFile(
+      'dynamic/Theme.astro',
+      [
+        '---',
+        'const flag = false;',
+        "if (flag) await import('./missing.css');",
+        '---',
+        '<div />'
+      ].join('\n')
+    );
+    const plugin = await createPlugin('serve', undefined, async () => null);
+    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    expect(result?.code).not.toContain('missing.css');
+  });
+
+  test('leaves stylesheets outside server.fs.allow off the stub', async () => {
+    const outsideDir = mkdtempSync(join(tmpdir(), 'astro-marker-outside-'));
+
+    try {
+      const outsideStylesheet = join(outsideDir, 'linked.css');
+
+      writeFileSync(outsideStylesheet, '.linked { color: red; }');
+      const filePath = writeAstroFile(
+        'outside/Linked.astro',
+        ['---', "import 'linked-package/linked.css';", '---', '<div />'].join('\n')
+      );
+      const plugin = await createPlugin('serve', undefined, async () => ({ id: outsideStylesheet }));
+      const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+      expect(result?.code).not.toContain('linked.css');
+    } finally {
+      rmSync(outsideDir, { recursive: true, force: true });
+    }
+  });
+
+  test('does not re-import child components in build mode', async () => {
+    const filePath = writeAstroFile('build/Parent.astro', parentSource);
+    const plugin = await createPlugin('build');
+    const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
+
+    expect(result?.code).not.toContain('Child.astro');
   });
 });
 
@@ -260,6 +270,41 @@ describe('extractAstroImportSpecifiers', () => {
   });
 });
 
+describe('extractStylesheetImportSpecifiers', () => {
+  test('finds plain, CSS Module, and preprocessor stylesheet imports', () => {
+    const source = [
+      '---',
+      "import './card.css';",
+      "import styles from './x.module.css';",
+      "import './y.scss';",
+      "import Child from './Child.astro';",
+      '---',
+      '<div />'
+    ].join('\n');
+
+    expect(extractStylesheetImportSpecifiers(source)).toEqual([
+      './card.css',
+      './x.module.css',
+      './y.scss'
+    ]);
+  });
+
+  test('skips commented-out imports and imports with a query', () => {
+    const source = [
+      '---',
+      "// import './old.css';",
+      "/* import './older.css'; */",
+      "import cssUrl from './linked.css?url';",
+      "import raw from './raw.css?raw';",
+      "import './current.css';",
+      '---',
+      '<div />'
+    ].join('\n');
+
+    expect(extractStylesheetImportSpecifiers(source)).toEqual(['./current.css']);
+  });
+});
+
 describe('component documentation rides along on the stub', () => {
   /** Stands in for the real extractor; this test is about the wiring. */
   function fakeDocgen(info: unknown) {
@@ -275,7 +320,7 @@ describe('component documentation rides along on the stub', () => {
 
   test('attaches __docgenInfo where the renderer reads it', async () => {
     const filePath = writeAstroFile('docgen/Card.astro', '---\ninterface Props {}\n---\n<div />');
-    const plugin = createPlugin('serve', {
+    const plugin = await createPlugin('serve', {
       docgen: fakeDocgen({ displayName: 'Card', description: 'A card.', props: {} })
     });
 
@@ -287,7 +332,7 @@ describe('component documentation rides along on the stub', () => {
 
   test('omits the assignment when there is nothing to document', async () => {
     const filePath = writeAstroFile('docgen/Bare.astro', '<div />');
-    const plugin = createPlugin('serve', { docgen: fakeDocgen(null) });
+    const plugin = await createPlugin('serve', { docgen: fakeDocgen(null) });
 
     const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
@@ -297,7 +342,7 @@ describe('component documentation rides along on the stub', () => {
 
   test('marks the component even with no docgen configured at all', async () => {
     const filePath = writeAstroFile('docgen/NoDocgen.astro', '---\nconst a = 1;\n---\n<div />');
-    const plugin = createPlugin();
+    const plugin = await createPlugin();
 
     const result = await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
 
@@ -307,7 +352,7 @@ describe('component documentation rides along on the stub', () => {
 
   test('an extractor that throws never breaks the transform', async () => {
     const filePath = writeAstroFile('docgen/Throws.astro', '---\nconst a = 1;\n---\n<div />');
-    const plugin = createPlugin('serve', {
+    const plugin = await createPlugin('serve', {
       docgen: {
         warmUp: async () => {},
         extract: async () => {

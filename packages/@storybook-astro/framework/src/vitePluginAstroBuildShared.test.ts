@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -311,5 +311,61 @@ import { h } from 'preact';
     await expect(
       stat(join(snapshot, '__external'))
     ).rejects.toThrow();
+  });
+
+  test('copies the stylesheets a component\'s <style> blocks use, so the render server can compile them', async () => {
+    const project = join(tmpDir, 'project');
+    const snapshotRoot = join(tmpDir, 'server', 'snapshot');
+
+    await mkdir(join(project, 'src', 'styles', 'theme'), { recursive: true });
+    await writeFile(
+      join(project, 'src', 'Card.astro'),
+      `<div class="card" />\n<style lang="scss">\n@use 'styles/tokens';\n@use 'styles/mixins.scss';\n@use 'sass:math';\n</style>\n<style>@import "./styles/base.css";</style>`
+    );
+    // A Sass partial, which forwards another one through its folder's index.
+    await writeFile(join(project, 'src', 'styles', '_tokens.scss'), `@forward './theme';`);
+    await writeFile(join(project, 'src', 'styles', 'theme', '_index.scss'), '$accent: teal;');
+    await writeFile(join(project, 'src', 'styles', 'base.css'), '@import url(./reset.css);');
+    await writeFile(join(project, 'src', 'styles', 'reset.css'), '* { margin: 0; }');
+    await writeFile(join(project, 'src', 'styles', '_mixins.scss'), '@mixin card {}');
+
+    await copyRuntimeSnapshot({
+      resolveFrom: project,
+      snapshotRoot,
+      snapshotDirName: 'snapshot',
+      astroComponents: [join(project, 'src', 'Card.astro')]
+    });
+
+    const copied = [
+      'src/Card.astro',
+      'src/styles/_tokens.scss',
+      'src/styles/_mixins.scss',
+      'src/styles/theme/_index.scss',
+      'src/styles/base.css',
+      'src/styles/reset.css'
+    ];
+
+    for (const file of copied) {
+      await expect(access(join(snapshotRoot, file)), file).resolves.toBeUndefined();
+    }
+  });
+
+  test('copies every astro.config.* filename the render server reads (issue #226)', async () => {
+    for (const configFile of ['astro.config.cjs', 'astro.config.mts', 'astro.config.cts']) {
+      const project = join(tmpDir, configFile, 'project');
+      const snapshotRoot = join(tmpDir, configFile, 'server', 'snapshot');
+
+      await mkdir(project, { recursive: true });
+      await writeFile(join(project, configFile), 'export default {};');
+
+      await copyRuntimeSnapshot({
+        resolveFrom: project,
+        snapshotRoot,
+        snapshotDirName: 'snapshot',
+        astroComponents: []
+      });
+
+      await expect(access(join(snapshotRoot, configFile)), configFile).resolves.toBeUndefined();
+    }
   });
 });

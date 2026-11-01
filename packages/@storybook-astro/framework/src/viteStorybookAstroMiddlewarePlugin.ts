@@ -9,7 +9,11 @@ import {
   type PluginOption,
   type ViteDevServer
 } from 'vite';
-import type { RenderRequestMessage, RenderResponseMessage } from '@storybook-astro/renderer/types';
+import {
+  STORY_STYLE_ATTRIBUTE,
+  type RenderRequestMessage,
+  type RenderResponseMessage
+} from '@storybook-astro/renderer/types';
 import type { FrameworkOptions } from './types.ts';
 import type { Integration } from './integrations/index.ts';
 import { storybookImageServiceConfig } from './astroImageService.ts';
@@ -22,9 +26,12 @@ import { vitePluginAstroRoutesFallback } from './vitePluginAstroRoutesFallback.t
 import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 import { vitePluginNoClientDepOptimizer } from './vitePluginNoClientDepOptimizer.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
+import { loadComponentStyles } from './lib/componentStyles.ts';
+import { vitePluginCompiledStylesheets } from './lib/compiledStylesheets.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import {
   appendUserVitePlugins,
+  loadUserAstroCompileOptions,
   loadUserAstroVitePlugins,
   mergeFrameworkAndUserIntegrations
 } from './loadUserAstroConfig.ts';
@@ -62,6 +69,8 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
           ssrLoadModuleWithFsFallback(viteServer!, id, {
             fixStacktrace: true
           }),
+        loadComponentStyles: (componentIds: string[]) =>
+          loadComponentStyles(viteServer!, componentIds),
         resolveFrom
       });
 
@@ -87,8 +96,12 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
           // a full page, so Astro's font pipeline never gets to write them into
           // a <head>. Prepending a <style> block to the fragment is the
           // equivalent — @font-face and :root rules apply globally wherever
-          // the <style> element appears in the document.
-          const html = fontCss ? `<style>\n${fontCss}\n</style>${componentHtml}` : componentHtml;
+          // the <style> element appears in the document. It carries the story
+          // style attribute, so the renderer moves it into the head with the
+          // component CSS and removes it with the story, as the canvas did.
+          const html = fontCss
+            ? `<style ${STORY_STYLE_ATTRIBUTE}>\n${fontCss}\n</style>${componentHtml}`
+            : componentHtml;
 
           server.ws.send('astro:render:response', {
             html,
@@ -148,11 +161,9 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
   // Storybook's built-in CSS plugins), resulting in PostCSS errors.
   //
   // Solution: Don't extract Astro's CSS plugins. Storybook's built-in CSS
-  // plugins handle both Vue styles AND Astro style sub-modules (which are
-  // standard CSS imports like `Component.astro?astro&type=style&index=0&lang.css`).
-  //
-  // The Astro internal server's CSS plugins are only needed for SSR rendering
-  // within that server - they don't need to be shared with Storybook's server.
+  // plugins handle Vue styles. Astro component styles never reach Storybook's
+  // server: the SSR server compiles them and they ship with the rendered HTML
+  // (`lib/componentStyles.ts`).
   return {
     vitePlugin,
     viteConfig: {
@@ -210,6 +221,7 @@ export async function createViteServer(
     { root: resolveFrom },
     {
       configFile: false,
+      ...(await loadUserAstroCompileOptions(resolveFrom)),
       integrations: mergedIntegrations,
       // Use the passthrough image service so nested components that use <Image>
       // from astro:assets render as plain <img> tags without triggering image
@@ -267,6 +279,9 @@ export async function createViteServer(
   // same plugins, or components relying on one of them (e.g. vite-svg-loader's
   // `.svg?component` imports) fail to render in dev mode.
   appendUserVitePlugins(serverConfig, await loadUserAstroVitePlugins(resolveFrom));
+  // The last normal-order plugin, so it records each stylesheet's CSS after
+  // integrations and PostCSS, and before `vite:css-post` turns it into JS.
+  serverConfig.plugins = [...(serverConfig.plugins ?? []), vitePluginCompiledStylesheets()];
 
   const viteServer = await createServer(serverConfig);
 

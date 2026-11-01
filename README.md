@@ -264,7 +264,7 @@ This tracks Astro's built-in framework features and their compatibility status.
 
 - **Component Rendering** — core Astro component rendering via Container API
 - **Props & Slots** — passing data and content to components
-- **Scoped Styles** — component-scoped CSS (including Astro 6's style sub-module imports)
+- **Scoped Styles** — `<style>` blocks, compiled and scoped by your installed Astro version
 - **Astro + Framework Components** — Astro and client-side UI components together in one Storybook (React, Vue, Svelte, Preact, Solid, Alpine.js)
 - **Client Directives** — `client:load`, `client:only`, etc. for framework components
 - **Static Builds** — `storybook build` with build-time pre-rendering of Astro component stories

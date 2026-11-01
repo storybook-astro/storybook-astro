@@ -54,6 +54,14 @@
     "./decoratedTree": {
       "types": "./dist/decoratedTree.d.ts",
       "import": "./dist/decoratedTree.js"
+    },
+    "./slotArgs": {
+      "types": "./dist/slotArgs.d.ts",
+      "import": "./dist/slotArgs.js"
+    },
+    "./storyStyles": {
+      "types": "./dist/storyStyles.d.ts",
+      "import": "./dist/storyStyles.js"
     }
   },
   "scripts": {
@@ -66,6 +74,7 @@
   "devDependencies": {
     "astro": "^6.4.8",
     "eslint": "^9.39.2",
+    "happy-dom": "^20.10.6",
     "tsup": "^8.5.1",
     "vitest": "^4.1.9"
   },

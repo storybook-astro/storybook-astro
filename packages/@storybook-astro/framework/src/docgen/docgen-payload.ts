@@ -10,8 +10,9 @@ import {
   extractDescription,
   loadCsf
 } from 'storybook/internal/csf-tools';
-import type { DocgenPayload, DocgenProviderInput } from 'storybook/internal/types';
+import type { DocgenPayload, DocgenProviderInput, StrictArgTypes } from 'storybook/internal/types';
 import { extractArgTypes } from '@storybook-astro/renderer/extractArgTypes';
+import { slotArgName } from '@storybook-astro/renderer/slotArgs';
 import type { AstroDocgenInfo } from './types.ts';
 
 /** One instance per worker: the resolver caches its module resolutions. */
@@ -119,9 +120,35 @@ export async function buildDocgenPayload(
     description,
     summary,
     jsDocTags,
-    argTypes: extractArgTypes({ __docgenInfo: info }) ?? undefined,
+    argTypes: withoutSlotControls(extractArgTypes({ __docgenInfo: info }), info),
     renderer: 'astro'
   };
+}
+
+/**
+ * Keeps each `slot:<name>` row but drops its text control. On this path the
+ * preview never sees `__docgenInfo`, so `seedSlotArgs` can't start the control
+ * at the story's content and `lockNonTextSlotControls` can't lock a slot that
+ * holds a component. A blank control that replaces the component on the first
+ * keystroke is worse than none.
+ */
+function withoutSlotControls(
+  argTypes: StrictArgTypes | null,
+  info: AstroDocgenInfo
+): StrictArgTypes | undefined {
+  if (!argTypes) {
+    return undefined;
+  }
+
+  for (const { name } of info.slots ?? []) {
+    const key = slotArgName(name);
+
+    if (argTypes[key]) {
+      argTypes[key] = { ...argTypes[key], control: { disable: true } };
+    }
+  }
+
+  return argTypes;
 }
 
 /** The last segment of a story title, for when the component has no name of its own. */

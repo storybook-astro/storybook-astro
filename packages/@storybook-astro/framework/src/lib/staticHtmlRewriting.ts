@@ -61,7 +61,7 @@ export function addStaticStylesheets(
 }
 
 /** Converts one source file path into the Vite /@fs/ URL form used during SSR. */
-function toFsPath(sourcePath: string) {
+export function toFsPath(sourcePath: string) {
   const normalizedPath = sourcePath.replace(/\\/g, '/');
 
   return normalizedPath.startsWith('/') ? `/@fs${normalizedPath}` : `/@fs/${normalizedPath}`;

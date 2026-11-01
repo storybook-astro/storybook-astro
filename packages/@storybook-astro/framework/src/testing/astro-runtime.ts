@@ -6,16 +6,19 @@ import { resolveTestingProjectRoot } from './project-root.ts';
 import { runWithWorkingDirectory } from './working-directory.ts';
 import { getComponentModuleId, isAstroComponentFactory, isStorybookAstroClientStub } from './component-utils.ts';
 import { ssrLoadModuleWithFsFallback } from '../lib/ssr-load-module-with-fs-fallback.ts';
-import { separateStorySlots } from '../lib/separate-story-slots.ts';
+import { loadComponentStyles } from '../lib/componentStyles.ts';
+import { splitStoryArgs } from '@storybook-astro/renderer/slotArgs';
 import { reconstructProps, reconstructSlots } from '../lib/reconstruct-component-args.ts';
 import { patchCreateAstroCompat, markRawSlots } from '../astroRenderHandler.ts';
 import {
   ASTRO_COMPONENT_MARKER,
   isAstroComponentSlot,
   serializeAstroComponentMarkers,
+  STORY_STYLE_ATTRIBUTE,
   type SlotValue
 } from '@storybook-astro/renderer/types';
 import { isDecoratedTree } from '@storybook-astro/renderer/decoratedTree';
+import { moveStoryStylesToHead } from '@storybook-astro/renderer/storyStyles';
 import type { ComposedStory } from './types.ts';
 import { renderViaTestingRendererDaemon } from './renderer-daemon.ts';
 
@@ -86,7 +89,9 @@ async function getAstroSsrHandler(resolveFrom: string) {
         loadModule: (id: string) =>
           ssrLoadModuleWithFsFallback(viteServer, id, {
             fixStacktrace: true
-          })
+          }),
+        loadComponentStyles: (componentIds: string[]) =>
+          loadComponentStyles(viteServer, componentIds)
       });
     })());
   }
@@ -132,12 +137,23 @@ async function resolveAstroComponent(component: unknown, resolveFrom: string) {
   return resolvedComponent;
 }
 
+// The `<style>` elements the render handler puts ahead of the story's markup.
+const STORY_STYLES = new RegExp(`<style ${STORY_STYLE_ATTRIBUTE}>[\\s\\S]*?</style>`, 'g');
+
 function setRenderedHtml(html: string) {
-  if (typeof document !== 'undefined') {
-    document.body.innerHTML = html;
+  // As in the Storybook canvas, the story's CSS isn't part of its markup
+  // (issue #224). The rest of the HTML comes back exactly as rendered.
+  const markup = html.replace(STORY_STYLES, '');
+
+  if (typeof document === 'undefined') {
+    return markup;
   }
 
-  return html;
+  // The CSS goes in the head, replacing the last story's. It's keyed on the
+  // document element, which a test can't swap out the way it can the body.
+  document.body.innerHTML = moveStoryStylesToHead(html, document.documentElement).innerHTML;
+
+  return markup;
 }
 
 /**
@@ -203,7 +219,7 @@ async function renderAstroComponentToDom(
   // a prop or slot into a moduleId marker. The handler reconstructs each marker —
   // loading the real server component by moduleId — so a story can nest Astro
   // components without the unrenderable client stub leaking through.
-  const { componentArgs, storySlots } = separateStorySlots(args);
+  const { props: componentArgs, slots: storySlots } = splitStoryArgs(args);
   const serializedArgs = serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>;
   const serializedSlots = serializeAstroComponentMarkers(storySlots) as Record<string, unknown>;
   const node = decoratedTree && moduleId
@@ -211,9 +227,11 @@ async function renderAstroComponentToDom(
     : undefined;
 
   if (moduleId) {
+    let html: string | undefined;
+
     try {
       // Fast path: reuse a single shared SSR daemon instead of spinning SSR in each worker.
-      const html = await renderViaTestingRendererDaemon({
+      const daemonHtml = await renderViaTestingRendererDaemon({
         resolveFrom,
         component: moduleId,
         args: serializedArgs,
@@ -221,25 +239,32 @@ async function renderAstroComponentToDom(
         node
       });
 
-      if (typeof html === 'string') {
-        return setRenderedHtml(html);
+      if (typeof daemonHtml === 'string') {
+        html = daemonHtml;
       }
     } catch {
       // Fall back to in-worker rendering below when daemon render fails.
     }
 
-    try {
-      const handler = await getAstroSsrHandler(resolveFrom);
-      const html = await handler({
-        component: moduleId,
-        args: serializedArgs,
-        slots: serializedSlots,
-        node
-      });
+    if (html === undefined) {
+      try {
+        const handler = await getAstroSsrHandler(resolveFrom);
 
+        html = await handler({
+          component: moduleId,
+          args: serializedArgs,
+          slots: serializedSlots,
+          node
+        });
+      } catch {
+        // Fall back to direct Container rendering below
+      }
+    }
+
+    // Outside the try blocks, so an error writing the page isn't taken for a
+    // failed render.
+    if (html !== undefined) {
       return setRenderedHtml(html);
-    } catch {
-      // Fall back to direct Container rendering below
     }
   }
 
@@ -251,8 +276,9 @@ async function renderAstroComponentToDom(
   }
 
   // This last-resort fallback (no moduleId, or both the daemon and the
-  // in-worker handler failed) renders the undecorated story only — decorators
-  // need the handler's `node` resolution, which this path doesn't have.
+  // in-worker handler failed) renders the undecorated, unstyled story only —
+  // decorators need the handler's `node` resolution and scoped styles its
+  // `loadComponentStyles`, neither of which this path has.
   //
   // The direct fallback has no handler, so reconstruct nested components here:
   // load each marker's real server module by id and render slot markers to HTML.
