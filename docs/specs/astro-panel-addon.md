@@ -156,11 +156,17 @@ import { ASTRO_RENDER_INFO_EVENT, type AstroRenderInfo } from './types.ts';
 
 // Build the request first, so serializing args isn't counted as round trip.
 const request = { component: rootComponent.moduleId, /* args, slots, node, story as today */ };
+const canvasWasConnected = canvasElement.isConnected;
 const startedAt = performance.now();
 const response = await astroRenderer.render(request);
 const roundTripMs = performance.now() - startedAt;
 
 if (latestRenderByCanvas.get(canvasElement) !== renderToken) {
+  return;
+}
+
+// Storybook removed the canvas while the request was in flight (#288).
+if (canvasWasConnected && !canvasElement.isConnected) {
   return;
 }
 

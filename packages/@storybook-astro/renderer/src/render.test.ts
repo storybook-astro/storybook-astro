@@ -168,9 +168,11 @@ describe('rendering an Astro story', () => {
     const detachedCanvas = document.createElement('div');
 
     serverRespondsWith('first');
-    await renderAstro(detachedCanvas);
+    const teardown = await renderAstro(detachedCanvas);
 
     expect(detachedCanvas.innerHTML).toBe('<div>first</div>');
+
+    await teardown?.();
   });
 });
 
