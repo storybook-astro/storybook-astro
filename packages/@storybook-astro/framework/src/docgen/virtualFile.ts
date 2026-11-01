@@ -53,7 +53,7 @@ export function buildVirtualSource(astroSource: string): string | null {
  * Index of the closing `---`, searching line by line rather than with a lazy
  * regex so a `---` inside a frontmatter string or comment doesn't end it early.
  */
-function findClosingFence(source: string): number {
+export function findClosingFence(source: string): number {
   let cursor = source.indexOf('\n');
 
   while (cursor !== -1) {

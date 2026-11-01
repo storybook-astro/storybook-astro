@@ -53,6 +53,7 @@ type, and the defaults read from the `Astro.props` destructuring.
 | A union of string literals | A select control with those options |
 | A prop that is neither optional nor defaulted | Marked **Required** |
 | `@default` on a prop | The **Default** column, when the destructuring has none |
+| A `<slot>` in the template | A row in the **Slots** section (see [Slots](#slots)) |
 
 Types imported from another file work too, including via tsconfig `paths`
 aliases — the extractor uses your project's `tsconfig.json`.
@@ -123,8 +124,30 @@ apart and the story file quietly wins.
 
 ## Slots
 
-Slots have no TypeScript representation, so they never appear in the props table.
-Describe them in the component's JSDoc block, and pass them through `args.slots`:
+The props table lists the slots a component accepts in a **Slots** section, even
+when no story passes content to them. The extractor finds every `<slot>` in the
+template, named or default, and the slot names the frontmatter reads with
+`Astro.slots.render()` or `Astro.slots.has()`. A slot whose name is an expression
+(`<slot name={name} />`) isn't listed, since its name is only known at render time.
+
+To describe a slot, put a comment starting with `@slot` directly before it:
+
+```astro
+<article>
+  {/* @slot The card body */}
+  <slot />
+  <footer>
+    {/* @slot Buttons shown under the body */}
+    <slot name="actions" />
+  </footer>
+</article>
+```
+
+`{/* … */}` comments are removed from the rendered HTML. An HTML comment
+(`<!-- @slot … -->`) works too, but Astro keeps it in the page.
+
+Astro slots are always optional, so none are marked **Required**. Pass slot
+content through `args.slots`:
 
 ```jsx
 export const WithMain = {
@@ -134,6 +157,28 @@ export const WithMain = {
   },
 };
 ```
+
+Each slot row also has a text control, starting at the story's content for that
+slot, so you can edit a slot's HTML in the Controls panel instead of in a JSON
+object. Once you edit a slot's control, your edit wins over the same slot in
+`args.slots`. Until then `args.slots` decides, so a play function's
+`updateArgs({ slots })` still shows. A slot whose story content is a component,
+rather than a string, has no control, since it can't be edited as text. When
+every slot a story fills has its own text control, the `slots` row has no JSON
+editor, since an edit in a slot's control would override it. If any slot lacks
+a text control, the JSON editor stays so that slot can still be edited. Slot
+HTML goes through the same [sanitization](/guides/sanitization/) as any string
+slot content, so attributes outside the allowlist, such as `data-*`, are
+removed. With the [Docgen Server](#moving-extraction-off-the-dev-server)
+enabled, slots are listed but have no text control yet
+([#267](https://github.com/storybook-astro/storybook-astro/issues/267)). Slot
+rows and their controls come from the same extraction as the props table, so
+they need `@storybook/addon-docs` and TypeScript installed (see
+[Turning extraction off](#turning-extraction-off)).
+
+Each control is stored in a story arg named `slot:<name>`, for example
+`slot:footer`, which the renderer folds back into `args.slots`. You don't need to
+write these yourself.
 
 ## Moving extraction off the dev server
 
@@ -158,7 +203,8 @@ extraction stays in the builder and Storybook Astro logs a warning naming the
 right flag.
 
 The props table and description are the same either way — it is the same
-extractor, just running somewhere else. What you gain is that a large component
+extractor, just running somewhere else. The one difference is that slot rows
+have no text control on this path yet. What you gain is that a large component
 library no longer blocks story transforms while its types are checked, and
 static builds get per-component JSON snapshots under
 `services/core/docgen/` instead of inlining docgen into the preview bundle.
@@ -223,7 +269,7 @@ so it stays the usage you would copy into a page.
 | `false` | `featured={false}` |
 | number / bigint | `count={42}` |
 | `Date` | `published={new Date("2026-06-11T10:00:00.000Z")}` |
-| object / array | `author={author}`, with `const author = …` hoisted into the frontmatter |
+| object / array | `author={author}`, with `const author = …` hoisted into the frontmatter, or written out in the attribute with `objectProps: 'inline'` (see below) |
 | `''`, `null`, `undefined`, functions | omitted |
 
 `args.slots` becomes the component's children — the `default` slot inline, and
@@ -234,6 +280,41 @@ literal template form.
 The import path is always written as a sibling (`./Card.astro`). It is a usage
 sample rather than a copy of your file layout, so adjust it to wherever the
 component actually lives.
+
+### Writing object props inline
+
+By default an object or array prop goes into the frontmatter as a `const`, which
+keeps the tag short. To write it out in the attribute instead, as you would when
+using the component, set `docs.source.objectProps` to `'inline'`:
+
+```javascript
+export default {
+  component: Card,
+  parameters: {
+    docs: { source: { objectProps: 'inline' } },
+  },
+};
+```
+
+```astro
+---
+import Card from './Card.astro';
+---
+<Card
+  media={{
+    src: "/images/card.png",
+    width: 600
+  }}
+  title="Title"
+>
+  Content
+</Card>
+```
+
+It's an ordinary parameter, so it can go in `.storybook/preview.js` for every
+story, on a component's meta as above, or on a single story. The snippet still
+follows Controls. Set it back to `'frontmatter'` to restore the default for a
+component or story.
 
 ### Turning the Code panel on everywhere
 
