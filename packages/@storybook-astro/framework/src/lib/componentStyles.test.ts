@@ -204,7 +204,8 @@ function createFakeServer(options: {
 
   const server = {
     environments: { ssr: { moduleGraph, transformRequest: compile } },
-    config: { plugins: [plugin] },
+    // Vite's default asset types include images like these.
+    config: { plugins: [plugin], assetsInclude: (id: string) => /\.(jpe?g|png|svg|webp)$/.test(id) },
     // Like Vite's module runner, a module it holds that has a transform result
     // isn't compiled or run again, so a compile outside the runner leaves its
     // exports, or its error, stale.
@@ -533,6 +534,21 @@ describe('loadComponentStyles', () => {
     expect(compiles).toEqual([]);
   });
 
+  test('doesn\'t compile the images or JSON files a glob matches, which can\'t import CSS', async () => {
+    // `import.meta.glob('../assets/gallery/*.jpg')` and a lazy `import('./data.json')`.
+    const { server, compiles } = createFakeServer({
+      imports: { 'Gallery.astro': [styleOf('Gallery.astro')] },
+      dynamicImports: { 'Gallery.astro': ['gallery/one.jpg', 'gallery/two.jpg', 'data.json'] },
+      notLoaded: ['gallery/one.jpg', 'gallery/two.jpg', 'data.json']
+    });
+
+    expect(await loadComponentStyles(server, ['Gallery.astro'])).toEqual({
+      stylesheets: [`/* ${styleOf('Gallery.astro')} */`],
+      failures: []
+    });
+    expect(compiles).toEqual([]);
+  });
+
   test('compiles and reports a broken stylesheet once, however many components import it', async () => {
     const { server, compiles } = createFakeServer({
       imports: { 'A.astro': [], 'B.astro': [] },
@@ -564,6 +580,26 @@ describe('loadComponentStyles', () => {
 
     expect(stylesheets).toEqual([`/* ${styleOf('Loader.astro')} */`, `/* ${styleOf('Widget.astro')} */`]);
     expect(failures).toEqual([]);
+  });
+
+  test('doesn\'t follow the old imports of a glob match an edit broke', async () => {
+    // An earlier story rendered Widget, then an edit left a syntax error in
+    // it. Its imports in the graph are from before the edit, and its style
+    // block can't load while the component doesn't compile. The story doesn't
+    // render Widget, so nothing is reported and no stale CSS ships.
+    const { server, edit, ran } = createFakeServer({
+      imports: { 'Loader.astro': [styleOf('Loader.astro')], 'Widget.astro': [styleOf('Widget.astro')] },
+      dynamicImports: { 'Loader.astro': ['Widget.astro'] },
+      failToCompile: ['Widget.astro', styleOf('Widget.astro')]
+    });
+
+    edit('Widget.astro');
+
+    expect(await loadComponentStyles(server, ['Loader.astro'])).toEqual({
+      stylesheets: [`/* ${styleOf('Loader.astro')} */`],
+      failures: []
+    });
+    expect(ran).toEqual([]);
   });
 
   test('doesn\'t walk a module that failed to run, whose style blocks never compiled', async () => {
@@ -727,8 +763,8 @@ describe('loadComponentStyles', () => {
     // No story has rendered Widget, so the module runner doesn't hold it.
     // After an edit that swaps its second <style> block for a stylesheet,
     // the walk compiles it again, so the deleted block's CSS doesn't ship
-    // and loading it doesn't fail.
-    const { server, edit, ran } = createFakeServer({
+    // and loading it doesn't fail. Later walks don't compile it again.
+    const { server, edit, ran, compiles } = createFakeServer({
       imports: {
         'Loader.astro': [],
         'Widget.astro': [styleOf('Widget.astro'), styleOf('Widget.astro', 1)]
@@ -748,6 +784,13 @@ describe('loadComponentStyles', () => {
       stylesheets: [`/* ${styleOf('Widget.astro')} */`, '/* widget.css */'],
       failures: []
     });
+    expect(compiles.filter((url) => url === 'Widget.astro')).toHaveLength(2);
+
+    expect(await loadComponentStyles(server, ['Loader.astro'])).toEqual({
+      stylesheets: [`/* ${styleOf('Widget.astro')} */`, '/* widget.css */'],
+      failures: []
+    });
+    expect(compiles.filter((url) => url === 'Widget.astro')).toHaveLength(2);
     expect(ran).not.toContain('Widget.astro');
   });
 

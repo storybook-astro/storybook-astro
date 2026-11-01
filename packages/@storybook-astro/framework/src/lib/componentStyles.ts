@@ -19,6 +19,11 @@ const SERVER_ISLAND_MANIFEST = '\0virtual:astro:server-island-manifest';
 const isAstroPageBoundary = (id: string) =>
   id.startsWith('\0virtual:astro:page:') || id.startsWith('\0virtual:astro:dev-css');
 
+// When a walk last compiled an invalidated module and cleared its transform
+// result again. Vite never resets a module's invalidation timestamps, so
+// without this every later walk would compile it again, until a render ran it.
+const clearedByAWalkAt = new WeakMap<EnvironmentModuleNode, number>();
+
 export type ComponentStyles = {
   /**
    * The compiled CSS of each `<style>` block and stylesheet the rendered
@@ -64,8 +69,8 @@ export async function loadComponentStyles(
 
   const styleModules = new Map<string, EnvironmentModuleNode>();
   const visited = new Set<EnvironmentModuleNode>();
-  // Imports this walk compiled, or failed to, so each one is compiled and reported once.
-  const compiledByThisWalk = new Set<EnvironmentModuleNode>();
+  // Imports this walk has handled (compiled, skipped, or failed), so each one is handled and reported once.
+  const handledByThisWalk = new Set<EnvironmentModuleNode>();
   const failedToCompile = new Set<EnvironmentModuleNode>();
   const failures: ComponentStyles['failures'] = [];
 
@@ -80,11 +85,11 @@ export async function loadComponentStyles(
   const compileImport = async (module: EnvironmentModuleNode) => {
     const id = module.id;
 
-    if (!id || module.transformResult || compiledByThisWalk.has(module) || isAstroPageBoundary(id)) {
+    if (!id || module.transformResult || handledByThisWalk.has(module) || isAstroPageBoundary(id)) {
       return;
     }
 
-    compiledByThisWalk.add(module);
+    handledByThisWalk.add(module);
 
     if (isAppliedStylesheet(id)) {
       if (compiled.has(id)) {
@@ -106,8 +111,15 @@ export async function loadComponentStyles(
 
     // Leave a module loaded with a query (`?raw`, `?url`, a framework's
     // script sub-module) alone: it isn't a component, and the walk doesn't
-    // follow its imports.
-    if (id.includes('?') || id === SERVER_ISLAND_MANIFEST) {
+    // follow its imports. An asset or JSON file can't import CSS, and
+    // compiling one (every image a lazy `import.meta.glob` matches, say)
+    // would read and probe it for nothing.
+    if (
+      id.includes('?') ||
+      id === SERVER_ISLAND_MANIFEST ||
+      id.endsWith('.json') ||
+      viteServer.config.assetsInclude(id)
+    ) {
       return;
     }
 
@@ -120,13 +132,21 @@ export async function loadComponentStyles(
     // and the runner's next import compiles and runs the module afresh (the
     // way Astro refreshes its server island map). A module with no transform
     // result that Vite never invalidated has never compiled, so the runner
-    // can't hold it, and its result is kept so later walks skip it.
-    const wasInvalidated = module.lastInvalidationTimestamp !== 0 || module.lastHMRTimestamp !== 0;
+    // can't hold it, and its result is kept so later walks skip it. A module
+    // a walk already cleared since its last invalidation still has its
+    // imports in the graph, so it isn't compiled again.
+    const lastInvalidated = Math.max(module.lastInvalidationTimestamp, module.lastHMRTimestamp);
+    const clearedAt = clearedByAWalkAt.get(module);
+
+    if (clearedAt !== undefined && clearedAt > lastInvalidated) {
+      return;
+    }
 
     await ssr.transformRequest(module.url);
 
-    if (wasInvalidated) {
+    if (lastInvalidated !== 0) {
       module.transformResult = null;
+      clearedByAWalkAt.set(module, Date.now());
     }
   };
 
@@ -181,9 +201,12 @@ export async function loadComponentStyles(
       // A stylesheet that doesn't compile (a Sass error, say) is reported,
       // so a static build fails on it, and the last CSS that compiled still
       // ships, as Astro dev keeps it. A component that doesn't compile fails
-      // the render that calls it, and the story may not.
+      // the render that calls it, and the story may not. Its imports are
+      // the ones from before the broken edit, so the walk doesn't follow them.
       if (imported.id && isAppliedStylesheet(imported.id)) {
         failures.push({ moduleId: imported.id, error: result.reason });
+      } else {
+        visited.add(imported);
       }
     });
 
