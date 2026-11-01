@@ -123,6 +123,46 @@ describe('moveStoryStylesToHead', () => {
     expect(headStyles()[0]).toBe(globalStyle);
     expect(headCss()).toEqual(['.global {}', '.card { color: blue; }']);
   });
+
+  test('puts a global stylesheet ahead of component CSS another story already shared', () => {
+    const buttonCanvas = createCanvas();
+    const pageCanvas = createCanvas();
+
+    renderInto(buttonCanvas, `${styleFor('.button {}')}<button></button>`);
+    renderInto(pageCanvas, `${styleFor('.global {}')}${styleFor('.button {}')}<div></div>`);
+
+    expect(headCss()).toEqual(['.global {}', '.button {}']);
+  });
+
+  test('keeps an edited global stylesheet ahead of the component CSS that overrides it', () => {
+    const canvas = createCanvas();
+
+    renderInto(canvas, `${styleFor('a { color: inherit; }')}${styleFor('a { color: red; }')}<a></a>`);
+    renderInto(canvas, `${styleFor('a { color: inherit; x: 1; }')}${styleFor('a { color: red; }')}<a></a>`);
+
+    expect(headCss()).toEqual(['a { color: inherit; x: 1; }', 'a { color: red; }']);
+  });
+
+  test('keeps an edited global stylesheet ahead of component CSS another story shares', () => {
+    const buttonCanvas = createCanvas();
+    const otherButtonCanvas = createCanvas();
+
+    renderInto(buttonCanvas, `${styleFor('.global {}')}${styleFor('.button {}')}<button></button>`);
+    renderInto(otherButtonCanvas, `${styleFor('.button {}')}<button></button>`);
+    renderInto(buttonCanvas, `${styleFor('.global { color: red; }')}${styleFor('.button {}')}<button></button>`);
+
+    expect(headCss()).toEqual(['.global { color: red; }', '.button {}']);
+  });
+
+  test('puts a new story\'s reset ahead of a global stylesheet another story already shared', () => {
+    const buttonCanvas = createCanvas();
+    const linkCanvas = createCanvas();
+
+    renderInto(buttonCanvas, `${styleFor('.global {}')}${styleFor('.button {}')}<button></button>`);
+    renderInto(linkCanvas, `${styleFor('.reset {}')}${styleFor('.global {}')}${styleFor('.link {}')}<a></a>`);
+
+    expect(headCss()).toEqual(['.reset {}', '.global {}', '.button {}', '.link {}']);
+  });
 });
 
 describe('removeStoryStyles', () => {

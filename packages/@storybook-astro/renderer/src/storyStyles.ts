@@ -5,7 +5,10 @@ const STORY_STYLE = `style[${STORY_STYLE_ATTRIBUTE}]`;
 // One head element per distinct CSS text, shared by every canvas that renders
 // it. A Docs page renders several stories into one head, each into its own
 // canvas, and stories of one component ship the same CSS, so each stylesheet
-// goes in once (issue #234). An element leaves when its last canvas lets go.
+// goes in once (issue #234). A shared element stays where it is, and new CSS
+// goes in before the next stylesheet the render shares, so each canvas keeps
+// its own order. Two canvases that need shared stylesheets in opposite orders
+// get the first canvas's order. An element leaves when its last canvas lets go.
 type SharedStyle = { element: HTMLStyleElement; canvases: Set<Element> };
 
 const sharedStylesByDocument = new WeakMap<Document, Map<string, SharedStyle>>();
@@ -20,12 +23,15 @@ const stylesByCanvas = new WeakMap<Element, SharedStyle[]>();
  * scripting off.
  *
  * The styles replace the ones this canvas's last render put there, so CSS
- * deleted in an edit stops applying. New CSS goes to the end of the head, where
+ * deleted in an edit stops applying. CSS already in the head, from another
+ * canvas or this canvas's last render, is shared and stays where it is, so one
+ * copy of a global stylesheet doesn't land after a component's CSS and
+ * override it, as on an Astro page, which ships each stylesheet once. New CSS
+ * goes in before the next stylesheet this render shares, so the render's own
+ * order holds, or at the end of the head when it shares none after it, where
  * Astro component CSS went before #189 too, after any CSS the story's modules
- * added on import. CSS another canvas already put in the head is shared and
- * stays where it is, so one copy of a global stylesheet doesn't land after a
- * component's CSS and override it, as on an Astro page, which ships each
- * stylesheet once.
+ * added on import. Two canvases that need shared stylesheets in opposite
+ * orders get the first canvas's order.
  */
 export function moveStoryStylesToHead(html: string, canvasElement: Element) {
   const document = canvasElement.ownerDocument;
@@ -53,17 +59,28 @@ export function moveStoryStylesToHead(html: string, canvasElement: Element) {
   }
 
   const sharedStyles = sharedStylesFor(document);
-  // Take the new CSS before letting go of the old, so CSS this canvas keeps
-  // across the edit isn't removed and added back at the end.
-  const nextStyles = cssTexts.map((css) => {
-    let shared = sharedStyles.get(css);
+  // Find the CSS another canvas, or this canvas's last render, already put in
+  // the head before letting go of the old, so CSS this canvas keeps across an
+  // edit isn't removed and added back.
+  const reusedStyles = cssTexts.map((css) => {
+    const shared = sharedStyles.get(css);
 
-    if (!shared || !shared.element.isConnected) {
+    return shared?.element.isConnected ? shared : undefined;
+  });
+  const nextStyles = cssTexts.map((css, index) => {
+    let shared = reusedStyles[index];
+
+    if (!shared) {
       const element = document.createElement('style');
+      // Going in before the next stylesheet this render shares keeps the
+      // render's own order, so an edited global.css stays ahead of the
+      // button.css that overrides it. With nothing shared after it, it goes
+      // at the end of the head.
+      const nextReusedStyle = reusedStyles.slice(index + 1).find((reused) => reused !== undefined);
 
       element.setAttribute(STORY_STYLE_ATTRIBUTE, '');
       element.textContent = css;
-      document.head.append(element);
+      document.head.insertBefore(element, nextReusedStyle?.element ?? null);
       shared = { element, canvases: new Set() };
       sharedStyles.set(css, shared);
     }
