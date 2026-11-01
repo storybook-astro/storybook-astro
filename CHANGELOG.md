@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-11-01
+
 ### Added
 - The Docs props table lists the slots an Astro component accepts, in a **Slots** section, whether or not a story passes content to them (#188). They're read from the component's `<slot>` elements and its `Astro.slots.render()`/`has()` calls. A comment starting with `@slot` directly before a `<slot>` becomes its description.
 - Each slot gets a text control in the Controls panel, starting at the story's content for that slot, so slot HTML can be edited without the `args.slots` JSON editor (#203). The edit is folded back into `args.slots` and wins over the story's own value; until a slot's control is edited, changes to `args.slots` (such as a play function's `updateArgs`) still show. A slot holding a component has no control. When every slot a story fills has its own text control, the `slots` row no longer offers a JSON editor, since an edited slot control would override it. A plain-text slot edit (ASCII letters, digits, spaces, `_` and `-`) is saved in the story's URL, so it survives a reload or a shared link; Storybook leaves an edit with HTML, punctuation or any other character, such as an accented letter, out of the URL (#306). With the Docgen Server enabled, slots are listed but have no text control yet.
