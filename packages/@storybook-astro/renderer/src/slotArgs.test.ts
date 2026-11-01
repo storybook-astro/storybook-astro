@@ -7,7 +7,7 @@ const slotArgTypes = {
 };
 
 describe('slotArgName', () => {
-  test('is a key Storybook keeps in the URL, so a slot edit survives a reload', () => {
+  test('is a key Storybook keeps in the URL', () => {
     // Storybook's validateArgs only writes keys matching this to the URL.
     expect(slotArgName('footer')).toMatch(/^[a-zA-Z0-9 _-]*$/);
   });

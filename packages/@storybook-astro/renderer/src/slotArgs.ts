@@ -2,8 +2,10 @@
 // only gives top-level args a control. So each slot the docgen found also gets
 // a top-level arg, `slot-<name>`, with a text control (issue #203). The prefix
 // is very unlikely to collide with a prop name, and it keeps the key within
-// the characters Storybook writes to the URL (#306), so an edit survives a
-// reload or a shared link. Everything that reads a story's args folds
+// the characters Storybook writes to the URL (#306), so a plain-text edit
+// (letters, digits, spaces, `_`, `-`) survives a reload or a shared link.
+// Storybook also checks the value, so an edit with HTML or other punctuation
+// is still left out of the URL. Everything that reads a story's args folds
 // these back into `slots` through `splitStoryArgs`.
 //
 // Kept free of virtual-module imports, so the framework's static prerender and
