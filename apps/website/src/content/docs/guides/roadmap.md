@@ -183,7 +183,7 @@ Anything declared in `astro.config.*` is picked up by Storybook automatically: `
 
 **Shipped in**: 1.4.0
 
-The `<Font>` component renders real `@font-face` CSS in dev and static builds, driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required). In server builds, the font CSS variables are defined in the iframe head, but a story that renders `<Font>` fails with a `FontFamilyNotFound` error because the render server doesn't receive the fonts yet.
+The `<Font>` component works in dev and static builds and the font's `@font-face` CSS is loaded (in builds, from the iframe head), driven by the `fonts:` array in your `astro.config.*` (auto-loaded — no mirror into `.storybook/main.js` required). In server builds, the font CSS variables are defined in the iframe head, but a story that renders `<Font>` fails with a `FontFamilyNotFound` error because the render server doesn't receive the fonts yet.
 
 **Documentation**: See [Styling guide](/guides/styling/#astro-font-provider-api)
 

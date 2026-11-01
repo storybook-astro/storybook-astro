@@ -218,12 +218,55 @@ describe('resolving each family once (issue #248)', () => {
     warn.mockRestore();
   });
 
+  async function buildIframeHead(plugin: ReturnType<typeof vitePluginAstroFonts>) {
+    (plugin.configResolved as (config: { command: string }) => void)({ command: 'build' });
+
+    return (plugin.transformIndexHtml as () => Promise<unknown>)();
+  }
+
   test('leaves the CSS out of <Font> when the iframe head already has it', async () => {
     const family = inter(() => ({ fonts: [face] }));
 
     expect(await loadInternalModule(vitePluginAstroFonts({ fonts: [family] }))).toContain('@font-face');
+
+    await buildIframeHead(vitePluginAstroFonts({ fonts: [family] }));
     expect(
       await loadInternalModule(vitePluginAstroFonts({ fonts: [family], fontCssInHead: true }))
     ).not.toContain('@font-face');
+  });
+
+  test('keeps the CSS in <Font> for a family the iframe head is missing after a failed resolve', async () => {
+    const resolveFont = vi
+      .fn<StorybookFontProvider['resolveFont']>()
+      .mockRejectedValueOnce(new Error('rate limited'))
+      .mockResolvedValue({ fonts: [face] });
+    const family = inter(resolveFont);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // The head transform's resolve fails, and the prerender's retry succeeds.
+    expect(await buildIframeHead(vitePluginAstroFonts({ fonts: [family] }))).toBeUndefined();
+    expect(
+      await loadInternalModule(vitePluginAstroFonts({ fonts: [family], fontCssInHead: true }))
+    ).toContain('@font-face');
+    warn.mockRestore();
+  });
+
+  test('fetches provider metadata once for every family that shares the provider', async () => {
+    const fetchMetadata = vi.fn(async () => ({ families: ['Inter', 'Roboto'] }));
+    const provider: StorybookFontProvider = {
+      name: 'shared',
+      async init({ storage }) {
+        await storage.getItem('shared-provider-test:meta.json', fetchMetadata);
+      },
+      resolveFont: () => ({ fonts: [face] })
+    };
+    const families: StorybookFontFamily[] = [
+      { name: 'Inter', cssVariable: '--font-inter', provider },
+      { name: 'Roboto', cssVariable: '--font-roboto', provider }
+    ];
+
+    await generateFontCss(families, process.cwd());
+
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
   });
 });

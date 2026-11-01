@@ -154,7 +154,7 @@ Match whatever aliases you have in your `astro.config.*` — `@`, `~`, `#`, etc.
 
 ### Astro Font Provider API
 
-If your project uses Astro 6's [Font Provider API](https://docs.astro.build/en/reference/font-provider-reference/) — `fonts: [...]` in `astro.config.*` with providers like `fontProviders.google()`, `fontProviders.bunny()`, etc. — Storybook auto-loads the array and the `<Font>` component renders real `@font-face` CSS in stories with no extra wiring.
+If your project uses Astro 6's [Font Provider API](https://docs.astro.build/en/reference/font-provider-reference/) — `fonts: [...]` in `astro.config.*` with providers like `fontProviders.google()`, `fontProviders.bunny()`, etc. — Storybook auto-loads the array and stories get the family's `@font-face` CSS with no extra wiring. In dev it arrives with each story. In static builds every family's CSS is in the iframe head's `<style data-storybook-astro-fonts>`, so `<Font>` doesn't repeat it.
 
 ```javascript
 // astro.config.mjs
