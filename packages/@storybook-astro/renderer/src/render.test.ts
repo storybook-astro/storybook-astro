@@ -123,13 +123,26 @@ describe('rendering an Astro story', () => {
 
     expect(canvas.innerHTML).toBe('<div>first</div>');
     expect(headCss()).toEqual(['.first {}']);
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+    expect(canvas.style.position).toBe('');
 
     await teardown?.();
 
     expect(canvas.innerHTML).toBe('');
     expect(headCss()).toEqual([]);
-    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
-    expect(canvas.style.minHeight).toBe('');
+  });
+
+  test('renders a story whose canvas was removed and put back while it waited', async () => {
+    const lateRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    canvas.remove();
+    document.body.append(canvas);
+    lateRender.respond('second');
+    await rendering;
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(headCss()).toEqual(['.second {}']);
   });
 
   test('lets a live story remove CSS it shares with a story whose canvas was removed while it waited (issue #288)', async () => {

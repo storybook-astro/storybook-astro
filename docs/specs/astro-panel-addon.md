@@ -36,7 +36,7 @@ The handler returns one string. After rendering, it calls `loadStylesOrWarn`, wh
 - **Static prerender.** `pointStoryCssUrlsAtFsPaths`, called from `rewriteAssetPaths`, finds the elements with a regex (`STORY_STYLES`) to rewrite `url()` paths in the CSS only, never in HTML attributes.
 - **Server mode and static prerender.** `addStaticStylesheets` (`lib/staticHtmlRewriting.ts`) prepends `<link rel="stylesheet">` tags for hydrated framework components. The renderer's `syncServerRenderedStylesheets` moves them into the head. These are unrelated to #235 and stay in the HTML (see [Settled questions](#settled-questions)).
 
-`render.tsx` has also changed since this spec was first written. Each render into a canvas gets a token (`latestRenderByCanvas`, `shownRenderByCanvas`). A response that arrives after a newer render into the same canvas has started, or after the canvas left the document, is dropped. The teardown `renderToCanvas` returns clears a canvas only while the canvas still shows that render.
+`render.tsx` has also changed since this spec was first written. Each render into a canvas gets a token (`latestRenderByCanvas`, `shownRenderByCanvas`). A response that arrives after a newer render into the same canvas has started, or after a canvas that was in the document when the render started has left it, is dropped. The teardown `renderToCanvas` returns clears a canvas only while the canvas still shows that render.
 
 ## Design decisions
 
