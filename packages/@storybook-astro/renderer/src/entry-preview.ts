@@ -4,6 +4,7 @@ import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import { enhanceArgTypes } from 'storybook/internal/docs-tools';
 
 import { defaultPreviewParameters } from './preview-defaults.ts';
+import { lockNonTextSlotControls, seedSlotArgs } from './slotArgs.ts';
 
 export const parameters = {
   renderer: 'astro',
@@ -54,8 +55,11 @@ function disablePrerenderedControls(context: {
 // live controls that do nothing (docs/specs/docgen.md#design-decisions).
 export const argTypesEnhancers = [
   enhanceArgTypes,
+  lockNonTextSlotControls,
   ...(astroRenderer.isStaticMode ? [disablePrerenderedControls] : []),
 ];
+
+export const argsEnhancers = [seedSlotArgs];
 
 export { renderToCanvas, render } from './render.tsx';
 export { applyDecorators } from './decorators.ts';

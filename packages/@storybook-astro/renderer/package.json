@@ -55,6 +55,10 @@
       "types": "./dist/decoratedTree.d.ts",
       "import": "./dist/decoratedTree.js"
     },
+    "./slotArgs": {
+      "types": "./dist/slotArgs.d.ts",
+      "import": "./dist/slotArgs.js"
+    },
     "./storyStyles": {
       "types": "./dist/storyStyles.d.ts",
       "import": "./dist/storyStyles.js"

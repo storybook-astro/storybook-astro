@@ -101,6 +101,11 @@ export function vitePluginAstroFonts(
   options: {
     fonts?: StorybookFontFamily[];
     root?: string;
+    /**
+     * The build's iframe head has the @font-face CSS, so `<Font>` renders
+     * without its own copy of any family the head transform put there.
+     */
+    fontCssInHead?: boolean;
   } = {}
 ): Plugin {
   const families = options.fonts ?? [];
@@ -147,6 +152,14 @@ export function vitePluginAstroFonts(
 
       if (!css) {return;}
 
+      const variablesInHead = new Set(data.componentEntries.map(([cssVariable]) => cssVariable));
+
+      for (const family of families) {
+        if (variablesInHead.has(family.cssVariable)) {
+          familiesInHead.add(family);
+        }
+      }
+
       return [{ tag: 'style', attrs: { 'data-storybook-astro-fonts': '' }, children: css, injectTo: 'head' as const }];
     },
 
@@ -170,10 +183,21 @@ export function vitePluginAstroFonts(
     async load(id) {
       if (id === '\0' + VIRTUAL_INTERNAL_ID) {
         const data = resolved ?? (await ensureResolved());
+        // A family that failed or found no faces for the head and resolved
+        // here on a retry keeps its CSS in <Font>, since the head doesn't
+        // have it.
+        const variablesInHead = new Set(
+          families.filter((family) => familiesInHead.has(family)).map((family) => family.cssVariable)
+        );
+        const componentEntries = options.fontCssInHead
+          ? data.componentEntries.map(([cssVariable, entry]) =>
+            variablesInHead.has(cssVariable) ? [cssVariable, { ...entry, css: '' }] : [cssVariable, entry]
+          )
+          : data.componentEntries;
 
         return {
           code:
-            `export const componentDataByCssVariable = new Map(${JSON.stringify(data.componentEntries)});\n` +
+            `export const componentDataByCssVariable = new Map(${JSON.stringify(componentEntries)});\n` +
             `export const fontDataByCssVariable = ${JSON.stringify(data.fontDataByCssVariable)};\n`
         };
       }
@@ -205,22 +229,37 @@ export async function generateFontCss(families: StorybookFontFamily[], rootDir: 
   return componentEntries.map(([, { css }]) => css).join('\n');
 }
 
-async function resolveAllFamilies(
-  families: StorybookFontFamily[],
-  root: URL
-): Promise<ResolvedFontData> {
-  const componentEntries: ResolvedFontData['componentEntries'] = [];
-  const fontDataByCssVariable: ResolvedFontData['fontDataByCssVariable'] = {};
-  const storage = createMemoryStorage();
+// Each family's resolved faces, by project root. Every plugin instance and
+// `generateFontCss` in the process share it, so each provider is asked once
+// per family rather than once per Vite server (issue #248). The family objects
+// come from the cached astro.config or `framework.options.fonts`, so they're
+// the same objects everywhere.
+const facesByFamily = new WeakMap<StorybookFontFamily, Map<string, Promise<FontFaceData[]>>>();
 
-  for (const family of families) {
-    try {
+// Providers cache their metadata (unifont's font list) in this storage, so
+// every family's `init` reuses one fetch instead of making its own.
+const providerStorage = createMemoryStorage();
+
+// The families a build's head transform put into
+// `<style data-storybook-astro-fonts>`. The prerender, which runs after the
+// head transform, strips only these from <Font>.
+const familiesInHead = new WeakSet<StorybookFontFamily>();
+
+function resolveFamilyFaces(family: StorybookFontFamily, root: URL): Promise<FontFaceData[]> {
+  const facesByRoot = facesByFamily.get(family) ?? new Map<string, Promise<FontFaceData[]>>();
+
+  facesByFamily.set(family, facesByRoot);
+
+  let faces = facesByRoot.get(root.href);
+
+  if (!faces) {
+    faces = (async () => {
       if (family.provider.init) {
         // Astro 7.4+ providers request their APIs through `fetch` from this
         // context; older providers ignore it. Astro's own adds retries and
         // proxy support, which a one-off Storybook resolve can do without.
         // eslint-disable-next-line n/no-unsupported-features/node-builtins
-        await family.provider.init({ storage, root, fetch: globalThis.fetch });
+        await family.provider.init({ storage: providerStorage, root, fetch: globalThis.fetch });
       }
       const result = await family.provider.resolveFont({
         familyName: family.name,
@@ -229,7 +268,37 @@ async function resolveAllFamilies(
         subsets: family.subsets ?? [...DEFAULTS.subsets],
         formats: family.formats ?? [...DEFAULTS.formats]
       });
-      const faces = result?.fonts ?? [];
+
+      return result?.fonts ?? [];
+    })();
+    facesByRoot.set(root.href, faces);
+    // A family that failed or came back with no faces is asked again next
+    // time, as before the cache, so a transient empty answer isn't kept for
+    // the whole build.
+    faces
+      .then((resolvedFaces) => {
+        if (resolvedFaces.length === 0) {
+          facesByRoot.delete(root.href);
+        }
+
+        return resolvedFaces;
+      })
+      .catch(() => facesByRoot.delete(root.href));
+  }
+
+  return faces;
+}
+
+async function resolveAllFamilies(
+  families: StorybookFontFamily[],
+  root: URL
+): Promise<ResolvedFontData> {
+  const componentEntries: ResolvedFontData['componentEntries'] = [];
+  const fontDataByCssVariable: ResolvedFontData['fontDataByCssVariable'] = {};
+
+  for (const family of families) {
+    try {
+      const faces = await resolveFamilyFaces(family, root);
 
       if (faces.length === 0) {
         continue;
@@ -334,7 +403,12 @@ function createMemoryStorage(): FontStorage {
       if (init) {
         const value = await init();
 
-        store.set(key, value);
+        // An empty result is usually a transient provider failure. Caching it
+        // would hand every later resolve of the family the same nothing, so the
+        // next resolve asks the provider again instead.
+        if (!(Array.isArray(value) && value.length === 0)) {
+          store.set(key, value);
+        }
 
         return value as never;
       }

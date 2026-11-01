@@ -27,9 +27,11 @@ import { vitePluginStoryModuleMocks } from './vitePluginStoryModuleMocks.ts';
 import { vitePluginNoClientDepOptimizer } from './vitePluginNoClientDepOptimizer.ts';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
 import { loadComponentStyles } from './lib/componentStyles.ts';
+import { vitePluginCompiledStylesheets } from './lib/compiledStylesheets.ts';
 import { resolveRulesConfigFilePath } from './rules-options.ts';
 import {
   appendUserVitePlugins,
+  loadUserAstroCompileOptions,
   loadUserAstroIntegrations,
   loadUserAstroVitePlugins
 } from './loadUserAstroConfig.ts';
@@ -217,6 +219,7 @@ export async function createViteServer(
     { root: resolveFrom },
     {
       configFile: false,
+      ...(await loadUserAstroCompileOptions(resolveFrom)),
       integrations: [...frameworkIntegrations, ...extraIntegrations],
       // Use the passthrough image service so nested components that use <Image>
       // from astro:assets render as plain <img> tags without triggering image
@@ -224,22 +227,6 @@ export async function createViteServer(
       image: { service: storybookImageServiceConfig() }
     }
   )({ mode: 'development', command: 'serve' });
-
-  // Stories ship a component's CSS Modules by loading them again with
-  // `?inline`, and Astro 7.4+ names CSS Module classes in dev by hashing the
-  // full module id. Have the configured naming function (Astro 7.4+ sets one
-  // in dev) ignore the `?inline` query the story loader adds, so the shipped
-  // class names match the markup's (issue #223). Other queries stay: a Vue
-  // SFC's `<style module>` blocks differ only by theirs. Astro 5 and 6 don't
-  // set a naming function.
-  const cssModules = config.css?.modules;
-
-  if (cssModules && typeof cssModules.generateScopedName === 'function') {
-    const scopedName = cssModules.generateScopedName;
-
-    cssModules.generateScopedName = (name, filename, ...rest) =>
-      scopedName(name, filename.replace(/\?inline$/, ''), ...rest);
-  }
 
   const serverConfig: InlineConfig = {
     configFile: false,
@@ -278,6 +265,9 @@ export async function createViteServer(
   // same plugins, or components relying on one of them (e.g. vite-svg-loader's
   // `.svg?component` imports) fail to render in dev mode.
   appendUserVitePlugins(serverConfig, await loadUserAstroVitePlugins(resolveFrom));
+  // The last normal-order plugin, so it records each stylesheet's CSS after
+  // integrations and PostCSS, and before `vite:css-post` turns it into JS.
+  serverConfig.plugins = [...(serverConfig.plugins ?? []), vitePluginCompiledStylesheets()];
 
   const viteServer = await createServer(serverConfig);
 
