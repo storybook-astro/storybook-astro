@@ -11,6 +11,10 @@ import { packageServer } from './packageServer.ts';
 
 const directories: string[] = [];
 
+// NF3 traces the framework's own runtime on each adapt, which takes about
+// 5 seconds even alone, and longer while the rest of the suite runs.
+const PACKAGING_TIMEOUT_MS = 30_000;
+
 afterEach(async () => {
   await Promise.all(directories.map((dir) => rm(dir, { recursive: true, force: true })));
   directories.length = 0;
@@ -80,7 +84,8 @@ test.skipIf(process.platform !== 'linux')(
     await expect(
       realpath(join(output, 'functions/render.func/node_modules/msw'))
     ).rejects.toThrow();
-  }
+  },
+  PACKAGING_TIMEOUT_MS
 );
 
 test('Node emits a portable listener without Vercel configuration', async () => {
@@ -92,7 +97,7 @@ test('Node emits a portable listener without Vercel configuration', async () => 
   expect(await readFile(join(output, 'server.mjs'), 'utf8')).toContain('renderApp');
   expect(await readFile(join(output, 'static/index.html'), 'utf8')).toContain('Storybook');
   await expect(realpath(join(build.projectDir, '.vercel'))).rejects.toThrow();
-});
+}, PACKAGING_TIMEOUT_MS);
 
 test('packaging preserves conflicting dependency versions and runtime files after moving away from the source', async () => {
   const build = await fixture();
@@ -147,7 +152,7 @@ test('packaging preserves conflicting dependency versions and runtime files afte
       'utf8'
     )
   ).toBe('<slot />');
-});
+}, PACKAGING_TIMEOUT_MS);
 
 test('NF3 packages an explicitly included workspace and its assets without unused dependencies', async () => {
   const build = await fixture();
