@@ -43,22 +43,27 @@ const renderAstro = (canvas: HTMLElement) => {
   return renderToCanvas(storyContext(() => component), canvas);
 };
 
+/** A story's response: one CSS block per class name, then markup naming the last one. */
+function storyHtml(classNames: string | string[]) {
+  const names = typeof classNames === 'string' ? [classNames] : classNames;
+  const styles = names.map((name) => `<style data-storybook-astro-styles>.${name} {}</style>`).join('');
+
+  return `${styles}<div>${names[names.length - 1]}</div>`;
+}
+
 /** Has the next server render answer with this story's CSS and markup. */
-function serverRespondsWith(name: string) {
-  server.render.mockResolvedValueOnce({
-    html: `<style data-storybook-astro-styles>.${name} {}</style><div>${name}</div>`
-  });
+function serverRespondsWith(classNames: string | string[]) {
+  server.render.mockResolvedValueOnce({ html: storyHtml(classNames) });
 }
 
 /** Holds the next server render until the test answers or fails it. */
 function serverWaits() {
-  let respond!: (name: string) => void;
+  let respond!: (classNames: string | string[]) => void;
   let fail!: () => void;
 
   server.render.mockReturnValueOnce(
     new Promise((resolve, reject) => {
-      respond = (name) =>
-        resolve({ html: `<style data-storybook-astro-styles>.${name} {}</style><div>${name}</div>` });
+      respond = (classNames) => resolve({ html: storyHtml(classNames) });
       fail = () => reject(new Error('Render failed'));
     })
   );
@@ -81,6 +86,10 @@ beforeEach(() => {
 });
 
 describe('rendering an Astro story', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   test('sends a slot edited in Controls as slot content, not a prop (issue #203)', async () => {
     serverRespondsWith('first');
     const component = astroComponent();
@@ -99,44 +108,56 @@ describe('rendering an Astro story', () => {
     );
   });
 
-  test('leaves no CSS in the head when the response arrives after Storybook removed the canvas (issue #288)', async () => {
+  test('drops a rerender whose canvas was removed while it waited, and the teardown still clears the story it shows (issue #288)', async () => {
+    vi.useFakeTimers();
+    serverRespondsWith('first');
+    await renderAstro(canvas);
+
     const lateRender = serverWaits();
     const rendering = renderAstro(canvas);
 
+    await vi.advanceTimersByTimeAsync(250);
     canvas.remove();
-    lateRender.respond('first');
-    await rendering;
+    lateRender.respond('second');
+    const teardown = await rendering;
+
+    expect(canvas.innerHTML).toBe('<div>first</div>');
+    expect(headCss()).toEqual(['.first {}']);
+
+    await teardown?.();
 
     expect(canvas.innerHTML).toBe('');
     expect(headCss()).toEqual([]);
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+    expect(canvas.style.minHeight).toBe('');
   });
 
-  test('lets a live story remove CSS it shares with a story whose page went before it rendered (issue #288)', async () => {
-    const docsCanvas = document.createElement('div');
-    const sharedAndOwnCss = (own: string) =>
-      '<style data-storybook-astro-styles>.shared {}</style>' +
-      `<style data-storybook-astro-styles>.${own} {}</style><div>${own}</div>`;
+  test('lets a live story remove CSS it shares with a story whose canvas was removed while it waited (issue #288)', async () => {
+    const removedCanvas = document.createElement('div');
 
-    document.body.append(docsCanvas);
-    let respondToDocsStory!: () => void;
+    document.body.append(removedCanvas);
+    const lateRender = serverWaits();
+    const rendering = renderAstro(removedCanvas);
 
-    server.render.mockReturnValueOnce(
-      new Promise((resolve) => {
-        respondToDocsStory = () => resolve({ html: sharedAndOwnCss('docs') });
-      })
-    );
-    const docsRendering = renderAstro(docsCanvas);
+    removedCanvas.remove();
+    lateRender.respond(['shared', 'removed']);
+    await rendering;
 
-    docsCanvas.remove();
-    respondToDocsStory();
-    await docsRendering;
-
-    server.render.mockResolvedValueOnce({ html: sharedAndOwnCss('live') });
+    serverRespondsWith(['shared', 'live']);
     const teardown = await renderAstro(canvas);
 
     await teardown?.();
 
     expect(headCss()).toEqual([]);
+  });
+
+  test('renders into a canvas that was never in the document', async () => {
+    const detachedCanvas = document.createElement('div');
+
+    serverRespondsWith('first');
+    await renderAstro(detachedCanvas);
+
+    expect(detachedCanvas.innerHTML).toBe('<div>first</div>');
   });
 });
 

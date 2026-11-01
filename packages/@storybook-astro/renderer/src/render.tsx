@@ -325,6 +325,7 @@ async function renderAstroToCanvas(
 
   const { props: componentArgs, slots } = splitStoryArgs(args, storyContext?.initialArgs);
   const decoratedTree = isDecoratedTree(element) ? element : undefined;
+  const canvasWasConnected = canvasElement.isConnected;
 
   const response = await astroRenderer.render({
     component: rootComponent.moduleId,
@@ -346,11 +347,13 @@ async function renderAstroToCanvas(
     return;
   }
 
-  // Storybook removed the canvas while this render waited, as when the user
-  // leaves a Docs page. It only takes the teardown once this function returns,
-  // so nothing would ever remove the CSS this response carries, and the head
-  // would keep counting the detached canvas as one of its holders (#288).
-  if (!canvasElement.isConnected) {
+  // The canvas left the document while this render waited, as when a later
+  // portable story run removed an earlier run's container. Its teardown runs
+  // late or never, so this response's CSS would stay in the head, and the head
+  // would count the detached canvas as one of its holders (#288). A canvas
+  // that was never in the document, such as a caller's own detached div,
+  // still gets the story.
+  if (canvasWasConnected && !canvasElement.isConnected) {
     return;
   }
 
