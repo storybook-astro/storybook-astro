@@ -346,6 +346,14 @@ async function renderAstroToCanvas(
     return;
   }
 
+  // Storybook removed the canvas while this render waited, as when the user
+  // leaves a Docs page. It only takes the teardown once this function returns,
+  // so nothing would ever remove the CSS this response carries, and the head
+  // would keep counting the detached canvas as one of its holders (#288).
+  if (!canvasElement.isConnected) {
+    return;
+  }
+
   // Put back the overlay's position and the height a teardown held before the
   // story's markup goes in and its scripts measure the layout.
   hideRenderLoadingIndicator(canvasElement);

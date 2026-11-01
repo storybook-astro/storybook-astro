@@ -98,6 +98,46 @@ describe('rendering an Astro story', () => {
       expect.objectContaining({ args: { title: 'Hello' }, slots: { default: 'Edited' } })
     );
   });
+
+  test('leaves no CSS in the head when the response arrives after Storybook removed the canvas (issue #288)', async () => {
+    const lateRender = serverWaits();
+    const rendering = renderAstro(canvas);
+
+    canvas.remove();
+    lateRender.respond('first');
+    await rendering;
+
+    expect(canvas.innerHTML).toBe('');
+    expect(headCss()).toEqual([]);
+  });
+
+  test('lets a live story remove CSS it shares with a story whose page went before it rendered (issue #288)', async () => {
+    const docsCanvas = document.createElement('div');
+    const sharedAndOwnCss = (own: string) =>
+      '<style data-storybook-astro-styles>.shared {}</style>' +
+      `<style data-storybook-astro-styles>.${own} {}</style><div>${own}</div>`;
+
+    document.body.append(docsCanvas);
+    let respondToDocsStory!: () => void;
+
+    server.render.mockReturnValueOnce(
+      new Promise((resolve) => {
+        respondToDocsStory = () => resolve({ html: sharedAndOwnCss('docs') });
+      })
+    );
+    const docsRendering = renderAstro(docsCanvas);
+
+    docsCanvas.remove();
+    respondToDocsStory();
+    await docsRendering;
+
+    server.render.mockResolvedValueOnce({ html: sharedAndOwnCss('live') });
+    const teardown = await renderAstro(canvas);
+
+    await teardown?.();
+
+    expect(headCss()).toEqual([]);
+  });
 });
 
 describe('the teardown renderToCanvas returns for an Astro story', () => {
