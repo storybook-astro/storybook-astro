@@ -325,6 +325,7 @@ async function renderAstroToCanvas(
 
   const { props: componentArgs, slots } = splitStoryArgs(args, storyContext?.initialArgs);
   const decoratedTree = isDecoratedTree(element) ? element : undefined;
+  const canvasWasConnected = canvasElement.isConnected;
 
   const response = await astroRenderer.render({
     component: rootComponent.moduleId,
@@ -343,6 +344,16 @@ async function renderAstroToCanvas(
   // A newer render into this canvas started while this one waited on the
   // server, so this response is out of date.
   if (latestRenderByCanvas.get(canvasElement) !== renderToken) {
+    return;
+  }
+
+  // The canvas left the document while this render waited, as when a later
+  // portable story run removed an earlier run's container. Its teardown runs
+  // late or never, so this response's CSS would stay in the head, and the head
+  // would count the detached canvas as one of its holders (#288). A canvas
+  // that was never in the document, such as a caller's own detached div,
+  // still gets the story.
+  if (canvasWasConnected && !canvasElement.isConnected) {
     return;
   }
 
