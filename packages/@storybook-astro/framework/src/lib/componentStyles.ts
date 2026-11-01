@@ -12,6 +12,17 @@ const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 // `ensureModulesLoaded` skips it too. It contains no CSS.
 const SERVER_ISLAND_MANIFEST = '\0virtual:astro:server-island-manifest';
 
+// Astro's page modules and its dev CSS collectors. Astro's config, i18n and
+// actions modules reach `virtual:astro:pages`, which lazily imports every
+// page, so walking past one would ship every page's CSS. Astro's own
+// `ensureModulesLoaded` stops at the same modules.
+const isAstroPageBoundary = (id: string) =>
+  id.startsWith('\0virtual:astro:page:') || id.startsWith('\0virtual:astro:dev-css');
+
+// Modules this walk compiled itself, which the module runner hasn't run yet.
+// Vite's nodes are per server, so one set serves every server.
+const compiledByTheWalk = new WeakSet<EnvironmentModuleNode>();
+
 export type ComponentStyles = {
   /**
    * The compiled CSS of each `<style>` block and stylesheet the rendered
@@ -72,7 +83,7 @@ export async function loadComponentStyles(
   const compileImport = async (module: EnvironmentModuleNode) => {
     const id = module.id;
 
-    if (!id || module.transformResult || failedToCompile.has(module)) {
+    if (!id || module.transformResult || failedToCompile.has(module) || isAstroPageBoundary(id)) {
       return;
     }
 
@@ -105,12 +116,18 @@ export async function loadComponentStyles(
     // its old exports the same way, and running it is what this pass avoids.
     // The runner only evaluates a module once it has compiled, and Vite
     // clears the transform result only when it invalidates the module (an
-    // edit, or `invalidateAll` on a mocked render), so a module without one
-    // that Vite never invalidated has never been evaluated. One Vite
-    // invalidated may have been, so it isn't compiled here: its CSS comes
-    // from the imports Vite recorded when it last compiled.
-    if (module.lastInvalidationTimestamp === 0 && module.lastHMRTimestamp === 0) {
+    // edit, or `invalidateAll` after a mocked render), so a module Vite never
+    // invalidated hasn't been evaluated. Nor has one this walk compiled
+    // itself, unless a later walk found the runner had run it (`ssrModule`,
+    // which Vite clears on invalidation, so it's checked in `collect`), so
+    // compiling it again after an edit refreshes its imports. Any other invalidated
+    // module may be held by the runner, so it isn't compiled here: its CSS
+    // comes from the imports Vite recorded when it last compiled.
+    const neverInvalidated = module.lastInvalidationTimestamp === 0 && module.lastHMRTimestamp === 0;
+
+    if (module.ssrModule == null && (neverInvalidated || compiledByTheWalk.has(module))) {
       await ssr.transformRequest(module.url);
+      compiledByTheWalk.add(module);
     }
   };
 
@@ -119,6 +136,16 @@ export async function loadComponentStyles(
       return;
     }
     visited.add(module);
+
+    if (module.id && isAstroPageBoundary(module.id)) {
+      return;
+    }
+
+    // Once the runner has run a module the walk compiled, it holds it. The
+    // render that ran it walks it next, before an edit can clear `ssrModule`.
+    if (module.ssrModule != null) {
+      compiledByTheWalk.delete(module);
+    }
 
     // Every stylesheet the page applies, as an Astro page ships them: `<style>`
     // blocks, imported stylesheets (`./card.css`, Sass, CSS Modules, issue

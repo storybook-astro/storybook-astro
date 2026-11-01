@@ -19,6 +19,8 @@ type FakeModule = {
   transformResult?: object;
   lastInvalidationTimestamp: number;
   lastHMRTimestamp: number;
+  /** The module's exports, set once the module runner ran it. Vite clears it when it invalidates the module. */
+  ssrModule?: object | null;
   /** Set when running the module threw. */
   ssrError?: Error;
 };
@@ -59,13 +61,16 @@ function createFakeServer(options: {
 }) {
   const css = { ...options.css };
   const modules = new Map<string, FakeModule>();
-  const moduleFor = (id: string): FakeModule => {
+  // A module in the starting graph was loaded by an earlier render. One that
+  // first appears as a later compile's import hasn't been compiled yet.
+  const moduleFor = (id: string, loaded = true): FakeModule => {
     if (!modules.has(id)) {
       modules.set(id, {
         id,
         url: id,
         importedModules: new Set(),
-        transformResult: {},
+        transformResult: loaded ? {} : undefined,
+        ssrModule: loaded ? {} : null,
         lastInvalidationTimestamp: 0,
         lastHMRTimestamp: 0
       });
@@ -117,6 +122,7 @@ function createFakeServer(options: {
     const module = moduleFor(id);
 
     module.transformResult = undefined;
+    module.ssrModule = null;
 
     if (notLoaded.has(id)) {
       module.importedModules = new Set();
@@ -160,6 +166,8 @@ function createFakeServer(options: {
   // The CSS the module runner last ran each stylesheet with. Its exports (a
   // CSS Module's class names) come from it.
   const runnerCss = new Map<string, string>();
+  // Style blocks deleted from their component. Astro fails to load one.
+  const deletedStyleBlocks = new Set<string>();
 
   // Compiling a module records its imports, as Vite's import analysis does,
   // without compiling them. Compiling a stylesheet records its CSS. A compile
@@ -178,7 +186,11 @@ function createFakeServer(options: {
       throw new Error(`${url} has a syntax error`);
     }
 
-    (allImports[url] ?? []).forEach((importedId) => module.importedModules.add(moduleFor(importedId)));
+    if (deletedStyleBlocks.has(url)) {
+      throw new Error(`No Astro CSS at index ${url.match(/index=(\d+)/)![1]}`);
+    }
+
+    module.importedModules = new Set((allImports[url] ?? []).map((importedId) => moduleFor(importedId, false)));
 
     if (isAppliedStylesheet(url)) {
       compileCss(url);
@@ -210,6 +222,7 @@ function createFakeServer(options: {
         throw module.ssrError;
       }
 
+      module.ssrModule = {};
       runnerCss.set(url, css[url] ?? `/* ${url} */`);
     }
   };
@@ -221,19 +234,44 @@ function createFakeServer(options: {
     }
   }
 
+  const invalidate = (module: FakeModule) => {
+    module.transformResult = undefined;
+    module.ssrModule = null;
+    module.ssrError = undefined;
+    module.lastInvalidationTimestamp = Date.now();
+  };
+
   return {
     server: server as unknown as Parameters<typeof loadComponentStyles>[0],
-    /** Saves a module's file, which makes Vite invalidate it. */
-    edit: (id: string, newCss?: string) => {
+    /**
+     * Saves a module's file, which makes Vite invalidate it. New `imports`
+     * are what its next compile records; a style block it no longer imports
+     * was deleted from the file.
+     */
+    edit: (id: string, newCss?: string, newImports?: string[]) => {
       if (newCss !== undefined) {
         css[id] = newCss;
       }
 
-      const module = modules.get(id)!;
+      if (newImports) {
+        for (const oldImport of allImports[id] ?? []) {
+          if (oldImport.startsWith(`${id}?astro&type=style`) && !newImports.includes(oldImport)) {
+            deletedStyleBlocks.add(oldImport);
+          }
+        }
 
-      module.transformResult = undefined;
-      module.lastInvalidationTimestamp = Date.now();
+        allImports[id] = newImports;
+      }
+
+      // Vite invalidates every module of the saved file, style blocks included.
+      modulesForFile(id.split('?')[0]).forEach(invalidate);
     },
+    /** Changes what a module's next compile imports, as a module mock does for the render that uses it. */
+    resolveImportsTo: (id: string, imports: string[]) => {
+      allImports[id] = imports;
+    },
+    /** Invalidates every module, as the render handler does after a story with module mocks. */
+    invalidateAll: () => modules.forEach(invalidate),
     /** The CSS the module runner last ran a stylesheet with, which its exports (CSS Module class names) come from. */
     ranWith: (id: string) => runnerCss.get(id),
     compiles,
@@ -547,6 +585,87 @@ describe('loadComponentStyles', () => {
     await loadComponentStyles(server, ['Card.astro']);
 
     expect(compiles).toEqual([]);
+  });
+
+  test('stops at Astro\'s page modules, so reaching the page list doesn\'t ship every page\'s CSS', async () => {
+    // On Astro 7, `astro:config/server` imports the manifest, which imports
+    // `virtual:astro:pages`, whose page map lazily imports every page.
+    const page = '\0virtual:astro:page:src/pages/index@_@astro';
+    const { server, compiles } = createFakeServer({
+      imports: {
+        'Card.astro': [styleOf('Card.astro'), '\0astro:config/server'],
+        '\0astro:config/server': ['\0virtual:astro:manifest'],
+        '\0virtual:astro:manifest': ['\0virtual:astro:pages'],
+        [page]: ['Layout.astro'],
+        'Layout.astro': [styleOf('Layout.astro')]
+      },
+      dynamicImports: { '\0virtual:astro:pages': [page] },
+      notLoaded: [page]
+    });
+
+    const { stylesheets, failures } = await loadComponentStyles(server, ['Card.astro']);
+
+    expect(stylesheets).toEqual([`/* ${styleOf('Card.astro')} */`]);
+    expect(failures).toEqual([]);
+    expect(compiles).toEqual([]);
+  });
+
+  test('recompiles an edited glob match that only the walk compiled, and ships its new CSS', async () => {
+    // No story has rendered Widget, so the module runner doesn't hold it.
+    // After an edit that swaps its second <style> block for a stylesheet,
+    // the walk compiles it again, so the deleted block's CSS doesn't ship
+    // and loading it doesn't fail.
+    const { server, edit, ran } = createFakeServer({
+      imports: {
+        'Loader.astro': [],
+        'Widget.astro': [styleOf('Widget.astro'), styleOf('Widget.astro', 1)]
+      },
+      dynamicImports: { 'Loader.astro': ['Widget.astro'] },
+      notLoaded: ['Widget.astro']
+    });
+
+    expect((await loadComponentStyles(server, ['Loader.astro'])).stylesheets).toEqual([
+      `/* ${styleOf('Widget.astro')} */`,
+      `/* ${styleOf('Widget.astro', 1)} */`
+    ]);
+
+    edit('Widget.astro', undefined, [styleOf('Widget.astro'), 'widget.css']);
+
+    expect(await loadComponentStyles(server, ['Loader.astro'])).toEqual({
+      stylesheets: [`/* ${styleOf('Widget.astro')} */`, '/* widget.css */'],
+      failures: []
+    });
+    expect(ran).not.toContain('Widget.astro');
+  });
+
+  test('recompiles a glob match the walk compiled during a mocked render with its real imports', async () => {
+    // While a story with module mocks renders, Widget's `./theme.ts` resolves
+    // to the mock. The render handler invalidates every module afterwards,
+    // and the next story's walk compiles Widget again against the real one.
+    const { server, resolveImportsTo, invalidateAll } = createFakeServer({
+      imports: {
+        'Loader.astro': [styleOf('Loader.astro')],
+        'Widget.astro': ['theme.mock.ts'],
+        'theme.mock.ts': []
+      },
+      dynamicImports: { 'Loader.astro': ['Widget.astro'] },
+      notLoaded: ['Widget.astro']
+    });
+
+    expect((await loadComponentStyles(server, ['Loader.astro'])).stylesheets).toEqual([
+      `/* ${styleOf('Loader.astro')} */`
+    ]);
+
+    resolveImportsTo('Widget.astro', ['theme.ts']);
+    resolveImportsTo('theme.ts', ['tokens.css']);
+    invalidateAll();
+    // The next story renders Loader, which the runner runs again.
+    await server.ssrLoadModule('Loader.astro');
+
+    expect(await loadComponentStyles(server, ['Loader.astro'])).toEqual({
+      stylesheets: [`/* ${styleOf('Loader.astro')} */`, '/* tokens.css */'],
+      failures: []
+    });
   });
 
   test('ships a stylesheet\'s new CSS after it was edited, though the component stays cached', async () => {
