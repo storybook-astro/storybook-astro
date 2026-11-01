@@ -19,10 +19,6 @@ const SERVER_ISLAND_MANIFEST = '\0virtual:astro:server-island-manifest';
 const isAstroPageBoundary = (id: string) =>
   id.startsWith('\0virtual:astro:page:') || id.startsWith('\0virtual:astro:dev-css');
 
-// Modules this walk compiled itself, which the module runner hasn't run yet.
-// Vite's nodes are per server, so one set serves every server.
-const compiledByTheWalk = new WeakSet<EnvironmentModuleNode>();
-
 export type ComponentStyles = {
   /**
    * The compiled CSS of each `<style>` block and stylesheet the rendered
@@ -68,7 +64,8 @@ export async function loadComponentStyles(
 
   const styleModules = new Map<string, EnvironmentModuleNode>();
   const visited = new Set<EnvironmentModuleNode>();
-  // Imports this walk failed to compile, so each one is compiled and reported once.
+  // Imports this walk compiled, or failed to, so each one is compiled and reported once.
+  const compiledByThisWalk = new Set<EnvironmentModuleNode>();
   const failedToCompile = new Set<EnvironmentModuleNode>();
   const failures: ComponentStyles['failures'] = [];
 
@@ -83,9 +80,11 @@ export async function loadComponentStyles(
   const compileImport = async (module: EnvironmentModuleNode) => {
     const id = module.id;
 
-    if (!id || module.transformResult || failedToCompile.has(module) || isAstroPageBoundary(id)) {
+    if (!id || module.transformResult || compiledByThisWalk.has(module) || isAstroPageBoundary(id)) {
       return;
     }
+
+    compiledByThisWalk.add(module);
 
     if (isAppliedStylesheet(id)) {
       if (compiled.has(id)) {
@@ -112,22 +111,22 @@ export async function loadComponentStyles(
       return;
     }
 
-    // Compiling a module the runner has evaluated would leave the runner on
-    // its old exports the same way, and running it is what this pass avoids.
-    // The runner only evaluates a module once it has compiled, and Vite
-    // clears the transform result only when it invalidates the module (an
-    // edit, or `invalidateAll` after a mocked render), so a module Vite never
-    // invalidated hasn't been evaluated. Nor has one this walk compiled
-    // itself, unless a later walk found the runner had run it (`ssrModule`,
-    // which Vite clears on invalidation, so it's checked in `collect`), so
-    // compiling it again after an edit refreshes its imports. Any other invalidated
-    // module may be held by the runner, so it isn't compiled here: its CSS
-    // comes from the imports Vite recorded when it last compiled.
-    const neverInvalidated = module.lastInvalidationTimestamp === 0 && module.lastHMRTimestamp === 0;
+    // The module runner may hold a module Vite invalidated (an edit, or
+    // `invalidateAll` after a story with module mocks), and Vite's
+    // `fetchModule` answers the runner's next import of a module it holds
+    // with "use your cached copy" whenever the module has a transform result.
+    // So after compiling an invalidated module for its imports, clear the
+    // result again: the imports and the CSS they compiled stay in the graph,
+    // and the runner's next import compiles and runs the module afresh (the
+    // way Astro refreshes its server island map). A module with no transform
+    // result that Vite never invalidated has never compiled, so the runner
+    // can't hold it, and its result is kept so later walks skip it.
+    const wasInvalidated = module.lastInvalidationTimestamp !== 0 || module.lastHMRTimestamp !== 0;
 
-    if (module.ssrModule == null && (neverInvalidated || compiledByTheWalk.has(module))) {
-      await ssr.transformRequest(module.url);
-      compiledByTheWalk.add(module);
+    await ssr.transformRequest(module.url);
+
+    if (wasInvalidated) {
+      module.transformResult = null;
     }
   };
 
@@ -139,12 +138,6 @@ export async function loadComponentStyles(
 
     if (module.id && isAstroPageBoundary(module.id)) {
       return;
-    }
-
-    // Once the runner has run a module the walk compiled, it holds it. The
-    // render that ran it walks it next, before an edit can clear `ssrModule`.
-    if (module.ssrModule != null) {
-      compiledByTheWalk.delete(module);
     }
 
     // Every stylesheet the page applies, as an Astro page ships them: `<style>`
