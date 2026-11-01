@@ -1,7 +1,9 @@
 // A story passes slot content as one nested arg, `args.slots`, and Storybook
 // only gives top-level args a control. So each slot the docgen found also gets
-// a top-level arg, `slot:<name>`, with a text control (issue #203). The prefix
-// can't collide with a prop name. Everything that reads a story's args folds
+// a top-level arg, `slot-<name>`, with a text control (issue #203). The prefix
+// is very unlikely to collide with a prop name, and it keeps the key within
+// the characters Storybook writes to the URL (#306), so an edit survives a
+// reload or a shared link. Everything that reads a story's args folds
 // these back into `slots` through `splitStoryArgs`.
 //
 // Kept free of virtual-module imports, so the framework's static prerender and
@@ -9,7 +11,7 @@
 
 import type { Args, ArgsEnhancer, ArgTypesEnhancer, Renderer } from 'storybook/internal/types';
 
-const SLOT_ARG_PREFIX = 'slot:';
+const SLOT_ARG_PREFIX = 'slot-';
 
 /** The top-level arg that holds one slot's content. */
 export function slotArgName(slot: string): string {

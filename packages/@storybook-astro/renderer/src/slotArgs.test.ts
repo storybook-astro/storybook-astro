@@ -6,6 +6,20 @@ const slotArgTypes = {
   [slotArgName('footer')]: { name: 'footer', control: { type: 'text' } }
 };
 
+describe('slotArgName', () => {
+  test('is a key Storybook keeps in the URL, so a slot edit survives a reload', () => {
+    // Storybook's validateArgs only writes keys matching this to the URL.
+    expect(slotArgName('footer')).toMatch(/^[a-zA-Z0-9 _-]*$/);
+  });
+
+  test('splitStoryArgs folds the URL-safe key into the slots', () => {
+    expect(splitStoryArgs({ 'slot-footer': 'Footer' })).toEqual({
+      props: {},
+      slots: { footer: 'Footer' }
+    });
+  });
+});
+
 describe('splitStoryArgs', () => {
   test('separates props from slot content', () => {
     expect(splitStoryArgs({ title: 'Hello', slots: { default: '<p>Body</p>' } })).toEqual({

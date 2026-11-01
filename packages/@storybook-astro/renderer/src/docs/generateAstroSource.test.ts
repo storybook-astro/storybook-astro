@@ -134,7 +134,7 @@ describe('slots edited in Controls (issue #203)', () => {
     const source = generateAstroSource('Card', {
       title: 'Hi',
       slots: { default: 'Old' },
-      'slot:default': 'Edited'
+      'slot-default': 'Edited'
     });
 
     expect(source).toBe(['<Card title="Hi">', '  Edited', '</Card>'].join('\n'));

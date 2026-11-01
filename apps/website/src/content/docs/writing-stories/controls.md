@@ -176,8 +176,8 @@ rows and their controls come from the same extraction as the props table, so
 they need `@storybook/addon-docs` and TypeScript installed (see
 [Turning extraction off](#turning-extraction-off)).
 
-Each control is stored in a story arg named `slot:<name>`, for example
-`slot:footer`, which the renderer folds back into `args.slots`. You don't need to
+Each control is stored in a story arg named `slot-<name>`, for example
+`slot-footer`, which the renderer folds back into `args.slots`. You don't need to
 write these yourself.
 
 ## Moving extraction off the dev server
