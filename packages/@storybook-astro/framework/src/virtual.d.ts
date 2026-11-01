@@ -51,6 +51,7 @@ declare module 'virtual:storybook-astro/server-runtime' {
     storyRulesConfigRelativePath: string | undefined;
     componentPathMap: Record<string, string>;
     staticModuleMap: Record<string, string>;
+    snapshotModuleAliasMap: Record<string, string>;
     staticCssMap: Record<string, string[]>;
     trackedSpecifiers: string[];
   };

@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An Astro story that takes longer than 200 ms to render shows "Rendering story…" in the canvas, and after 2.5 seconds a hint that the render is still working (#236). If the previous story has been cleared (a story switch, a remount, a saved edit, or a Controls change on a story that uses `mount`), it takes the place of the story. If the story is still showing, as on most Controls changes, it overlays the story, which stays visible, and keeps its spinner and text in view on a story taller than the window. The canvas also keeps its height while the next render is on its way, so the page doesn't collapse and regrow, and a remount or a Docs story block keeps the reader's scroll position. The spinner stays still for readers who prefer reduced motion.
 
 ### Changed
+- **Breaking:** server mode needs a deployment adapter. Set `server.adapter` to `vercel()` or `node()` from `@storybook-astro/framework/adapters`, then build with `storybook-astro build`.
+- The render API is now always at `/api/render`, on the same origin as Storybook. `server.serverUrl` and `STORYBOOK_ASTRO_SERVER_URL` were removed.
 - Show code and the Code panel put a tag on one attribute per line when an attribute spans lines (an inline object, or a multi-line string prop) (#190). A multi-line string used to stay inside a one-line tag. Its continuation lines are still not indented, so the value is unchanged.
 
 ### Fixed

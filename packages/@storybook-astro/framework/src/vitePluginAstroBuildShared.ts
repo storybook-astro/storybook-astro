@@ -3,7 +3,7 @@ import { access, copyFile, mkdir, readFile, readdir, stat } from 'node:fs/promis
 import { basename, dirname, resolve } from 'node:path';
 import type { Rollup } from 'vite';
 import type { Integration } from './integrations/index.ts';
-import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
+import { resolveAliasedIsland, resolveTsconfigAliasedImport } from './lib/resolve-aliased-island.ts';
 import { CONFIG_FILENAMES } from './loadUserAstroConfig.ts';
 
 /** Resolves the shared virtual module ids used by both build pipelines. */
@@ -267,18 +267,26 @@ export async function copyRuntimeSnapshot(options: {
   snapshotDirName: string;
   astroComponents: string[];
   storyRulesConfigFilePath?: string;
+  /** Packages imported by copied runtime sources, for deployment adapters. */
+  runtimeDependencies?: Set<string>;
 }) {
   // The standalone render server still spins up a Vite SSR runtime, so it
   // needs the exact source/config files that runtime will read from disk.
+  const runtimeConfigFiles = await listRuntimeConfigFiles(options.resolveFrom);
   const runtimeInputFiles = new Set<string>([
     ...options.astroComponents,
     ...(options.storyRulesConfigFilePath ? [options.storyRulesConfigFilePath] : []),
-    ...(await listRuntimeConfigFiles(options.resolveFrom))
+    ...runtimeConfigFiles,
+    ...(await listLocalTsconfigExtendsFiles(runtimeConfigFiles))
   ]);
   const copiedFiles = new Set<string>();
 
   for (const runtimeInputFile of runtimeInputFiles) {
-    await copyLocalRuntimeDependencies(runtimeInputFile, options, copiedFiles);
+    await copyLocalRuntimeDependencies(runtimeInputFile, {
+      ...options,
+      // Rules are already bundled; their external imports come from that bundle.
+      runtimeDependencies: runtimeInputFile === options.storyRulesConfigFilePath ? undefined : options.runtimeDependencies
+    }, copiedFiles);
   }
 }
 
@@ -375,6 +383,7 @@ async function copyLocalRuntimeDependencies(
     resolveFrom: string;
     snapshotRoot: string;
     snapshotDirName: string;
+    runtimeDependencies?: Set<string>;
   },
   copiedFiles: Set<string>
 ) {
@@ -397,23 +406,37 @@ async function copyLocalRuntimeDependencies(
     resolve(dirname(options.snapshotRoot), snapshotRelativePath)
   );
 
-  // Follow only local imports here. Package dependencies stay external and are
+  // Follow local imports: relative ones resolve against the importer, and
+  // tsconfig-aliased ones (e.g. `~/styles/tokens`, issue #136) resolve through
+  // the project's paths map. Package dependencies stay external and are
   // resolved by Node/Vite from the deployed install, not copied into snapshot.
-  const localImportSpecifiers = await readLocalImportSpecifiers(normalizedSourcePath);
-  const localDependencies = [
-    ...(await Promise.all(
-      localImportSpecifiers.map((specifier) => resolveLocalImportPath(normalizedSourcePath, specifier))
-    )),
-    // The render server compiles each component's styles too, so the partials
-    // and stylesheets they pull in have to be there as well.
-    ...(await Promise.all(
-      (await readStyleImportSpecifiers(normalizedSourcePath)).map((specifier) =>
-        resolveStyleImportPath(normalizedSourcePath, specifier)
-      )
-    ))
-  ];
+  const importSpecifiers = await readAllImportSpecifiers(normalizedSourcePath);
 
-  for (const dependency of localDependencies) {
+  for (const specifier of importSpecifiers) {
+    const resolvedDependency = specifier.startsWith('.')
+      ? await resolveLocalImportPath(normalizedSourcePath, specifier)
+      : await resolveTsconfigAliasedImport(specifier, normalizedSourcePath);
+
+    if (!resolvedDependency) {
+      if (!specifier.startsWith('.') && !specifier.startsWith('/') &&
+        !specifier.includes(':') && !specifier.startsWith('#')) {
+        options.runtimeDependencies?.add(specifier);
+      }
+      continue;
+    }
+
+    await copyLocalRuntimeDependencies(resolvedDependency, options, copiedFiles);
+  }
+
+  // The render server compiles each component's styles too, so the partials
+  // and stylesheets they pull in have to be there as well.
+  const styleDependencies = await Promise.all(
+    (await readStyleImportSpecifiers(normalizedSourcePath)).map((specifier) =>
+      resolveStyleImportPath(normalizedSourcePath, specifier)
+    )
+  );
+
+  for (const dependency of styleDependencies) {
     if (dependency) {
       await copyLocalRuntimeDependencies(dependency, options, copiedFiles);
     }
@@ -468,14 +491,68 @@ async function readAllImportSpecifiers(filePath: string): Promise<string[]> {
 
   const source = await readFile(filePath, 'utf-8');
 
-  return Array.from(source.matchAll(IMPORT_RE), (match) => match[1] ?? match[2]).filter(
-    (specifier): specifier is string => Boolean(specifier)
-  );
+  // Filter individual declarations: type imports do not need a semicolon, so
+  // removing text up to the next one can also erase following runtime imports.
+  return Array.from(source.matchAll(IMPORT_RE))
+    .filter((match) => !/^(?:import|export)\s+type\s+(?!from\b)/.test(match[0]))
+    .map((match) => match[1] ?? match[2])
+    .filter((specifier): specifier is string => Boolean(specifier));
 }
 
-/** Reads local (relative) import specifiers from source files that can participate in the SSR runtime. */
-async function readLocalImportSpecifiers(filePath: string) {
-  return (await readAllImportSpecifiers(filePath)).filter((s) => s.startsWith('.'));
+/** Finds local files reached through tsconfig/jsconfig `extends` chains so the
+ * snapshot's copied tsconfig still resolves its path aliases at runtime. */
+async function listLocalTsconfigExtendsFiles(configFiles: string[]) {
+  const collected = new Set<string>();
+  const pending = configFiles.filter((filePath) => /(?:tsconfig|jsconfig)[^/\\]*\.json$/.test(filePath));
+
+  while (pending.length > 0) {
+    const configFile = pending.pop()!;
+    let source: string;
+
+    try {
+      source = await readFile(configFile, 'utf-8');
+    } catch {
+      continue;
+    }
+
+    // tsconfig allows comments, so scan for extends targets instead of
+    // JSON.parse. Handles both string and array forms.
+    const extendsMatch = source.match(/"extends"\s*:\s*("[^"]+"|\[[^\]]*\])/);
+
+    if (!extendsMatch) {
+      continue;
+    }
+
+    const targets = Array.from(extendsMatch[1].matchAll(/"([^"]+)"/g), (match) => match[1]);
+
+    for (const target of targets) {
+      // Only local extends targets need copying; package-based ones (e.g.
+      // `astro/tsconfigs/strict`) resolve from the deployed install.
+      if (!target.startsWith('.')) {
+        continue;
+      }
+
+      const basePath = resolve(dirname(configFile), target);
+      const candidates = basePath.endsWith('.json') ? [basePath] : [`${basePath}.json`, basePath];
+
+      for (const candidate of candidates) {
+        const normalized = candidate.replace(/\\/g, '/');
+
+        try {
+          if ((await stat(candidate)).isFile() && !collected.has(normalized)) {
+            collected.add(normalized);
+            pending.push(normalized);
+          }
+
+          break;
+        } catch {
+          continue;
+        }
+      }
+    }
+  }
+
+  return [...collected];
 }
 
 /** Resolves one relative import the same way the project source tree would on disk. */

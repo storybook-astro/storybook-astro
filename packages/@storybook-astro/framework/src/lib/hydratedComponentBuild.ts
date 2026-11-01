@@ -10,6 +10,17 @@ import { collectHydratedComponentPaths } from '../vitePluginAstroBuildShared.ts'
 import { collectComponentScripts, vitePluginComponentScripts } from './componentScripts.ts';
 import type { StaticCssMap, StaticModuleMap } from './staticHtmlRewriting.ts';
 
+/** Framework runtime packages that must resolve to a single physical copy in browser bundles. */
+export const FRAMEWORK_RUNTIME_PACKAGES = [
+  'preact',
+  'react',
+  'react-dom',
+  'vue',
+  'svelte',
+  'solid-js',
+  'alpinejs'
+];
+
 export type HydratedComponentAssets = {
   staticModuleMap: StaticModuleMap;
   staticCssMap: StaticCssMap;
@@ -86,6 +97,14 @@ export async function buildHydratedComponentAssets(
   const buildConfig = {
     root: options.resolveFrom,
     plugins: [vitePluginComponentScripts(componentScripts)],
+    resolve: {
+      // Components and renderer glue can resolve physically different copies
+      // of the same framework (e.g. an app-local preact under yarn
+      // hoistingLimits vs the hoisted one packages/components sees). Two
+      // copies in one browser bundle break hooks ("Cannot read properties of
+      // undefined (reading '__H')") — force a single instance per framework.
+      dedupe: FRAMEWORK_RUNTIME_PACKAGES
+    },
     build: {
       write: false,
       outDir: options.outDir,

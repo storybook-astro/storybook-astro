@@ -14,6 +14,9 @@ const ENTRY_PREVIEW_EXPORTS = ['./renderer/entry-preview', './renderer/solid-leg
 
 export class SolidIntegration implements Integration {
   readonly name = 'solid';
+  // vite-plugin-solid reads this runtime through createRequire().resolve(),
+  // which NFT does not discover from the plugin's generated ESM bundle.
+  readonly runtimeDependencies = ['solid-refresh'];
   readonly dependencies = ['@astrojs/solid-js', 'storybook-solidjs-vite', 'solid-js'];
   readonly options: Options;
   readonly renderer = {
