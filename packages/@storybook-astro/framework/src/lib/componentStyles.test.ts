@@ -172,6 +172,9 @@ function createFakeServer(options: {
   // Style blocks deleted from their component. Astro fails to load one.
   const deletedStyleBlocks = new Set<string>();
 
+  // Edits saved while the server compiles the module, by its id.
+  const editsDuringCompile = new Map<string, () => void>();
+
   // Compiling a module records its imports, as Vite's import analysis does,
   // without compiling them. Compiling a stylesheet records its CSS. A compile
   // yields first, and later imports finish sooner, so a test sees whether
@@ -179,8 +182,14 @@ function createFakeServer(options: {
   const compile = async (url: string) => {
     const module = modules.get(url)!;
     const position = compiles.push(url);
+    // The compile reads the file when it starts, so an edit saved while it
+    // runs doesn't change the imports it records.
+    const importsWhenRead = allImports[url] ?? [];
+    const invalidatedWhenRead = module.lastInvalidationTimestamp;
 
     compilesInFlight++;
+    editsDuringCompile.get(url)?.();
+    editsDuringCompile.delete(url);
     mostCompilesAtOnce = Math.max(mostCompilesAtOnce, compilesInFlight);
     await new Promise((resolve) => setTimeout(resolve, 20 / position));
     compilesInFlight--;
@@ -193,13 +202,17 @@ function createFakeServer(options: {
       throw new Error(`No Astro CSS at index ${url.match(/index=(\d+)/)![1]}`);
     }
 
-    module.importedModules = new Set((allImports[url] ?? []).map((importedId) => moduleFor(importedId, false)));
+    module.importedModules = new Set(importsWhenRead.map((importedId) => moduleFor(importedId, false)));
 
     if (isAppliedStylesheet(url)) {
       compileCss(url);
     }
 
-    module.transformResult = {};
+    // Like Vite, drop the result of a compile the module was invalidated
+    // during: it compiled the file as it was before the save.
+    if (module.lastInvalidationTimestamp === invalidatedWhenRead) {
+      module.transformResult = {};
+    }
   };
 
   const server = {
@@ -283,6 +296,10 @@ function createFakeServer(options: {
   return {
     server: server as unknown as Parameters<typeof loadComponentStyles>[0],
     edit,
+    /** Saves an edit to a module while the server's next compile of it runs. */
+    editWhileCompiling: (id: string, newCss?: string, newImports?: string[]) => {
+      editsDuringCompile.set(id, () => edit(id, newCss, newImports));
+    },
     /** Saves a fix to a module that failed to compile or to run. */
     fix: (id: string) => {
       failToCompile.delete(id);
@@ -736,6 +753,26 @@ describe('loadComponentStyles', () => {
     expect(compiles).toEqual([]);
   });
 
+  test('doesn\'t ship the CSS of the server islands in Astro\'s server island map', async () => {
+    // Astro's manifest reaches the island map, which imports every server
+    // island the runner has discovered so far, whatever this story renders.
+    const manifest = '\0virtual:astro:server-island-manifest';
+    const { server, compiles } = createFakeServer({
+      imports: {
+        'Card.astro': [styleOf('Card.astro')],
+        [manifest]: ['Island.astro'],
+        'Island.astro': [styleOf('Island.astro'), 'island.css']
+      },
+      dynamicImports: { 'Card.astro': [manifest] }
+    });
+
+    expect(await loadComponentStyles(server, ['Card.astro'])).toEqual({
+      stylesheets: [`/* ${styleOf('Card.astro')} */`],
+      failures: []
+    });
+    expect(compiles).toEqual([]);
+  });
+
   test('stops at Astro\'s page modules, so reaching the page list doesn\'t ship every page\'s CSS', async () => {
     // On Astro 7, `astro:config/server` imports the manifest, which imports
     // `virtual:astro:pages`, whose page map lazily imports every page.
@@ -792,6 +829,37 @@ describe('loadComponentStyles', () => {
     });
     expect(compiles.filter((url) => url === 'Widget.astro')).toHaveLength(2);
     expect(ran).not.toContain('Widget.astro');
+  });
+
+  test('recompiles an edited glob match that was saved again while the walk compiled it', async () => {
+    // The second save lands while the walk compiles the first, so that
+    // compile records the first save's imports and Vite drops its result.
+    // The next walk compiles Widget again and ships the second save's CSS.
+    const { server, edit, editWhileCompiling, compiles } = createFakeServer({
+      imports: {
+        'Loader.astro': [],
+        'Widget.astro': [styleOf('Widget.astro')]
+      },
+      dynamicImports: { 'Loader.astro': ['Widget.astro'] },
+      notLoaded: ['Widget.astro']
+    });
+
+    await loadComponentStyles(server, ['Loader.astro']);
+    edit('Widget.astro', undefined, [styleOf('Widget.astro'), 'widget.css']);
+    // Leaves the second save a later timestamp than the first.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    editWhileCompiling('Widget.astro', undefined, [styleOf('Widget.astro'), 'theme.css']);
+
+    expect((await loadComponentStyles(server, ['Loader.astro'])).stylesheets).toEqual([
+      `/* ${styleOf('Widget.astro')} */`,
+      '/* widget.css */'
+    ]);
+
+    expect(await loadComponentStyles(server, ['Loader.astro'])).toEqual({
+      stylesheets: [`/* ${styleOf('Widget.astro')} */`, '/* theme.css */'],
+      failures: []
+    });
+    expect(compiles.filter((url) => url === 'Widget.astro')).toHaveLength(3);
   });
 
   test('recompiles a glob match the walk compiled during a mocked render with its real imports', async () => {

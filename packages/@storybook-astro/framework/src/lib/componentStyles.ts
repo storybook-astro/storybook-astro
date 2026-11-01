@@ -6,10 +6,13 @@ import { compiledStylesheetsFor, isAppliedStylesheet } from './compiledStyleshee
 // `Card.astro?astro&type=style&index=0&lang.css` (or `&lang.scss`, …).
 const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 
-// Astro refreshes its server island map by clearing this module's transform
-// result, so the module runner's next import compiles it again. Compiling it
-// here would refill it and the runner would keep its stale map. Astro's own
-// `ensureModulesLoaded` skips it too. It contains no CSS.
+// Astro's server island map. Astro refreshes it by clearing this module's
+// transform result, so the module runner's next import compiles it again.
+// Compiling it here would refill it and the runner would keep its stale map.
+// It contains no CSS, and its imports are every server island discovered so
+// far, so walking them would ship unrelated islands' CSS in an order that
+// depends on which stories ran first. The walk neither compiles nor walks it,
+// as Astro's own `ensureModulesLoaded` skips it.
 const SERVER_ISLAND_MANIFEST = '\0virtual:astro:server-island-manifest';
 
 // Astro's page modules and its dev CSS collectors. Astro's config, i18n and
@@ -19,10 +22,14 @@ const SERVER_ISLAND_MANIFEST = '\0virtual:astro:server-island-manifest';
 const isAstroPageBoundary = (id: string) =>
   id.startsWith('\0virtual:astro:page:') || id.startsWith('\0virtual:astro:dev-css');
 
-// When a walk last compiled an invalidated module and cleared its transform
-// result again. Vite never resets a module's invalidation timestamps, so
-// without this every later walk would compile it again, until a render ran it.
-const clearedByAWalkAt = new WeakMap<EnvironmentModuleNode, number>();
+// The invalidation a walk last compiled an invalidated module against, before
+// clearing its transform result again. Vite never resets a module's
+// invalidation timestamps, so without this every later walk would compile it
+// again, until a render ran it. A later invalidation, even one that lands
+// while the walk compiles it (Vite then drops that compile's result, and its
+// imports are the old file's), changes the timestamp, so the next walk
+// compiles it again.
+const walkCompiledAtInvalidation = new WeakMap<EnvironmentModuleNode, number>();
 
 export type ComponentStyles = {
   /**
@@ -133,12 +140,11 @@ export async function loadComponentStyles(
     // way Astro refreshes its server island map). A module with no transform
     // result that Vite never invalidated has never compiled, so the runner
     // can't hold it, and its result is kept so later walks skip it. A module
-    // a walk already cleared since its last invalidation still has its
+    // a walk already compiled against its last invalidation still has its
     // imports in the graph, so it isn't compiled again.
     const lastInvalidated = Math.max(module.lastInvalidationTimestamp, module.lastHMRTimestamp);
-    const clearedAt = clearedByAWalkAt.get(module);
 
-    if (clearedAt !== undefined && clearedAt > lastInvalidated) {
+    if (walkCompiledAtInvalidation.get(module) === lastInvalidated) {
       return;
     }
 
@@ -146,7 +152,7 @@ export async function loadComponentStyles(
 
     if (lastInvalidated !== 0) {
       module.transformResult = null;
-      clearedByAWalkAt.set(module, Date.now());
+      walkCompiledAtInvalidation.set(module, lastInvalidated);
     }
   };
 
@@ -156,7 +162,7 @@ export async function loadComponentStyles(
     }
     visited.add(module);
 
-    if (module.id && isAstroPageBoundary(module.id)) {
+    if (module.id && (isAstroPageBoundary(module.id) || module.id === SERVER_ISLAND_MANIFEST)) {
       return;
     }
 
