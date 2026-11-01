@@ -24,14 +24,14 @@ describe('extractArgTypes', () => {
     });
 
     expect(argTypes?.title).toMatchObject({ name: 'title', description: 'The heading text.' });
-    expect(argTypes?.['slot:default']).toEqual({
+    expect(argTypes?.['slot-default']).toEqual({
       name: 'default',
       description: 'The section body',
       type: { name: 'other', value: 'slot', required: false },
       control: { type: 'text' },
       table: { category: 'slots', type: { summary: 'default slot' } }
     });
-    expect(argTypes?.['slot:actions']?.table?.type).toEqual({ summary: 'named slot' });
+    expect(argTypes?.['slot-actions']?.table?.type).toEqual({ summary: 'named slot' });
   });
 
   test('documents the slots of a component with no props', () => {
@@ -39,7 +39,7 @@ describe('extractArgTypes', () => {
       __docgenInfo: { displayName: 'Wrapper', description: '', props: {}, slots: [{ name: 'default', description: '' }] }
     });
 
-    expect(Object.keys(argTypes ?? {})).toEqual(['slot:default']);
+    expect(Object.keys(argTypes ?? {})).toEqual(['slot-default']);
   });
 
   test('returns nothing for a component with neither props nor slots', () => {

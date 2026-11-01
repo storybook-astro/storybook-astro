@@ -98,7 +98,7 @@ describe('rendering an Astro story', () => {
     Object.assign(context.storyContext.args, {
       title: 'Hello',
       slots: { default: 'Old' },
-      'slot:default': 'Edited'
+      'slot-default': 'Edited'
     });
 
     await renderToCanvas(context, canvas);

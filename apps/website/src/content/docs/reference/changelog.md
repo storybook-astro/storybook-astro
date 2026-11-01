@@ -8,6 +8,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-11-01
+
+### Added
+- The Docs props table lists the slots an Astro component accepts, with descriptions from `@slot` comments (#188).
+- Each slot gets a text control in the Controls panel, so slot content can be edited without the `args.slots` JSON editor (#203, #306).
+- Stylesheets imported by a story's components and the modules they import (plain CSS, Sass, CSS Modules, plugin virtual stylesheets), and the `<style>` blocks of server-rendered Vue and Svelte components, now ship with the story, as an Astro page ships them (#223, #241, #242, #243). Components loaded with a dynamic `import()` or `import.meta.glob` ship their CSS too, without being run (#245, #277).
+- `parameters.docs.source.objectProps: 'inline'` writes object and array props inline in Show code and the Code panel (#190).
+- A "Rendering story…" indicator shows while a slow Astro story renders, and the canvas keeps its height between renders (#236).
+
+### Changed
+- Show code and the Code panel put a tag's attributes on separate lines when one spans lines (#190).
+
+### Fixed
+- Astro component `<style>` blocks are now scoped the way Astro scopes them, in dev, static builds and server mode, and `<style lang="scss">` works (#189). Story CSS goes into the preview's `<head>` (#224), and Docs pages share one copy of CSS that several stories ship (#234).
+- `scopedStyleStrategy` and `compressHTML` from `astro.config.*` now apply in Storybook, and static builds and server mode load the project's Astro integrations (#226, #258).
+- Fonts declared under `fonts:` are injected into the iframe head in static and server builds (#248).
+
 ## [1.14.0] - 2026-10-24
 
 ### Added

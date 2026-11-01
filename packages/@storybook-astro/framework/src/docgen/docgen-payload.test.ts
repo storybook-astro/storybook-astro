@@ -162,7 +162,7 @@ describe('slots on the Docgen Server path', () => {
     const docgen = stubSource({ slots: [{ name: 'default', description: 'The card body' }] });
     const payload = await build(storyEntry('Card.stories.jsx', 'Astro/Card'), docgen);
 
-    expect(payload?.argTypes?.['slot:default']).toMatchObject({
+    expect(payload?.argTypes?.['slot-default']).toMatchObject({
       name: 'default',
       description: 'The card body',
       control: { disable: true },

@@ -25,7 +25,7 @@ export type AstroSourceOptions = {
    * (issue #190).
    */
   objectProps?: 'frontmatter' | 'inline';
-  /** The story's initial args, so an unedited `slot:<name>` arg defers to `args.slots`. */
+  /** The story's initial args, so an unedited `slot-<name>` arg defers to `args.slots`. */
   initialArgs?: Record<string, ArgValue>;
 };
 
