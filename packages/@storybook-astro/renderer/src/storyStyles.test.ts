@@ -79,7 +79,7 @@ describe('moveStoryStylesToHead', () => {
     expect(headCss()).toEqual(['.b {}', '.a {}']);
   });
 
-  test('keeps the last copy of a stylesheet a render ships twice, so the cascade matches', () => {
+  test('keeps the last copy of a stylesheet a render ships twice, so it still wins ties', () => {
     const canvas = createCanvas();
 
     renderInto(canvas, `${styleFor('.a {}')}${styleFor('.b {}')}${styleFor('.a {}')}<div></div>`);
