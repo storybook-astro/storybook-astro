@@ -21,4 +21,13 @@ test.describe('Scoped styles', () => {
     await expect(page.getByTestId('imported-styles-card')).toHaveCSS('border-top-color', 'rgb(106, 27, 154)');
     await expect(page.getByTestId('imported-styles-label')).toHaveCSS('color', 'rgb(239, 108, 0)');
   });
+
+  // Issue #241: Vue and Svelte components rendered on the server ship their
+  // <style> blocks.
+  test('style blocks of server-rendered Vue and Svelte components apply', async ({ page }) => {
+    await page.goto('/iframe.html?id=astro-scoped-styles-framework-style-blocks--server-rendered&viewMode=story');
+
+    await expect(page.getByTestId('vue-scoped-badge')).toHaveCSS('color', 'rgb(46, 125, 50)');
+    await expect(page.getByTestId('svelte-styled-tag')).toHaveCSS('color', 'rgb(21, 101, 192)');
+  });
 });
