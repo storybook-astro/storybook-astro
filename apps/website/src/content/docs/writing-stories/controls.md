@@ -179,9 +179,9 @@ they need `@storybook/addon-docs` and TypeScript installed (see
 Each control is stored in a story arg named `slot-<name>`, for example
 `slot-footer`, which the renderer folds back into `args.slots`. You don't need to
 write these yourself. A slot edit is saved in the story's URL, so it survives a
-reload or a shared link, only when it is plain text (letters, digits, spaces,
-`_` and `-`). Storybook leaves values with HTML or other punctuation out of the
-URL.
+reload or a shared link, only when it is plain text (ASCII letters, digits,
+spaces, `_` and `-`). Storybook leaves values with HTML, punctuation or any
+other character, such as an accented letter (`á`, `ñ`), out of the URL.
 
 ## Moving extraction off the dev server
 
