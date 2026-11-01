@@ -6,6 +6,12 @@ import { compiledStylesheetsFor, isAppliedStylesheet } from './compiledStyleshee
 // `Card.astro?astro&type=style&index=0&lang.css` (or `&lang.scss`, …).
 const ASTRO_STYLE_MODULE = /\?astro&type=style&index=\d+&lang\.\w+$/;
 
+// Astro refreshes its server island map by clearing this module's transform
+// result, so the module runner's next import compiles it again. Compiling it
+// here would refill it and the runner would keep its stale map. Astro's own
+// `ensureModulesLoaded` skips it too. It contains no CSS.
+const SERVER_ISLAND_MANIFEST = '\0virtual:astro:server-island-manifest';
+
 export type ComponentStyles = {
   /**
    * The compiled CSS of each `<style>` block and stylesheet the rendered
@@ -51,7 +57,62 @@ export async function loadComponentStyles(
 
   const styleModules = new Map<string, EnvironmentModuleNode>();
   const visited = new Set<EnvironmentModuleNode>();
+  // Imports this walk failed to compile, so each one is compiled and reported once.
+  const failedToCompile = new Set<EnvironmentModuleNode>();
   const failures: ComponentStyles['failures'] = [];
+
+  // A dynamic `import()` or `import.meta.glob` target is only compiled once
+  // something calls it, so without this, whether its CSS is known would
+  // depend on what earlier renders loaded (issue #245). Compile every import
+  // the server hasn't, as Astro 7's dev server does (`ensureModulesLoaded`),
+  // so its imports and their CSS are in the graph. That only transforms it:
+  // it runs nothing, so a glob match that imports a browser-only library
+  // doesn't fail or log here (issue #277). Like Astro dev, every component a
+  // glob matches ships its CSS, not only the ones the story rendered.
+  const compileImport = async (module: EnvironmentModuleNode) => {
+    const id = module.id;
+
+    if (!id || module.transformResult || failedToCompile.has(module)) {
+      return;
+    }
+
+    if (isAppliedStylesheet(id)) {
+      if (compiled.has(id)) {
+        // The server compiled this stylesheet before, so the module runner
+        // may hold its exports: a CSS Module's class names, which a
+        // component the runner evaluated renders with. Vite clears a
+        // module's transform result when its file changes, and a
+        // transform outside the runner would refill it, so the runner's
+        // next import would keep its old exports while the new CSS
+        // shipped. Running a stylesheet runs no project code, so load it
+        // through the runner, which records the new CSS too.
+        await viteServer.ssrLoadModule(module.url);
+      } else {
+        await ssr.transformRequest(module.url);
+      }
+
+      return;
+    }
+
+    // Leave a module loaded with a query (`?raw`, `?url`, a framework's
+    // script sub-module) alone: it isn't a component, and the walk doesn't
+    // follow its imports.
+    if (id.includes('?') || id === SERVER_ISLAND_MANIFEST) {
+      return;
+    }
+
+    // Compiling a module the runner has evaluated would leave the runner on
+    // its old exports the same way, and running it is what this pass avoids.
+    // The runner only evaluates a module once it has compiled, and Vite
+    // clears the transform result only when it invalidates the module (an
+    // edit, or `invalidateAll` on a mocked render), so a module without one
+    // that Vite never invalidated has never been evaluated. One Vite
+    // invalidated may have been, so it isn't compiled here: its CSS comes
+    // from the imports Vite recorded when it last compiled.
+    if (module.lastInvalidationTimestamp === 0 && module.lastHMRTimestamp === 0) {
+      await ssr.transformRequest(module.url);
+    }
+  };
 
   const collect = async (module: EnvironmentModuleNode) => {
     if (visited.has(module)) {
@@ -76,60 +137,37 @@ export async function loadComponentStyles(
       return;
     }
 
-    // A dynamic `import()` or lazy `import.meta.glob` target is only compiled
-    // once something calls it, so whether its CSS is known would depend on
-    // what earlier renders loaded. Load the `.astro` ones first, as Astro 5's
-    // dev server does (Astro 7's transforms them without running them), and
-    // compile the stylesheets, so a story's CSS doesn't depend on render order
-    // (issue #245). Like Astro dev, that ships the CSS of every component a
-    // glob matches, not only the ones the story rendered. Issue #277 tracks
-    // replacing these loads with one transform-only pass.
-    for (const dynamicDep of module.transformResult?.dynamicDeps ?? []) {
-      // Vite records an import of a virtual module under a `/@id/` URL, with
-      // a leading `\0` written as `__x00__`. The module graph's URL lookup
-      // doesn't unwrap it, so unwrap it here the way Vite's `unwrapId` does.
-      const url = dynamicDep.startsWith('/@id/')
-        ? dynamicDep.slice('/@id/'.length).replace(/^__x00__/, '\0')
-        : dynamicDep;
-      const isAstroComponent = url.split('?')[0].endsWith('.astro');
-
-      if (!isAstroComponent && !isAppliedStylesheet(url)) {
-        continue;
-      }
-
-      try {
-        const target = await moduleGraph.getModuleByUrl(url);
-
-        if (!isAstroComponent) {
-          // Compiling a stylesheet records its CSS without running anything.
-          // A compile error, a Sass one say, is reported like a static
-          // import's, so a static build fails on it.
-          if (!target?.id || !compiled.has(target.id)) {
-            await ssr.transformRequest(url).catch((error: unknown) => {
-              failures.push({ moduleId: target?.id ?? url, error });
-            });
-          }
-        } else if (target?.ssrError) {
-          // A component that failed to load fails the render that calls it,
-          // as in Astro dev. Its style blocks never compiled, so don't walk
-          // it and report them.
-          visited.add(target);
-        } else if (!target?.ssrModule) {
-          await viteServer.ssrLoadModule(url).catch(async () => {
-            const failedTarget = await moduleGraph.getModuleByUrl(url);
-
-            if (failedTarget) {
-              visited.add(failedTarget);
-            }
-          });
-        }
-      } catch {
-        // A target that can't be resolved or compiled fails the render that
-        // calls it. The rest of this component's styles still ship.
-      }
+    // A module that failed to run fails the render that runs it, as in
+    // Astro dev. Its imports may never have compiled, so don't walk it and
+    // report their style blocks.
+    if (module.ssrError) {
+      return;
     }
 
-    for (const imported of module.importedModules) {
+    // Compile the imports together, then walk them in import order, so the
+    // cascade order doesn't depend on which compile finished first.
+    const imports = [...module.importedModules];
+    const results = await Promise.allSettled(imports.map(compileImport));
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        return;
+      }
+
+      const imported = imports[index];
+
+      failedToCompile.add(imported);
+
+      // A stylesheet that doesn't compile (a Sass error, say) is reported,
+      // so a static build fails on it, and the last CSS that compiled still
+      // ships, as Astro dev keeps it. A component that doesn't compile fails
+      // the render that calls it, and the story may not.
+      if (imported.id && isAppliedStylesheet(imported.id)) {
+        failures.push({ moduleId: imported.id, error: result.reason });
+      }
+    });
+
+    for (const imported of imports) {
       await collect(imported);
     }
   };
@@ -159,28 +197,15 @@ export async function loadComponentStyles(
   const stylesheets: string[] = [];
 
   for (const [styleModuleId, styleModule] of styleModules) {
-    // Vite clears a module's transform result when its file changes. A
-    // long-lived handler (the Vitest renderer daemon, say) keeps the
-    // component that imports it cached, so nothing else recompiles the
-    // edited stylesheet: load it here, which records the new CSS. It goes
-    // through the module runner, not `transformRequest`: a transform outside
-    // the runner refills the transform result, so the runner's next import
-    // reuses its old evaluation, and a CSS Module's class names would no
-    // longer match the CSS (Astro 7's `ensureModulesLoaded` notes the same).
-    if (!styleModule.transformResult && compiled.has(styleModuleId)) {
-      try {
-        await viteServer.ssrLoadModule(styleModule.url);
-      } catch (error) {
-        // The last CSS that compiled still ships, as Astro dev keeps it.
-        failures.push({ moduleId: styleModuleId, error });
-      }
-    }
-
     const css = compiled.get(styleModuleId);
 
     if (css) {
       stylesheets.push(css);
-    } else if (css === undefined && ASTRO_STYLE_MODULE.test(styleModuleId)) {
+    } else if (
+      css === undefined &&
+      ASTRO_STYLE_MODULE.test(styleModuleId) &&
+      !failedToCompile.has(styleModule)
+    ) {
       // The render loaded the component, which imports its style blocks, so
       // the server compiled them. One it didn't compile is reported. A
       // stylesheet the walk reaches that the server never compiled is one no
