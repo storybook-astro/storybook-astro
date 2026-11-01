@@ -182,7 +182,20 @@ Once the publish is verified:
 
 4. **Add a view for the next release** if it doesn't have one: board layout, filtered to `milestone:<version>`, columns by Status, like the existing per-release views. A view can be added in the project's UI, or with the GraphQL `createProjectV2View` and `updateProjectV2View` mutations.
 
-5. **Thank outside contributors and reporters.** Comment on each issue or PR from outside the core team that shipped in the release, saying which version has it.
+### 11. Thank outside contributors and reporters
+
+Do this only after step 8 confirms the new version is on npm, so the comment can tell people they can install it.
+
+List the release's issues and PRs opened by someone outside the core team:
+
+```bash
+gh api 'repos/storybook-astro/storybook-astro/issues?milestone=<milestone-number>&state=all&per_page=100' --paginate \
+  -q '.[] | select(.author_association | IN("OWNER","MEMBER","COLLABORATOR") | not) | "#\(.number) @\(.user.login) \(.title)"'
+```
+
+The list misses an outside reporter whose issue isn't on the milestone, such as one closed as a duplicate of an issue that is, so check the release's CHANGELOG entries for issues credited to someone else.
+
+Comment on each issue or PR: thank them for the report or the contribution, and say which version has it, with a link to its CHANGELOG entry. One comment per person and issue is enough; don't mention people who are already in the core team.
 
 ---
 
@@ -226,6 +239,10 @@ git push origin v1.0.5
 ```
 
 The publish workflow handles the rest.
+
+### 6. Verify the publish and thank the reporter
+
+Verify the publish as in [step 8](#8-verify-the-publish) of the standard release. Then, if the bug was reported or fixed by someone outside the core team, thank them on the issue or PR as in [step 11](#11-thank-outside-contributors-and-reporters).
 
 ---
 
