@@ -7,8 +7,10 @@ const STORY_STYLE = `style[${STORY_STYLE_ATTRIBUTE}]`;
 // canvas, and stories of one component ship the same CSS, so each stylesheet
 // goes in once (issue #234). CSS another canvas also uses stays where it is.
 // CSS no other canvas uses moves with the render: it goes in before the next
-// stylesheet the render shares, or at the end of the head, so the canvas keeps
-// its own order. Two canvases that need shared stylesheets in opposite orders
+// stylesheet the render shares, or at the end of the head, unless that
+// stylesheet sits ahead of CSS the render already placed, in which case it goes
+// right after the furthest of those. That keeps the canvas's own CSS in order.
+// Two canvases that need shared stylesheets in opposite orders
 // get the first canvas's order for those. An element leaves when its last
 // canvas lets go.
 type SharedStyle = { element: HTMLStyleElement; canvases: Set<Element> };
@@ -32,7 +34,9 @@ const stylesByCanvas = new WeakMap<Element, SharedStyle[]>();
  * only by this canvas, goes in in render order: before the next stylesheet
  * this render shares, or at the end of the head when it shares none after it,
  * where Astro component CSS went before #189 too, after any CSS the story's
- * modules added on import. A canvas no other canvas shares CSS with gets all
+ * modules added on import. When that next shared stylesheet sits ahead of CSS
+ * the render already placed, it goes right after the furthest of those
+ * instead, so it still follows everything ahead of it in the render. A canvas no other canvas shares CSS with gets all
  * of its CSS re-added at the end. Two canvases that need shared stylesheets in
  * opposite orders get the first canvas's order for those.
  */
@@ -67,9 +71,11 @@ export function moveStoryStylesToHead(html: string, canvasElement: Element) {
   }
 
   const sharedStyles = sharedStylesFor(document);
-  // Find the CSS already in the head before letting go of the old, so CSS this
-  // canvas keeps across an edit isn't removed and added back. An element
-  // something moved out of the head counts as gone.
+  // Find the CSS already in the head before letting go of the old, so CSS
+  // another canvas shares stays where it is and this canvas reuses its own
+  // element instead of adding a new copy. CSS no other canvas uses still
+  // moves to its place in the render's order. An element something moved out
+  // of the head counts as gone.
   const reusedStyles = cssTexts.map((css) => {
     const shared = sharedStyles.get(css);
 
@@ -77,7 +83,10 @@ export function moveStoryStylesToHead(html: string, canvasElement: Element) {
   });
   const isAnchor = (shared: SharedStyle | undefined) =>
     shared !== undefined && Array.from(shared.canvases).some((canvas) => canvas !== canvasElement);
-  let previousElement: HTMLStyleElement | null = null;
+  // The element of this render that sits furthest down the head so far. CSS
+  // another canvas shares stays where it is, so it can sit ahead of CSS this
+  // render placed before it.
+  let furthestPlaced: HTMLStyleElement | null = null;
 
   const nextStyles = reusedStyles.map((reused, index) => {
     const shared = reused ?? { element: styles[index], canvases: new Set<Element>() };
@@ -89,16 +98,15 @@ export function moveStoryStylesToHead(html: string, canvasElement: Element) {
     if (!isAnchor(reused)) {
       // Going in before the next stylesheet this render shares keeps the
       // render's own order, so an edited global.css stays ahead of the
-      // button.css that overrides it. If that stylesheet sits ahead of the CSS
-      // this render just placed, going right after that CSS keeps the order
-      // instead.
+      // button.css that overrides it. If that stylesheet sits ahead of CSS
+      // this render already placed, going right after the furthest of that
+      // CSS keeps the order instead.
       const nextAnchor = reusedStyles.slice(index + 1).find(isAnchor)?.element ?? null;
-      const anchorIsBehindPrevious =
-        previousElement !== null &&
-        nextAnchor !== null &&
-        (previousElement.compareDocumentPosition(nextAnchor) & previousElement.DOCUMENT_POSITION_PRECEDING) !== 0;
+      let insertBefore: Node | null = nextAnchor;
 
-      const insertBefore = anchorIsBehindPrevious ? (previousElement?.nextSibling ?? null) : nextAnchor;
+      if (furthestPlaced !== null && nextAnchor !== null && isAheadOf(nextAnchor, furthestPlaced)) {
+        insertBefore = furthestPlaced.nextSibling;
+      }
 
       if (insertBefore !== shared.element) {
         document.head.insertBefore(shared.element, insertBefore);
@@ -106,7 +114,10 @@ export function moveStoryStylesToHead(html: string, canvasElement: Element) {
     }
 
     shared.canvases.add(canvasElement);
-    previousElement = shared.element;
+
+    if (furthestPlaced === null || isAheadOf(furthestPlaced, shared.element)) {
+      furthestPlaced = shared.element;
+    }
 
     return shared;
   });
@@ -145,6 +156,11 @@ function releaseStyles(canvasElement: Element, styles: SharedStyle[]) {
       }
     }
   }
+}
+
+/** Whether `node` comes before `other` in the document. */
+function isAheadOf(node: Node, other: Node) {
+  return (node.compareDocumentPosition(other) & node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 }
 
 function sharedStylesFor(document: Document) {

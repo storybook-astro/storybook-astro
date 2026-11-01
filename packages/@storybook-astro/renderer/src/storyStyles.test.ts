@@ -225,6 +225,19 @@ describe('moveStoryStylesToHead', () => {
     expect(css.indexOf('.n1 {}')).toBeLessThan(css.indexOf('.r1 {}'));
     expect(css.indexOf('.r1 {}')).toBeLessThan(css.indexOf('.n2 {}'));
   });
+
+  test('keeps a story\'s own CSS after a shared stylesheet the render places ahead of it, when shared CSS sits out of order', () => {
+    const otherCanvas = createCanvas();
+    const canvas = createCanvas();
+
+    renderInto(otherCanvas, `${styleFor('.r1 {}')}${styleFor('.r3 {}')}${styleFor('.r2 {}')}<div></div>`);
+    renderInto(canvas, `${styleFor('.r2 {}')}${styleFor('.r1 {}')}${styleFor('.n1 {}')}${styleFor('.r3 {}')}<div></div>`);
+
+    const css = headCss();
+
+    expect(css.indexOf('.r2 {}')).toBeLessThan(css.indexOf('.n1 {}'));
+    expect(css.indexOf('.r1 {}')).toBeLessThan(css.indexOf('.n1 {}'));
+  });
 });
 
 describe('removeStoryStyles', () => {
