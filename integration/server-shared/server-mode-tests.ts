@@ -31,6 +31,20 @@ export function defineServerModeTests(test: typeof playwrightTest, expect: typeo
       await expect(page.getByTestId('npm-weekly-downloads')).toContainText('Custom download label');
     });
 
+    test('a story ships its component styles', async ({ page }) => {
+      await page.goto('/iframe.html?id=astro-githubstars--default&viewMode=story');
+
+      // The card is a link; its CSS Module removes the browser's underline.
+      await expect(page.getByTestId('github-stars')).toHaveCSS('text-decoration-line', 'none');
+    });
+
+    test('a story ships the styles of its decorator', async ({ page }) => {
+      await page.goto('/iframe.html?id=astro-decorators-wrapper--decorated&viewMode=story');
+
+      // Wrapper.astro's scoped <style> draws a dashed border.
+      await expect(page.getByTestId('decorator-wrapper')).toHaveCSS('border-top-style', 'dashed');
+    });
+
     test('a decorator wraps the story', async ({ page }) => {
       await page.goto('/iframe.html?id=astro-decorators-wrapper--decorated&viewMode=story');
 

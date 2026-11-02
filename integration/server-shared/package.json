@@ -19,6 +19,7 @@
   },
   "exports": {
     "./server-mode-tests": "./server-mode-tests.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./preview.css": "./preview.css"
   }
 }
