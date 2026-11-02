@@ -110,7 +110,7 @@ export default {
   title: 'Components/Card',
   component: Card,
   argTypes: {
-    // Force a colour picker for a prop typed as a plain string.
+    // Force a color picker for a prop typed as a plain string.
     accent: { control: 'color' },
     // Hide an inherited prop that isn't interesting for this story.
     class: { table: { disable: true } },

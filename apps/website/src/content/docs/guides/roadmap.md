@@ -96,7 +96,7 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 **Shipped in**: 1.15.0
 
-The Docs props table lists the slots an Astro component accepts in a **Slots** section, with descriptions from `{/* @slot … */}` comments, even when no story fills them. Each slot also gets a text control in the Controls panel, so slot HTML can be edited without the `args.slots` JSON editor.
+The Docs props table lists the slots an Astro component accepts in a **Slots** section, with descriptions from `{/* @slot … */}` comments, even when no story fills them. Each slot also gets a text control in the Controls panel, so slot HTML can be edited without the `args.slots` JSON editor (not yet with the Docgen Server, [#267](https://github.com/storybook-astro/storybook-astro/issues/267)).
 
 **Tracking**: [Issue #188](https://github.com/storybook-astro/storybook-astro/issues/188), [Issue #203](https://github.com/storybook-astro/storybook-astro/issues/203)
 
@@ -106,7 +106,7 @@ The Docs props table lists the slots an Astro component accepts in a **Slots** s
 
 **Shipped in**: 1.15.0
 
-A story now gets the CSS an Astro page would: each `<style>` block, compiled and scoped by your installed Astro version (`<style lang="scss">` included), and the stylesheets imported by the components it renders and the modules they import (plain CSS, Sass, CSS Modules, plugin virtual stylesheets, Vue and Svelte style blocks). This works in dev, static builds and server mode. The CSS goes into the preview's `<head>`, and stories on a Docs page that ship the same CSS share one copy.
+A story now gets the CSS an Astro page would: each `<style>` block, compiled and scoped by your installed Astro version (`<style lang="scss">` included), and the stylesheets imported by the components it renders and the modules they import (plain CSS, Sass, CSS Modules, plugin virtual stylesheets), and the `<style>` blocks of server-rendered Vue and Svelte components. This works in dev, static builds and server mode, except that `url()` assets in that CSS return 404 in server mode ([#305](https://github.com/storybook-astro/storybook-astro/issues/305); see [Troubleshooting](/guides/troubleshooting/#url-assets-in-server-mode)). The CSS goes into the preview's `<head>`, and stories on a Docs page that ship the same CSS share one copy.
 
 **Tracking**: [Issue #189](https://github.com/storybook-astro/storybook-astro/issues/189), [Issue #223](https://github.com/storybook-astro/storybook-astro/issues/223), [Issue #224](https://github.com/storybook-astro/storybook-astro/issues/224), [Issue #234](https://github.com/storybook-astro/storybook-astro/issues/234)
 
@@ -122,7 +122,7 @@ See [Showing component source](/writing-stories/controls/#showing-component-sour
 
 Since 1.15.0, `parameters.docs.source.objectProps: 'inline'` writes object and array props out in the attribute instead of hoisting them into the frontmatter.
 
-**Tracking**: [Issue #106](https://github.com/storybook-astro/storybook-astro/issues/106), [Issue #161](https://github.com/storybook-astro/storybook-astro/issues/161)
+**Tracking**: [Issue #106](https://github.com/storybook-astro/storybook-astro/issues/106), [Issue #161](https://github.com/storybook-astro/storybook-astro/issues/161), [Issue #190](https://github.com/storybook-astro/storybook-astro/issues/190)
 
 ### Automatic Documentation Extraction from JSDoc
 
@@ -156,7 +156,7 @@ This was previously listed as blocked by [withastro/astro#16275](https://github.
 
 This has worked in the dev canvas since 1.7.0. Running the same play functions headlessly under [`@storybook/addon-vitest`](/guides/testing/#storybook-test-addon-storybookaddon-vitest) arrived later, in 1.11.0.
 
-**One difference from framework components**: changing a Control after a play function has run re-renders the story from fresh server HTML, which discards whatever the play function did to the DOM. A React component keeps that state, because React reconciles the existing tree. Neither re-runs the play function on an args change — that part matches Storybook's normal behaviour — so after changing a Control the Interactions panel shows a result that no longer describes what is on screen. Re-select the story to run it again.
+**One difference from framework components**: changing a Control after a play function has run re-renders the story from fresh server HTML, which discards whatever the play function did to the DOM. A React component keeps that state, because React reconciles the existing tree. Neither re-runs the play function on an args change — that part matches Storybook's normal behavior — so after changing a Control the Interactions panel shows a result that no longer describes what is on screen. Re-select the story to run it again.
 
 ### Enhanced Testing & Portable Stories
 
@@ -288,7 +288,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Stories (CSF) | ✅ Supported | Component Story Format for defining stories |
-| Args & Controls | ✅ Supported | Interactive controls for component props, and a text control for each slot (dev only for Astro components; pre-rendered in static builds) |
+| Args & Controls | ✅ Supported | Interactive controls for component props, and a text control for each slot except with the Docgen Server (dev only for Astro components; pre-rendered in static builds) |
 | Actions | ✅ Supported | Log user interactions and events |
 | Docs (Autodocs) | ✅ Supported | Automatic documentation pages, with props tables generated from frontmatter JSDoc and a Slots section listing each slot |
 | Docs (MDX) | ✅ Supported | Custom documentation pages with MDX |

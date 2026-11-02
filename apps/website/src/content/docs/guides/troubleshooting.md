@@ -260,7 +260,7 @@ A story gets the CSS an Astro page would get for the components it renders: thei
 - **One component is unstyled.** Check that the story renders it, or that a component it renders imports it. A component that only a CSS file or a PostCSS plugin refers to isn't followed, so import its stylesheet in `.storybook/preview.js`.
 - **Utility classes are missing (UnoCSS and similar).** A generator builds its CSS from the files it has scanned so far, so import its virtual stylesheet in `.storybook/preview.js` as well (see [CSS utility frameworks](/guides/styling/#css-utility-frameworks)).
 - **A stylesheet imported with `?raw`, `?url` or `?inline` is missing.** That's expected: those imports give you the CSS as a string or URL, as on an Astro page, and aren't applied.
-- **A style edit doesn't show in dev.** Reload the story. Some edits to a component's `<style>` block alone don't rerun the story yet ([#229](https://github.com/storybook-astro/storybook-astro/issues/229)).
+- **A style edit doesn't show in dev.** Reload the story. Editing a component's own `<style>` block or a stylesheet its frontmatter imports reruns the story, but editing a file a `<style>` block pulls in (a Sass partial it `@use`s, or a CSS file it `@import`s) doesn't yet ([#229](https://github.com/storybook-astro/storybook-astro/issues/229)), and neither does a change to a plugin's virtual stylesheet.
 
 To inspect what a story shipped, open the preview iframe in your browser's dev tools and look for the `<style data-storybook-astro-styles>` elements in its `<head>`. Their selectors should carry the same scope as the markup: a `data-astro-cid-*` attribute, or an `astro-*` class with `scopedStyleStrategy: 'class'` or `'where'`.
 
