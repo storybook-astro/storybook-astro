@@ -470,6 +470,6 @@ These are the key adaptations that keep Astro 5, 6, and 7 working. If Astro's AP
 - **Testing**: Expand test coverage for edge cases and error scenarios
 - **Error Handling**: Better error messages and recovery
 - **Documentation**: API documentation and more usage examples
-- **Production Build**: Both build-time static pre-rendering (`renderMode: 'static'`, default) and on-demand server-mode rendering (`renderMode: 'server', server: { adapter }`) work in production. Server mode builds an Astro app with the official Astro adapters, so it runs on Node.js servers/containers, Vercel, Netlify and Cloudflare (Workers; Pages on Astro 5) — see the Deployment guide on the docs site for the adapter/Astro version table.
+- **Production Build**: Both build-time static pre-rendering (`renderMode: 'static'`, default) and on-demand server-mode rendering (`renderMode: 'server', server: { adapter }`) work in production. Server mode builds an Astro app with the official Astro adapters, so it runs on Node.js servers/containers, Vercel, Netlify and Cloudflare Workers — see the Deployment guide on the docs site for the adapter/Astro version table.
 - **Portable Stories**: Consider delegating to framework-specific composeStories when available
 - **Astro 8+**: Astro 5, 6, and 7 are supported today. Monitor for breaking changes in future major releases and adjust the compatibility layers above accordingly.

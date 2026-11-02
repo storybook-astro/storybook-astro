@@ -48,7 +48,7 @@ export function cloudflare({ name = 'storybook', ...options }: CloudflareAdapter
     nextSteps: [
       'Preview locally with: wrangler dev -c storybook-server/server/wrangler.json',
       'Deploy with: wrangler deploy -c storybook-server/server/wrangler.json',
-      '(Astro 5 builds for Cloudflare Pages instead: wrangler pages dev / wrangler pages deploy storybook-server)'
+      '(Astro 5 writes the Pages layout instead; the deployment guide has the wrangler.jsonc that runs it as a Worker)'
     ].join('\n')
   };
 }

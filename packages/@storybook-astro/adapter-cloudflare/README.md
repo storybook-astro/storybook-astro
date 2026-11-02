@@ -32,6 +32,9 @@ wrangler deploy -c storybook-server/server/wrangler.json  # deploy
 ```
 
 The Worker runs the render app `astro build` compiled; it never starts Vite.
+On Astro 5, `@astrojs/cloudflare` 12 writes the Pages layout to `storybook-server/`;
+the [Deployment guide](https://storybook-astro.org/guides/deployment/#on-cloudflare-workers)
+has the `wrangler.jsonc` that deploys it as a Worker.
 Without a Wrangler config of your own, the adapter writes a minimal one with the
 `nodejs_compat` flag; pass `configPath` to use yours. Other options are passed to
 `@astrojs/cloudflare`.

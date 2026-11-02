@@ -5,11 +5,11 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "storybook dev -p 6152",
-    "build": "storybook-astro build",
+    "build": "storybook-astro build && printf '_worker.js\\n_routes.json\\n' > storybook-server/.assetsignore",
     "lint": "eslint .",
     "test:browser": "playwright test",
-    "serve": "wrangler pages dev --ip 127.0.0.1 --port 6153",
-    "deploy": "wrangler pages deploy"
+    "serve": "wrangler dev --ip 127.0.0.1 --port 6153",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@astrojs/cloudflare": "12.6.13",

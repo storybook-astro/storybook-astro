@@ -21,7 +21,7 @@ const config = {
       renderMode: 'server',
       storyRules: `${sharedRoot}/story-rules.ts`,
       server: {
-        adapter: cloudflare({ name: 'storybook-astro5-server' }),
+        adapter: cloudflare({ name: 'storybook-astro5-server-cloudflare' }),
         authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN
       },
       integrations: [

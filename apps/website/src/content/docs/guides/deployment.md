@@ -28,7 +28,7 @@ install in the version that matches your Astro version:
 | Node.js server or container | `@storybook-astro/adapter-node` `@astrojs/node` | 9 | 10 | 11 |
 | Vercel | `@storybook-astro/adapter-vercel` `@astrojs/vercel` | 9 | 10 | 11 |
 | Netlify | `@storybook-astro/adapter-netlify` `@astrojs/netlify` | 6 | 7 | 8 |
-| Cloudflare | `@storybook-astro/adapter-cloudflare` `@astrojs/cloudflare` | 12 (Pages) | 13 | 14 |
+| Cloudflare | `@storybook-astro/adapter-cloudflare` `@astrojs/cloudflare` | 12 | 13 | 14 |
 
 That's the same `@astrojs/*` version you'd use to deploy an Astro site on that
 Astro version. For example, on Astro 6 with Node:
@@ -121,10 +121,26 @@ npx wrangler dev -c storybook-server/server/wrangler.json     # preview locally
 npx wrangler deploy -c storybook-server/server/wrangler.json  # deploy
 ```
 
-On Astro 5, `@astrojs/cloudflare` 12 builds for Cloudflare **Pages** instead:
-`storybook-server/` holds the UI and `_worker.js`. Add a `wrangler.jsonc` with
-`"pages_build_output_dir": "./storybook-server"` and the `nodejs_compat` flag,
-then use `wrangler pages dev` and `wrangler pages deploy`.
+On Astro 5, `@astrojs/cloudflare` 12 writes the Pages layout instead: the UI and
+`_worker.js` in `storybook-server/`. It runs as a Worker with static assets, with
+this `wrangler.jsonc` next to your `package.json`:
+
+```jsonc
+{
+  "name": "my-storybook",
+  "main": "./storybook-server/_worker.js/index.js",
+  "assets": { "binding": "ASSETS", "directory": "./storybook-server" },
+  "compatibility_date": "2026-04-15",
+  "compatibility_flags": ["nodejs_compat"]
+}
+```
+
+Keep the Worker's code out of the public assets with a `.assetsignore` after the build:
+
+```bash
+storybook-astro build && printf '_worker.js\n_routes.json\n' > storybook-server/.assetsignore
+npx wrangler deploy
+```
 
 Without a Wrangler config of your own, the adapter uses a minimal one named
 after `cloudflare({ name: 'my-storybook' })` with the `nodejs_compat` flag.
@@ -143,7 +159,7 @@ MSW's Node interceptors don't run on Workers; mock `fetch` in a story rule inste
 | Node.js server or container | Server with `node()` |
 | Vercel | Server with `vercel()` |
 | Netlify | Server with `netlify()` |
-| Cloudflare Workers (Pages on Astro 5) | Server with `cloudflare()` |
+| Cloudflare Workers | Server with `cloudflare()` |
 
 Another host works if Astro has an adapter for it: a `ServerAdapter`
 (exported from `@storybook-astro/framework/adapters`) is a name and a
