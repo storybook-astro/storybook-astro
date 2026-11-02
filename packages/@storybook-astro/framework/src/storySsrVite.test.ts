@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { createPathStoryModuleMock, withStoryModuleMocks } from './module-mocks.ts';
 import { createStorybookBrowserStubPlugin, createStorySsrViteServer } from './storySsrVite.ts';
 
@@ -41,6 +41,254 @@ describe('createStorySsrViteServer', () => {
         const pluginNames = viteServer.config.plugins.map((plugin) => plugin.name);
 
         expect(pluginNames).toContain('user-test-plugin');
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('loads the integrations declared in the project astro.config, as dev does (issue #226)', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'user-integration',
+            hooks: {
+              'astro:config:setup': ({ updateConfig }) => {
+                updateConfig({ vite: { plugins: [{ name: 'from-user-integration' }] } });
+              }
+            }
+          }]
+        };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        expect(viteServer.config.plugins.map((plugin) => plugin.name)).toContain('from-user-integration');
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test.each([
+    ['a naming pattern', `'[name]__[local]'`],
+    ['a naming function', `(name) => 'project_' + name`]
+  ])('keeps %s a project integration sets for CSS Module classes (issue #258)', async (_kind, generateScopedName) => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'css-module-naming',
+            hooks: {
+              'astro:config:setup': ({ updateConfig }) => {
+                updateConfig({ vite: { css: { modules: { generateScopedName: ${generateScopedName} } } } });
+              }
+            }
+          }]
+        };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        expect(viteServer.config.css.modules && viteServer.config.css.modules.generateScopedName).toBeDefined();
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('in server mode, still starts without the project\'s integrations when one fails to set up', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      // Like a deployed render server's snapshot, which lacks files a hook expects.
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'needs-missing-file',
+            hooks: {
+              'astro:config:setup': () => {
+                throw new Error('ENOENT: content.config.ts');
+              }
+            }
+          }]
+        };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir,
+        renderWithoutProjectIntegrationsOnFailure: true
+      });
+
+      await viteServer.close();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("failed to start with the project's astro.config integrations; retrying without them"),
+        expect.objectContaining({ message: 'ENOENT: content.config.ts' })
+      );
+    } finally {
+      warn.mockRestore();
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('in server mode, still starts when a plugin an integration adds fails as the server starts', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'adds-a-failing-plugin',
+            hooks: {
+              'astro:config:setup': ({ updateConfig }) => {
+                updateConfig({ vite: { plugins: [{
+                  name: 'fails-on-config-resolved',
+                  configResolved() {
+                    throw new Error('read-only file system');
+                  }
+                }] } });
+              }
+            }
+          }]
+        };`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir,
+        renderWithoutProjectIntegrationsOnFailure: true
+      });
+
+      try {
+        expect(viteServer.config.plugins.map((plugin) => plugin.name)).not.toContain(
+          'fails-on-config-resolved'
+        );
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining("failed to start with the project's astro.config integrations; retrying without them"),
+          expect.objectContaining({ message: 'read-only file system' })
+        );
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      warn.mockRestore();
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('in a static build, fails when an integration fails to set up', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(
+        join(fixtureDir, 'astro.config.mjs'),
+        `export default {
+          integrations: [{
+            name: 'needs-missing-file',
+            hooks: {
+              'astro:config:setup': () => {
+                throw new Error('ENOENT: content.config.ts');
+              }
+            }
+          }]
+        };`
+      );
+
+      await expect(
+        createStorySsrViteServer({
+          integrations: [],
+          trackedSpecifiers: new Set(),
+          resolveFrom: fixtureDir
+        })
+      ).rejects.toThrow('ENOENT: content.config.ts');
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test('compiles components with the project\'s scopedStyleStrategy (issue #226)', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({ name: 'ssr-fixture', type: 'module', private: true })
+      );
+      await writeFile(join(fixtureDir, 'astro.config.mjs'), `export default { scopedStyleStrategy: 'class' };`);
+      await writeFile(join(fixtureDir, 'Card.astro'), '<div class="card"></div>\n<style>.card { color: red; }</style>\n');
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        const cardPath = join(fixtureDir, 'Card.astro');
+
+        await viteServer.ssrLoadModule(cardPath);
+        const { default: css } = (await viteServer.ssrLoadModule(
+          `${cardPath}?astro&type=style&index=0&inline&lang.css`
+        )) as { default: string };
+
+        // The default `attribute` strategy scopes with `[data-astro-cid-…]`.
+        expect(css).toMatch(/\.card\.astro-\w+/);
       } finally {
         await viteServer.close();
       }

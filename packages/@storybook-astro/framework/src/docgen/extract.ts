@@ -3,6 +3,7 @@ import type ts from 'typescript';
 import { readAstroPropsBinding } from './defaultValues.ts';
 import { readComponentDescription } from './description.ts';
 import { createDefaultPropFilter } from './propFilter.ts';
+import { readSlots } from './slots.ts';
 import { rewriteInterfaceToTypeAlias, unionConstituentsOfFirstDefault } from './propsDeclaration.ts';
 import type {
   AstroDocgenInfo,
@@ -28,10 +29,11 @@ const TS_NULL_FLAG = 65536;
 /**
  * Extracts docgen for one `.astro` component.
  *
- * Returns `null` only when there is nothing to look at — no frontmatter. A
- * component with frontmatter but no `Props` still yields its description with
- * an empty props table, because that description is most of the value for a
- * slot-only component (docs/specs/docgen.md#failure-modes).
+ * Returns `null` only when there is nothing to look at: no frontmatter and no
+ * slots. A component with frontmatter but no `Props` still yields its
+ * description with an empty props table, because that description and its
+ * slots are most of the value for a slot-only component
+ * (docs/specs/docgen.md#failure-modes).
  */
 export function extractAstroDocgen(
   typescript: typeof ts,
@@ -40,13 +42,13 @@ export function extractAstroDocgen(
   astroSource: string,
   options: AstroDocgenOptions = {}
 ): AstroDocgenInfo | null {
+  const displayName = basename(astroFilePath).replace(/\.astro$/, '');
+  const slots = readSlots(astroSource);
   const virtualSource = buildVirtualSource(astroSource);
 
   if (virtualSource === null) {
-    return null;
+    return slots.length > 0 ? { displayName, description: '', props: {}, slots } : null;
   }
-
-  const displayName = basename(astroFilePath).replace(/\.astro$/, '');
 
   // Parsed without a checker first: this is cheap, and it tells us whether
   // there is a `Props` to instantiate before we involve the program at all.
@@ -61,7 +63,7 @@ export function extractAstroDocgen(
   const propsDeclaration = findPropsDeclaration(typescript, parsed);
 
   if (!propsDeclaration) {
-    return { displayName, description: description.text, tags: description.tags, props: {} };
+    return { displayName, description: description.text, tags: description.tags, props: {}, slots };
   }
 
   const binding = readAstroPropsBinding(typescript, parsed);
@@ -78,7 +80,7 @@ export function extractAstroDocgen(
     }
   }
 
-  return { displayName, description: description.text, tags: description.tags, props };
+  return { displayName, description: description.text, tags: description.tags, props, slots };
 }
 
 /**

@@ -16,6 +16,7 @@ Helps with:
 - **Git workflow** — Proper branching, tagging, and merge strategies
 - **Publishing** — Managing npm publication with correct dist-tags
 - **Hotfixes** — Fast-track release process for critical bugs
+- **Milestones and the project board** — Closing out a release's milestone and preparing the next one
 
 ## Key Concepts
 
@@ -220,6 +221,27 @@ git push origin develop
 ```
 
 > After a standard release, `main`, `website`, and `develop` should all be at the same commit (or `develop` may be ahead with in-progress work).
+
+**9. Close out the milestone and the project board**
+
+Each release has a GitHub milestone named for its version (`1.15.0`), and the [Storybook Astro Roadmap](https://github.com/orgs/storybook-astro/projects/1) project has a board view filtered to it. Before tagging, every open issue on the milestone is either fixed on `develop` or moved to the next milestone. After the publish is verified:
+
+```bash
+# Find milestone numbers
+gh api 'repos/storybook-astro/storybook-astro/milestones?state=all' --jq '.[] | "\(.number) \(.title) \(.state)"'
+
+# Close the release's milestone
+gh api -X PATCH repos/storybook-astro/storybook-astro/milestones/<n> -f state=closed
+
+# Create the next release's milestone if it doesn't exist
+gh api -X POST repos/storybook-astro/storybook-astro/milestones -f title=X.Y.Z
+```
+
+- **Board:** issues the release closed are in Done. Issues moved to the next milestone go to Ready if they're planned for it, or Backlog if not.
+- **Next release's view:** if it doesn't have one, add a board view filtered to `milestone:X.Y.Z` with columns by Status, matching the existing per-release views (project UI, or the GraphQL `createProjectV2View` and `updateProjectV2View` mutations).
+- **Thank outside contributors and reporters:** comment on each shipped issue or PR from outside the core team, saying which version has it.
+
+> **Gotcha**: `gh issue edit --milestone` and `gh pr edit --milestone` fail in this repo because they still query the retired classic Projects. Set a milestone with `gh api -X PATCH repos/storybook-astro/storybook-astro/issues/<issue> -F milestone=<n>`.
 
 ## Test/Preview Release Workflow
 
@@ -533,6 +555,11 @@ git push origin v0.1.0-beta.14
 - [ ] `npm view @storybook-astro/framework versions --json` shows new version
 - [ ] `npm dist-tag ls @storybook-astro/framework` shows `latest` pointing to new version
 - [ ] `main` merged back to `develop`
+- [ ] Every open issue on the release's milestone fixed or moved to the next milestone (before tagging)
+- [ ] Release's milestone closed
+- [ ] Next release's milestone and project board view exist
+- [ ] Board statuses checked: shipped issues in Done, moved issues in Ready or Backlog
+- [ ] Outside contributors and reporters thanked on their issues and PRs
 
 ### Test/preview release
 

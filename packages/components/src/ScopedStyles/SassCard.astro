@@ -1,0 +1,21 @@
+---
+/** A card styled with SCSS: a variable and a selector nested inside `.card`. */
+const { label = 'Styled with SCSS' } = Astro.props;
+
+---
+<div class="card" data-testid="sass-card">
+  <span>{label}</span>
+</div>
+
+<style lang="scss">
+  $accent: #2e7d32;
+
+  .card {
+    padding: 1rem;
+    border: 2px solid $accent;
+
+    span {
+      color: $accent;
+    }
+  }
+</style>

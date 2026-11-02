@@ -1,12 +1,22 @@
 import type { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { markHTMLString } from 'astro/runtime/server/index.js';
-import type { SlotValue } from '@storybook-astro/renderer/types';
+import {
+  isAstroComponentFactory,
+  isAstroComponentMarker,
+  STORY_STYLE_ATTRIBUTE,
+  type SlotValue
+} from '@storybook-astro/renderer/types';
 import type { ResolvedSanitizationOptions, SanitizationOptions } from './lib/sanitization.ts';
 import { resolveSanitizationOptions, sanitizeArgs, sanitizeRenderPayload } from './lib/sanitization.ts';
 import { reviveDateStrings } from './lib/revive-dates.ts';
-import { assertValidSlotValue, reconstructProps, reconstructSlots } from './lib/reconstruct-component-args.ts';
+import {
+  assertValidSlotValue,
+  reconstructProps,
+  reconstructSlots
+} from './lib/reconstruct-component-args.ts';
 import { runWithStoryRules, type ResolveRulesConfigModule } from './storyRulesRuntime.ts';
 import type { RenderStoryInput } from './types.ts';
+import type { ComponentStyles } from './lib/componentStyles.ts';
 
 type AstroCreateResult = {
   createAstro?: (...args: unknown[]) => unknown;
@@ -38,12 +48,60 @@ type CreateAstroRenderHandlerOptions = {
   resolveRulesConfigModule?: ResolveRulesConfigModule;
   loadModule: (id: string) => Promise<{ default: unknown }>;
   invalidateModuleGraph?: () => void;
+  /**
+   * Returns the compiled CSS for the components a render loaded, plus their
+   * imports. Prepended to the HTML as `<style>` elements, so the story ships with
+   * Astro's scoped styles in dev, static builds and server mode alike
+   * (issue #189).
+   */
+  loadComponentStyles?: (componentIds: string[]) => Promise<ComponentStyles>;
+  /** Fail the render when styles fail to load, instead of warning. Set for static builds. */
+  failOnStyleError?: boolean;
 };
 
 export function createAstroRenderHandler(options: CreateAstroRenderHandlerOptions) {
   const sanitizationOptions = resolveSanitizationOptions(options.sanitization);
   const componentCache = new Map<string, Promise<AstroComponentFactory>>();
   let renderQueue = Promise.resolve<void>(undefined);
+  const loggedStyleFailures = new Set<string>();
+
+  // The HTML is already rendered when styles load, so a style failure (a
+  // broken stylesheet, a stale module) shows the story unstyled instead of
+  // replacing it with an error. A static build fails instead: nobody is
+  // watching its console, and it would publish the story unstyled.
+  async function loadStylesOrWarn(componentIds: string[]) {
+    let styles: ComponentStyles | undefined;
+
+    try {
+      styles = await options.loadComponentStyles?.(componentIds);
+    } catch (error) {
+      styles = { stylesheets: [], failures: [{ moduleId: componentIds.join(', '), error }] };
+    }
+
+    const failures = styles?.failures ?? [];
+
+    if (options.failOnStyleError && failures.length > 0) {
+      const details = failures.map(({ moduleId, error }) => `- ${moduleId}: ${errorMessage(error)}`);
+
+      throw new Error(`[storybook-astro] Could not load component styles:\n${details.join('\n')}`, {
+        cause: failures[0].error
+      });
+    }
+
+    // Each failure is logged once per handler: the same broken stylesheet
+    // fails every render that uses it. Dev makes a new handler on each file
+    // change, so a failure that comes back after an edit is logged again.
+    failures.forEach(({ moduleId, error }) => {
+      const key = `${moduleId}\n${errorMessage(error)}`;
+
+      if (!loggedStyleFailures.has(key)) {
+        loggedStyleFailures.add(key);
+        console.warn(`[storybook-astro] Could not load styles for ${moduleId}:`, error);
+      }
+    });
+
+    return styles?.stylesheets ?? [];
+  }
 
   async function loadPatchedComponent(componentId: string, useCache = true) {
     if (!useCache) {
@@ -93,15 +151,42 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           invalidateModuleGraph: options.invalidateModuleGraph
         },
         async (selectedRules) => {
-          const patchedComponent = await loadPatchedComponent(
-            data.component,
-            selectedRules.moduleMocks.size === 0
-          );
+          const usesModuleMocks = selectedRules.moduleMocks.size > 0;
+
+          // A mocked render loads every component fresh, so each one imports
+          // the mocks, and leaves none in the cache. Reloading also rewires
+          // the module graph's import edges, which the styles walk follows, so
+          // the cache is cleared too: the next render reloads its components
+          // and their edges lead back to the real modules.
+          if (usesModuleMocks) {
+            componentCache.clear();
+          }
+          const loadedComponentIds = new Set<string>();
+          const loadComponent = (moduleId: string) => {
+            loadedComponentIds.add(moduleId);
+
+            return loadPatchedComponent(moduleId, !usesModuleMocks);
+          };
+
+          // Every component this render uses (decorators, the story, slot and
+          // prop components) contributes its styles to the response, in that
+          // order: decorators wrap the story the way a layout wraps a page, so
+          // the story's styles come after theirs, as a page's do in Astro.
+          // The request gives the order. Each id is marked with whether it's a
+          // real factory, which renders as it is, or a marker, which renders
+          // only if the render loads it.
+          const requestedComponents = new Map<string, boolean>();
+
+          addComponentModuleIds(data.node, requestedComponents);
+          requestedComponents.set(data.component, false);
+          addComponentModuleIds([data.args, data.slots], requestedComponents);
+
+          const patchedComponent = await loadComponent(data.component);
           // Resolve Astro components passed as props back to real factories
           // before the other arg processing (factories pass through those
           // untouched), so the parent template can render them with `<Comp />`.
           const reconstructedArgs = await reconstructProps(data.args ?? {}, {
-            loadComponent: (moduleId) => loadPatchedComponent(moduleId)
+            loadComponent
           });
           const processedArgs = await processImageMetadata(reconstructedArgs);
           const revivedArgs = reviveDateStrings(processedArgs);
@@ -117,7 +202,7 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
           // own markup isn't stripped by the slot allowlist (string slots above
           // still are). Markers pass through sanitization untouched.
           const renderedSlots = await reconstructSlots(sanitizedPayload.slots, {
-            loadComponent: (moduleId) => loadPatchedComponent(moduleId),
+            loadComponent,
             renderToHtml: (component, props, slots) =>
               options.container.renderToString(
                 component as Parameters<typeof options.container.renderToString>[0],
@@ -128,24 +213,34 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
               )
           });
 
-          if (data.node !== undefined) {
-            return renderDecoratedRoot(data.node, {
+          const html = data.node !== undefined
+            ? await renderDecoratedRoot(data.node, {
               storyComponentId: data.component,
               storyProps: sanitizedPayload.args,
               storySlots: renderedSlots,
               sanitizationOptions,
-              loadComponent: (moduleId) => loadPatchedComponent(moduleId),
+              loadComponent,
               renderToString: options.container.renderToString.bind(options.container)
-            });
-          }
+            })
+            : await options.container.renderToString(
+              patchedComponent as Parameters<typeof options.container.renderToString>[0],
+              {
+                props: sanitizedPayload.args,
+                slots: markRawSlots(renderedSlots)
+              }
+            );
+          const renderedComponentIds = [...requestedComponents]
+            .filter(([moduleId, isFactory]) => isFactory || loadedComponentIds.has(moduleId))
+            .map(([moduleId]) => moduleId);
+          const stylesheets = await loadStylesOrWarn(renderedComponentIds);
 
-          return options.container.renderToString(
-            patchedComponent as Parameters<typeof options.container.renderToString>[0],
-            {
-              props: sanitizedPayload.args,
-              slots: markRawSlots(renderedSlots)
-            }
+          // `</style` inside the CSS (in a string or comment) would end the
+          // tag early. `<\/style` reads the same to the CSS parser.
+          const styleTags = stylesheets.map(
+            (css) => `<style ${STORY_STYLE_ATTRIBUTE}>${css.replace(/<\/(style)/gi, '<\\/$1')}</style>`
           );
+
+          return styleTags.join('') + html;
         }
       );
     };
@@ -159,6 +254,54 @@ export function createAstroRenderHandler(options: CreateAstroRenderHandlerOption
 
     return resultPromise;
   };
+}
+
+/**
+ * Records the module id of every Astro component found in a render request's
+ * args, slots or decorator tree, in the order they appear, and whether it's a
+ * real factory: markers are what the browser sends, and factories are what the
+ * static build passes straight from the story module (Astro's compiler sets
+ * `moduleId` on each component it compiles).
+ *
+ * It walks every level, guarding only against cycles. It may find components
+ * the slot and prop resolvers never render (past their depth cap, or in a shape
+ * they don't read), so the caller keeps only the markers that were loaded.
+ */
+function addComponentModuleIds(value: unknown, moduleIds: Map<string, boolean>, seen = new Set<object>()) {
+  if (isAstroComponentMarker(value)) {
+    if (!moduleIds.has(value.moduleId)) {
+      moduleIds.set(value.moduleId, false);
+    }
+
+    return;
+  }
+
+  if (isAstroComponentFactory(value)) {
+    const { moduleId } = value as AstroComponentFactory;
+
+    if (moduleId) {
+      moduleIds.set(moduleId, true);
+    }
+
+    return;
+  }
+
+  if (!Array.isArray(value) && !isRecord(value)) {
+    return;
+  }
+
+  if (seen.has(value)) {
+    return;
+  }
+  seen.add(value);
+
+  // A configured component wraps its slots, so it comes first, whichever
+  // order its keys were written in.
+  const values = isRecord(value) && 'component' in value
+    ? [value.component, ...Object.values(value)]
+    : Object.values(value);
+
+  values.forEach((item) => addComponentModuleIds(item, moduleIds, seen));
 }
 
 type ContainerRenderToString = Awaited<ReturnType<typeof AstroContainer.create>>['renderToString'];
@@ -370,4 +513,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   const prototype = Object.getPrototypeOf(value);
 
   return prototype === Object.prototype || prototype === null;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

@@ -3,7 +3,7 @@ title: Styling
 description: Set up global CSS, CSS frameworks, fonts, and static assets in Storybook.
 ---
 
-Astro component scoped styles work automatically — Storybook Astro handles them during rendering. Anything declared in your `astro.config.*` (integrations, `vite.plugins`, `fonts`) is also picked up automatically, so most projects need very little Storybook-specific wiring. The patterns below cover the cases that do need attention: global stylesheets and design tokens that live outside `astro.config.*`, path aliases, fonts loaded outside the Font Provider API, and static assets.
+Astro component scoped styles work automatically — Storybook Astro handles them during rendering. Integrations, `vite.plugins`, `fonts`, `scopedStyleStrategy` and `compressHTML` from your `astro.config.*` are also picked up automatically, so most projects need very little Storybook-specific wiring. Other options, such as `site`, `base`, `markdown` or `vite` settings other than `plugins`, aren't read. The patterns below cover the cases that do need attention: global stylesheets and design tokens that live outside `astro.config.*`, path aliases, fonts loaded outside the Font Provider API, and static assets.
 
 ## Global CSS
 
@@ -42,6 +42,10 @@ const preview = {
 export default preview;
 ```
 
+A stylesheet imported by a component a story renders ships with that story, as it does on an Astro page, but only with the stories that render that component. Keep the `.storybook/preview.js` import if any story doesn't render the component or layout that imports the stylesheet. A story that does render it then loads the stylesheet twice, and the story's copy comes later in the `<head>`, so it wins over overrides in `preview.js` (removing the duplicate in dev is tracked in [issue #240](https://github.com/storybook-astro/storybook-astro/issues/240)).
+
+The same goes for any stylesheet a story ships, from a component, a layout or a module either of them imports: it comes after the styles imported in `.storybook/preview.js`, so at equal specificity it wins. For example, a `:root` variable that `preview.css` sets and a component's `tokens.css` also sets takes the value from `tokens.css`. To override it in Storybook, use a more specific selector in `preview.css`, such as `html:root`.
+
 ### CSS custom properties and design tokens
 
 Some projects define CSS custom properties (colors, font names, spacing scales) inside an Astro component rendered in the page `<head>` rather than in a plain CSS file:
@@ -72,13 +76,15 @@ Because Storybook never renders that component, the variables won't exist. Copy 
 
 ## CSS utility frameworks
 
-CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) configured in `astro.config.*` — either as an Astro integration (`@astrojs/tailwind`, `unocss/astro`) or as a Vite plugin under `vite.plugins` (`@tailwindcss/vite`, `unocss/vite`) — are picked up by Storybook automatically. You only need to import the framework's CSS entry or virtual module in `.storybook/preview.js` so it reaches the story canvas.
+CSS frameworks like [Tailwind CSS](https://tailwindcss.com/) and [UnoCSS](https://unocss.dev/) configured in `astro.config.*` — either as an Astro integration (`@astrojs/tailwind`, `unocss/astro`) or as a Vite plugin under `vite.plugins` (`@tailwindcss/vite`, `unocss/vite`) — are picked up by Storybook automatically. You only need to import the framework's CSS entry or virtual module in `.storybook/preview.js` so it reaches the story canvas. A CSS entry imported by a component or layout ships with the stories that render it, so you can skip the `.storybook/preview.js` import only if every story renders that component or layout. Otherwise keep it (see [Global CSS](#global-css)).
+
+A plugin's virtual stylesheet, such as `virtual:uno.css`, ships with a story when a component or layout it renders imports it, with the CSS the plugin produced on the server. A generator such as UnoCSS builds that CSS from the files it has scanned so far, so if a story is missing utility classes, import the virtual module in `.storybook/preview.js` as well.
 
 ### Tailwind CSS
 
 ```javascript
 // .storybook/preview.js
-import '../src/styles/tailwind.css'; // your project's @import 'tailwindcss' entrypoint
+import '../src/styles/tailwind.css'; // your project's @import 'tailwindcss' entrypoint; keep this unless every story renders a layout that imports it
 import './preview.css';
 ```
 
@@ -148,7 +154,7 @@ Match whatever aliases you have in your `astro.config.*` — `@`, `~`, `#`, etc.
 
 ### Astro Font Provider API
 
-If your project uses Astro 6's [Font Provider API](https://docs.astro.build/en/reference/font-provider-reference/) — `fonts: [...]` in `astro.config.*` with providers like `fontProviders.google()`, `fontProviders.local()`, etc. — Storybook auto-loads the array and the `<Font>` component renders real `@font-face` CSS in stories with no extra wiring.
+If your project uses Astro 6's [Font Provider API](https://docs.astro.build/en/reference/font-provider-reference/) — `fonts: [...]` in `astro.config.*` with providers like `fontProviders.google()`, `fontProviders.bunny()`, etc. — Storybook auto-loads the array and stories get the family's `@font-face` CSS with no extra wiring. In dev it arrives with each story. In static and server builds, the font CSS is in the iframe head's `<style data-storybook-astro-fonts>`. In static builds, `<Font>` doesn't repeat it, except for a family whose fonts couldn't be resolved when the head was built.
 
 ```javascript
 // astro.config.mjs
@@ -181,7 +187,7 @@ framework: {
 ```
 
 :::caution
-Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated.
+Stories rely on the provider's remote URLs (e.g. `fonts.gstatic.com`) at runtime — an offline Storybook will fall through to fallback families. Build-time font file emission, preload `<link>` tags, and Capsize-optimized fallback metrics are not generated. In server builds (`renderMode: 'server'`), the font CSS variables are defined, but a story that renders `<Font>` fails with `FontFamilyNotFound`. Use the CSS variables directly there. The `local` provider isn't supported yet ([#244](https://github.com/storybook-astro/storybook-astro/issues/244)): Storybook skips those families without a warning, and `<Font>` throws `FontFamilyNotFound` for them. Declare local fonts with `@font-face` in `.storybook/preview.css` instead (see [Self-hosted fonts](#self-hosted-fonts)), define the family's CSS variable there yourself (for example `:root { --font-custom: 'Custom', sans-serif; }`), and don't render `<Font>` for those families in stories.
 :::
 
 ### npm font packages

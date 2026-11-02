@@ -66,7 +66,7 @@ Props (all args except `slots`), sorted alphabetically:
 | `false` | `name={false}` |
 | number / bigint | `name={42}` |
 | `Date` | `name={new Date("2026-06-11T…")}` |
-| object / array | `name={items}` + frontmatter `const items = <pretty-printed literal>;` (collision-suffixed if needed) |
+| object / array | `name={items}` + frontmatter `const items = <pretty-printed literal>;` (collision-suffixed if needed). With `parameters.docs.source.objectProps: 'inline'`, `name={<pretty-printed literal>}`, which breaks the tag onto lines when the literal spans lines (issue #190) |
 | function | omitted |
 
 Slots (`args.slots`):
@@ -75,7 +75,7 @@ Slots (`args.slots`):
 - named → `<Fragment slot="name">…</Fragment>` children.
 - any slots present → open/close tag form; none → self-closing `<Name … />`.
 
-Formatting: single line while the tag fits in ~80 characters, otherwise one attribute per line. Frontmatter is emitted only when there is an import or at least one `const` (always at least the import, unless the component name couldn't be resolved to a module).
+Formatting: single line while the tag fits in ~80 characters and no attribute spans lines (an inline object prop or a multi-line string), otherwise one attribute per line. Frontmatter is emitted only when there is an import or at least one `const` (always at least the import, unless the component name couldn't be resolved to a module).
 
 Example with the full surface:
 
@@ -83,9 +83,12 @@ Example with the full surface:
 ---
 import Card from './Card.astro';
 
-const author = { name: "Ada", role: "Engineer" };
+const author = {
+  name: "Ada",
+  role: "Engineer"
+};
 ---
-<Card title="Hello" featured author={author}>
+<Card author={author} featured title="Hello">
   <p>Body content</p>
   <Fragment slot="footer"><a href="/more">Read more</a></Fragment>
 </Card>
@@ -128,6 +131,6 @@ const author = { name: "Ada", role: "Engineer" };
 
 - **Decorators are not reflected** in the snippet — it intentionally shows the undecorated component usage.
 - **Framework component stories** (`parameters.renderer`) keep the raw-source fallback; per-framework dynamic source is a possible follow-up.
-- **Complex objects** render as hoisted `const` literals; values that aren't plausibly literal (class instances, `ImageMetadata` from imported images) serialize as plain object literals rather than recovering the original `import img from '…'` form. Revisit alongside `docs/specs/docgen.md` — the extractor already records each prop's declaring file, which is a starting point for recovering an original `import` form.
+- **Complex objects** render as hoisted `const` literals by default (or written out in the attribute with `objectProps: 'inline'`); values that aren't plausibly literal (class instances, `ImageMetadata` from imported images) serialize as plain object literals rather than recovering the original `import img from '…'` form. Revisit alongside `docs/specs/docgen.md` — the extractor already records each prop's declaring file, which is a starting point for recovering an original `import` form.
 - **Slot HTML is echoed verbatim** from `args.slots` — it is not reformatted or validated.
 - Stories whose `render` returns template strings or DOM nodes are skipped (no component to attribute the source to), matching `__isArgsStory` semantics in other renderers.

@@ -1,0 +1,12 @@
+---
+/** A heading styled with a `.title` class that RedTitle also uses. */
+const { text = 'Blue title' } = Astro.props;
+
+---
+<h2 class="title" data-testid="blue-title">{text}</h2>
+
+<style>
+  .title {
+    color: #1565c0;
+  }
+</style>

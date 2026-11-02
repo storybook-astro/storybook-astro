@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, extname, resolve } from 'node:path';
 import type { Plugin, Rollup } from 'vite';
+import { STORY_STYLE_ATTRIBUTE } from '@storybook-astro/renderer/types';
 import type { Integration } from './integrations/index.ts';
 import {
   buildStaticModuleMap,
@@ -22,6 +23,7 @@ import { buildHydratedComponentAssets } from './lib/hydratedComponentBuild.ts';
 import {
   addStaticStylesheets,
   rewriteBuiltModulePaths,
+  toFsPath,
   type StaticCssMap,
   type StaticModuleMap
 } from './lib/staticHtmlRewriting.ts';
@@ -177,7 +179,8 @@ async function prerenderAstroStories(options: {
     staticModuleMap: options.staticModuleMap,
     trackedSpecifiers: options.trackedSpecifiers,
     resolveFrom: options.resolveFrom,
-    fonts: options.fonts
+    fonts: options.fonts,
+    failOnStyleError: true
   });
   const assetPathMap = buildAssetPathMap(options.bundle);
   // Astro's default public directory; its contents are copied to the output
@@ -201,7 +204,13 @@ async function prerenderAstroStories(options: {
       // Image asset URLs from Vite SSR still point at /@fs/ paths, so rewrite
       // them first; then rewrite hydrated framework component module paths and
       // prepend their extracted CSS so the static preview matches dev styling.
-      const htmlWithAssetUrls = rewriteAssetPaths(html, assetPathMap, publicDir, options.outDir);
+      const htmlWithAssetUrls = rewriteAssetPaths(
+        html,
+        assetPathMap,
+        publicDir,
+        options.outDir,
+        options.resolveFrom
+      );
       const htmlWithBuiltModules = rewriteBuiltModulePaths(
         htmlWithAssetUrls,
         options.staticModuleMap
@@ -291,10 +300,11 @@ export function buildAssetPathMap(bundle: Rollup.OutputBundle): Map<string, stri
 
 /** Rewrites dev-only /@fs/ asset URLs in prerendered HTML to emitted build asset paths. */
 export function rewriteAssetPaths(
-  html: string,
+  rawHtml: string,
   assetPathMap: ReturnType<typeof buildAssetPathMap>,
   publicDir: string,
-  outDir: string
+  outDir: string,
+  projectRoot: string
 ): string {
   const { exactMap, stemMap } = assetPathMap as unknown as {
     exactMap: Map<string, string>;
@@ -303,8 +313,15 @@ export function rewriteAssetPaths(
 
   // Prerendering happens through a Vite SSR server, so image/style URLs can
   // still point at dev-only /@fs/ paths. Rewrite them to the emitted assets.
+  const html = pointStoryCssUrlsAtFsPaths(rawHtml, projectRoot);
+
   return html.replace(/\/@fs\/[^"']+/g, (match) => {
-    const pathOnly = match.replace(/\?.*$/, '');
+    const pathOnly = match.replace(/[?#].*$/, '');
+    // A `#fragment` (an SVG sprite's symbol, say) still applies to the
+    // published file, so it's kept. The query only meant something to Vite.
+    // The `#` in `&#38;`, how Astro 5 escapes the `&` between query
+    // parameters, doesn't start a fragment.
+    const fragment = match.match(/(?<!&)#.*$/)?.[0] ?? '';
     // URLs are percent-encoded: a project under `My Projects/` renders as
     // `/@fs/…/My%20Projects/…`, and neither the maps nor the disk know that path.
     const fsPath = safeDecodeURI(pathOnly).slice('/@fs'.length);
@@ -315,7 +332,7 @@ export function rewriteAssetPaths(
     const exact = exactMap.get(absolutePath);
 
     if (exact) {
-      return exact;
+      return exact + fragment;
     }
 
     // Fall back to stem-based matching for image assets whose
@@ -324,20 +341,67 @@ export function rewriteAssetPaths(
     const stemHit = stemMap.get(baseName);
 
     if (stemHit) {
-      return stemHit;
+      return stemHit + fragment;
     }
 
     // Files under the project's `public/` directory aren't bundle assets — the
     // build copies them verbatim to the output root and serves them from `/`.
     // Map e.g. `/@fs/<root>/public/images/x.png?…` to `/images/x.png`.
     if (absolutePath.startsWith(`${publicDir}/`)) {
-      return absolutePath.slice(publicDir.length);
+      return absolutePath.slice(publicDir.length) + fragment;
     }
 
     // Anything else was only imported on the server — an image a component
     // passes to <Image> or getImage() itself, a `?url` import — so the build
     // never emitted it. Copy it into the output instead.
-    return copyAssetToOutDir(absolutePath, outDir) ?? match;
+    const copiedUrl = copyAssetToOutDir(absolutePath, outDir);
+
+    return copiedUrl ? copiedUrl + fragment : match;
+  });
+}
+
+// The `<style>` element the render handler prepends with the story's component CSS.
+const STORY_STYLES = new RegExp(`(<style ${STORY_STYLE_ATTRIBUTE}>)([\\s\\S]*?)(</style>)`, 'g');
+
+// A CSS `url()` holding an absolute path: double-quoted, single-quoted or bare.
+const CSS_ABSOLUTE_URL = /url\(\s*(?:"(\/[^"]*)"|'(\/[^']*)'|(\/[^\s"')]*))\s*\)/g;
+
+/**
+ * The component CSS compiled by the SSR server refers to project files by
+ * root-relative URL (`url("/src/assets/bg.png")`) and to files outside the
+ * root by `/@fs/` URL, sometimes unquoted. Turns both into quoted `/@fs/` URLs
+ * (keeping single quotes where the CSS used them) so the asset rewrite maps
+ * them like any other. Paths that aren't project files, such as `public/`
+ * assets served from `/`, stay as they are.
+ *
+ * Only that `<style>` element is touched. Elsewhere in the page a `url()` can
+ * sit inside an HTML attribute (an inline `style`, an island's props), where
+ * the added quotes would end the attribute.
+ */
+function pointStoryCssUrlsAtFsPaths(html: string, projectRoot: string) {
+  return html.replace(STORY_STYLES, (_, open: string, css: string, close: string) => {
+    const cssWithFsUrls = css.replace(
+      CSS_ABSOLUTE_URL,
+      (match, doubleQuoted?: string, singleQuoted?: string, bare?: string) => {
+        const url = (doubleQuoted ?? singleQuoted ?? bare)!;
+        const quote = singleQuoted !== undefined ? "'" : '"';
+
+        if (url.startsWith('/@fs/')) {
+          return `url(${quote}${url}${quote})`;
+        }
+
+        const suffix = url.match(/[?#].*$/)?.[0] ?? '';
+        const filePath = resolve(projectRoot, `.${safeDecodeURI(url.slice(0, url.length - suffix.length))}`);
+
+        // Encoded like the other /@fs/ URLs, plus `'`, which would end the
+        // quoted url() and the /@fs/ URL the rewrite below reads.
+        const fsUrl = encodeURI(toFsPath(filePath)).replace(/'/g, '%27');
+
+        return existsSync(filePath) ? `url(${quote}${fsUrl}${suffix}${quote})` : match;
+      }
+    );
+
+    return open + cssWithFsUrls + close;
   });
 }
 

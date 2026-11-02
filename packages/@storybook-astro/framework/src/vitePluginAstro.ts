@@ -1,7 +1,7 @@
 import { mergeConfig, type InlineConfig, type Plugin } from 'vite';
 import type { Integration } from './integrations/index.ts';
 import { importAstroConfig } from './importAstroConfig.ts';
-import { loadUserAstroIntegrations } from './loadUserAstroConfig.ts';
+import { loadUserAstroCompileOptions, loadUserAstroIntegrations } from './loadUserAstroConfig.ts';
 
 const ASTRO_PLUGINS_THAT_ARE_SUPPOSEDLY_NOT_NEEDED_IN_STORYBOOK = [
   '@astro/plugin-actions',
@@ -51,6 +51,7 @@ export async function mergeWithAstroConfig(
     {},
     {
       configFile: false,
+      ...(await loadUserAstroCompileOptions(resolveFrom)),
       integrations: [...frameworkIntegrations, ...extraIntegrations]
     }
   )({

@@ -11,6 +11,13 @@ export {
 export type { AstroComponentMarker } from './astroComponentMarker';
 
 /**
+ * Marks the `<style>` elements the render handler puts ahead of a story's
+ * markup, one per component `<style>` block, so the renderer can move them
+ * into the preview head (issue #224).
+ */
+export const STORY_STYLE_ATTRIBUTE = 'data-storybook-astro-styles';
+
+/**
  * A child component placed in a slot together with its own props and slots — the
  * "configured component" slot value. After crossing the render boundary
  * `component` is a marker; in the testing/portable path it's a real factory. Its

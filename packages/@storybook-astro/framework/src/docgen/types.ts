@@ -13,6 +13,16 @@ export interface AstroDocgenInfo {
   props: Record<string, AstroDocgenProp>;
   /** JSDoc block tags from the component description, minus the free text. */
   tags?: Record<string, string>;
+  /** The slots the component accepts, in the order they first appear. */
+  slots?: AstroDocgenSlot[];
+}
+
+/** A slot an `.astro` component accepts (docs/specs/docgen.md#slots). */
+export interface AstroDocgenSlot {
+  /** `default` for an unnamed `<slot />`. */
+  name: string;
+  /** From a `@slot` comment directly before the `<slot>`, or empty. */
+  description: string;
 }
 
 export interface AstroDocgenProp {

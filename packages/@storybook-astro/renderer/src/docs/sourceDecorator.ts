@@ -85,8 +85,14 @@ function astroSourceFor(context: StoryContext<AstroRenderer>): string | null {
     title: context.title
   });
 
+  // Set in preview, meta or story parameters, which Storybook merges, so it
+  // applies globally, per component or per story.
+  const objectProps = context.parameters?.docs?.source?.objectProps;
+
   return generateAstroSource(name, context.args ?? {}, {
-    importPath: resolveImportPath(component.moduleId, name)
+    importPath: resolveImportPath(component.moduleId, name),
+    objectProps: objectProps === 'inline' ? 'inline' : 'frontmatter',
+    initialArgs: context.initialArgs
   });
 }
 

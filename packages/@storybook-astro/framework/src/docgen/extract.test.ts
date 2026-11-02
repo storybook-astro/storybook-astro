@@ -304,8 +304,22 @@ describe('description precedence', () => {
 });
 
 describe('components with nothing to extract still behave', () => {
-  test('no frontmatter yields no docgen at all', () => {
+  test('no frontmatter and no slots yields no docgen at all', () => {
     expect(docgenFor('<p>markup only</p>')).toBeNull();
+  });
+
+  test('a component with slots but no frontmatter still lists its slots (issue #188)', () => {
+    const docgen = docgenFor('<section><slot name="header" /><slot /></section>', 'Panel');
+
+    expect(docgen).toEqual({
+      displayName: 'Panel',
+      description: '',
+      props: {},
+      slots: [
+        { name: 'header', description: '' },
+        { name: 'default', description: '' }
+      ]
+    });
   });
 
   test('no Props still yields the description, which is the point for slot-only components', () => {
@@ -315,6 +329,19 @@ describe('components with nothing to extract still behave', () => {
 
     expect(docgen?.description).toBe('Wraps its children.');
     expect(docgen?.props).toEqual({});
+    expect(docgen?.slots).toEqual([{ name: 'default', description: '' }]);
+  });
+
+  test('a component with Props lists its slots next to its props', () => {
+    const docgen = docgenFor(
+      astro(
+        ['interface Props { title: string }', 'const { title } = Astro.props;'].join('\n'),
+        '<h2>{title}</h2>\n{/* @slot The section body */}\n<slot />'
+      )
+    );
+
+    expect(Object.keys(docgen?.props ?? {})).toEqual(['title']);
+    expect(docgen?.slots).toEqual([{ name: 'default', description: 'The section body' }]);
   });
 
   test('a type error does not stop extraction of the props that do resolve', () => {

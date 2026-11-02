@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { access, copyFile, mkdir, readFile, readdir, stat } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import type { Rollup } from 'vite';
 import type { Integration } from './integrations/index.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
+import { CONFIG_FILENAMES } from './loadUserAstroConfig.ts';
 
 /** Resolves the shared virtual module ids used by both build pipelines. */
 export function resolveVirtualBuildModuleId(id: string) {
@@ -344,9 +345,7 @@ async function listRuntimeConfigFiles(resolveFrom: string) {
     'tsconfig.json',
     'tsconfig.base.json',
     'jsconfig.json',
-    'astro.config.mjs',
-    'astro.config.js',
-    'astro.config.ts',
+    ...CONFIG_FILENAMES,
     'vite.config.js',
     'vite.config.ts',
     'svelte.config.js'
@@ -401,16 +400,61 @@ async function copyLocalRuntimeDependencies(
   // Follow only local imports here. Package dependencies stay external and are
   // resolved by Node/Vite from the deployed install, not copied into snapshot.
   const localImportSpecifiers = await readLocalImportSpecifiers(normalizedSourcePath);
+  const localDependencies = [
+    ...(await Promise.all(
+      localImportSpecifiers.map((specifier) => resolveLocalImportPath(normalizedSourcePath, specifier))
+    )),
+    // The render server compiles each component's styles too, so the partials
+    // and stylesheets they pull in have to be there as well.
+    ...(await Promise.all(
+      (await readStyleImportSpecifiers(normalizedSourcePath)).map((specifier) =>
+        resolveStyleImportPath(normalizedSourcePath, specifier)
+      )
+    ))
+  ];
 
-  for (const specifier of localImportSpecifiers) {
-    const resolvedDependency = await resolveLocalImportPath(normalizedSourcePath, specifier);
-
-    if (!resolvedDependency) {
-      continue;
+  for (const dependency of localDependencies) {
+    if (dependency) {
+      await copyLocalRuntimeDependencies(dependency, options, copiedFiles);
     }
-
-    await copyLocalRuntimeDependencies(resolvedDependency, options, copiedFiles);
   }
+}
+
+// `@import`, `@use` and `@forward` rules: a quoted path, or a `url()` with or without quotes.
+const STYLE_IMPORT_RE = /@(?:import|use|forward)\s+(?:url\(\s*['"]?([^'")\s]+)|['"]([^'"]+)['"])/g;
+
+/**
+ * Reads the stylesheets a stylesheet, or an `.astro` file's `<style>` blocks,
+ * imports from disk. Sass resolves a bare `@use 'tokens'` against the
+ * importing file, so only URLs and package or built-in modules are skipped.
+ */
+async function readStyleImportSpecifiers(filePath: string): Promise<string[]> {
+  if (!/\.(astro|css|scss|sass|less)$/.test(filePath)) {
+    return [];
+  }
+
+  const source = await readFile(filePath, 'utf-8');
+
+  return Array.from(source.matchAll(STYLE_IMPORT_RE), (match) => match[1] ?? match[2]).filter(
+    (specifier) => !/^([a-z][a-z0-9+.-]*:|\/|~)/i.test(specifier)
+  );
+}
+
+/** Resolves a stylesheet import the way Sass and CSS do, partials (`_name.scss`) included. */
+function resolveStyleImportPath(importerPath: string, specifier: string) {
+  const basePath = resolve(dirname(importerPath), specifier);
+  const partialPath = resolve(dirname(basePath), `_${basename(basePath)}`);
+
+  return findFirstFile([
+    basePath,
+    partialPath,
+    ...['scss', 'sass', 'css', 'less'].flatMap((extension) => [
+      `${basePath}.${extension}`,
+      `${partialPath}.${extension}`,
+      resolve(basePath, `index.${extension}`),
+      resolve(basePath, `_index.${extension}`)
+    ])
+  ]);
 }
 
 const IMPORT_RE =
@@ -459,11 +503,14 @@ async function resolveLocalImportPath(importerPath: string, specifier: string) {
     resolve(basePath, 'index.svelte')
   ];
 
+  return findFirstFile(candidates);
+}
+
+/** Returns the first candidate path that is a file, with forward slashes. */
+async function findFirstFile(candidates: string[]) {
   for (const candidate of candidates) {
     try {
-      const candidateStats = await stat(candidate);
-
-      if (candidateStats.isFile()) {
+      if ((await stat(candidate)).isFile()) {
         return candidate.replace(/\\/g, '/');
       }
     } catch {

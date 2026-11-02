@@ -17,9 +17,11 @@ Since Astro components require server-side rendering via the Container API, stat
 
 5. **Asset Emission** — Any `/@fs` dev-server asset URLs (e.g. images) in the rendered HTML are emitted as Rollup assets with content-hashed filenames, and the URLs are rewritten to their final paths.
 
-6. **Component Scripts** — Every `<script>` Astro processes (anything not `is:inline`) in a story's component, and in the components it renders, is bundled into `_astro/` alongside hydrated islands, and the pre-rendered HTML loads it from there.
+6. **Styles** — Each pre-rendered story carries the same `<style>` elements a dev render ships: the scoped CSS of every component it renders and the stylesheets they import. Asset URLs in that CSS (`url()`) point at the emitted assets. Each story has its own copy, so CSS from a component many stories share is repeated in the pre-rendered output ([#227](https://github.com/storybook-astro/storybook-astro/issues/227)); in the browser, stories that ship the same CSS still share one copy in the `<head>`.
 
-7. **Client Runtime** — At runtime, the renderer detects the pre-rendered HTML parameter and uses it directly, bypassing the HMR-based render path.
+7. **Component Scripts** — Every `<script>` Astro processes (anything not `is:inline`) in a story's component, and in the components it renders, is bundled into `_astro/` alongside hydrated islands, and the pre-rendered HTML loads it from there.
+
+8. **Client Runtime** — At runtime, the renderer detects the pre-rendered HTML parameter and uses it directly, bypassing the HMR-based render path.
 
 ## Limitations
 
