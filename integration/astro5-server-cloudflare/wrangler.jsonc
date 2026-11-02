@@ -1,0 +1,11 @@
+// @astrojs/cloudflare 12 (Astro 5) builds storybook-server/ in the Pages
+// layout: the UI plus _worker.js. Cloudflare runs that layout as a Worker with
+// static assets; .assetsignore (written by the build script) keeps the
+// Worker's code out of the public assets.
+{
+  "name": "storybook-astro5-server-cloudflare",
+  "main": "./storybook-server/_worker.js/index.js",
+  "assets": { "binding": "ASSETS", "directory": "./storybook-server" },
+  "compatibility_date": "2026-04-15",
+  "compatibility_flags": ["nodejs_compat"]
+}

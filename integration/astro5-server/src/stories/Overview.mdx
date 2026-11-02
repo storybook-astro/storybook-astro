@@ -1,0 +1,11 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Overview" />
+
+# Astro 5 server mode
+
+These stories render on the server, with interactive Controls in production.
+The preview calls `/api/render` on the same origin as the Storybook UI.
+
+Run `yarn build` for Vercel output or `yarn build:node` for a portable Node server.
+The adapter is selected in `.storybook/main.js`.
