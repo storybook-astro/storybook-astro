@@ -3,10 +3,10 @@
 // for its head commit: the static (prerendered) builds Chromatic publishes,
 // and the server-mode apps on Vercel, Cloudflare Workers and Netlify.
 //
-// Run by .github/workflows/deploy-server-apps.yml after its deploy jobs.
-// Cloudflare and Netlify URLs come from those jobs (one JSON file each in
-// DEPLOYMENTS_DIR); Vercel and Chromatic report theirs to GitHub, so this
-// waits for them there.
+// Run by .github/workflows/deploy-server-apps.yml after its deploy jobs. The
+// server-mode URLs come from those jobs (one JSON file each in
+// DEPLOYMENTS_DIR); Chromatic reports its builds to GitHub, so this waits for
+// them there.
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -17,9 +17,9 @@ const ASTRO_VERSIONS = [5, 6, 7];
 const WAIT_MINUTES = 15;
 
 const fromJobs = await readJobDeployments();
-const fromGitHub = await waitForGitHubDeployments();
+const fromChromatic = await waitForChromatic();
 
-await upsertComment(renderComment({ ...fromGitHub, ...fromJobs }));
+await upsertComment(renderComment({ ...fromChromatic, ...fromJobs }));
 
 /** `astro6-server-cloudflare` style keys, from the deploy jobs' JSON files. */
 async function readJobDeployments() {
@@ -35,17 +35,15 @@ async function readJobDeployments() {
   return deployments;
 }
 
-/** Polls GitHub until Vercel and Chromatic have reported every build, or gives up. */
-async function waitForGitHubDeployments() {
+/** Polls GitHub until Chromatic has published every static Storybook, or gives up. */
+async function waitForChromatic() {
   const deadline = Date.now() + WAIT_MINUTES * 60_000;
   let found = {};
 
   while (Date.now() < deadline) {
-    found = { ...(await vercelDeployments()), ...(await chromaticStorybooks()) };
+    found = await chromaticStorybooks();
 
-    const missing = ASTRO_VERSIONS.flatMap((astro) => [`astro${astro}-static`, `astro${astro}-server-vercel`]).filter(
-      (key) => !found[key]
-    );
+    const missing = ASTRO_VERSIONS.map((astro) => `astro${astro}-static`).filter((key) => !found[key]);
 
     if (missing.length === 0) {
       break;
@@ -56,27 +54,6 @@ async function waitForGitHubDeployments() {
   }
 
   return found;
-}
-
-/** Vercel's GitHub integration sets each deployment's environment_url. */
-async function vercelDeployments() {
-  const deployments = {};
-
-  for (const deployment of await github(`/repos/${GITHUB_REPOSITORY}/deployments?sha=${HEAD_SHA}&per_page=100`)) {
-    const app = deployment.environment.match(/storybook-(astro\d-server-vercel)/)?.[1];
-
-    if (!app || deployments[app]) {
-      continue;
-    }
-
-    const [latest] = await github(deployment.statuses_url.replace('https://api.github.com', ''));
-
-    if (latest?.state === 'success' && latest.environment_url) {
-      deployments[app] = latest.environment_url;
-    }
-  }
-
-  return deployments;
 }
 
 /** Chromatic publishes each static Storybook and links it from its commit status. */
@@ -107,7 +84,7 @@ function renderComment(deployments) {
     MARKER,
     `### Storybook deployments for ${HEAD_SHA.slice(0, 7)}`,
     '',
-    '| | Static (prerendered) | Server · Vercel | Server · Cloudflare Workers | Server · Netlify |',
+    '| | Chromatic (static) | Server · Vercel | Server · Cloudflare Workers | Server · Netlify |',
     '| --- | --- | --- | --- | --- |',
     ...rows,
     '',

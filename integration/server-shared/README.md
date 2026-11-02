@@ -40,17 +40,18 @@ platform.
 
 ## Deploy from CI
 
-- **Vercel** builds its three apps itself through its GitHub integration: a
-  preview for every branch, production from the production branch. Each
-  project's root directory is its app, and `vercel.json` sets the build.
-- **Cloudflare and Netlify** deploy from `.github/workflows/deploy-server-apps.yml`:
-  production on a push to `main`, and a preview for every push to a PR
-  (or on a manual run from another branch). The
-  previews live next to production: `pr-<n>-<worker>.storybook-astro.workers.dev`
-  and `pr-<n>--<site>.netlify.app`. The run's summary lists the URLs.
-  It needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, and
-  `NETLIFY_AUTH_TOKEN` for Netlify; a platform without them is skipped.
-  Netlify sites are looked up by name (`storybook-<app>`).
+`.github/workflows/deploy-server-apps.yml` deploys all nine apps: production on
+a push to `main`, and a preview for every push to a PR (or on a manual run from
+another branch), next to production: a Vercel preview deployment,
+`pr-<n>-<worker>.storybook-astro.workers.dev` and `pr-<n>--<site>.netlify.app`.
+Then one comment on the PR lists them with Chromatic's static builds
+(`scripts/comment-deployments.mjs`).
+
+It needs `VERCEL_TOKEN` and `VERCEL_ORG_ID`, `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`, and `NETLIFY_AUTH_TOKEN`; a platform without its
+secrets is skipped. Vercel projects and Netlify sites are found by name
+(`storybook-<app>`). The Vercel projects don't build from Git
+(`vercel.json`), since CI deploys them.
 
 ## Deploy one by hand
 

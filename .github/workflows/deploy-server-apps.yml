@@ -1,13 +1,13 @@
 # Deploys the server-mode host apps (integration/astro{5,6,7}-server-*) to
-# Cloudflare Workers and Netlify. Vercel builds its three apps itself through
-# its GitHub integration.
+# Vercel, Cloudflare Workers and Netlify.
 #
 # - push to main: production
 # - every push to a pull request, or a manual run on any other branch: a
-#   preview next to production (Worker preview alias, Netlify draft deploy)
+#   preview next to production (Vercel preview deployment, Worker preview
+#   alias, Netlify draft deploy)
 #
-# Secrets: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID for Cloudflare,
-# NETLIFY_AUTH_TOKEN for Netlify. A platform without its secrets is skipped,
+# Secrets: VERCEL_TOKEN and VERCEL_ORG_ID for Vercel, CLOUDFLARE_API_TOKEN and
+# CLOUDFLARE_ACCOUNT_ID for Cloudflare, NETLIFY_AUTH_TOKEN for Netlify. A platform without its secrets is skipped,
 # as are pull requests from forks, which don't get the secrets.
 name: Deploy server-mode apps
 
@@ -32,12 +32,12 @@ jobs:
       fail-fast: false
       matrix:
         astro: [5, 6, 7]
-        platform: [cloudflare, netlify]
+        platform: [vercel, cloudflare, netlify]
 
     env:
       APP: astro${{ matrix.astro }}-server-${{ matrix.platform }}
       PRODUCTION: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
-      HAS_SECRETS: ${{ (matrix.platform == 'cloudflare' && secrets.CLOUDFLARE_API_TOKEN != '') || (matrix.platform == 'netlify' && secrets.NETLIFY_AUTH_TOKEN != '') }}
+      HAS_SECRETS: ${{ (matrix.platform == 'vercel' && secrets.VERCEL_TOKEN != '') || (matrix.platform == 'cloudflare' && secrets.CLOUDFLARE_API_TOKEN != '') || (matrix.platform == 'netlify' && secrets.NETLIFY_AUTH_TOKEN != '') }}
       STORYBOOK_DISABLE_TELEMETRY: 1
 
     steps:
@@ -80,6 +80,30 @@ jobs:
             alias=$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//' | cut -c1-24 | sed -E 's/-+$//')
           fi
           echo "PREVIEW_ALIAS=$alias" >> "$GITHUB_ENV"
+
+      - name: Deploy to Vercel
+        if: env.HAS_SECRETS == 'true' && matrix.platform == 'vercel'
+        working-directory: integration/${{ env.APP }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          # Each project is named after its app, in the team VERCEL_ORG_ID names.
+          export VERCEL_PROJECT_ID=$(curl -fsS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/storybook-$APP?teamId=$VERCEL_ORG_ID" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).id")
+          yarn build
+          if [ "$PRODUCTION" = true ]; then
+            npx -y vercel@65 deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN" > deploy.out
+          else
+            npx -y vercel@65 deploy --prebuilt --yes --token "$VERCEL_TOKEN" > deploy.out
+          fi
+          # Outside a terminal the CLI prints JSON with the deployment's URL.
+          url=$(node -p "JSON.parse(require('fs').readFileSync('deploy.out', 'utf8')).deployment.url")
+          if [ "$PRODUCTION" = true ]; then
+            url="https://storybook-$APP.vercel.app"
+          fi
+          echo "[$APP]($url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "{\"app\": \"$APP\", \"url\": \"$url\"}" > "$RUNNER_TEMP/$APP.json"
 
       - name: Deploy to Cloudflare Workers
         if: env.HAS_SECRETS == 'true' && matrix.platform == 'cloudflare'
@@ -132,7 +156,7 @@ jobs:
           retention-days: 1
 
   # One comment on the PR with every Storybook deployed for its head commit:
-  # Chromatic's static builds, Vercel (its own integration) and the deploys above.
+  # Chromatic's static builds and the deploys above.
   comment:
     if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     needs: deploy
@@ -141,7 +165,6 @@ jobs:
     permissions:
       contents: read
       statuses: read
-      deployments: read
       pull-requests: write
       issues: write
 
