@@ -99,6 +99,7 @@ jobs:
             url=$(grep -oE 'Version Preview Alias URL: https://[^ ]+' deploy.log | sed 's/.*: //')
           fi
           echo "[$APP]($url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "{\"app\": \"$APP\", \"url\": \"$url\"}" > "$RUNNER_TEMP/$APP.json"
 
       - name: Deploy to Netlify
         if: env.HAS_SECRETS == 'true' && matrix.platform == 'netlify'
@@ -119,3 +120,47 @@ jobs:
           fi
           url=$(node -p "const deploy = require('./deploy.json'); deploy.url ?? deploy.deploy_url")
           echo "[$APP]($url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "{\"app\": \"$APP\", \"url\": \"$url\"}" > "$RUNNER_TEMP/$APP.json"
+
+      # The comment job reads every deploy's URL from these.
+      - name: Record the deployment
+        if: env.HAS_SECRETS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-${{ env.APP }}
+          path: ${{ runner.temp }}/${{ env.APP }}.json
+          retention-days: 1
+
+  # One comment on the PR with every Storybook deployed for its head commit:
+  # Chromatic's static builds, Vercel (its own integration) and the deploys above.
+  comment:
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      statuses: read
+      deployments: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Collect the deploy jobs' URLs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deployment-*
+          path: ${{ runner.temp }}/deployments
+          merge-multiple: true
+
+      - name: Comment the deployments
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DEPLOYMENTS_DIR: ${{ runner.temp }}/deployments
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/comment-deployments.mjs

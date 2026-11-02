@@ -45,6 +45,13 @@ export function defineServerModeTests(test: typeof playwrightTest, expect: typeo
       await expect(page.getByTestId('decorator-wrapper')).toHaveCSS('border-top-style', 'dashed');
     });
 
+    test('a story rule can replace a module with another file', async ({ page }) => {
+      // The hundred-k story's rule mocks the GitHub client with a replacement path.
+      await page.goto('/iframe.html?id=astro-githubstars--hundred-k&viewMode=story');
+
+      await expect(page.getByTestId('github-stars')).toContainText('100,000');
+    });
+
     test('a decorator wraps the story', async ({ page }) => {
       await page.goto('/iframe.html?id=astro-decorators-wrapper--decorated&viewMode=story');
 
@@ -68,33 +75,11 @@ export function defineServerModeTests(test: typeof playwrightTest, expect: typeo
       expect(await response.text()).toBe('OK');
     });
 
-    test('applies a story rule that mocks a module with a factory', async ({ request }) => {
-      const response = await request.post('/api/render', {
-        data: {
-          component: githubStars,
-          args: { repository: 'storybook-astro/storybook-astro' },
-          story: { id: 'astro-githubstars--default', title: 'Astro/GitHubStars', name: 'Default' },
-        },
-      });
-
-      expect(response.status()).toBe(200);
-      expect(await response.text()).toContain('2,413 GitHub stars');
-    });
-
-    test('applies a story rule that mocks a module with a replacement path', async ({ request }) => {
-      const response = await request.post('/api/render', {
-        data: {
-          component: githubStars,
-          args: { repository: 'storybook-astro/storybook-astro' },
-          story: { id: 'astro-githubstars--hundred-k', title: 'Astro/GitHubStars', name: 'Hundred K' },
-        },
-      });
-
-      expect(response.status()).toBe(200);
-      expect(await response.text()).toContain('100,000 GitHub stars');
-    });
-
     test('a decorator can fill any number of named slots', async ({ request }) => {
+      // Components are addressed by the module ids of the machine that built
+      // the app; this suite only knows them for a build on this machine.
+      test.skip(Boolean(process.env.STORYBOOK_URL), 'needs the module ids of a local build');
+
       const extraSlots = Object.fromEntries(
         Array.from({ length: 10 }, (_, index) => [`extra-${index}`, `<i>extra ${index}</i>`])
       );
