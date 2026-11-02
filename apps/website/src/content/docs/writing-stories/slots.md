@@ -226,6 +226,12 @@ export const Default = {
 };
 ```
 
+## Slots in Docs and Controls
+
+The Docs props table lists every slot a component accepts in a **Slots** section, even when no story fills it. Describe a slot with a `{/* @slot … */}` comment directly before it in the template.
+
+Each slot row also has a text control in the Controls panel, so you can edit a slot's HTML there instead of in the `args.slots` JSON editor. A slot whose story content is a component, rather than a string, has no text control. Only plain-text edits are saved in the story's URL. See [Controls & ArgTypes](/writing-stories/controls/#slots) for how the controls and `args.slots` combine, and what the Docgen Server doesn't support yet.
+
 ## Tips
 
 - **Slot content is an HTML string, a component, or a list** — write raw HTML strings (not JSX or Astro template syntax), pass an imported Astro component (bare or configured with `{ component, props, slots }`), or an array mixing them. Component **tags inside a string are not compiled** — always pass the imported reference.
@@ -235,4 +241,5 @@ export const Default = {
 
 ## See also
 
+- [Controls & ArgTypes](/writing-stories/controls/#slots) — how slots are listed in the props table and edited in the Controls panel.
 - [Decorators](/writing-stories/decorators/) — decorators wrap a story using the same configured-component tree described here (a decorator's `{ component, props, slots }` descriptor is resolved the same way a slot's is).

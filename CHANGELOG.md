@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.15.0] - 2026-11-01
+## [1.15.0] - 2026-11-02
 
 ### Added
 - The Docs props table lists the slots an Astro component accepts, in a **Slots** section, whether or not a story passes content to them (#188). They're read from the component's `<slot>` elements and its `Astro.slots.render()`/`has()` calls. A comment starting with `@slot` directly before a `<slot>` becomes its description.
