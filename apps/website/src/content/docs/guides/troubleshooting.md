@@ -243,6 +243,29 @@ If your project does not have a `src/env.d.ts`, create one with just that line, 
 
 ---
 
+### Styles missing or wrong
+
+**Symptom:**
+
+A story renders unstyled or partly styled, or looks different from the same component on an Astro page.
+
+**How story CSS works:**
+
+A story gets the CSS an Astro page would get for the components it renders: their `<style>` blocks, and the stylesheets they and the modules they import pull in. That covers the story's `component`, components passed in its args, slots or decorators, and anything they import, dynamic `import()` and `import.meta.glob` included. The CSS arrives with the rendered HTML as `<style data-storybook-astro-styles>` elements and moves into the preview's `<head>`.
+
+**Solution:**
+
+- **Styles from a layout or global stylesheet are missing.** Storybook doesn't render your layouts, so import global styles in `.storybook/preview.js` (see [Global CSS](/guides/styling/#global-css)). The same goes for CSS custom properties defined in a component that only your layout renders.
+- **An override in `preview.css` doesn't apply.** A story's CSS comes after the styles imported in `.storybook/preview.js`, so at equal specificity the story's CSS wins. Use a more specific selector in `preview.css`, such as `html:root` instead of `:root`.
+- **One component is unstyled.** Check that the story renders it, or that a component it renders imports it. A component that only a CSS file or a PostCSS plugin refers to isn't followed, so import its stylesheet in `.storybook/preview.js`.
+- **Utility classes are missing (UnoCSS and similar).** A generator builds its CSS from the files it has scanned so far, so import its virtual stylesheet in `.storybook/preview.js` as well (see [CSS utility frameworks](/guides/styling/#css-utility-frameworks)).
+- **A stylesheet imported with `?raw`, `?url` or `?inline` is missing.** That's expected: those imports give you the CSS as a string or URL, as on an Astro page, and aren't applied.
+- **A style edit doesn't show in dev.** Reload the story. Some edits to a component's `<style>` block alone don't rerun the story yet ([#229](https://github.com/storybook-astro/storybook-astro/issues/229)).
+
+To inspect what a story shipped, open the preview iframe in your browser's dev tools and look for the `<style data-storybook-astro-styles>` elements in its `<head>`. Their selectors should carry the same scope as the markup: a `data-astro-cid-*` attribute, or an `astro-*` class with `scopedStyleStrategy: 'class'` or `'where'`.
+
+---
+
 ### Slot content shows as raw HTML text (early Astro 6.0.x)
 
 **Symptom:**
@@ -330,6 +353,10 @@ The Solid framework integration (`@astrojs/solid-js@6.0.1`) has a transitive dep
 ### Production Builds
 
 Storybook Astro is currently optimized for development. Production builds (`npm run build`) are still more limited than dev mode.
+
+### `url()` assets in server mode
+
+In a server-mode deployment (`renderMode: 'server'`), an asset that component CSS loads with `url()`, such as `background: url('./bg.png')` in a `<style>` block or a local `@font-face` `src`, returns 404. The same CSS works in dev and static builds. Until this is fixed ([#305](https://github.com/storybook-astro/storybook-astro/issues/305)), put those assets in `public/`, serve it with [`staticDirs`](/guides/styling/#static-assets), and refer to them by their root path (`url('/images/bg.png')`).
 
 ---
 
