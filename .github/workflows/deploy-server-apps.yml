@@ -92,13 +92,25 @@ jobs:
           export VERCEL_PROJECT_ID=$(curl -fsS -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v9/projects/storybook-$APP?teamId=$VERCEL_ORG_ID" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).id")
           yarn build
+          # --no-wait: on a runner the CLI can miss the end of a build and hang,
+          # so wait for the deployment through the API instead.
           if [ "$PRODUCTION" = true ]; then
-            npx -y vercel@65 deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN" > deploy.out
+            npx -y vercel@65 deploy --prebuilt --prod --no-wait --yes --token "$VERCEL_TOKEN" > deploy.out
           else
-            npx -y vercel@65 deploy --prebuilt --yes --token "$VERCEL_TOKEN" > deploy.out
+            npx -y vercel@65 deploy --prebuilt --no-wait --yes --token "$VERCEL_TOKEN" > deploy.out
           fi
-          # Outside a terminal the CLI prints JSON with the deployment's URL.
+          # Outside a terminal the CLI prints JSON about the deployment.
+          id=$(node -p "JSON.parse(require('fs').readFileSync('deploy.out', 'utf8')).deployment.id")
           url=$(node -p "JSON.parse(require('fs').readFileSync('deploy.out', 'utf8')).deployment.url")
+          for attempt in $(seq 60); do
+            state=$(curl -fsS -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v13/deployments/$id?teamId=$VERCEL_ORG_ID" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).readyState")
+            echo "Deployment $id: $state"
+            [ "$state" = READY ] && break
+            if [ "$state" = ERROR ] || [ "$state" = CANCELED ]; then exit 1; fi
+            sleep 10
+          done
+          [ "$state" = READY ] || { echo "::error::$id wasn't ready after 10 minutes"; exit 1; }
           if [ "$PRODUCTION" = true ]; then
             url="https://storybook-$APP.vercel.app"
           fi

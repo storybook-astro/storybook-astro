@@ -50,8 +50,8 @@ Then one comment on the PR lists them with Chromatic's static builds
 It needs `VERCEL_TOKEN` and `VERCEL_ORG_ID`, `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`, and `NETLIFY_AUTH_TOKEN`; a platform without its
 secrets is skipped. Vercel projects and Netlify sites are found by name
-(`storybook-<app>`). The Vercel projects don't build from Git
-(`vercel.json`), since CI deploys them.
+(`storybook-<app>`). The Vercel projects aren't connected to Git, since CI
+deploys them.
 
 ## Deploy one by hand
 
