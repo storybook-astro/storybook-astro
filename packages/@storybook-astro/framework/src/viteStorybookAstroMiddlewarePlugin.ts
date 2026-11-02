@@ -212,10 +212,9 @@ export async function createViteServer(
     safeIntegrations.map((integration) => integration.loadIntegration(resolveFrom))
   );
 
-  const mergedIntegrations = await mergeFrameworkAndUserIntegrations(
-    frameworkIntegrations,
-    resolveFrom
-  );
+  const userIntegrations = await loadUserAstroIntegrations(resolveFrom);
+  const frameworkNames = new Set(frameworkIntegrations.map(i => i.name));
+  const extraIntegrations = userIntegrations.filter(i => !frameworkNames.has(i.name));
 
   const config = await getViteConfig(
     { root: resolveFrom },

@@ -9,7 +9,7 @@ const components = { '/src/Card.astro': Card, '/src/Badge.astro': Badge, '/src/W
 
 /** The marker the preview sends for an Astro component. */
 function marker(moduleId: string) {
-  return { __astroComponent: true, moduleId };
+  return { __astroComponent: true as const, moduleId };
 }
 
 describe('resolveStoryTree', () => {
