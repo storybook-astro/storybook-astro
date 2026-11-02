@@ -38,7 +38,21 @@ Netlify, `serve-build.mjs` serves the static output and calls the built render
 function the way the platform does; it doesn't emulate the rest of the
 platform.
 
-## Deploy one
+## Deploy from CI
+
+- **Vercel** builds its three apps itself through its GitHub integration: a
+  preview for every branch, production from the production branch. Each
+  project's root directory is its app, and `vercel.json` sets the build.
+- **Cloudflare and Netlify** deploy from `.github/workflows/deploy-server-apps.yml`:
+  production on a push to `main`, and a preview when a PR gets the
+  `deploy-preview` label (or on a manual run from another branch). The
+  previews live next to production: `pr-<n>-<worker>.storybook-astro.workers.dev`
+  and `pr-<n>--<site>.netlify.app`. The run's summary lists the URLs.
+  It needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, and
+  `NETLIFY_AUTH_TOKEN` for Netlify; a platform without them is skipped.
+  Netlify sites are looked up by name (`storybook-<app>`).
+
+## Deploy one by hand
 
 `yarn deploy` in an app deploys its last build. Each host's CLI reads its
 credentials from the environment:
