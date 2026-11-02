@@ -106,8 +106,9 @@ From `@storybook-astro/framework/testing`:
 - `setProjectAnnotations(annotations)`
 - `renderStory(story)` — renders the composed story, replaces `document.body`
   with its HTML so `screen` queries resolve against it, and returns that HTML
-  without the components' scoped CSS. The CSS goes in `document.head`, as it does
-  in Storybook, and replaces the last rendered story's. In a test environment
+  without the story's CSS (the components' `<style>` blocks and the stylesheets
+  they import). The CSS goes in `document.head`, as it does in Storybook, and
+  replaces the last rendered story's. In a test environment
   without a DOM (`environment: 'node'`) there's no head to put it in, so the CSS
   isn't available
 - `renderAstroStory(story)` — an alias for `renderStory`, kept for readability in
