@@ -99,18 +99,22 @@ jobs:
           else
             npx -y vercel@65 deploy --prebuilt --no-wait --yes --token "$VERCEL_TOKEN" > deploy.out
           fi
-          # Outside a terminal the CLI prints JSON about the deployment.
-          id=$(node -p "JSON.parse(require('fs').readFileSync('deploy.out', 'utf8')).deployment.id")
-          url=$(node -p "JSON.parse(require('fs').readFileSync('deploy.out', 'utf8')).deployment.url")
+          # The CLI prints the deployment's URL, as JSON in some environments.
+          url=$(node -e "
+            const out = require('fs').readFileSync('deploy.out', 'utf8').trim();
+            let url;
+            try { url = JSON.parse(out).deployment.url; } catch { url = out.split('\\n').pop(); }
+            process.stdout.write(url);
+          ")
           for attempt in $(seq 60); do
             state=$(curl -fsS -H "Authorization: Bearer $VERCEL_TOKEN" \
-              "https://api.vercel.com/v13/deployments/$id?teamId=$VERCEL_ORG_ID" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).readyState")
-            echo "Deployment $id: $state"
+              "https://api.vercel.com/v13/deployments/${url#https://}?teamId=$VERCEL_ORG_ID" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).readyState")
+            echo "$url: $state"
             [ "$state" = READY ] && break
             if [ "$state" = ERROR ] || [ "$state" = CANCELED ]; then exit 1; fi
             sleep 10
           done
-          [ "$state" = READY ] || { echo "::error::$id wasn't ready after 10 minutes"; exit 1; }
+          [ "$state" = READY ] || { echo "::error::$url wasn't ready after 10 minutes"; exit 1; }
           if [ "$PRODUCTION" = true ]; then
             url="https://storybook-$APP.vercel.app"
           fi
@@ -124,6 +128,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          # A failed wrangler run must fail the step, not just tee's.
+          set -o pipefail
           yarn build
           # Astro 5's app keeps its Wrangler config in the app; Astro 6+ write it to the build.
           config=$([ -f wrangler.jsonc ] && echo wrangler.jsonc || echo storybook-server/server/wrangler.json)
