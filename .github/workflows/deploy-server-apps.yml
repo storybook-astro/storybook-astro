@@ -3,18 +3,18 @@
 # its GitHub integration.
 #
 # - push to main: production
-# - a PR labeled `deploy-preview`, or a manual run on any other branch: a
+# - every push to a pull request, or a manual run on any other branch: a
 #   preview next to production (Worker preview alias, Netlify draft deploy)
 #
 # Secrets: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID for Cloudflare,
-# NETLIFY_AUTH_TOKEN for Netlify. A platform without its secrets is skipped.
+# NETLIFY_AUTH_TOKEN for Netlify. A platform without its secrets is skipped,
+# as are pull requests from forks, which don't get the secrets.
 name: Deploy server-mode apps
 
 on:
   push:
     branches: [main]
   pull_request:
-    types: [labeled]
   workflow_dispatch:
 
 concurrency:
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name != 'pull_request' || github.event.label.name == 'deploy-preview'
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Astro ${{ matrix.astro }} on ${{ matrix.platform }}
     runs-on: ubuntu-latest
     timeout-minutes: 30

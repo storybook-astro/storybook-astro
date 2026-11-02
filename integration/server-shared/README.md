@@ -44,8 +44,8 @@ platform.
   preview for every branch, production from the production branch. Each
   project's root directory is its app, and `vercel.json` sets the build.
 - **Cloudflare and Netlify** deploy from `.github/workflows/deploy-server-apps.yml`:
-  production on a push to `main`, and a preview when a PR gets the
-  `deploy-preview` label (or on a manual run from another branch). The
+  production on a push to `main`, and a preview for every push to a PR
+  (or on a manual run from another branch). The
   previews live next to production: `pr-<n>-<worker>.storybook-astro.workers.dev`
   and `pr-<n>--<site>.netlify.app`. The run's summary lists the URLs.
   It needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, and
