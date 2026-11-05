@@ -189,7 +189,7 @@ Consumers install it with `npm install @storybook-astro/framework@canary`. When 
 
 Full walkthrough: `docs/RELEASING.md#hotfix-release`.
 
-First check that `main` matches the latest stable release. If a canary has been merged into `main` since, stop and ask: a hotfix from `main` would ship the canary's code.
+First check `main`'s version: `git show origin/main:packages/@storybook-astro/framework/package.json | grep '"version"'`. If it has a pre-release label, a canary is on `main` and a hotfix from `main` would ship its code. Follow `docs/RELEASING.md#hotfix-while-a-canary-is-on-main` instead: branch from the stable tag, tag the fix branch, and merge the fix branch (not `main`) into `website`.
 
 1. Branch from `main`: `git checkout main && git pull origin main && git checkout -b fix/describe-the-bug`
 2. Fix, then run the full validation from step 3 of the standard release (`yarn lint`, `yarn test`, `yarn build:packages`, `yarn smoke`)

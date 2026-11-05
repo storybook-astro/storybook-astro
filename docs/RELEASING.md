@@ -8,7 +8,7 @@ Step-by-step guide for publishing a new version of `@storybook-astro/framework` 
 
 **What gets published**: Only `packages/@storybook-astro/framework` and `packages/@storybook-astro/renderer`. The website, integration examples, and component library are not published.
 
-**Branch rule**: Releases always tag from `main`. Never tag on `develop` or a feature branch — the publish workflow triggers on any `v*` tag push, regardless of branch.
+**Branch rule**: Releases always tag from `main`. Never tag on `develop` or a feature branch — the publish workflow triggers on any `v*` tag push, regardless of branch. The one exception is a [hotfix while a canary is on `main`](#hotfix-while-a-canary-is-on-main).
 
 **Milestone**: Each release has a GitHub milestone named for its version (`1.15.0`). Before you tag, every open issue on it is either fixed on `develop` or moved to the next release's milestone. Setting a milestone needs the API, because `gh issue edit --milestone` and `gh pr edit --milestone` fail in this repo (they still query the retired classic Projects):
 
@@ -211,7 +211,14 @@ Comment on each issue or PR: thank them for the report or the contribution, and 
 
 For critical bugs in a published version that can't wait for the normal release cycle.
 
-A hotfix assumes `main` matches the latest stable release. If a canary has been merged into `main` since then, stop: a hotfix from `main` would ship the canary's unreleased code, and merging `main` into `website` would deploy its docs. Agree with the other maintainer whether to wait for the stable release or hotfix from the stable tag instead.
+First check whether a canary is on `main`:
+
+```bash
+git fetch origin
+git show origin/main:packages/@storybook-astro/framework/package.json | grep '"version"'
+```
+
+If the version has a pre-release label (`1.16.0-canary.1`), `main` holds unreleased code: a hotfix from `main` would ship it, and merging `main` into `website` would deploy its docs. Follow [Hotfix while a canary is on `main`](#hotfix-while-a-canary-is-on-main) instead of the steps below.
 
 ### 1. Branch from `main`
 
@@ -270,6 +277,19 @@ This deploys the hotfix's changelog entry and any docs it changed.
 ### 8. Thank the reporter
 
 If the bug was reported or fixed by someone outside the core team, thank them on the issue or PR as in [step 11](#11-thank-outside-contributors-and-reporters).
+
+### Hotfix while a canary is on `main`
+
+Branch from the latest stable tag instead of `main`, and publish from the fix branch:
+
+1. Branch from the stable tag: `git checkout -b fix/describe-the-bug v1.15.0`
+2. Fix, validate, bump the patch version and update both changelogs, as in steps 2 and 3
+3. Open a PR to `main` and wait for its checks, but don't merge it yet
+4. Tag the fix branch and push the tag: `git tag v1.15.1 && git push origin v1.15.1`. This is the one case where the tag isn't on `main`
+5. Verify the publish as in [step 8](#8-verify-the-publish) of the standard release
+6. Merge the fix branch, not `main`, into `website`: `git checkout website && git pull origin website && git merge --no-ff fix/describe-the-bug && git push origin website`
+7. Merge the `main` PR, keeping the canary's version numbers in `package.json` where they conflict. Get the fix into `develop` as in step 4
+8. Thank the reporter as in hotfix step 8 above
 
 ---
 
