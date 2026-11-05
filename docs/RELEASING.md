@@ -57,9 +57,9 @@ Edit **both** `package.json` files to the new version — they must always match
 }
 ```
 
-### 3. Update CHANGELOG.md
+### 3. Update both changelogs
 
-Add a new section at the top of `CHANGELOG.md`, above `[Unreleased]`:
+In `CHANGELOG.md`, turn the `[Unreleased]` entries into the new version's section, and leave an empty `[Unreleased]` heading above it for the next cycle:
 
 ```markdown
 ## [1.0.4] - 2026-04-01
@@ -73,6 +73,10 @@ Add a new section at the top of `CHANGELOG.md`, above `[Unreleased]`:
 
 Use these section headings as needed: `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security`.
 
+Then add a condensed version of the section to `apps/website/src/content/docs/reference/changelog.md`: one line per change, grouping related issues. That page lists released versions only and never has an `[Unreleased]` section.
+
+If a canary for this version already added both sections, just re-date them.
+
 ### 4. Validate locally
 
 Run the full pre-release check sequence. These same checks run in CI, but catching failures locally saves time.
@@ -81,11 +85,11 @@ Run the full pre-release check sequence. These same checks run in CI, but catchi
 # Linting
 yarn lint
 
-# Unit and integration tests (Astro 5, 6 and 7)
+# Link check
+yarn lint:links
+
+# Unit and integration tests (every workspace, including the Astro 5, 6 and 7 apps)
 yarn test
-yarn workspace @storybook-astro/integration-astro5 test
-yarn workspace @storybook-astro/integration-astro6 test
-yarn workspace @storybook-astro/integration-astro7 test
 
 # Clean build
 rm -rf packages/@storybook-astro/renderer/dist packages/@storybook-astro/framework/dist

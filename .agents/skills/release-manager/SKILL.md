@@ -62,7 +62,7 @@ git pull origin develop
 
 - Set the same version in `packages/@storybook-astro/renderer/package.json` and `packages/@storybook-astro/framework/package.json`.
 - In `CHANGELOG.md`, turn the `[Unreleased]` entries into `## [1.16.0] - YYYY-MM-DD`, and leave the empty `[Unreleased]` heading above it for the next cycle. Sections follow [Keep a Changelog](https://keepachangelog.com/): `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security`.
-- Add the same versioned section to `apps/website/src/content/docs/reference/changelog.md`. That page lists released versions only and never has an `[Unreleased]` section.
+- Add a condensed version of the section to `apps/website/src/content/docs/reference/changelog.md`: one line per change, grouping related issues. That page lists released versions only and never has an `[Unreleased]` section.
 
 If a canary for this version already added the section, just re-date it (see [Canary releases](#canary--preview-releases)).
 

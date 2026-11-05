@@ -157,7 +157,7 @@ Before finishing a change, ask whether every abstraction pays rent. If removing 
    - `loadIntegration(resolveFrom)` - Imports the Astro integration package from the user's project with `importModule` and calls it with `options`
 3. Export a factory function from `integrations/index.ts`
 4. Add the framework's packages to the framework `package.json` `peerDependencies`, marked optional in `peerDependenciesMeta`
-5. Add example components under `packages/components/src/<Component>/<framework>/`, and register the integration in `.storybook/main.js` and `vitest.config.ts` of `integration/astro5`, `astro6` and `astro7` with recursive `include` globs
+5. Add example components under `packages/components/src/<Component>/<framework>/`, and the framework's Vite plugin to `packages/components/vitest.config.ts` so their tests compile. Register the integration in `.storybook/main.js` and `vitest.config.ts` of `integration/astro5`, `astro6` and `astro7` with recursive `include` globs
 
 **Template** (from `react.ts`):
 ```typescript
@@ -476,7 +476,7 @@ When a process changes, update the skill along with the doc it follows, so the t
 
 See [`docs/RELEASING.md`](./docs/RELEASING.md) for the full release process, including:
 - Semantic versioning conventions
-- Gitflow branching model (`main`, `develop`, `feature/*`, `fix/*`, `release/*`)
+- Branching model (`main`, `develop`, `website`, `feature/*`, `fix/*`). Releases merge `develop` straight into `main` and `website`
 - Distinction between **package releases** (go through `develop` → `main`) and **website-only changes** (merge directly to `main`)
 - Hotfix and mixed-change workflows
 - Pre-publish smoke test (`yarn smoke`)

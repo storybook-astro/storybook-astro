@@ -135,6 +135,7 @@ When adding or changing a framework integration:
 - [ ] Factory exported from `integrations/index.ts`, named after `name` (or `factoryName`)
 - [ ] Framework packages added to the framework's optional `peerDependencies`
 - [ ] Example components and stories in `packages/components/src/<Component>/<framework>/`
+- [ ] The framework's Vite plugin added to `packages/components/vitest.config.ts`
 - [ ] Tests next to those components (see [testing-guidelines.md](./testing-guidelines.md))
 - [ ] Integration registered with a recursive `include` glob in `.storybook/main.js` and `vitest.config.ts` of `integration/astro5`, `astro6` and `astro7`
 - [ ] `yarn test` passes

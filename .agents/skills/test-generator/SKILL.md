@@ -28,11 +28,12 @@ This skill creates tests for:
 
 ## Where Tests Live
 
-Shared example components live in `packages/components/src/<Component>/<framework>/`, each with its component, its stories, and its test:
+Shared example components live in `packages/components/src/<Component>/<framework>/`. Most folders hold the component, its stories and its test:
 
 ```
 packages/components/src/Counter/
 ├── alpine/   Counter.astro  Counter.stories.js  Counter.test.ts
+├── astro/    Counter.astro  (stories live in integration/astro*/src/components/Counter/; no test here)
 ├── preact/   Counter.jsx    Counter.stories.js  Counter.test.ts
 ├── react/    Counter.jsx    Counter.stories.js  Counter.test.ts
 ├── solid/    Counter.tsx    Counter.stories.js  Counter.test.ts
@@ -209,7 +210,7 @@ Aim for:
 
 ## Query Patterns
 
-Prefer accessibility queries (`getByRole`, `getByLabel`, `getByText`):
+Prefer accessibility queries (`getByRole`, `getByLabelText`, `getByText`). Use `getByTestId` when no role or text identifies the element, as the Counter tests do:
 
 ✅ **Good**:
 ```typescript
@@ -220,14 +221,13 @@ expect(screen.getByText('Success message')).toBeInTheDocument();
 
 ❌ **Bad**:
 ```typescript
-expect(screen.getByTestId('btn-submit')).toBeInTheDocument();
 expect(screen.getByClassName('btn')).toBeInTheDocument();
 expect(wrapper.find('.success')).toBeDefined();
 ```
 
 ## Test Data Patterns
 
-`composeStory(story, meta)` takes the story's meta (the stories file's default export) as its second argument. Story args win over meta args, so to try other args, override them on the story:
+Prefer one story per scenario, as [testing-guidelines.md](../../references/testing-guidelines.md) says. For table-driven variants of one story, override its args. `composeStory(story, meta)` takes the story's meta (the stories file's default export) as its second argument. Story args win over meta args, so to try other args, override them on the story:
 
 ```typescript
 import { composeStory, renderStory } from '@storybook-astro/framework/testing';

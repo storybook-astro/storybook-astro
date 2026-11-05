@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: Create GitHub pull requests with properly formatted titles and descriptions for the Storybook Astro project. Use when making PRs, submitting changes for review, or when the user says /pr or asks to create a pull request. Trigger phrases: 'create pr', 'create a pr', 'submit a pr', 'make a pull request', 'update pr'. Before creating an AI-written PR, confirm a fresh-session `/code-review` was run (AGENTS.md#before-opening-a-pr).
+description: Create GitHub pull requests with properly formatted titles and descriptions for the Storybook Astro project. Use when making PRs, submitting changes for review, or when the user asks to create a pull request. Trigger phrases: 'create pr', 'create a pr', 'submit a pr', 'make a pull request', 'update pr'. Before creating an AI-written PR, confirm a fresh-session `/code-review` was run (AGENTS.md#before-opening-a-pr).
 ---
 
 # Create Pull Request for Storybook Astro
@@ -97,7 +97,7 @@ Analyze your changes to determine:
 - **Type**: What kind of change? (feat, fix, docs, test, etc.)
 - **Scope**: Which package/area? (framework, renderer, react, etc.)
 - **Summary**: What does the change do? (clear, actionable, present tense)
-- **Base Branch**: `develop` for new work. Hotfixes and website-only changes target `main` (see `docs/RELEASING.md`).
+- **Base Branch**: `develop` for new work. Hotfixes branch from `main` and need PRs to `main`, `website` and `develop`. Website-only changes need PRs to `main` and `website`. See `docs/RELEASING.md`.
 - **Issue and milestone**: Which issue it closes, and that issue's release milestone
 
 ### 4. Push Branch
