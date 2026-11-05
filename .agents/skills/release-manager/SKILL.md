@@ -29,7 +29,7 @@ Both packages always share the same version and are released together. Only pack
 | `1.16.0` (stable) | `beta` | Yes |
 | `1.16.0-beta.1` | `beta` | Yes |
 | `1.16.0-canary.1` | `canary` | No |
-| `1.16.0-next.1` | `next` | No |
+| `2.0.0-next.1` | `next` | No |
 | `1.16.0-alpha.1` | `alpha` | No |
 | `1.16.0-rc.1` | `rc` | No |
 
@@ -154,7 +154,7 @@ Only after step 7 confirms the version is on npm. RELEASING.md has the `gh api` 
 Use these to publish a build for testing without changing what `npm install @storybook-astro/framework` gives users. Any label other than `beta` stays on its own dist-tag and isn't promoted to `latest`.
 
 - `canary` — Work-in-progress builds for early feedback, usually just before a stable release
-- `next` — Validating a future release before committing to it
+- `next` — Validating a future release before committing to it. Until 2.0.0 is released, only `2.0.0-next.N` builds from the `next` branch use it; 1.x previews use `canary`
 - `rc` — Feature-complete release candidates in final testing
 
 **1. Bump both `package.json` files** on `develop` to the pre-release version, e.g. `1.16.0-canary.1`.
@@ -257,7 +257,7 @@ A change that touches both packages and the website follows the standard release
 
 ### Canary / preview release
 
-- [ ] Version uses a non-`beta` label (`canary`, `next`, `alpha`, `rc`, `test`)
+- [ ] Version uses a non-`beta` label (`canary`, `next`, `alpha`, `rc`, `test`). Until 2.0.0, `next` is only for 2.0 prereleases tagged on the `next` branch
 - [ ] Both `package.json` files at the same version
 - [ ] Changelog section added only if a stable release follows
 - [ ] Merged into `main` only, not `website`

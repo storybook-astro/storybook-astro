@@ -83,7 +83,7 @@ Follow [Before Opening a PR](../../../AGENTS.md#before-opening-a-pr) in AGENTS.m
 ```bash
 git status
 git diff --stat
-git log develop..HEAD --oneline
+git log develop..HEAD --oneline   # next..HEAD for 2.0 work
 ```
 
 Check:

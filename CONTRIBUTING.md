@@ -67,7 +67,7 @@ Thank you for your interest in contributing! This project is community-driven an
 
 ### Workflow
 
-1. Create a branch from `develop`:
+1. Create a branch from `develop` (from `next` for an issue on the `2.0.0` milestone, until 2.0.0 is released):
    ```bash
    git checkout develop
    git checkout -b feature/your-feature
@@ -84,7 +84,7 @@ Thank you for your interest in contributing! This project is community-driven an
    **PRs must pass linting** — CI will reject PRs with lint errors.
 4. Run `yarn test` to ensure all tests pass
 5. If the change was written with an AI assistant, have a fresh AI session review it before you open the PR — see [Before Opening a PR](./AGENTS.md#before-opening-a-pr) in `AGENTS.md`. Changes written by hand skip this step and go straight to the normal PR review
-6. Open a PR targeting `develop`
+6. Open a PR targeting `develop` (`next` for 2.0 work)
 7. Once reviewed and merged, your changes will be included in the next release
 
 ### Releases and hotfixes

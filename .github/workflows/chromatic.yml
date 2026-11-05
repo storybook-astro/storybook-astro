@@ -2,7 +2,7 @@ name: Chromatic
 
 on:
   push:
-    branches: [main, develop, next]
+    branches: [main, develop]
   pull_request:
     branches: [main, develop, next]
 
