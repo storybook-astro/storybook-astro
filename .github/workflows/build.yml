@@ -92,3 +92,55 @@ jobs:
         run: yarn workspace @storybook-astro/integration-astro5 test:storybook
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
+
+  # Runs each integration app against Storybook 11 (#205), since both packages
+  # support 10 and 11. The versions are pinned in
+  # scripts/storybook-next-versions.json so a new Storybook prerelease can't
+  # turn unrelated PRs red; the scheduled Storybook next job tracks the newest.
+  storybook-11:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [astro7, astro6, astro5]
+
+    env:
+      APP: '@storybook-astro/integration-${{ matrix.app }}'
+      STORYBOOK_DISABLE_TELEMETRY: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          check-latest: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Switch to the pinned Storybook 11 versions
+        run: |
+          node scripts/use-storybook-next.mjs --pinned
+          YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+
+      - name: Build packages
+        run: yarn build:packages
+
+      - name: Component tests
+        run: yarn workspace "$APP" test --run
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests (static build)
+        run: yarn workspace "$APP" test:browser
+
+      - name: Storybook Test addon
+        run: yarn workspace "$APP" test:storybook

@@ -5,6 +5,9 @@ name: Storybook next
 # lands rather than all at once when we pick up the upgrade. It runs on a
 # schedule rather than on PRs so a prerelease can't turn unrelated PRs red; a
 # failure opens (or comments on) an issue instead — once per prerelease.
+# The storybook-11 job in build.yml runs on PRs against pinned versions
+# (scripts/storybook-next-versions.json); when this job passes on a newer
+# prerelease, update those pins.
 
 on:
   schedule:
