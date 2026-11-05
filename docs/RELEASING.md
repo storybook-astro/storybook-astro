@@ -35,6 +35,8 @@ Both packages always share the same version and are released together.
 
 ## Standard release
 
+Releases are cut straight from `develop`, with no `release/*` branch; the canary on `main` is where a release gets tested before it ships. Cut a `release/x.y.z` branch from `develop` only when a release needs a freeze while `develop` keeps taking work for the next version. In that case, cut it before step 1, do steps 1 to 5 on the release branch instead of `develop`, merge it into `main` and `website` in place of `develop` in step 6, and merge it back into `develop` after the release.
+
 ### 1. Start from a clean `develop`
 
 ```bash
@@ -129,8 +131,6 @@ git push origin website
 
 The `website` branch is what Cloudflare deploys to storybook-astro.org. Standard releases always merge to both.
 
-Releases are cut straight from `develop`, with no `release/*` branch; the canary on `main` is where a release gets tested before it ships. Cut a `release/x.y.z` branch from `develop` only when a release needs a freeze while `develop` keeps taking work for the next version. Fix it on that branch, merge it into `main` and `website` in place of `develop`, and merge it back into `develop` afterward.
-
 ### 7. Tag on `main` and push
 
 ```bash
@@ -211,6 +211,8 @@ Comment on each issue or PR: thank them for the report or the contribution, and 
 
 For critical bugs in a published version that can't wait for the normal release cycle.
 
+A hotfix assumes `main` matches the latest stable release. If a canary has been merged into `main` since then, stop: a hotfix from `main` would ship the canary's unreleased code, and merging `main` into `website` would deploy its docs. Agree with the other maintainer whether to wait for the stable release or hotfix from the stable tag instead.
+
 ### 1. Branch from `main`
 
 ```bash
@@ -235,7 +237,7 @@ gh pr create --base main --title "fix: describe the bug"
 gh pr create --base develop --title "fix: describe the bug"
 ```
 
-Merge both after review. Expect a conflict in the `develop` PR on the version numbers and the changelog, since `develop` has its own `[Unreleased]` section.
+Merge the `main` PR first. The `develop` PR usually conflicts in `CHANGELOG.md` when `develop` has `[Unreleased]` entries, and in the `package.json` versions if a canary has bumped them. Resolve it on a separate branch cut from `develop` (`git checkout -b fix/describe-the-bug-develop origin/develop && git merge fix/describe-the-bug`), never on the shared `fix/*` branch: merging `develop` into that branch, which GitHub's "Resolve conflicts" button does, would put `develop`'s unreleased work into the `main` PR.
 
 Don't open a PR to `website`. It only gets the fix by merging `main` once the patch is published (step 7), so the site never documents a version that isn't on npm.
 

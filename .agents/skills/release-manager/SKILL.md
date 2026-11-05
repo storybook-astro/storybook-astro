@@ -43,7 +43,7 @@ A stable version is published under `beta` first, then promoted to `latest`.
 - **`feature/*`**, **`fix/*`** — Branched from `develop`. Hotfix `fix/*` branches come from `main`.
 - **`website/*`** — Website-only changes, branched from `main`.
 
-Releases up to 1.14.0 used `release/*` branches. Current releases merge `develop` straight into `main` and `website`. Cut a release branch only when a release needs a freeze while `develop` takes work for the next version (see `docs/RELEASING.md`, standard release step 6).
+Releases up to 1.14.0 used `release/*` branches. Current releases merge `develop` straight into `main` and `website`. Cut a release branch only when a release needs a freeze while `develop` takes work for the next version (see the start of the standard release in `docs/RELEASING.md`).
 
 ## Standard Release
 
@@ -189,10 +189,12 @@ Consumers install it with `npm install @storybook-astro/framework@canary`. When 
 
 Full walkthrough: `docs/RELEASING.md#hotfix-release`.
 
+First check that `main` matches the latest stable release. If a canary has been merged into `main` since, stop and ask: a hotfix from `main` would ship the canary's code.
+
 1. Branch from `main`: `git checkout main && git pull origin main && git checkout -b fix/describe-the-bug`
 2. Fix, then run the full validation from step 3 of the standard release (`yarn lint`, `yarn test`, `yarn build:packages`, `yarn smoke`)
 3. Bump the patch version in both `package.json` files (e.g. `1.15.0` to `1.15.1`) and add the changelog entry to both changelogs
-4. Push the branch and open PRs to `main` and `develop`; merge both after review. Expect a version and changelog conflict on the `develop` PR. Don't open a PR to `website`
+4. Push the branch and open PRs to `main` and `develop`, and merge the `main` PR first. Resolve any `develop` conflict (usually `CHANGELOG.md`) on a separate branch cut from `develop`, never on the shared `fix/*` branch. Don't open a PR to `website`
 5. Tag on `main`:
    ```bash
    git checkout main

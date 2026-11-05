@@ -15,11 +15,11 @@ Storybook Astro uses Gitflow-inspired branching. See `docs/RELEASING.md` for the
 |--------|---------|
 | `main` | Stable branch. All releases are tagged here. |
 | `develop` | Integration branch for in-progress work. PRs merge here first. |
-| `website` | What Cloudflare deploys to storybook-astro.org (`deploy-website.yml`). Gets stable releases and website-only changes. |
+| `website` | What Cloudflare deploys to storybook-astro.org (`deploy-website.yml`). Gets stable releases, published hotfixes (merged from `main` after the publish) and website-only changes. |
 | `feature/*` | Feature branches off `develop` (e.g., `feature/vue-slots`) |
 | `fix/*` | Bug fix branches off `develop`. Hotfixes branch off `main` instead. |
 | `website/*` | Website-only changes, branched off `main`. PRs go to `main`, then `website`. |
-| `release/*` | Older release prep branches. Current releases merge `develop` directly. |
+| `release/*` | Only when a release needs a freeze while `develop` moves on (see `docs/RELEASING.md`). Releases normally merge `develop` directly. |
 
 `develop` is protected: a PR needs one approving review, and a push dismisses stale approvals. The `Branch Protection` workflow rejects any PR from `main` into `develop`.
 
