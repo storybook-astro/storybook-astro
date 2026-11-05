@@ -81,10 +81,11 @@ Run the full pre-release check sequence. These same checks run in CI, but catchi
 # Linting
 yarn lint
 
-# Unit and integration tests (both Astro versions)
+# Unit and integration tests (Astro 5, 6 and 7)
 yarn test
 yarn workspace @storybook-astro/integration-astro5 test
 yarn workspace @storybook-astro/integration-astro6 test
+yarn workspace @storybook-astro/integration-astro7 test
 
 # Clean build
 rm -rf packages/@storybook-astro/renderer/dist packages/@storybook-astro/framework/dist
@@ -95,14 +96,15 @@ yarn build:packages
 yarn smoke
 ```
 
-`yarn smoke` takes a few minutes. It creates a fresh Astro 5 and Astro 6 project in `/tmp/`, installs the packed tarballs, runs `storybook build`, and runs the component tests. If it fails, the working directory is preserved at `/tmp/sb-smoke-*` for inspection.
+`yarn smoke` takes a few minutes. It creates a fresh Astro 5, Astro 6 and Astro 7 project in `/tmp/`, installs the packed tarballs, runs `storybook build`, and runs the component tests. If it fails, the working directory is preserved at `/tmp/sb-smoke-*` for inspection.
 
 ### 5. Commit and push to `develop`
 
 ```bash
 git add packages/@storybook-astro/renderer/package.json \
         packages/@storybook-astro/framework/package.json \
-        CHANGELOG.md
+        CHANGELOG.md \
+        apps/website/src/content/docs/reference/changelog.md
 git commit -m "chore: release v1.0.4"
 git push origin develop
 ```
@@ -132,9 +134,9 @@ git push origin v1.0.4
 
 This triggers the **Publish to npm** workflow (`.github/workflows/publish.yml`), which:
 
-1. Lints and runs tests (Astro 5 and 6)
-2. Clean-builds both packages
-3. Runs smoke tests — tarball install on Astro 5 and 6, storybook build + vitest
+1. Lints and clean-builds both packages
+2. Runs the Astro 7, 6 and 5 integration tests
+3. Runs smoke tests — tarball install on Astro 5, 6 and 7, storybook build + vitest
 4. Publishes renderer then framework with the `beta` dist-tag
 5. Promotes both to `latest`
 
@@ -325,7 +327,7 @@ npm dist-tag add @storybook-astro/framework@1.0.4 latest
 yarn lint                          # Lint check
 yarn test                          # Unit + portable story tests
 yarn build:packages                # Build both packages (after rm -rf dist)
-yarn smoke                         # Full tarball smoke test (Astro 5 + 6)
+yarn smoke                         # Full tarball smoke test (Astro 5 + 6 + 7)
 yarn smoke 6 fresh                 # Smoke test Astro 6 only
 yarn smoke both upgrade            # Upgrade scenario (requires packages on npm)
 git tag vX.Y.Z && git push origin vX.Y.Z   # Trigger publish workflow

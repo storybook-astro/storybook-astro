@@ -38,8 +38,10 @@ pnpm-debug.log*
 # local AI enhancement settings
 .agents/settings.local.json
 
-# Claude Code session runtime
-.claude/
+# Claude Code session runtime. .claude/skills is a committed symlink to
+# .agents/skills, so Claude Code discovers the project skills
+.claude/*
+!.claude/skills
 
 # Agent plans (local working documents)
 .plans/

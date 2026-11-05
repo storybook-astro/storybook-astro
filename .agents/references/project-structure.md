@@ -2,200 +2,153 @@
 
 ## Monorepo Overview
 
-This is a Yarn 4+ Berry monorepo with ES modules throughout (`"type": "module"`).
+This is a Yarn 4+ Berry monorepo with ES modules throughout (`"type": "module"`). [AGENTS.md](../../AGENTS.md) describes the architecture and each package's important files; this file is for finding your way around the workspaces.
 
 ## Workspace Layout
 
 ```
 storybook-astro/
-├── packages/                     # Published npm packages
+├── packages/
 │   ├── @storybook-astro/
-│   │   ├── framework/            # Server-side Storybook integration
-│   │   │   ├── src/
-│   │   │   │   ├── preset.ts     # Framework config exports (viteFinal, core)
-│   │   │   │   ├── middleware.ts # Astro Container + render handler
-│   │   │   │   ├── viteStorage*.ts
-│   │   │   │   ├── integrations/ # Framework-specific adapters
-│   │   │   │   ├── portable-stories.ts # Testing API
-│   │   │   │   └── types.ts
-│   │   │   ├── package.json      # Exports testing via conditional "exports"
-│   │   │   └── vitest.config.ts
-│   │   └── renderer/             # Client-side rendering
-│   │       ├── src/
-│   │       │   ├── render.tsx    # Canvas render + HMR handling
-│   │       │   ├── preset.ts
-│   │       │   └── types.ts
-│   │       └── package.json
-│   └── components/               # Component library (internal)
-│       └── src/components/       # Example components for testing
-├── apps/                         # Private website app
-│   └── website/                  # Marketing website
-│       └── astro.config.mjs
-├── integration/                  # Private integration examples
-│   ├── astro6/                   # Astro 6 integration example
-│   │   ├── .storybook/main.js    # Framework config with integrations
-│   │   ├── src/stories/
-│   │   └── src/components/
-│   ├── astro5/                   # Astro 5 stable integration example
-│   │   └── [same structure]
-├── docs/                         # Documentation
+│   │   ├── framework/            # Published: Storybook framework, server-side rendering
+│   │   │   └── src/
+│   │   │       ├── preset.ts                 # viteFinal and core config
+│   │   │       ├── middleware.ts             # Astro Container, handlerFactory
+│   │   │       ├── astroRenderHandler.ts     # Render handler, slot and decorator trees
+│   │   │       ├── vitePlugin*.ts / vite*.ts # Vite plugins
+│   │   │       ├── lib/                      # componentStyles, compiledStylesheets, ...
+│   │   │       ├── docgen/                   # Prop tables from .astro frontmatter
+│   │   │       ├── integrations/             # Framework integrations
+│   │   │       ├── portable-stories.ts       # composeStories / composeStory
+│   │   │       ├── testing/                  # renderStory and the test runtime
+│   │   │       ├── vitest/                   # defineConfig for Vitest
+│   │   │       └── types.ts
+│   │   └── renderer/             # Published: client-side rendering in the preview iframe
+│   │       └── src/
+│   │           ├── render.tsx            # render(), renderToCanvas()
+│   │           ├── decorators.ts         # applyDecorators
+│   │           ├── storyStyles.ts        # Moves story CSS into the iframe head
+│   │           ├── renderLoadingIndicator.ts
+│   │           ├── slotArgs.ts           # Per-slot controls
+│   │           ├── extractArgTypes.ts
+│   │           ├── docs/                 # "Show code" source
+│   │           ├── preset.ts
+│   │           └── types.ts
+│   └── components/               # Private: shared example components, src/<Component>/<framework>/
+├── apps/
+│   └── website/                  # Private: documentation website (Astro)
+├── integration/                  # Private: Storybook apps that consume the packages
+│   ├── astro5/                   # Astro 5, Vite 6, port 6007
+│   ├── astro6/                   # Astro 6, Vite 7, port 6006
+│   └── astro7/                   # Astro 7, Vite 8, port 6008
+├── smoke/                        # Templates for the pre-publish smoke test
+├── scripts/                      # Doc link check, smoke test, Storybook next-version switch
+├── docs/                         # GETTING_STARTED, TROUBLESHOOTING, RELEASING, specs/
 ├── AGENTS.md                     # AI development guide
-├── CONTRIBUTING.md               # Contribution guidelines
-├── package.json                  # Root workspace config
-├── tsconfig.base.json            # Shared TypeScript config
-├── eslint.config.js              # Shared ESLint config
-└── vitest.config.ts              # Shared Vitest config
+├── CONTRIBUTING.md
+├── CHANGELOG.md
+├── package.json                  # Workspaces and root scripts
+├── tsconfig.base.json            # Shared compiler options
+├── eslint.config.js
+├── prettier.config.js
+└── vitest.config.ts              # Vitest projects and coverage for running Vitest from the root
 ```
 
-## Key Files and Their Roles
+Each integration app has:
 
-### Root Level Configuration
-- **package.json**: Workspace definition, scripts, dev dependencies
-- **tsconfig.base.json**: Base TypeScript configuration (extended by workspace packages)
-- **eslint.config.js**: ESLint rules for the entire monorepo (flat config)
-- **vitest.config.ts**: Shared Vitest configuration for all workspaces
-- **AGENTS.md**: Technical architecture and AI development guidance (referenced by WARP.md/CLAUDE.md)
+- `.storybook/` - `main.js` (framework options and integrations), `preview.js`, `vitest.setup.ts`, `alpine-entrypoint.js`, `story-rules.ts`
+- `src/components/<Component>/` - Astro stories and Vitest tests, importing shared components from `@storybook-astro/components`
+- `tests/*.spec.ts` - Playwright tests against the built Storybook
+- `vitest.config.ts` (component tests) and `vitest.storybook.config.ts` (`@storybook/addon-vitest`)
 
-### Workspace Commands
-All commands run from root using `yarn workspace <name> <script>`:
+## Commands
+
+Run from the repo root.
 
 ```bash
-# Framework package
-yarn workspace @storybook-astro/framework test
-yarn workspace @storybook-astro/framework build
-
-# Renderer package
-yarn workspace @storybook-astro/renderer test
-yarn workspace @storybook-astro/renderer build
-
-# Integration examples
-yarn workspace @storybook-astro/integration-astro6 dev
-yarn workspace @storybook-astro/integration-astro5 dev
-
-# Website
-yarn workspace @storybook-astro/website dev
-
-# All tests
-yarn test  # Runs vitest across all packages with tests
-
-# All linting
-yarn lint
-yarn lint:fix
-
-# Build packages only
+# Build the framework and renderer (integration apps import their dist)
 yarn build:packages
 
-# Build or serve all workspaces
+# Rebuild the framework and renderer on change
+yarn dev:packages
+
+# Build the packages, then start the package watchers, every integration app's Storybook and the website
+yarn dev
+
+# One integration app
+yarn workspace @storybook-astro/integration-astro5 dev
+yarn workspace @storybook-astro/integration-astro6 dev
+yarn workspace @storybook-astro/integration-astro7 dev
+
+# Website
+yarn website
+
+# Build the packages, then run every workspace's `test` script
+yarn test
+
+# Integration app browser tests
+yarn workspace @storybook-astro/integration-astro7 test:browser    # Playwright
+yarn workspace @storybook-astro/integration-astro7 test:storybook  # addon-vitest
+
+# Lint
+yarn lint
+yarn lint:fix
+yarn lint:links   # checks that references to docs/ files and their anchors resolve
+
+# Build everything, or serve the builds
 yarn build
 yarn serve
+
+# Pre-publish smoke test
+yarn smoke
 ```
 
 ## Important Conventions
 
-### Imports
-- **Always use explicit extensions**: `.ts`, `.tsx`, `.js`, `.jsx`
-- **Use workspace protocol**: `import { foo } from '@storybook-astro/framework'` pulls from `packages/@storybook-astro/framework/src/`
+See [AGENTS.md's Code Conventions](../../AGENTS.md#code-conventions). In short:
 
-### File Extensions
-- TypeScript source: `.ts`, `.tsx`
-- JavaScript (config): `.js`, `.mjs`
-- Never omit extensions in imports
+- Use explicit file extensions in imports (`./middleware.ts`)
+- Internal dependencies use `workspace:*`; the framework depends on the renderer this way, and Yarn replaces it with the real version on publish
+- Package entrypoints point at `dist`, not `src`. Run `yarn build:packages`, or keep `yarn dev:packages` running, before running integration apps or tests that import them
 
-### Package Dependencies
-- Framework depends on Renderer via `workspace:*`
-- All internal dependencies use `workspace:*` protocol
-- When publishing to npm, Yarn Berry resolves these to actual versions
+## Integrations
 
-### Testing
-- Vitest configuration at root with `vitest.config.ts`
-- Happy-DOM environment for browser simulation
-- Tests live alongside source with `.test.ts` extension
-- Portable stories API enables testing outside Storybook
+Framework integrations live in `packages/@storybook-astro/framework/src/integrations/`: `react.ts`, `vue.ts`, `svelte.ts`, `preact.ts`, `solid.ts`, `alpine.ts`, plus `base.ts` (the `Integration` contract), `index.ts` (factory exports) and `moduleResolver.ts`. See [framework-standards.md](./framework-standards.md) and [AGENTS.md](../../AGENTS.md#adding-a-new-framework-integration).
 
-## Integrations and Dependencies
+## Virtual Modules
 
-### Framework Integrations
-Located in `packages/@storybook-astro/framework/src/integrations/`:
-- `base.ts` - Base class for all integrations
-- `react.ts` - React (via @storybook/react)
-- `vue.ts` - Vue 3 (via @storybook/vue3)
-- `svelte.ts` - Svelte (via @storybook/svelte)
-- `preact.ts` - Preact (via @storybook/preact)
-- `solid.ts` - Solid.js (via storybook-solidjs)
-- `alpine.ts` - Alpine.js
+The main ones:
 
-Each integration:
-1. Extends `BaseIntegration` from `base.ts`
-2. Returns Astro integration via `getAstroRenderer()`
-3. Returns Vite plugins via `getVitePlugins()`
-4. Maps to Storybook renderer via `getStorybookRenderer()`
+- `virtual:astro-container-renderers` - Registers each integration's Astro renderers with the Container
+- `virtual:storybook-renderer-fallback` - Exports each integration's Storybook renderer under its `name`, for framework-delegated stories
+- `virtual:storybook-astro-renderer` - Imported by the renderer's `render.tsx`
+- `virtual:astro:assets/fonts/internal`, `virtual:astro:assets/fonts/runtime` - Astro's font modules, resolved by `vitePluginAstroFonts.ts`
 
-### Virtual Modules
-Used internally for plugin communication:
-- `virtual:astro-container-renderers` - Renderer registry
-- `virtual:storybook-renderer-fallback` - Framework fallbacks
-- `virtual:astro:assets/fonts/*` - Stubs for Astro 6 font handling
+## Astro Version Support
 
-## Astro Compatibility
-
-### Astro 6 vs Astro 5
-- **Astro 6** (primary): Uses `AstroContainer.create()` API for SSR, Vite-based component client stubs
-- **Astro 5 stable** (tested): Compatible, may have different internal APIs
-
-### Compatibility Layers in Code
-1. **vitePluginAstroComponentMarker.ts** - Replaces Astro 6's runtime error stub with our own
-2. **patchCreateAstroCompat()** in middleware.ts - Bridges 3-arg (compiler v2) vs 2-arg (compiler v3/v6) `createAstro()`
-3. **vitePluginAstroFonts.ts** - Resolves Astro's Font Provider API in Storybook's SSR context
+Astro 5 (5.5.3+), 6 and 7 are supported. The integration apps pin Astro 5.17.2, 6.4.8 and 7.4.2. The code that adapts to each version is listed in [AGENTS.md's Astro Version Compatibility Layers](../../AGENTS.md#astro-version-compatibility-layers).
 
 ## Development Workflow
 
-### For AI/LLM Assistance
-Always reference:
-1. **AGENTS.md** - Architecture, conventions, debugging
-2. **This file (project-structure.md)** - Navigation and workspace rules
-3. **CONTRIBUTING.md** - Code conventions and PR workflow
+### For AI Assistance
+Read in this order:
+1. **AGENTS.md** - Architecture, conventions, debugging, the pre-PR checklist
+2. **This file** - Navigation and workspace commands
+3. **CONTRIBUTING.md** - Contribution process
 
 ### Common Tasks
 
-**Adding a new framework integration:**
-1. Create `packages/@storybook-astro/framework/src/integrations/[framework].ts`
-2. Extend `BaseIntegration` from `base.ts`
-3. Add example components to `integration/astro6/src/components/`
-4. Add tests in `packages/@storybook-astro/framework/src/[framework].test.ts`
-5. Update `.storybook/main.js` in both integration examples
+**Adding a framework integration:** follow [AGENTS.md](../../AGENTS.md#adding-a-new-framework-integration).
 
-**Publishing packages:**
-```bash
-# IMPORTANT: Always use yarn npm publish, not npm publish
-cd packages/@storybook-astro/renderer
-rm -rf dist && yarn build
-yarn npm publish --tag beta --access public
+**Releasing:** follow [docs/RELEASING.md](../../docs/RELEASING.md). Pushing a `vX.Y.Z` tag on `main` runs the publish workflow (`.github/workflows/publish.yml`), which publishes the renderer, then the framework. Publishing by hand is only for when the workflow fails, and always uses `yarn npm publish`.
 
-cd ../framework
-rm -rf dist && yarn build
-yarn npm publish --tag beta --access public
+## Versions
 
-# Then promote to latest
-npm dist-tag add @storybook-astro/renderer@<version> latest
-npm dist-tag add @storybook-astro/framework@<version> latest
-```
-
-## Module Resolution
-
-### TypeScript Path Mapping
-See `tsconfig.base.json` for shared path mappings across all packages.
-
-### Vite Module Resolution
-Framework's Vite configuration in `preset.ts` handles:
-- Astro component `.astro` files
-- Framework-specific imports (React, Vue, etc.)
-- Virtual modules from Vite plugins
-
-## Environment and Versions
+From the `package.json` files:
 
 - **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+
-- **Yarn**: 4.12.0+ (Berry)
-- **TypeScript**: 5.8.3+
-- **Vite**: 6.x or 7.x
-- **Storybook**: 10.2.7+
-- **Astro**: 6 (primary) and 5.17.2 (stable support)
+- **Yarn**: 4.12.0
+- **TypeScript**: 5.8.3+ in the repo; the framework accepts TypeScript 5 or 6
+- **Vite**: 6.4.1+, 7, or 8
+- **Storybook**: 10 (the integration apps use 10.6.0)
+- **Astro**: 5.5.3+, 6, or 7

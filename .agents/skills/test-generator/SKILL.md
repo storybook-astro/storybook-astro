@@ -18,49 +18,141 @@ This skill creates tests for:
 - HTML output validation
 
 ### Framework Components
-- React, Vue, Svelte, Preact, Solid.js, Alpine.js
+- React, Vue, Svelte, Preact, Solid.js
 - Interactive behavior
 - Props/event binding
 - State management
 
-### Integration Tests
-- Multiple frameworks together
-- Framework delegation behavior
-- Container rendering
+### Alpine.js Components
+- `.astro` components that use Alpine directives, tested like any other Astro component
 
-## Test Structure
+## Where Tests Live
 
-### Standard Pattern
+Shared example components live in `packages/components/src/<Component>/<framework>/`, each with its component, its stories, and its test:
 
-All tests follow this template:
+```
+packages/components/src/Counter/
+├── alpine/   Counter.astro  Counter.stories.js  Counter.test.ts
+├── preact/   Counter.jsx    Counter.stories.js  Counter.test.ts
+├── react/    Counter.jsx    Counter.stories.js  Counter.test.ts
+├── solid/    Counter.tsx    Counter.stories.js  Counter.test.ts
+├── svelte/   Counter.svelte Counter.stories.js  Counter.test.ts
+└── vue/      Counter.vue    Counter.stories.js  Counter.test.ts
+```
+
+`packages/components/vitest.config.ts` picks up `src/**/*.test.ts` and runs them in happy-dom, with `@testing-library/jest-dom/vitest` matchers loaded from `vitest.setup.ts`. All three integration apps (`integration/astro5`, `astro6`, `astro7`) load these stories.
+
+The integration apps also have their own tests:
+- `src/**/*.test.ts` - Vitest tests for app-specific stories (`yarn workspace @storybook-astro/integration-astro7 test`)
+- `tests/*.spec.ts` - Playwright browser tests against the running Storybook (`test:browser`)
+- `test:storybook` - Runs the stories themselves through `@storybook/addon-vitest`
+
+## Astro Components
+
+Astro components (and Alpine components, which are `.astro` files) use the Storybook Astro portable stories API and are rendered through the Astro Container:
 
 ```typescript
 import { screen } from '@testing-library/dom';
-import { test, expect, describe } from 'vitest';
+import { test, expect } from 'vitest';
 import { composeStories, renderStory } from '@storybook-astro/framework/testing';
 import * as stories from './Component.stories.jsx';
 
-describe('Component', () => {
-  const { Default, Variant1, Variant2 } = composeStories(stories);
+const { Default, Variant } = composeStories(stories);
 
-  test('default story renders correctly', async () => {
-    await renderStory(Default);
-    expect(screen.getByRole('...role...')).toBeInTheDocument();
-  });
-
-  test('variant story renders correctly', async () => {
-    await renderStory(Variant1);
-    // assertions
-  });
+test('default story renders correctly', async () => {
+  await renderStory(Default);
+  expect(screen.getByRole('button')).toBeInTheDocument();
 });
 ```
+
+**Key points**:
+- Always `await renderStory()`
+- `renderStory` only renders Astro components. It throws "Story meta.component must be an Astro component factory." for a React, Vue, Svelte, Preact, or Solid component
+- Scoped CSS arrives as `<style data-storybook-astro-styles>` elements, and the markup carries the scope as a `data-astro-cid-*` attribute. `packages/components/src/ScopedStyles/ScopedStyles.test.ts` shows how to assert on both
+
+### Alpine.js Components
+
+Alpine components are `.astro` files with Alpine directives, wired through the `@astrojs/alpinejs` integration. Their stories have no `parameters.renderer`, and the tests assert on the server-rendered markup right after `renderStory`. See `packages/components/src/Counter/alpine/Counter.test.ts` and `packages/components/src/Accordion/alpine/Accordion.test.ts`:
+
+```typescript
+const { Default } = composeStories(stories);
+
+test('Alpine Counter Default renders via SSR', async () => {
+  await renderStory(Default);
+
+  expect(screen.getByText('Alpine counter:')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '+1' })).toBeInTheDocument();
+});
+```
+
+## Framework Components
+
+Framework component stories set `parameters.renderer` (`'react'`, `'vue'`, `'svelte'`, `'preact'`, `'solid'`). Their tests don't go through `@storybook-astro/framework/testing`; they compose the stories with the framework's own Storybook package and render natively. Copy the pattern from the matching file:
+
+| Framework | Pattern file | How it renders |
+|-----------|--------------|----------------|
+| React | `packages/components/src/Counter/react/Counter.test.ts` | `composeStories` from `@storybook/react-vite`, rendered with `createRoot` inside `flushSync` |
+| Vue | `packages/components/src/Counter/vue/Counter.test.ts` | `composeStories` and `setProjectAnnotations` from `@storybook/vue3`, then `await Default.run()` |
+| Svelte | `packages/components/src/Counter/svelte/Counter.test.ts` | `composeStories` and `setProjectAnnotations` from `@storybook/svelte`, then `await Default.run()` |
+| Preact | `packages/components/src/Counter/preact/Counter.test.ts` | `composeStories` from `storybook/preview-api` with `setProjectAnnotations` from `@storybook/preact`, rendered with Preact's `render(h(Default, {}), element)` |
+| Solid | `packages/components/src/Counter/solid/Counter.test.ts` | `composeStories` from `storybook/preview-api` with `storybook-solidjs-vite/renderer/solid-legacy` annotations; asserts the composed story and its `parameters.renderer`, without rendering |
+
+React, for example:
+
+```typescript
+import { composeStories } from '@storybook/react-vite';
+import { screen } from '@testing-library/dom';
+import { createElement } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
+import { test, expect } from 'vitest';
+import * as stories from './Counter.stories.js';
+
+const { Default } = composeStories(stories);
+
+test('React Counter Default renders with native React renderer', () => {
+  const element = document.createElement('div');
+
+  document.body.append(element);
+  const root = createRoot(element);
+
+  try {
+    flushSync(() => {
+      root.render(createElement(Default));
+    });
+
+    expect(screen.getByTestId('react-counter')).toHaveTextContent('React counter: 1');
+  } finally {
+    root.unmount();
+    element.remove();
+  }
+});
+```
+
+Vue and Svelte:
+
+```typescript
+import { composeStories, setProjectAnnotations } from '@storybook/vue3';
+
+setProjectAnnotations([]);
+
+const { Default } = composeStories(stories);
+
+test('Vue Counter Default runs with native renderer', async () => {
+  await Default.run();
+
+  expect(screen.getByTestId('vue-counter')).toHaveTextContent('Vue counter: 1');
+});
+```
+
+A test that mixes Astro and framework stories (for example, decorators across renderers) is in `integration/astro7/src/components/Counter/Decorators.test.ts`.
 
 ## Generation Steps
 
 ### 1. Analyze Component
 
 For the component, determine:
-- **Type**: Astro, React, Vue, etc.
+- **Type**: Astro, Alpine (Astro), React, Vue, etc.
 - **Props**: What args/parameters does it accept?
 - **Slots**: Does it accept children/slots?
 - **Interactions**: Does it handle clicks, form input, etc.?
@@ -79,7 +171,7 @@ export default {
   component: Component,
   // Add parameters.renderer for non-Astro components
   parameters: {
-    renderer: 'react', // For React/Vue/Svelte/etc
+    renderer: 'react', // For React/Vue/Svelte/Preact/Solid
   },
 };
 
@@ -100,7 +192,7 @@ export const Variant = {
 ### 3. Generate Test Cases
 
 Generate tests based on:
-- **Component type**: Astro components get `await renderStory()`
+- **Component type**: Astro and Alpine components get `await renderStory()`; framework components follow the pattern file for their framework
 - **Props**: Test with various prop combinations
 - **States**: Test each story/variant
 - **Accessibility**: Use `getByRole()` when possible
@@ -114,65 +206,6 @@ Aim for:
 - ✅ Edge cases (empty, null, undefined)
 - ✅ Error states
 - ✅ Accessibility roles/labels
-- ✅ 80%+ coverage
-
-## Testing Patterns by Component Type
-
-### Astro Components
-
-```typescript
-import { composeStories, renderStory } from '@storybook-astro/framework/testing';
-
-test('Astro component renders', async () => {
-  await renderStory(story); // Must await
-  expect(screen.getByRole('button')).toBeInTheDocument();
-});
-```
-
-**Key points**:
-- Always `await renderStory()`
-- Tests HTML structure
-- Can verify scoped styles present
-
-### React/Preact Components
-
-```typescript
-import { composeStories } from '@storybook-astro/framework/testing';
-
-test('React component renders', () => {
-  const { Default } = composeStories(stories);
-  Default.run(); // No await for framework components
-  expect(screen.getByRole('button')).toBeInTheDocument();
-});
-
-test('handles click events', () => {
-  const { Default } = composeStories(stories);
-  Default.run();
-  fireEvent.click(screen.getByRole('button'));
-  // assertions after interaction
-});
-```
-
-### Vue/Svelte/Solid Components
-
-```typescript
-test('Vue component renders', () => {
-  const { Default } = composeStories(stories);
-  Default.run();
-  expect(screen.getByText('expected text')).toBeInTheDocument();
-});
-```
-
-### Alpine.js Components
-
-```typescript
-test('Alpine component initializes', async () => {
-  await renderStory(story);
-  // Alpine may need a tick to initialize
-  await new Promise(r => setTimeout(r, 10));
-  expect(screen.getByText('alpine-enhanced')).toBeInTheDocument();
-});
-```
 
 ## Query Patterns
 
@@ -192,28 +225,18 @@ expect(screen.getByClassName('btn')).toBeInTheDocument();
 expect(wrapper.find('.success')).toBeDefined();
 ```
 
-## Test Organization
-
-### Single File (Simple Component)
-```
-src/Button/
-├── Button.astro
-├── Button.stories.jsx
-└── Button.test.ts
-```
-
-### Multi-File (Complex Component)
-```
-src/Form/
-├── Form.astro
-├── Form.stories.jsx
-├── Form.test.ts          # Basic rendering
-├── Form.validation.test.ts # Validation logic
-├── Form.interaction.test.ts # User interactions
-└── Form.accessibility.test.ts # A11y
-```
-
 ## Test Data Patterns
+
+`composeStory(story, meta)` takes the story's meta (the stories file's default export) as its second argument. Story args win over meta args, so to try other args, override them on the story:
+
+```typescript
+import { composeStory, renderStory } from '@storybook-astro/framework/testing';
+import * as stories from './Button.stories.jsx';
+
+function withArgs(story, args) {
+  return composeStory({ ...story, args: { ...story.args, ...args } }, stories.default);
+}
+```
 
 ### Props Variants
 
@@ -223,32 +246,32 @@ test.each([
   ['secondary', 'btn-secondary'],
   ['disabled', 'btn-disabled'],
 ])('renders %s variant', async (variant, className) => {
-  const story = composeStory(Variant, { args: { variant } });
-  await renderStory(story);
+  await renderStory(withArgs(stories.Default, { variant }));
   expect(screen.getByRole('button')).toHaveClass(className);
 });
 ```
 
 ### Slot/Children Content
 
+Astro slot content goes in `args.slots`, keyed by slot name:
+
 ```typescript
 test('renders slot content', async () => {
-  const story = composeStory(WithSlot, {
-    args: {
-      default: '<span>Slot content</span>',
-    },
-  });
-  await renderStory(story);
+  await renderStory(withArgs(stories.Default, {
+    slots: { default: '<span>Slot content</span>' },
+  }));
   expect(screen.getByText('Slot content')).toBeInTheDocument();
 });
 ```
+
+A slot can also hold another Astro component (`slots: { default: Badge }`); see `packages/components/src/Nesting/`.
 
 ## Common Test Scenarios
 
 ### Rendering
 ```typescript
 test('component renders without errors', async () => {
-  await renderStory(story);
+  await renderStory(Default);
   expect(screen.getByRole('...')).toBeInTheDocument();
 });
 ```
@@ -256,8 +279,7 @@ test('component renders without errors', async () => {
 ### Props Passing
 ```typescript
 test('accepts and displays custom label', async () => {
-  const story = composeStory(Default, { args: { label: 'Custom' } });
-  await renderStory(story);
+  await renderStory(withArgs(stories.Default, { label: 'Custom' }));
   expect(screen.getByText('Custom')).toBeInTheDocument();
 });
 ```
@@ -265,47 +287,20 @@ test('accepts and displays custom label', async () => {
 ### Conditional Rendering
 ```typescript
 test('shows error state when error prop provided', async () => {
-  const story = composeStory(Error, { args: { error: 'Invalid' } });
-  await renderStory(story);
+  await renderStory(withArgs(stories.Default, { error: 'Invalid' }));
   expect(screen.getByRole('alert')).toBeInTheDocument();
 });
 ```
 
 ### Event Handling
+
+Interaction belongs to framework components, rendered with their framework's pattern above. After rendering, fire events with `@testing-library/dom`:
+
 ```typescript
 import { fireEvent } from '@testing-library/dom';
 
-test('calls onClick handler on click', () => {
-  let clicked = false;
-  const story = composeStory(Default, {
-    args: { onClick: () => { clicked = true; } }
-  });
-  story.run();
-  fireEvent.click(screen.getByRole('button'));
-  expect(clicked).toBe(true);
-});
-```
-
-### Focus Management
-```typescript
-test('button is focusable', () => {
-  const story = composeStories(stories).Default;
-  story.run();
-  screen.getByRole('button').focus();
-  expect(document.activeElement).toBe(screen.getByRole('button'));
-});
-```
-
-## Coverage Goals
-
-- **Statements**: 80%+
-- **Branches**: 75%+
-- **Functions**: 80%+
-- **Lines**: 80%+
-
-Check with:
-```bash
-yarn test --coverage
+fireEvent.click(screen.getByRole('button'));
+expect(screen.getByTestId('react-counter')).toHaveTextContent('React counter: 2');
 ```
 
 ## Framework-Specific Considerations
@@ -326,14 +321,12 @@ yarn test --coverage
 - Lifecycle hooks work
 
 ### Solid.js
-- Reactive primitives work normally
-- Effects run in tests
-- **Critical**: renderer called before storyFn()
+- The existing test only composes the story and checks `parameters.renderer`
+- **Critical** (in Storybook itself): the framework renderer is called before `storyFn()`
 
 ### Alpine.js
-- Manual initialization may be needed
-- x-directives work
-- Runtime-only (no build)
+- Alpine components are `.astro` files rendered through `renderStory`
+- Tests assert on the server-rendered markup and directives; they don't wait for Alpine to start
 
 ## Edge Cases to Test
 
@@ -365,7 +358,6 @@ Generated tests should:
 
 - `.agents/references/testing-guidelines.md` - Test patterns
 - `.agents/references/framework-standards.md` - Framework differences
-- `AGENTS.md` - Architecture and debugging
+- `AGENTS.md` - Architecture, the Testing section, and debugging
 - [Testing Library Docs](https://testing-library.com/)
 - [Vitest Docs](https://vitest.dev/)
-"
