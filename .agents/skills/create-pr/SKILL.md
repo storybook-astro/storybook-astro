@@ -97,7 +97,7 @@ Analyze your changes to determine:
 - **Type**: What kind of change? (feat, fix, docs, test, etc.)
 - **Scope**: Which package/area? (framework, renderer, react, etc.)
 - **Summary**: What does the change do? (clear, actionable, present tense)
-- **Base Branch**: `develop` for new work. Hotfixes branch from `main` and need PRs to `main` and `develop`; `website` gets them by a merge of `main` after the publish. Website-only changes need PRs to `main` and `website`. Until 2.0.0 is released, work on the `2.0.0` milestone branches from and targets `next` (`docs/RELEASING.md#20-on-the-next-branch`). See `docs/RELEASING.md`.
+- **Base Branch**: `develop` for new work. Hotfixes branch from `main` and need PRs to `main` and `develop`; `website` gets them by a merge of `main` after the publish. Website-only changes need PRs to `main` and `website`. Until 2.0.0 is released, work that needs Storybook 11 (the `2.0.0` milestone, and any `2.1.0` issue that does) branches from and targets `next` (`docs/RELEASING.md#20-on-the-next-branch`). See `docs/RELEASING.md`.
 - **Issue and milestone**: Which issue it closes, and that issue's release milestone
 
 ### 4. Push Branch
@@ -111,6 +111,7 @@ git push -u origin HEAD
 Write the body to a file, then create the PR with the GitHub CLI:
 
 ```bash
+# --base next for 2.0 work, until 2.0.0 is released
 gh pr create \
   --title "feat(framework): add lazy loading support" \
   --base develop \

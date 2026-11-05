@@ -151,9 +151,9 @@ Only after step 7 confirms the version is on npm. RELEASING.md has the `gh api` 
 
 ## Canary / Preview Releases
 
-Use these to publish a build for testing without changing what `npm install @storybook-astro/framework` gives users.
+Use these to publish a build for testing without changing what `npm install @storybook-astro/framework` gives users. Any label other than `beta` stays on its own dist-tag and isn't promoted to `latest`.
 
-**A `2.0.0-next.N` prerelease doesn't follow the steps below.** It's bumped and tagged on the `next` branch and never merges into `main`: follow `docs/RELEASING.md#20-on-the-next-branch`. Any label other than `beta` stays on its own dist-tag and isn't promoted to `latest`.
+**A `2.0.0-next.N` prerelease doesn't follow the steps or the checklist below.** It's bumped and tagged on the `next` branch and never merges into `main`: follow `docs/RELEASING.md#20-on-the-next-branch`.
 
 - `canary` — Work-in-progress builds for early feedback, usually just before a stable release
 - `next` — Validating a future release before committing to it. Until 2.0.0 is released, only `2.0.0-next.N` builds from the `next` branch use it; 1.x previews use `canary`
@@ -262,7 +262,7 @@ A change that touches both packages and the website follows the standard release
 - [ ] Version uses a non-`beta` label (`canary`, `next`, `alpha`, `rc`, `test`). Until 2.0.0, `next` is only for 2.0 prereleases tagged on the `next` branch
 - [ ] Both `package.json` files at the same version
 - [ ] Changelog section added only if a stable release follows
-- [ ] Merged into `main` only, not `website`
+- [ ] Merged into `main` only, not `website` (a `2.0.0-next.N` isn't merged anywhere; it's tagged on `next`)
 - [ ] Tag created on `main` and pushed
 - [ ] Publish workflow succeeded
 - [ ] Dist-tags show the label but `latest` is unchanged

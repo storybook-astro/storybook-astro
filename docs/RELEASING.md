@@ -299,12 +299,14 @@ Branch from the latest stable tag instead of `main`, and publish from the fix br
 
 | Work | Branch from | PR to |
 |---|---|---|
-| 1.x features and fixes, hotfixes | as usual | as usual |
-| 2.0 work (milestone `2.0.0`) | `next` | `next` |
+| Work that needs Storybook 11 or breaks 1.x: the `2.0.0` milestone, and any `2.1.0` issue that does | `next` | `next` |
+| Everything else, `2.1.0` issues included, and hotfixes | as usual | as usual |
 
-Create 2.0 branches with `git checkout -b feature/your-feature origin/next`, so they track `next`. The [pre-PR review](../AGENTS.md#before-opening-a-pr) then compares against `next`, not `develop`; refresh it with `git fetch origin next:next` first.
+Work on `develop` reaches 2.0 through the merges below. If it's ready before the cutover, it ships in a 1.x minor first.
 
-**Keep `next` current.** Merge `develop` into `next` at least weekly, and always before a 2.0 prerelease. Each push to `next` runs CI and Chromatic, so batching the merges keeps snapshot use down. Push the merge directly rather than through a PR, as for the `main` → `develop` sync. Never merge `next` into `develop` before the cutover: the `Branch Protection` workflow rejects a PR from `next` into `develop` unless it has the `2.0-cutover` label.
+For 2.0 work, the [pre-PR review](../AGENTS.md#before-opening-a-pr) compares against `next`, not `develop`: refresh it with `git fetch origin next:next`, and name `next` as the base when you run `/code-review high <your-branch>`.
+
+**Keep `next` current.** Merge `develop` into `next` at least weekly, and always before a 2.0 prerelease. Each push to `next` runs CI and Chromatic, so batching the merges keeps snapshot use down. Push the merge directly rather than through a PR, as for the `main` → `develop` sync. Never merge `next` into `develop` before the cutover, or a branch cut from `next` into `develop`. The `Branch Protection` check fails on a PR from `next` into `develop` without the `2.0-cutover` label. It isn't a required check, so don't merge past it.
 
 ```bash
 git checkout next
@@ -326,7 +328,7 @@ Resolving the usual conflicts:
 3. Push `next`, then tag it: `git tag v2.0.0-next.N && git push origin v2.0.0-next.N`
 4. Check that `next` moved and `latest` didn't: `npm view @storybook-astro/framework dist-tags`
 
-`storybook init` on a Storybook 11 prerelease installs our `next` while it's newer than `latest`, which a 2.0 prerelease always is. Until the cutover, the `next` dist-tag is for 2.0 only: 1.x previews use `canary`. (It points at `1.16.0-next.0`, published before this plan, until the first 2.0 prerelease replaces it.)
+`storybook init` on a Storybook 11 prerelease installs our `next` while it's newer than `latest`, which a 2.0 prerelease always is. Until the cutover, the `next` dist-tag is for 2.0 only: 1.x previews use `canary`. It points at `1.16.0-next.0` until the first 2.0 prerelease replaces it. Leave it there: that build works with Storybook 11 prereleases, and without it, init would install `latest`, which only accepts Storybook 10.
 
 **Cutover**, once Storybook 11 is stable. Not at its release candidate: the cutover moves `latest` to 2.0, which would break installs for everyone still on stable Storybook 10.
 

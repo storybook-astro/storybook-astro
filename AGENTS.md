@@ -440,7 +440,7 @@ AI-generated changes get an independent review before the PR is opened. The requ
 
 - [ ] `nvm use`, then `yarn lint`, `yarn lint:links`, and `yarn test` pass
 - [ ] All changes are committed and `git status` shows no modified files. The review can also pick up uncommitted changes, so a dirty working tree mixes work that isn't going into the PR into the review
-- [ ] Your local `develop` is current: `git fetch origin develop:develop` (run it from your feature branch). The review compares against it, so a stale `develop` pulls unrelated commits into the review. Until 2.0.0 is released, 2.0 work compares against `next` instead (`git fetch origin next:next`; see `docs/RELEASING.md#20-on-the-next-branch`)
+- [ ] Your local `develop` is current: `git fetch origin develop:develop` (run it from your feature branch). The review compares against it, so a stale `develop` pulls unrelated commits into the review. Until 2.0.0 is released, 2.0 work compares against `next` instead: refresh it with `git fetch origin next:next` and name `next` as the base (see `docs/RELEASING.md#20-on-the-next-branch`)
 - [ ] In a fresh session (new terminal, or `/clear`), run `/code-review high <your-branch>`. Use `xhigh` for changes to `render.tsx`, `middleware.ts`, or the [Astro version compatibility layers](#astro-version-compatibility-layers)
 - [ ] Give the reviewer only the target, not an explanation of the change
 - [ ] Each finding is fixed or deliberately dismissed with a reason

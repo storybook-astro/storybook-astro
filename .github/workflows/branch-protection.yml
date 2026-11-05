@@ -9,10 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check PR direction
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          CUTOVER: ${{ contains(github.event.pull_request.labels.*.name, '2.0-cutover') }}
         run: |
-          BASE_BRANCH="${{ github.base_ref }}"
-          HEAD_BRANCH="${{ github.head_ref }}"
-          CUTOVER="${{ contains(github.event.pull_request.labels.*.name, '2.0-cutover') }}"
           
           echo "Base branch: $BASE_BRANCH"
           echo "Head branch: $HEAD_BRANCH"
@@ -23,7 +25,7 @@ jobs:
           fi
 
           # 2.0 stays on `next` until the cutover in docs/RELEASING.md#20-on-the-next-branch
-          if [[ "$BASE_BRANCH" == "develop" && "$HEAD_BRANCH" == "next" && "$CUTOVER" != "true" ]]; then
+          if [[ "$BASE_BRANCH" == "develop" && "$HEAD_BRANCH" == "next" && "$SAME_REPO" == "true" && "$CUTOVER" != "true" ]]; then
             echo "::error::❌ next merges into develop only at the 2.0 cutover. Add the 2.0-cutover label if this is it."
             exit 1
           fi

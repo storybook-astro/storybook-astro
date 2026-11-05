@@ -63,15 +63,16 @@ Thank you for your interest in contributing! This project is community-driven an
 | `website` | What Cloudflare deploys to storybook-astro.org. Gets stable releases, published hotfixes and website-only changes |
 | `feature/*` | Feature branches off `develop` (e.g. `feature/vue-slots`) |
 | `fix/*` | Bug fix branches off `develop` (hotfixes branch off `main`) |
-| `next` | Until 2.0.0 is released: 2.0 work (Storybook 11 only). Branch from `next` and open the PR to `next` for issues on the `2.0.0` milestone |
+| `next` | Until 2.0.0 is released: work that needs Storybook 11, such as the `2.0.0` milestone. Branch from `next` and open the PR to `next` |
 
 ### Workflow
 
-1. Create a branch from `develop` (from `next` for an issue on the `2.0.0` milestone, until 2.0.0 is released):
+1. Create a branch from `develop`:
    ```bash
    git checkout develop
    git checkout -b feature/your-feature
    ```
+   Until 2.0.0 is released, work that needs Storybook 11, such as an issue on the `2.0.0` milestone, branches from `next` instead (`git checkout next`), and its PR targets `next`.
 2. Make your changes
 3. Run linting and fix any issues:
    ```bash
