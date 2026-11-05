@@ -53,6 +53,18 @@ describe('SolidIntegration preview entry', () => {
     );
   });
 
+  test('uses the Solid 1 entry, renderer/solid1, on the Storybook 11 builds', async () => {
+    await projectWithStorybookSolid('11.0.0-next-20261104212201', [
+      './renderer',
+      './renderer/solid2',
+      './renderer/solid1'
+    ]);
+
+    expect(new SolidIntegration().storybookEntryPreview).toBe(
+      'storybook-solidjs-vite/renderer/solid1'
+    );
+  });
+
   test('names the supported versions when the installed one has no browser entry', async () => {
     await projectWithStorybookSolid('10.3.0', ['./renderer']);
 

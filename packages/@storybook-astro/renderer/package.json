@@ -79,9 +79,9 @@
     "vitest": "^4.1.9"
   },
   "peerDependencies": {
-    "@storybook/react": "^10.0.0",
+    "@storybook/react": "^10.0.0 || ^11.0.0-0",
     "astro": "^5.5.3 || ^6.0.0 || ^7.0.0",
-    "storybook": "^10.0.0"
+    "storybook": "^10.0.0 || ^11.0.0-0"
   },
   "dependencies": {
     "@types/node": "^20.19.0"
