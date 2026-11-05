@@ -63,6 +63,7 @@ Thank you for your interest in contributing! This project is community-driven an
 | `website` | What Cloudflare deploys to storybook-astro.org. Gets stable releases, published hotfixes and website-only changes |
 | `feature/*` | Feature branches off `develop` (e.g. `feature/vue-slots`) |
 | `fix/*` | Bug fix branches off `develop` (hotfixes branch off `main`) |
+| `next` | Until 2.0.0 is released: 2.0 work (Storybook 11 only). Branch from `next` and open the PR to `next` for issues on the `2.0.0` milestone |
 
 ### Workflow
 

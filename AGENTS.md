@@ -479,6 +479,7 @@ See [`docs/RELEASING.md`](./docs/RELEASING.md) for the full release process, inc
 - Branching model (`main`, `develop`, `website`, `feature/*`, `fix/*`). Releases merge `develop` straight into `main` and `website`
 - Distinction between **package releases** (go through `develop` → `main`) and **website-only changes** (merge directly to `main`)
 - Hotfix and mixed-change workflows
+- The temporary `next` branch for 2.0 (Storybook 11 only) work, until 2.0.0 is released
 - Pre-publish smoke test (`yarn smoke`)
 
 ## Getting Help

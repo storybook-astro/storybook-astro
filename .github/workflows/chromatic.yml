@@ -2,9 +2,9 @@ name: Chromatic
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, next]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, next]
 
 # Cancel superseded runs on the same ref to save snapshots
 concurrency:

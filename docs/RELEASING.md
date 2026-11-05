@@ -8,7 +8,7 @@ Step-by-step guide for publishing a new version of `@storybook-astro/framework` 
 
 **What gets published**: Only `packages/@storybook-astro/framework` and `packages/@storybook-astro/renderer`. The website, integration examples, and component library are not published.
 
-**Branch rule**: Releases always tag from `main`. Never tag on `develop` or a feature branch — the publish workflow triggers on any `v*` tag push, regardless of branch. The one exception is a [hotfix while a canary is on `main`](#hotfix-while-a-canary-is-on-main).
+**Branch rule**: Releases always tag from `main`. Never tag on `develop` or a feature branch — the publish workflow triggers on any `v*` tag push, regardless of branch. The exceptions are a [hotfix while a canary is on `main`](#hotfix-while-a-canary-is-on-main) and the [2.0 prereleases](#20-on-the-next-branch), which tag `next`.
 
 **Milestone**: Each release has a GitHub milestone named for its version (`1.15.0`). Before you tag, every open issue on it is either fixed on `develop` or moved to the next release's milestone. Setting a milestone needs the API, because `gh issue edit --milestone` and `gh pr edit --milestone` fail in this repo (they still query the retired classic Projects):
 
@@ -293,6 +293,43 @@ Branch from the latest stable tag instead of `main`, and publish from the fix br
 
 ---
 
+## 2.0 on the `next` branch
+
+2.0 supports Storybook 11 only (#316), and Storybook 11 is still in prerelease. Until it's stable, 2.0 work lives on a `next` branch, so `develop`, and the feature branches that merge it, stay on a stable Storybook 10. Remove this section, the `next` triggers in `build.yml` and `chromatic.yml`, and the `next` rows below once 2.0.0 is released.
+
+| Work | Branch from | PR to |
+|---|---|---|
+| 1.x features and fixes, hotfixes | as usual | as usual |
+| 2.0 work (milestone `2.0.0`) | `next` | `next` |
+
+**Keep `next` current.** Merge `develop` into `next` whenever something lands on `develop`, and always before a 2.0 prerelease. Push the merge directly rather than through a PR, as for the `main` → `develop` sync. Never merge `next` into `develop` before the cutover. In `CHANGELOG.md`, keep both sides' `[Unreleased]` entries.
+
+```bash
+git checkout next
+git pull origin next
+git merge origin/develop
+git push origin next
+```
+
+**2.0 prereleases tag `next`, not `main`.** `main` stays on 1.x, since hotfixes branch from it:
+
+1. Merge `develop` into `next`, as above
+2. On `next`, bump both `package.json` files to `2.0.0-next.N` and commit: `git commit -m "chore: release v2.0.0-next.N (next)"`
+3. Push `next`, then tag it: `git tag v2.0.0-next.N && git push origin v2.0.0-next.N`
+4. Verify that `next` moved and `latest` didn't, as for a [canary](#canary--preview-releases)
+
+`storybook init` on a Storybook 11 prerelease installs our `next` while it's newer than `latest`, which a 2.0 prerelease always is. Don't publish 1.x previews under `next` in the meantime; use `canary`.
+
+**Cutover**, once Storybook 11 is stable or at its release candidate:
+
+1. Create the `1.x` branch from the last 1.x release tag: `git push origin v1.N.M:refs/heads/1.x`. It takes critical 1.x fixes from then on
+2. Merge `develop` into `next` one last time, then open a PR from `next` into `develop` and merge it
+3. Release 2.0.0 from `develop` as a [standard release](#standard-release). This moves `latest` to 2.0, which `storybook init` on stable Storybook 11 needs
+4. Merge `develop` into long-running feature branches, such as `feature/server-render-mode`, and update any Storybook 10 versions they pin
+5. Delete the `next` branch and remove this section
+
+---
+
 ## Website-only changes
 
 Changes to `apps/website/` only — documentation updates, styling, copy — do **not** need a release:
@@ -365,6 +402,8 @@ npm dist-tag add @storybook-astro/framework@1.0.4 latest
 | Canary / preview | `develop` | `main` only (not `website`) | Yes (pre-release label) | `main` |
 | Hotfix | `main` | PRs to `main` + `develop`, then `main` → `website` after publish | Patch only | `main` |
 | Website-only | `main` | `main` + `website` | No | — |
+| 2.0 work, until 2.0.0 | `next` | `next`, with `develop` merged in regularly | — | — |
+| 2.0 prerelease | `next` | — | `2.0.0-next.N` | `next` |
 
 ### Key commands
 

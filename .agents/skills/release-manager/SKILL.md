@@ -42,6 +42,7 @@ A stable version is published under `beta` first, then promoted to `latest`.
 - **`develop`** — Integration branch. Features and fixes merge here first. It's protected: a PR needs one approving review, and only `lukemcd` and `slawekkolodziej` can push to it directly (as the release commit does). Anyone else opens a PR.
 - **`feature/*`**, **`fix/*`** — Branched from `develop`. Hotfix `fix/*` branches come from `main`.
 - **`website/*`** — Website-only changes, branched from `main`.
+- **`next`** — Until 2.0.0 is released: 2.0 (Storybook 11 only) work. `develop` is merged into it regularly, and `2.0.0-next.N` prereleases are tagged on it, not on `main`. 1.x previews use `canary` meanwhile. Follow `docs/RELEASING.md#20-on-the-next-branch`, including its cutover steps.
 
 Releases up to 1.14.0 used `release/*` branches. Current releases merge `develop` straight into `main` and `website`. Cut a release branch only when a release needs a freeze while `develop` takes work for the next version (see the start of the standard release in `docs/RELEASING.md`).
 
@@ -110,7 +111,7 @@ git tag v1.16.0
 git push origin v1.16.0
 ```
 
-Only tag on `main`: the publish workflow runs on any `v*` tag, whatever branch it's on.
+Only tag on `main`: the publish workflow runs on any `v*` tag, whatever branch it's on. The exceptions are a hotfix while a canary is on `main` and the `2.0.0-next.N` prereleases, tagged on `next`.
 
 The tag runs `.github/workflows/publish.yml`, which:
 1. Lints and clean-builds both packages
