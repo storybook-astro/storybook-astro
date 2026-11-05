@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { navigateTo, previewStayedLoaded, tagPreview } from './navigation.ts';
 
 // Regression test for a stale component left over when switching frameworks via
 // Docs pages. The renderer used to track the "active renderer" in one module
@@ -21,19 +22,20 @@ test.describe('framework switch through Docs pages', () => {
 
     // SPA navigation (no iframe reload) following the reported sequence:
     // Vue docs -> Vue story -> Svelte docs -> Svelte story.
-    await page.locator('#vue-accordion--default').click();
+    await tagPreview(page);
+    await navigateTo(page, '/story/vue-accordion--default');
     await expect(preview.locator('.accordion')).toHaveCount(1);
 
-    await page.locator('#svelte-accordion').click(); // expand the Svelte group
-    await page.locator('#svelte-accordion--docs').click();
+    await navigateTo(page, '/docs/svelte-accordion--docs');
     await expect(preview.locator('[data-testid="svelte-accordion"]').first()).toBeVisible();
 
-    await page.locator('#svelte-accordion--default').click();
+    await navigateTo(page, '/story/svelte-accordion--default');
 
     // The Svelte story canvas must contain exactly one accordion — no leftover
     // Vue accordion from the earlier story.
     await expect(preview.locator('.accordion')).toHaveCount(1);
     await expect(preview.locator('[data-testid="svelte-accordion"]')).toHaveCount(1);
     await expect(preview.locator('[data-testid="vue-accordion"]')).toHaveCount(0);
+    expect(await previewStayedLoaded(page)).toBe(true);
   });
 });
