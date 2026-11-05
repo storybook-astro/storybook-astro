@@ -2,7 +2,7 @@ name: Branch Protection
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
 jobs:
   check-pr-direction:
@@ -12,6 +12,7 @@ jobs:
         run: |
           BASE_BRANCH="${{ github.base_ref }}"
           HEAD_BRANCH="${{ github.head_ref }}"
+          CUTOVER="${{ contains(github.event.pull_request.labels.*.name, '2.0-cutover') }}"
           
           echo "Base branch: $BASE_BRANCH"
           echo "Head branch: $HEAD_BRANCH"
@@ -20,5 +21,11 @@ jobs:
             echo "::error::❌ Cannot merge main into develop. Please reverse the PR direction."
             exit 1
           fi
-          
+
+          # 2.0 stays on `next` until the cutover in docs/RELEASING.md#20-on-the-next-branch
+          if [[ "$BASE_BRANCH" == "develop" && "$HEAD_BRANCH" == "next" && "$CUTOVER" != "true" ]]; then
+            echo "::error::❌ next merges into develop only at the 2.0 cutover. Add the 2.0-cutover label if this is it."
+            exit 1
+          fi
+
           echo "✅ PR direction is valid"

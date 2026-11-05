@@ -151,7 +151,9 @@ Only after step 7 confirms the version is on npm. RELEASING.md has the `gh api` 
 
 ## Canary / Preview Releases
 
-Use these to publish a build for testing without changing what `npm install @storybook-astro/framework` gives users. Any label other than `beta` stays on its own dist-tag and isn't promoted to `latest`.
+Use these to publish a build for testing without changing what `npm install @storybook-astro/framework` gives users.
+
+**A `2.0.0-next.N` prerelease doesn't follow the steps below.** It's bumped and tagged on the `next` branch and never merges into `main`: follow `docs/RELEASING.md#20-on-the-next-branch`. Any label other than `beta` stays on its own dist-tag and isn't promoted to `latest`.
 
 - `canary` — Work-in-progress builds for early feedback, usually just before a stable release
 - `next` — Validating a future release before committing to it. Until 2.0.0 is released, only `2.0.0-next.N` builds from the `next` branch use it; 1.x previews use `canary`

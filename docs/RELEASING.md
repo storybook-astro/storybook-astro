@@ -295,16 +295,16 @@ Branch from the latest stable tag instead of `main`, and publish from the fix br
 
 ## 2.0 on the `next` branch
 
-2.0 supports Storybook 11 only (#316), and Storybook 11 is still in prerelease. Until it's stable, 2.0 work lives on a `next` branch, so `develop`, and the feature branches that merge it, stay on a stable Storybook 10. Created from `develop` on 2026-11-05, with the same protection as `develop`.
+2.0 supports Storybook 11 only (#316), and Storybook 11 is still in prerelease. Until it's stable, 2.0 work lives on a `next` branch, so `develop`, and the feature branches that merge it, stay on a stable Storybook 10. Created from `develop` on 2026-11-05, with the same protection as `develop`. 2.0 PRs to `next` need an approving review like any PR to `develop`; when no other maintainer has reviewed within a day, the maintainer doing the work merges it with admin rights rather than waiting.
 
 | Work | Branch from | PR to |
 |---|---|---|
 | 1.x features and fixes, hotfixes | as usual | as usual |
 | 2.0 work (milestone `2.0.0`) | `next` | `next` |
 
-For 2.0 work, the [pre-PR review](../AGENTS.md#before-opening-a-pr) compares against `next`, not `develop`: refresh it with `git fetch origin next:next` and run `/code-review high <your-branch>` against it.
+Create 2.0 branches with `git checkout -b feature/your-feature origin/next`, so they track `next`. The [pre-PR review](../AGENTS.md#before-opening-a-pr) then compares against `next`, not `develop`; refresh it with `git fetch origin next:next` first.
 
-**Keep `next` current.** Merge `develop` into `next` whenever something lands on `develop`, and always before a 2.0 prerelease. Push the merge directly rather than through a PR, as for the `main` → `develop` sync. Never merge `next` into `develop` before the cutover.
+**Keep `next` current.** Merge `develop` into `next` at least weekly, and always before a 2.0 prerelease. Each push to `next` runs CI and Chromatic, so batching the merges keeps snapshot use down. Push the merge directly rather than through a PR, as for the `main` → `develop` sync. Never merge `next` into `develop` before the cutover: the `Branch Protection` workflow rejects a PR from `next` into `develop` unless it has the `2.0-cutover` label.
 
 ```bash
 git checkout next
@@ -316,26 +316,27 @@ git push origin next
 Resolving the usual conflicts:
 
 - `package.json` versions: keep `next`'s (`2.0.0-next.N`)
+- Storybook versions in any `package.json`, and in the smoke templates: keep `next`'s Storybook 11 versions. Then run `yarn install` to regenerate `yarn.lock`, rather than hand-merging it
 - `CHANGELOG.md` and the website changelog: take `develop`'s dated 1.x sections as they are, so an entry a 1.x release moved out of `[Unreleased]` isn't left there too. `next`'s `[Unreleased]` keeps only its own 2.0 entries
 
 **2.0 prereleases tag `next`, not `main`.** `main` stays on 1.x, since hotfixes branch from it:
 
-1. Merge `develop` into `next`, as above
+1. Merge `develop` into `next`, as above. The publish workflow smoke-tests the tarball against `smoke/templates`, so those must be on Storybook 11 on `next` (#316)
 2. On `next`, bump both `package.json` files to `2.0.0-next.N` and commit: `git commit -m "chore: release v2.0.0-next.N (next)"`
 3. Push `next`, then tag it: `git tag v2.0.0-next.N && git push origin v2.0.0-next.N`
 4. Check that `next` moved and `latest` didn't: `npm view @storybook-astro/framework dist-tags`
 
-`storybook init` on a Storybook 11 prerelease installs our `next` while it's newer than `latest`, which a 2.0 prerelease always is. Until the cutover, the `next` dist-tag is for 2.0 only: 1.x previews use `canary`.
+`storybook init` on a Storybook 11 prerelease installs our `next` while it's newer than `latest`, which a 2.0 prerelease always is. Until the cutover, the `next` dist-tag is for 2.0 only: 1.x previews use `canary`. (It points at `1.16.0-next.0`, published before this plan, until the first 2.0 prerelease replaces it.)
 
 **Cutover**, once Storybook 11 is stable. Not at its release candidate: the cutover moves `latest` to 2.0, which would break installs for everyone still on stable Storybook 10.
 
 1. Create the `1.x` branch from the last 1.x release tag: `git push origin v1.N.M:refs/heads/1.x`. It takes critical 1.x fixes from then on. Before the first 1.x release from it, do the rest of #321: `publish.yml` promotes every stable version to `latest`, so as it stands a `v1.N.M` tag would move `latest` back to 1.x, and CI doesn't run on `1.x` yet
-2. Merge `develop` into `next` one last time, then open a PR from `next` into `develop` and merge it
+2. Merge `develop` into `next` one last time, then open a PR from `next` into `develop`, add the `2.0-cutover` label, and merge it
 3. Release 2.0.0 from `develop` as a [standard release](#standard-release). This moves `latest` to 2.0, which `storybook init` on stable Storybook 11 needs
 4. Merge `develop` into long-running feature branches, such as `feature/server-render-mode`, and update any Storybook 10 versions they pin
 5. Remove the temporary setup:
    - delete the `next` branch
-   - remove `next` from the triggers in `build.yml` and `chromatic.yml`, and the `storybook-11` job's `next` condition
+   - remove `next` from the triggers in `build.yml` and `chromatic.yml`, and the `next` → `develop` check in `branch-protection.yml`
    - remove this section, its rows in the quick reference, and the `next` exception in the branch rule
    - remove the `next` notes in CONTRIBUTING.md, AGENTS.md, and the `create-pr` and `release-manager` skills
    - point the `next` dist-tag at nothing older than `latest`, or remove it: `npm dist-tag rm @storybook-astro/<package> next` for both packages

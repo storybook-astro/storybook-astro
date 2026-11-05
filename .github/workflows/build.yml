@@ -102,8 +102,6 @@ jobs:
   # Storybook next job tracks the newest. Every suite runs even after one fails,
   # so one run shows everything Storybook 11 breaks.
   storybook-11:
-    # `next` is on Storybook 11 already (#316), so build-and-test covers it
-    if: ${{ github.base_ref != 'next' && github.ref_name != 'next' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
