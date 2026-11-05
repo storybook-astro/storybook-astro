@@ -144,47 +144,72 @@ Before finishing a change, ask whether every abstraction pays rent. If removing 
 
 ### Adding a New Framework Integration
 
-1. Create integration file: `packages/@storybook-astro/framework/src/integrations/[framework].ts`
-2. Extend `BaseIntegration` class from `base.ts`
-3. Implement required methods:
-   - `getAstroRenderer()` - Returns Astro integration
-   - `getVitePlugins()` - Returns Vite plugins for the framework
-   - `getStorybookRenderer()` - Returns Storybook renderer name
-   - `resolveClient()` - Handles client-side module resolution
-4. Export factory function in `integrations/index.ts`
-5. Add to `.storybook/main.js` configuration example
+1. Create `packages/@storybook-astro/framework/src/integrations/[framework].ts` with a class that `implements Integration` (the abstract class in `base.ts`). `react.ts` is the simplest complete example.
+2. Fill in the contract:
+   - `name` - The key stories use in `parameters.renderer`, and a JavaScript identifier: the generated `virtual:storybook-renderer-fallback` module exports the Storybook renderer under this name
+   - `factoryName` - Only when the factory export in `index.ts` differs from `name` (Alpine: `name = 'alpine'`, factory `alpinejs`)
+   - `dependencies` - Packages the integration needs installed
+   - `options` - Passed to the Astro integration, which adds the framework's Vite plugins (`include`/`exclude` select which files they compile)
+   - `renderer` - The Astro renderer's `server` and `client` entrypoints, registered with the Astro Container and the browser build
+   - `storybookEntryPreview` - The Storybook renderer's `entry-preview` module, used for framework-delegated stories. Omit it if stories never delegate to a Storybook renderer (Alpine)
+   - `clientOptimizeDeps` - Optional. Browser packages the Vite dependency scanner can't reach from the integration's client entrypoint
+   - `resolveClient(moduleName)` - Maps the Astro renderer's client module to a browser URL, or returns `undefined`
+   - `loadIntegration(resolveFrom)` - Imports the Astro integration package from the user's project with `importModule` and calls it with `options`
+3. Export a factory function from `integrations/index.ts`
+4. Add the framework's packages to the framework `package.json` `peerDependencies`, marked optional in `peerDependenciesMeta`
+5. Add example components under `packages/components/src/<Component>/<framework>/`, and the framework's Vite plugin to `packages/components/vitest.config.ts` so their tests compile. Register the integration in `.storybook/main.js` and `vitest.config.ts` of `integration/astro5`, `astro6` and `astro7` with recursive `include` globs
 
-**Template**:
+**Template** (from `react.ts`):
 ```typescript
-import { BaseIntegration, type BaseOptions } from './base.ts';
+import type { Integration } from './base.ts';
+import { importModule } from './moduleResolver.ts';
 
-export type Options = BaseOptions & {
-  // Framework-specific options
+export type Options = {
+  include?: string[];
+  exclude?: string[];
 };
 
-export class FrameworkIntegration extends BaseIntegration {
-  constructor(options?: Options) {
-    super(options);
+export class FrameworkIntegration implements Integration {
+  readonly name = 'framework';
+  readonly dependencies = ['@astrojs/framework', '@storybook/framework', 'framework'];
+  readonly options: Options;
+  readonly storybookEntryPreview = '@storybook/framework/entry-preview';
+
+  readonly renderer = {
+    server: {
+      name: '@astrojs/framework',
+      entrypoint: '@astrojs/framework/server.js'
+    },
+    client: {
+      name: '@astrojs/framework',
+      entrypoint: '@astrojs/framework/client.js'
+    }
+  };
+
+  constructor(options: Options = {}) {
+    this.options = options;
   }
 
-  override getAstroRenderer() {
-    // Return Astro framework integration
-    return frameworkIntegration(/* config */);
+  resolveClient(moduleName: string): string | undefined {
+    if (moduleName.startsWith('@astrojs/framework/client')) {
+      return `/@id/${moduleName}`;
+    }
   }
 
-  override getVitePlugins() {
-    // Return Vite plugins needed for this framework
-    return [frameworkVitePlugin(/* config */)];
-  }
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{
+      default: (options: Options) => Awaited<ReturnType<Integration['loadIntegration']>>;
+    }>('@astrojs/framework', resolveFrom);
 
-  override getStorybookRenderer() {
-    return '@storybook/framework-name';
+    return framework.default(this.options);
   }
+}
+```
 
-  override resolveClient(specifier: string) {
-    // Handle client-side module resolution if needed
-    return null;
-  }
+And in `integrations/index.ts`:
+```typescript
+export function framework(options?: FrameworkOptions) {
+  return new FrameworkIntegration(options);
 }
 ```
 
@@ -232,7 +257,7 @@ console.log('Container created:', container);
 - Uses Vitest with happy-dom environment
 - Config: `vitest.config.ts`
 - Test files use `.test.ts` extension
-- All 17 test suites (36 tests) pass, covering Astro, React, Vue, Svelte, Preact, Solid, and Alpine.js
+- Test suites cover Astro, React, Vue, Svelte, Preact, Solid, and Alpine.js
 
 **Manual Testing**: Run with `yarn dev` or a workspace `dev` script such as `yarn workspace @storybook-astro/integration-astro6 dev`
 - Example stories in `src/components/*/`
@@ -425,6 +450,21 @@ After the PR is open, later rounds can target it by number (`/code-review high <
 
 When you finish writing a change that's headed for a PR, tell the user to run this review in a fresh session instead of reviewing your own work.
 
+## Project Skills
+
+Task-specific skills live in `.agents/skills/`, and `.agents/references/` holds the background they draw on. Claude Code finds the skills through `.claude/skills`, a symlink to `.agents/skills`. Other tools can read a skill's `SKILL.md` directly.
+
+| Skill | Use it for |
+|-------|------------|
+| `release-manager` | Any release: stable, canary, test or hotfix, and closing out the milestone and project board. Keep it in step with [`docs/RELEASING.md`](./docs/RELEASING.md) |
+| `create-pr` | PR titles, bodies and target branches |
+| `code-reviewer` | Checking a change against the project's conventions while you work. It doesn't replace the fresh-context review in [Before Opening a PR](#before-opening-a-pr) |
+| `docs-reviewer` | Reviewing changes to AGENTS.md, `docs/` and the website docs |
+| `test-generator` | Writing component tests with portable stories |
+| `skill-creator` | Adding or changing a skill in `.agents/skills/` |
+
+When a process changes, update the skill along with the doc it follows, so the two don't drift.
+
 ## External Resources
 
 - [Storybook Framework API](https://storybook.js.org/docs/configure/integration/frameworks)
@@ -436,7 +476,7 @@ When you finish writing a change that's headed for a PR, tell the user to run th
 
 See [`docs/RELEASING.md`](./docs/RELEASING.md) for the full release process, including:
 - Semantic versioning conventions
-- Gitflow branching model (`main`, `develop`, `feature/*`, `fix/*`, `release/*`)
+- Branching model (`main`, `develop`, `website`, `feature/*`, `fix/*`). Releases merge `develop` straight into `main` and `website`
 - Distinction between **package releases** (go through `develop` → `main`) and **website-only changes** (merge directly to `main`)
 - Hotfix and mixed-change workflows
 - Pre-publish smoke test (`yarn smoke`)

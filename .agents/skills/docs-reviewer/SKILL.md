@@ -1,6 +1,6 @@
 ---
 name: docs-reviewer
-description: Review documentation in Storybook Astro for completeness, accuracy, and alignment with project standards. Use when you want to improve documentation, need to validate docs updates, or ensure consistency across AGENTS.md and reference guides.
+description: Review documentation in Storybook Astro for completeness, accuracy, and alignment with project standards. Use when reviewing changes to AGENTS.md, CONTRIBUTING.md, docs/ (including the docs/specs design records), the website docs in apps/website/src/content/docs/, or the .agents references.
 ---
 
 # Documentation Reviewer for Storybook Astro
@@ -12,12 +12,19 @@ Reviews and improves documentation to ensure accuracy, completeness, and consist
 This skill covers:
 
 ### Core Documentation
-- **AGENTS.md** - Architecture, conventions, debugging, development tasks
+- **AGENTS.md** - Architecture, conventions, debugging, development tasks, PR checklist
 - **CONTRIBUTING.md** - Contribution workflow, branching, code standards
 - **README.md** - Project overview and getting started
-- **.claude/references/*.md** - Supporting guides
+- **CHANGELOG.md** - Release notes
 
-### Reference Materials
+### `docs/`
+- **GETTING_STARTED.md**, **TROUBLESHOOTING.md**, **RELEASING.md**
+- **`docs/specs/`** - Design records for features that have shipped: behavior contracts and the rationale behind them. Source comments cite them by anchor (`docs/specs/decorators.md#server-snapshot`), so renaming a heading breaks those references
+
+### Website Docs
+- **`apps/website/src/content/docs/`** - User-facing docs: `getting-started/`, `writing-stories/`, `guides/`, `how-it-works/`, `reference/`
+
+### Reference Materials (`.agents/references/`)
 - **project-structure.md** - Monorepo layout and workspace navigation
 - **testing-guidelines.md** - Vitest, portable stories, test patterns
 - **framework-standards.md** - Framework integration standards and patterns
@@ -34,7 +41,8 @@ This skill covers:
 - [ ] Command examples are runnable and current
 - [ ] Code examples compile and work correctly
 - [ ] Framework names and versions are accurate
-- [ ] Links to files are valid (no broken references)
+- [ ] Links to files are valid: `yarn lint:links` passes. It checks every reference to `docs/` and `apps/website/src/content/docs/` files, anchors included, in docs and source comments alike
+- [ ] A renamed or removed `docs/specs/` heading has its citations updated
 - [ ] API descriptions match actual implementation
 
 ### Completeness
@@ -69,6 +77,9 @@ This skill covers:
 - [ ] Related content is grouped
 - [ ] No orphaned sections
 
+### What Belongs in the Repo
+- [ ] No AI planning documents, speculative implementation plans, or proposals. `docs/specs/` is the exception, and only for features that have shipped (AGENTS.md "Documentation")
+
 ## Common Documentation Issues
 
 ### Broken References
@@ -81,7 +92,7 @@ See `src/components/Button.tsx` for examples.
 
 ✅ **Good**:
 ```markdown
-See `packages/@storybook-astro/components/Button/Button.tsx` for examples.
+See `packages/components/src/Button/astro/Button.astro` for examples.
 ```
 
 ### Outdated Information
@@ -90,11 +101,11 @@ See `packages/@storybook-astro/components/Button/Button.tsx` for examples.
 ```markdown
 Use Astro 5 stable for testing.
 ```
-(Should say Astro 5 and 6 are both supported)
+(Astro 5, 6, and 7 are all supported)
 
 ✅ **Good**:
 ```markdown
-Test with both Astro 5.17.2 (stable) and Astro 6 using the integration examples.
+Test with the integration apps: Astro 5 (`integration/astro5`), Astro 6 (`integration/astro6`), and Astro 7 (`integration/astro7`).
 ```
 
 ### Incomplete Examples
@@ -124,14 +135,12 @@ Run the tests to make sure everything works.
 ```
 
 ✅ **Good**:
-```markdown
+````markdown
 Run the test suite from the monorepo root:
 ```bash
 yarn test
 ```
-
-All 17 test suites (36 tests) should pass.
-```
+````
 
 ## Framework Documentation
 
@@ -164,7 +173,7 @@ When documenting architecture:
 - Show layer separation (server/client)
 - Include file organization
 - Explain why design choices were made
-- Note compatibility layers (Astro 5 vs 6)
+- Note compatibility layers (Astro 5, 6, and 7)
 - Document virtual module usage
 
 ## Review Output
@@ -181,8 +190,8 @@ When documenting architecture:
 - Good examples throughout
 
 **Issues**:
-1. Line 123: File path incorrect (`src/middleware.ts` doesn't exist)
-2. Line 456: Astro 5 only example (should cover 6 too)
+1. Line 123: File path incorrect (`src/render.ts` doesn't exist, the file is `render.tsx`)
+2. Line 456: Astro 5 only example (should cover Astro 6 and 7 too)
 3. Missing example for new feature
 
 **Suggestions**:
@@ -201,12 +210,12 @@ When documenting architecture:
 ### Terminology
 
 Use consistent terms:
-- \"Storybook Astro\" (not \"storybook-astro\" in prose)
-- \"portable stories\" (lowercase)
-- \"Vite plugin\" (capitalized properly)
+- "Storybook Astro" (not "storybook-astro" in prose)
+- "portable stories" (lowercase)
+- "Vite plugin" (capitalized properly)
 - Framework names as official (React, Vue 3, Svelte, Preact, Solid.js, Alpine.js)
-- \"monorepo\" (one word)
-- \"workspace\" (for Yarn workspaces)
+- "monorepo" (one word)
+- "workspace" (for Yarn workspaces)
 
 ### Code Formatting
 
@@ -227,15 +236,14 @@ Use consistent terms:
 Documentation should be updated when:
 
 - New framework is added → update framework-standards.md and examples
-- New feature is added → update AGENTS.md and relevant reference
+- New feature is added → update AGENTS.md, the website docs, and the relevant reference; add a `docs/specs/` design record once it ships
 - Pattern changes → update AGENTS.md and examples
-- Astro version changes → update compatibility notes
+- Astro version changes → update AGENTS.md "Astro Version Compatibility Layers" and `apps/website/src/content/docs/how-it-works/version-compatibility.md`
 - Dependencies update → check for API changes
 
 ## References
 
 - `AGENTS.md` - Current technical documentation
 - `CONTRIBUTING.md` - Contribution process
-- `.claude/references/` - Supporting guides
+- `.agents/references/` - Supporting guides
 - [CommonMark Spec](https://spec.commonmark.org/) - Markdown standard
-"

@@ -347,8 +347,8 @@ function mergeEnvPrefixes(
  *
  * Only when the user opted into the Docgen Server (`features.docgenServer`, or
  * `features.experimentalDocgenServer` before Storybook 11). Otherwise
- * extraction stays in the Vite plugin, which covers our whole `storybook:
- * ^10.0.0` peer range (docs/specs/docgen.md#design-decisions).
+ * extraction stays in the Vite plugin, which covers our whole `storybook`
+ * peer range (docs/specs/docgen.md#design-decisions).
  */
 // eslint-disable-next-line camelcase -- the preset key Storybook core reads.
 export const experimental_docgenProvider = async (

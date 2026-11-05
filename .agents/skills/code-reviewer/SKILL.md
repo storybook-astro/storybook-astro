@@ -1,11 +1,13 @@
 ---
 name: code-reviewer
-description: Review code changes in Storybook Astro for compliance with project standards, framework patterns, and best practices. Use when you want feedback on code, need to validate changes, or want to ensure PR readiness for the review process.
+description: Check a change against Storybook Astro's conventions (imports, integrations, Vite plugins, tests, Astro version compatibility) while you work. Not the pre-PR review - AGENTS.md requires /code-review in a fresh session before opening a PR.
 ---
 
 # Code Reviewer for Storybook Astro
 
-Provides comprehensive code review feedback aligned with Storybook Astro's architecture, framework integrations, testing, and development conventions.
+Gives feedback on a change against Storybook Astro's architecture, framework integrations, testing, and development conventions while the work is in progress.
+
+**This is not the pre-PR review.** Before opening a PR, AGENTS.md requires an independent review from fresh context: `/code-review high <branch>` in a new session (`xhigh` for `render.tsx`, `middleware.ts`, or the Astro version compatibility layers). See [Before Opening a PR](../../../AGENTS.md#before-opening-a-pr). Passing this checklist doesn't satisfy that requirement.
 
 ## Review Categories
 
@@ -14,13 +16,14 @@ This skill checks code across these dimensions:
 ### 1. Architecture & Structure
 - Monorepo workspace organization
 - Package boundary respect
-- Module imports (explicit extensions, `workspace:*` protocol)
+- Module imports (explicit extensions, package names for internal packages)
+- Internal dependencies use `workspace:*` in package.json
 - ES module compliance
 
 ### 2. Framework Integration
 - Astro component patterns
 - Framework-specific adapters (React, Vue, Svelte, Preact, Solid, Alpine)
-- Integration with base class and interfaces
+- Integration classes implement `Integration` from `integrations/base.ts`
 - Vite plugin configuration
 
 ### 3. Testing & Coverage
@@ -38,11 +41,12 @@ This skill checks code across these dimensions:
 ### 5. Documentation
 - Inline code comments
 - JSDoc/TSDoc completeness
-- Updates to AGENTS.md
+- Updates to AGENTS.md, `docs/specs/` design records, and the website docs
 - Example code accuracy
 
 ### 6. Performance & Compatibility
-- Astro 5 vs Astro 6 handling
+- Astro 5, 6, and 7 handling
+- Vite 6, 7, and 8 (Rolldown) handling
 - Vite plugin efficiency
 - HMR compatibility
 - CSS/scoped styles handling
@@ -64,7 +68,7 @@ For each file, I will:
 1. **Check compliance** with project conventions from AGENTS.md
 2. **Validate patterns** against framework standards
 3. **Assess test coverage** using testing-guidelines patterns
-4. **Verify imports** (explicit extensions, workspace protocol)
+4. **Verify imports** (explicit extensions, package names)
 5. **Review TypeScript** for type safety
 6. **Check for known issues** documented in AGENTS.md
 
@@ -112,32 +116,60 @@ import { composeStories } from '@storybook-astro/framework';
 ❌ **Bad**:
 ```typescript
 import { handlerFactory } from './middleware';  // Missing extension
-import handlerFactory from './middleware.ts';  // CommonJS style
+import handlerFactory from './middleware.ts';  // Default import of a named export
 ```
 
 ### Framework Integration Pattern
 
+Integrations implement the abstract `Integration` class in `packages/@storybook-astro/framework/src/integrations/base.ts`. Follow `react.ts`:
+
 ✅ **Good**:
 ```typescript
-class MyFrameworkIntegration extends BaseIntegration {
-  override getAstroRenderer() {
-    return myframework();
+import type { AstroIntegration } from 'astro';
+import type { Integration } from './base.ts';
+import { importModule } from './moduleResolver.ts';
+
+export type Options = Record<string, unknown>;
+
+export class MyFrameworkIntegration implements Integration {
+  readonly name = 'myframework';
+  readonly dependencies = ['@astrojs/myframework', '@storybook/myframework', 'myframework'];
+  readonly options: Options;
+  readonly storybookEntryPreview = '@storybook/myframework/entry-preview';
+
+  readonly renderer = {
+    server: { name: '@astrojs/myframework', entrypoint: '@astrojs/myframework/server.js' },
+    client: { name: '@astrojs/myframework', entrypoint: '@astrojs/myframework/client.js' }
+  };
+
+  constructor(options: Options = {}) {
+    this.options = options;
   }
-  override getVitePlugins() {
-    return [myframeworkPlugin()];
+
+  resolveClient(moduleName: string): string | undefined {
+    if (moduleName.startsWith('@astrojs/myframework/client')) {
+      return `/@id/${moduleName}`;
+    }
   }
-  override getStorybookRenderer() {
-    return '@storybook/my-framework';
+
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{ default: (options: Options) => AstroIntegration }>(
+      '@astrojs/myframework',
+      resolveFrom
+    );
+
+    return framework.default(this.options);
   }
 }
 ```
 
+The factory function is exported from `integrations/index.ts`.
+
 ❌ **Bad**:
 ```typescript
 class MyFrameworkIntegration {
-  // Missing extends BaseIntegration
-  // Missing override keyword
-  // Incorrect method signatures
+  // Doesn't implement Integration
+  // Missing renderer, dependencies, resolveClient or loadIntegration
 }
 ```
 
@@ -162,52 +194,49 @@ expect(story).toBeDefined();  // Wrong assertion
 
 ### Vite Plugin Issues
 
+Virtual modules go through `createVirtualModule` in `src/vite/virtualModulePlugin.ts`, which resolves the id to `\0virtual:...` so other plugins leave it alone.
+
 ✅ **Good**:
 ```typescript
-export const vitePluginMyFramework: Plugin = {
-  name: 'vite:my-framework',
-  apply: 'serve',
-  resolveId(id) {
-    if (id === 'virtual:my-module') {
-      return id;
-    }
-  },
-  load(id) {
-    if (id === 'virtual:my-module') {
-      return 'export default {};';
-    }
-  }
-};
+import { createVirtualModule } from './vite/virtualModulePlugin.ts';
+
+export function vitePluginMyModule() {
+  return createVirtualModule({
+    pluginName: 'storybook-astro:my-module',
+    virtualModuleId: 'virtual:my-module',
+    load: () => 'export default {};'
+  });
+}
 ```
 
 ❌ **Bad**:
 ```typescript
-// Vite plugin without proper virtual module handling
+// Hand-rolled resolveId that returns the bare 'virtual:' id (no \0 prefix)
 // Missing error handling
 // Incorrect hook signatures
 ```
 
-## Checklist for PR-Ready Code
+## Conventions Checklist
 
 - [ ] **Imports**: All imports have explicit file extensions (`.ts`, `.tsx`, `.js`)
-- [ ] **Workspace Protocol**: Internal imports use `@storybook-astro/package` names
+- [ ] **Internal packages**: Imported by package name (`@storybook-astro/framework`), depended on with `workspace:*`
 - [ ] **TypeScript**: No `any` types without explanation, proper types throughout
 - [ ] **Framework Specific**:
-  - [ ] Extends correct base classes (BaseIntegration, Plugin, etc.)
+  - [ ] Integrations implement `Integration` from `integrations/base.ts`
   - [ ] Matches expected interface signatures
   - [ ] Works with all supported frameworks (if applicable)
 - [ ] **Testing**:
-  - [ ] New code has test coverage (80%+ target)
+  - [ ] New code has test coverage
   - [ ] Tests use portable stories patterns
   - [ ] Tests use Vitest + happy-dom patterns
-- [ ] **Linting**: `yarn lint` passes
-- [ ] **Type Checking**: `yarn test` passes (includes type checking)
+- [ ] **Checks**: `nvm use`, then `yarn lint`, `yarn lint:links`, and `yarn test` pass. There is no separate type-check script: types are checked by the tsup DTS build in `yarn build:packages`, which `yarn test` runs first
 - [ ] **Documentation**:
   - [ ] Code comments explain non-obvious logic
   - [ ] AGENTS.md updated (if affecting architecture)
+  - [ ] `docs/specs/` design records and the website docs updated for shipped behavior changes, without renaming headings that source comments cite by anchor
   - [ ] JSDoc added for public APIs
 - [ ] **Compatibility**:
-  - [ ] Works with Astro 5 and Astro 6
+  - [ ] Works with Astro 5, 6, and 7
   - [ ] No browser-only APIs in server code
   - [ ] Respects happy-dom limitations in tests
 
@@ -216,7 +245,7 @@ export const vitePluginMyFramework: Plugin = {
 ### React
 - Hooks usage in Storybook context
 - Props binding via args
-- Does @storybook/react-vite renderer work correctly?
+- Does the delegated React renderer (`@storybook/react/entry-preview`) work correctly?
 
 ### Vue
 - Composition vs Options API compatibility
@@ -241,25 +270,16 @@ export const vitePluginMyFramework: Plugin = {
 ### Alpine.js
 - Entrypoint initialization
 - x-directive handling
-- Runtime-only pattern
+- Alpine components are `.astro` files rendered through the `@astrojs/alpinejs` integration
 
-## Astro-Specific Review Points
+## Astro Version Compatibility
 
-### Astro 6 Compatibility
-- Check for use of `AstroContainer.create()` (correct for v6)
-- Verify `patchCreateAstroCompat()` usage if needed
-- Font Provider API handling via `vitePluginAstroFonts`
-- Component marker plugin for client stub replacement
-
-### Astro 5 Compatibility
-- Different Container API? Check docs
-- Check deprecation warnings
+Astro 5, 6, and 7 share one Container API (`experimental_AstroContainer` from `astro/container`, `middleware.ts`). What differs between versions is handled by the layers listed in AGENTS.md's [Astro Version Compatibility Layers](../../../AGENTS.md#astro-version-compatibility-layers): the component marker plugin, `patchCreateAstroCompat()`, `vitePluginAstroFonts`, framework delegation order in `render.tsx`, the Vite 8 optimizer options in `preset.ts`, and `lib/componentStyles.ts` with `lib/compiledStylesheets.ts`. Check a change that touches any of them against that list.
 
 ## References
 
-- `AGENTS.md` - Architecture, conventions, debugging
-- `.claude/references/project-structure.md` - Monorepo navigation
-- `.claude/references/framework-standards.md` - Framework patterns
-- `.claude/references/testing-guidelines.md` - Test patterns
+- `AGENTS.md` - Architecture, conventions, debugging, PR checklist
+- `.agents/references/project-structure.md` - Monorepo navigation
+- `.agents/references/framework-standards.md` - Framework patterns
+- `.agents/references/testing-guidelines.md` - Test patterns
 - `CONTRIBUTING.md` - Code conventions and workflow
-"

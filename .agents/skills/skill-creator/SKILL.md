@@ -11,11 +11,15 @@ A skill for creating and validating new AI skills customized for the Storybook A
 
 This skill guides you through creating skills that integrate with Storybook Astro's development workflow. Skills should be:
 
-- **Project-aware**: Understand monorepo structure (workspace protocol, ES modules, Yarn 4+)
+- **Project-aware**: Understand monorepo structure (Yarn 4+ workspaces, ES modules)
 - **Testing-compatible**: Leverage portable stories and Vitest patterns
 - **Framework-aware**: Reference the 6 supported UI frameworks (React, Vue, Svelte, Preact, Solid, Alpine.js)
 - **CI-aligned**: Compatible with linting, testing, and publishing workflows
-- **Accessible**: Work for both Warp app users and Claude users
+- **Tool-neutral**: Work for Claude Code (through the `.claude/skills` symlink) and any other tool that reads `SKILL.md` files
+
+## Where Skills Live
+
+Skills live in `.agents/skills/<name>/SKILL.md`, and the background they share lives in `.agents/references/`. Claude Code finds the skills through `.claude/skills`, a symlink to `.agents/skills`. Always create and edit skills under `.agents/skills/`; don't add anything under `.claude/`.
 
 ## Creating a Skill
 
@@ -23,7 +27,7 @@ This skill guides you through creating skills that integrate with Storybook Astr
 
 Start by understanding what the skill should do:
 
-1. **What user action triggers this skill?** (e.g., \"I need a code review for my component\")
+1. **What user action triggers this skill?** (e.g., "I need tests for my component")
 2. **What should the skill produce?** (e.g., feedback, code, documentation)
 3. **Are outputs objectively verifiable?** (Yes → include test cases; No → focus on quality guidance)
 4. **Which project patterns does it reference?** (e.g., portable stories, integrations, Yarn commands)
@@ -32,15 +36,17 @@ Start by understanding what the skill should do:
 
 Before writing the skill, gather context:
 
-- **Project Structure**: Consult `.claude/references/project-structure.md`
-- **Testing Patterns**: Review `.claude/references/testing-guidelines.md`
-- **Framework Standards**: Read `.claude/references/framework-standards.md`
-- **Architecture**: Check `AGENTS.md` for technical design
-- **Existing Skills**: Look at other `.claude/skills/*/SKILL.md` files for patterns
+- **Architecture and conventions**: `AGENTS.md`
+- **Project Structure**: `.agents/references/project-structure.md`
+- **Testing Patterns**: `.agents/references/testing-guidelines.md`
+- **Framework Standards**: `.agents/references/framework-standards.md`
+- **Existing Skills**: Other `.agents/skills/*/SKILL.md` files
+
+If the skill follows a process documented elsewhere (as `release-manager` follows `docs/RELEASING.md`), read that doc and keep the skill in step with it.
 
 ### Step 3: Write SKILL.md
 
-Create your skill in `.claude/skills/[skill-name]/SKILL.md`:
+Create your skill in `.agents/skills/[skill-name]/SKILL.md`:
 
 ```yaml
 ---
@@ -70,24 +76,24 @@ allowed-tools: [List tools this skill uses, if restrictive]
 [Expected results and structure]
 ```
 
-**Keep SKILL.md under 500 lines.** If longer, break into reference files.
+**Keep SKILL.md focused on the task.** Move long background material into `.agents/references/` (shared) or a `references/` folder inside the skill, and point to it.
 
 ### Step 4: Include Project-Specific Guidance
 
 For Storybook Astro skills, always include:
 
 - **Monorepo navigation**: Which workspaces are relevant?
-- **Yarn commands**: Use `workspace:*` protocol correctly
+- **Yarn commands**: Run workspace scripts with `yarn workspace @storybook-astro/<name> <script>`; internal dependencies use `workspace:*` in package.json
 - **Testing**: Reference portable stories, Vitest patterns
 - **Frameworks**: Mention affected frameworks (React, Vue, etc.)
-- **ESLint/TypeScript**: Align with `.eslintrc.js` and `tsconfig.base.json`
+- **ESLint/TypeScript**: Align with `eslint.config.js` (flat config) and `tsconfig.base.json`
 
 ### Step 5: Create Supporting Files (Optional)
 
 For complex skills, organize supporting files:
 
 ```
-.claude/skills/[skill-name]/
+.agents/skills/[skill-name]/
 ├── SKILL.md           # Main instructions (required)
 ├── references/        # Detailed references
 │   ├── pattern1.md
@@ -122,13 +128,13 @@ This skill operates within:
 - **Packages**: Framework and renderer packages
 - **Frameworks**: React, Vue, Svelte, Preact, Solid.js, Alpine.js
 - **Testing**: Vitest + portable stories
-- **CI**: ESLint, TypeScript, Vitest, yarn build:packages
+- **CI**: yarn lint, yarn lint:links, yarn build:packages, yarn test
 
 ## Key References
 - `AGENTS.md` - Technical architecture
-- `.claude/references/project-structure.md` - Workspace navigation  
-- `.claude/references/testing-guidelines.md` - Test patterns
-- `.claude/references/framework-standards.md` - Framework integration patterns
+- `.agents/references/project-structure.md` - Workspace navigation
+- `.agents/references/testing-guidelines.md` - Test patterns
+- `.agents/references/framework-standards.md` - Framework integration patterns
 
 ## When to Use
 [Specific triggers]
@@ -158,16 +164,16 @@ For skills with objectively verifiable outputs (code generation, validation, tra
 
 Before finalizing a skill:
 
+- [ ] SKILL.md lives in `.agents/skills/<name>/`
 - [ ] SKILL.md metadata complete (name, description)
 - [ ] Description explains when to trigger (2-3 sentences)
-- [ ] References `.claude/references/` files appropriately
+- [ ] References `.agents/references/` files appropriately
 - [ ] Uses project-accurate terminology (workspaces, portable stories, etc.)
 - [ ] Examples are realistic and grounded in actual Storybook Astro patterns
 - [ ] Output format is clearly specified
-- [ ] Instructions are clear for both Warp and Claude users
 - [ ] No URLs to internal only resources (unless properly documented)
 - [ ] All framework references are accurate (6 frameworks, correct packages)
-- [ ] Yarn commands use workspace protocol where relevant
+- [ ] Listed in the AGENTS.md Project Skills table and the `.agents/README.md` tree
 
 ## Common Skill Patterns
 
@@ -178,6 +184,7 @@ Checks code against project standards:
 - Check TypeScript, ESLint compliance
 - Validate framework patterns
 - Suggest fixes
+- Don't present it as a substitute for the fresh-context `/code-review` AGENTS.md requires before a PR
 
 ### Documentation Skill
 
@@ -204,11 +211,10 @@ Generates code files:
 
 ## Skill Lifecycle
 
-1. **Creation**: Write SKILL.md following this guide
-2. **Documentation**: Add to `.claude/skills/[name]/`
+1. **Creation**: Write `.agents/skills/[name]/SKILL.md` following this guide
+2. **Registration**: Add the skill to the Project Skills table in AGENTS.md and to the `.agents/README.md` tree
 3. **Testing**: Validate against real project scenarios
-4. **Integration**: Reference in appropriate agent (if any)
-5. **Maintenance**: Update if project patterns change
+4. **Maintenance**: When a process changes, update the skill along with the doc it follows, so the two don't drift
 
 ## Dos and Don'ts
 
@@ -231,8 +237,7 @@ Generates code files:
 ## References
 
 For guidance on skill writing:
-- `AGENTS.md` - Project architecture and conventions
-- Existing skills in `.claude/skills/*/` - Pattern examples
-- `.claude/references/` - Project-specific documentation
+- `AGENTS.md` - Project architecture, conventions, and the Project Skills table
+- Existing skills in `.agents/skills/*/` - Pattern examples
+- `.agents/references/` - Project-specific documentation
 - [Anthropic Skills Guide](https://github.com/anthropics/skills) - General skill patterns
-"

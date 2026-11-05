@@ -5,8 +5,8 @@ description: Version requirements for using Storybook Astro.
 
 Before installing, ensure your project meets these requirements:
 
-- **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+ (required for Storybook 10's ESM-only support)
-- **Storybook**: 10.0.0+
+- **Node.js**: 20.16.0+, 22.19.0+, or 24.0.0+ (required for Storybook 10's ESM-only support). Storybook 11 needs 22.12.0+
+- **Storybook**: 10.x, or 11 (betas included). Install `@storybook/builder-vite` at the same version as `storybook`
 - **Astro**: 5.5.3+, 6.x, or 7.x
 - **Vite**: 6.4.1+ (required by Astro 5), 7.x, or 8.x (Astro 7 uses Vite 8)
 

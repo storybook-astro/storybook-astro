@@ -10,7 +10,6 @@
 // framework/src/index.ts for how it's wired in.
 import { defaultDecorateStory } from 'storybook/internal/preview-api';
 import type { DecoratorFunction, LegacyStoryFn, PartialStoryFn } from 'storybook/internal/csf';
-import type { StoryContext } from 'storybook/internal/types';
 import {
   isAstroComponentFactory,
   isAstroComponentSlot,
@@ -28,6 +27,11 @@ import {
  * (Decorator Contract, form 3).
  */
 export type AstroDecorator = DecoratorFunction<AstroRenderer> | AstroComponentFactory;
+
+// The context a story function and its decorators receive. Storybook 11 gives
+// it its own type (`StoryContextForRender`, which Storybook 10 doesn't
+// export), so take it from the function signature to build on both.
+type DecoratedStoryContext = Parameters<LegacyStoryFn<AstroRenderer>>[0];
 
 /**
  * What `Story()` returns while composing Astro decorators. It never carries
@@ -85,7 +89,7 @@ export function applyDecorators(
     decorators as DecoratorFunction<AstroRenderer>[]
   );
 
-  return (context: StoryContext<AstroRenderer>) => {
+  return (context: DecoratedStoryContext) => {
     const renderer = context.parameters?.renderer as string | undefined;
 
     if (renderer && renderer !== 'astro') {
@@ -108,7 +112,7 @@ export function applyDecorators(
 function composeAstroTree(
   baseResult: AstroRenderer['storyResult'],
   decorators: AstroDecorator[],
-  context: StoryContext<AstroRenderer>
+  context: DecoratedStoryContext
 ): SlotValue {
   let tree: SlotValue = baseResult as SlotValue;
 

@@ -8,7 +8,8 @@ import {
 import {
   extractComponentDescription,
   extractDescription,
-  loadCsf
+  loadCsf,
+  type CsfFile
 } from 'storybook/internal/csf-tools';
 import type { DocgenPayload, DocgenProviderInput, StrictArgTypes } from 'storybook/internal/types';
 import { extractArgTypes } from '@storybook-astro/renderer/extractArgTypes';
@@ -109,7 +110,7 @@ export async function buildDocgenPayload(
   // The CSF meta's own docblock wins over the component's, and the tag map is
   // resolved the same way every other framework's provider resolves it.
   const { description, summary, jsDocTags } = extractComponentDescription(
-    extractDescription(csf._metaStatement) || undefined,
+    readMetaDescription(csf) || undefined,
     info.description || undefined,
     toJsDocTags(info.tags)
   );
@@ -172,4 +173,16 @@ function toJsDocTags(tags: Record<string, string> | undefined): Record<string, s
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * The docblock above the stories file's meta. Storybook 11 reads comments
+ * through the CSF file's source editor, so its `extractDescription` takes the
+ * editor as a second argument; Storybook 10 takes only the node and has no
+ * `editor` on the file. Calling it this way works on both.
+ */
+function readMetaDescription(csf: CsfFile): string {
+  const extract = extractDescription as (node: unknown, editor?: unknown) => string;
+
+  return extract(csf._metaStatement, (csf as { editor?: unknown }).editor);
 }

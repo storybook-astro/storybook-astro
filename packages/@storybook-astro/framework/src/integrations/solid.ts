@@ -8,9 +8,14 @@ export type Options = Pick<ViteSolidPluginOptions, 'include' | 'exclude'>;
 // Where storybook-solidjs-vite keeps its Solid 1 preview entry. 10.0.x
 // exports `renderer/entry-preview`; 10.1–10.5 export no browser entry at all;
 // 10.6 split it into `renderer/solid-legacy` (Solid 1) and
-// `renderer/solid-next` (Solid 2). `@astrojs/solid-js` renders Solid 1, so
-// only the Solid 1 entry matters here.
-const ENTRY_PREVIEW_EXPORTS = ['./renderer/entry-preview', './renderer/solid-legacy'];
+// `renderer/solid-next` (Solid 2); the Storybook 11 builds rename them
+// `renderer/solid1` and `renderer/solid2`. `@astrojs/solid-js` renders Solid 1,
+// so only the Solid 1 entry matters here.
+const ENTRY_PREVIEW_EXPORTS = [
+  './renderer/entry-preview',
+  './renderer/solid-legacy',
+  './renderer/solid1'
+];
 
 export class SolidIntegration implements Integration {
   readonly name = 'solid';
@@ -73,7 +78,7 @@ function findStorybookEntryPreview(resolveFrom: string) {
 
   if (!entry) {
     throw new Error(
-      `[storybook-astro] storybook-solidjs-vite ${manifest.version} has no Solid preview entry the Solid integration can load. Install 10.0.x or 10.6 and later.`
+      `[storybook-astro] storybook-solidjs-vite ${manifest.version} has no Solid preview entry the Solid integration can load. Install 10.0.x, or 10.6 and later.`
     );
   }
 
