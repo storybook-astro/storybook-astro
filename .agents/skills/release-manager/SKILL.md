@@ -38,12 +38,12 @@ A stable version is published under `beta` first, then promoted to `latest`.
 ### Branches
 
 - **`main`** — Releases are tagged here. Every release, canary included, merges here to trigger the publish workflow.
-- **`website`** — What Cloudflare deploys to storybook-astro.org. Only stable releases, hotfixes and website-only changes reach it, so the site matches the `latest` dist-tag. Canaries never touch it.
+- **`website`** — What Cloudflare deploys to storybook-astro.org. Only stable releases, published hotfixes (merged from `main` after the publish) and website-only changes reach it, so the site matches the `latest` dist-tag. Canaries never touch it.
 - **`develop`** — Integration branch. Features and fixes merge here first. It's protected: a PR needs one approving review, and only `lukemcd` and `slawekkolodziej` can push to it directly (as the release commit does). Anyone else opens a PR.
 - **`feature/*`**, **`fix/*`** — Branched from `develop`. Hotfix `fix/*` branches come from `main`.
 - **`website/*`** — Website-only changes, branched from `main`.
 
-Releases up to 1.14.0 used `release/*` branches. Current releases merge `develop` straight into `main` and `website`.
+Releases up to 1.14.0 used `release/*` branches. Current releases merge `develop` straight into `main` and `website`. Cut a release branch only when a release needs a freeze while `develop` takes work for the next version (see `docs/RELEASING.md`, standard release step 6).
 
 ## Standard Release
 
@@ -192,7 +192,7 @@ Full walkthrough: `docs/RELEASING.md#hotfix-release`.
 1. Branch from `main`: `git checkout main && git pull origin main && git checkout -b fix/describe-the-bug`
 2. Fix, then run the full validation from step 3 of the standard release (`yarn lint`, `yarn test`, `yarn build:packages`, `yarn smoke`)
 3. Bump the patch version in both `package.json` files (e.g. `1.15.0` to `1.15.1`) and add the changelog entry to both changelogs
-4. Push the branch and open PRs to `main`, `website`, and `develop`; merge all three after review
+4. Push the branch and open PRs to `main` and `develop`; merge both after review. Expect a version and changelog conflict on the `develop` PR. Don't open a PR to `website`
 5. Tag on `main`:
    ```bash
    git checkout main
@@ -200,7 +200,9 @@ Full walkthrough: `docs/RELEASING.md#hotfix-release`.
    git tag v1.15.1
    git push origin v1.15.1
    ```
-6. Verify the publish as in step 7 of the standard release, then thank the reporter if they're outside the core team
+6. Verify the publish as in the standard release
+7. Merge `main` into `website` (`git checkout website && git pull origin website && git merge --no-ff main && git push origin website`), so the site only shows the patch once it's on npm
+8. Thank the reporter if they're outside the core team
 
 ## If the Workflow Fails
 

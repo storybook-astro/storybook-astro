@@ -129,6 +129,8 @@ git push origin website
 
 The `website` branch is what Cloudflare deploys to storybook-astro.org. Standard releases always merge to both.
 
+Releases are cut straight from `develop`, with no `release/*` branch; the canary on `main` is where a release gets tested before it ships. Cut a `release/x.y.z` branch from `develop` only when a release needs a freeze while `develop` keeps taking work for the next version. Fix it on that branch, merge it into `main` and `website` in place of `develop`, and merge it back into `develop` afterward.
+
 ### 7. Tag on `main` and push
 
 ```bash
@@ -225,7 +227,7 @@ Make the fix. Run the full check sequence from step 4 above (`yarn lint`, `yarn 
 
 In both `package.json` files, increment the patch number only. Add a changelog entry.
 
-### 4. Open PRs to both `main` and `develop`
+### 4. Open PRs to `main` and `develop`
 
 ```bash
 git push origin fix/describe-the-bug
@@ -233,7 +235,9 @@ gh pr create --base main --title "fix: describe the bug"
 gh pr create --base develop --title "fix: describe the bug"
 ```
 
-Merge both after review.
+Merge both after review. Expect a conflict in the `develop` PR on the version numbers and the changelog, since `develop` has its own `[Unreleased]` section.
+
+Don't open a PR to `website`. It only gets the fix by merging `main` once the patch is published (step 7), so the site never documents a version that isn't on npm.
 
 ### 5. Tag on `main`
 
@@ -246,9 +250,24 @@ git push origin v1.0.5
 
 The publish workflow handles the rest.
 
-### 6. Verify the publish and thank the reporter
+### 6. Verify the publish
 
-Verify the publish as in [step 8](#8-verify-the-publish) of the standard release. Then, if the bug was reported or fixed by someone outside the core team, thank them on the issue or PR as in [step 11](#11-thank-outside-contributors-and-reporters).
+Verify the publish as in [step 8](#8-verify-the-publish) of the standard release.
+
+### 7. Merge `main` into `website`
+
+```bash
+git checkout website
+git pull origin website
+git merge --no-ff main
+git push origin website
+```
+
+This deploys the hotfix's changelog entry and any docs it changed.
+
+### 8. Thank the reporter
+
+If the bug was reported or fixed by someone outside the core team, thank them on the issue or PR as in [step 11](#11-thank-outside-contributors-and-reporters).
 
 ---
 
@@ -322,7 +341,7 @@ npm dist-tag add @storybook-astro/framework@1.0.4 latest
 |---|---|---|---|---|
 | Feature / fix | `develop` | `develop` → `main` + `website` | Yes | `main` |
 | Canary / preview | `develop` | `main` only (not `website`) | Yes (pre-release label) | `main` |
-| Hotfix | `main` | `main` + `website` + `develop` | Patch only | `main` |
+| Hotfix | `main` | PRs to `main` + `develop`, then `main` → `website` after publish | Patch only | `main` |
 | Website-only | `main` | `main` + `website` | No | — |
 
 ### Key commands
