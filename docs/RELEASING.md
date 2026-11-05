@@ -8,7 +8,7 @@ Step-by-step guide for publishing a new version of `@storybook-astro/framework` 
 
 **What gets published**: Only `packages/@storybook-astro/framework` and `packages/@storybook-astro/renderer`. The website, integration examples, and component library are not published.
 
-**Branch rule**: Releases always tag from `main`. Never tag on `develop` or a feature branch — the publish workflow triggers on any `v*` tag push, regardless of branch.
+**Branch rule**: Releases always tag from `main`. Never tag on `develop` or a feature branch — the publish workflow triggers on any `v*` tag push, regardless of branch. The one exception is a [hotfix while a canary is on `main`](#hotfix-while-a-canary-is-on-main).
 
 **Milestone**: Each release has a GitHub milestone named for its version (`1.15.0`). Before you tag, every open issue on it is either fixed on `develop` or moved to the next release's milestone. Setting a milestone needs the API, because `gh issue edit --milestone` and `gh pr edit --milestone` fail in this repo (they still query the retired classic Projects):
 
@@ -35,6 +35,8 @@ Both packages always share the same version and are released together.
 
 ## Standard release
 
+Releases are cut straight from `develop`, with no `release/*` branch; the canary on `main` is where a release gets tested before it ships. Cut a `release/x.y.z` branch from `develop` only when a release needs a freeze while `develop` keeps taking work for the next version. In that case, cut it before step 1, do steps 1 to 5 on the release branch instead of `develop`, merge it into `main` and `website` in place of `develop` in step 6, and merge it back into `develop` after the release.
+
 ### 1. Start from a clean `develop`
 
 ```bash
@@ -57,9 +59,9 @@ Edit **both** `package.json` files to the new version — they must always match
 }
 ```
 
-### 3. Update CHANGELOG.md
+### 3. Update both changelogs
 
-Add a new section at the top of `CHANGELOG.md`, above `[Unreleased]`:
+In `CHANGELOG.md`, turn the `[Unreleased]` entries into the new version's section, and leave an empty `[Unreleased]` heading above it for the next cycle:
 
 ```markdown
 ## [1.0.4] - 2026-04-01
@@ -73,6 +75,10 @@ Add a new section at the top of `CHANGELOG.md`, above `[Unreleased]`:
 
 Use these section headings as needed: `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security`.
 
+Then add a condensed version of the section to `apps/website/src/content/docs/reference/changelog.md`: one line per change, grouping related issues. That page lists released versions only and never has an `[Unreleased]` section.
+
+If a canary for this version already added both sections, just re-date them.
+
 ### 4. Validate locally
 
 Run the full pre-release check sequence. These same checks run in CI, but catching failures locally saves time.
@@ -81,10 +87,11 @@ Run the full pre-release check sequence. These same checks run in CI, but catchi
 # Linting
 yarn lint
 
-# Unit and integration tests (both Astro versions)
+# Link check
+yarn lint:links
+
+# Unit and integration tests (every workspace, including the Astro 5, 6 and 7 apps)
 yarn test
-yarn workspace @storybook-astro/integration-astro5 test
-yarn workspace @storybook-astro/integration-astro6 test
 
 # Clean build
 rm -rf packages/@storybook-astro/renderer/dist packages/@storybook-astro/framework/dist
@@ -95,14 +102,15 @@ yarn build:packages
 yarn smoke
 ```
 
-`yarn smoke` takes a few minutes. It creates a fresh Astro 5 and Astro 6 project in `/tmp/`, installs the packed tarballs, runs `storybook build`, and runs the component tests. If it fails, the working directory is preserved at `/tmp/sb-smoke-*` for inspection.
+`yarn smoke` takes a few minutes. It creates a fresh Astro 5, Astro 6 and Astro 7 project in `/tmp/`, installs the packed tarballs, runs `storybook build`, and runs the component tests. If it fails, the working directory is preserved at `/tmp/sb-smoke-*` for inspection.
 
 ### 5. Commit and push to `develop`
 
 ```bash
 git add packages/@storybook-astro/renderer/package.json \
         packages/@storybook-astro/framework/package.json \
-        CHANGELOG.md
+        CHANGELOG.md \
+        apps/website/src/content/docs/reference/changelog.md
 git commit -m "chore: release v1.0.4"
 git push origin develop
 ```
@@ -132,9 +140,9 @@ git push origin v1.0.4
 
 This triggers the **Publish to npm** workflow (`.github/workflows/publish.yml`), which:
 
-1. Lints and runs tests (Astro 5 and 6)
-2. Clean-builds both packages
-3. Runs smoke tests — tarball install on Astro 5 and 6, storybook build + vitest
+1. Lints and clean-builds both packages
+2. Runs the Astro 7, 6 and 5 integration tests
+3. Runs smoke tests — tarball install on Astro 5, 6 and 7, storybook build + vitest
 4. Publishes renderer then framework with the `beta` dist-tag
 5. Promotes both to `latest`
 
@@ -203,6 +211,15 @@ Comment on each issue or PR: thank them for the report or the contribution, and 
 
 For critical bugs in a published version that can't wait for the normal release cycle.
 
+First check whether a canary is on `main`:
+
+```bash
+git fetch origin
+git show origin/main:packages/@storybook-astro/framework/package.json | grep '"version"'
+```
+
+If the version has a pre-release label (`1.16.0-canary.1`), `main` holds unreleased code: a hotfix from `main` would ship it, and merging `main` into `website` would deploy its docs. Follow [Hotfix while a canary is on `main`](#hotfix-while-a-canary-is-on-main) instead of the steps below.
+
 ### 1. Branch from `main`
 
 ```bash
@@ -219,7 +236,7 @@ Make the fix. Run the full check sequence from step 4 above (`yarn lint`, `yarn 
 
 In both `package.json` files, increment the patch number only. Add a changelog entry.
 
-### 4. Open PRs to both `main` and `develop`
+### 4. Open PRs to `main` and `develop`
 
 ```bash
 git push origin fix/describe-the-bug
@@ -227,7 +244,9 @@ gh pr create --base main --title "fix: describe the bug"
 gh pr create --base develop --title "fix: describe the bug"
 ```
 
-Merge both after review.
+Merge the `main` PR first. The `develop` PR usually conflicts in `CHANGELOG.md` when `develop` has `[Unreleased]` entries, and in the `package.json` versions if a canary has bumped them. Resolve it on a separate branch cut from `develop` (`git checkout -b fix/describe-the-bug-develop origin/develop && git merge fix/describe-the-bug`), never on the shared `fix/*` branch: merging `develop` into that branch, which GitHub's "Resolve conflicts" button does, would put `develop`'s unreleased work into the `main` PR.
+
+Don't open a PR to `website`. It only gets the fix by merging `main` once the patch is published (step 7), so the site never documents a version that isn't on npm.
 
 ### 5. Tag on `main`
 
@@ -240,9 +259,37 @@ git push origin v1.0.5
 
 The publish workflow handles the rest.
 
-### 6. Verify the publish and thank the reporter
+### 6. Verify the publish
 
-Verify the publish as in [step 8](#8-verify-the-publish) of the standard release. Then, if the bug was reported or fixed by someone outside the core team, thank them on the issue or PR as in [step 11](#11-thank-outside-contributors-and-reporters).
+Verify the publish as in [step 8](#8-verify-the-publish) of the standard release.
+
+### 7. Merge `main` into `website`
+
+```bash
+git checkout website
+git pull origin website
+git merge --no-ff main
+git push origin website
+```
+
+This deploys the hotfix's changelog entry and any docs it changed.
+
+### 8. Thank the reporter
+
+If the bug was reported or fixed by someone outside the core team, thank them on the issue or PR as in [step 11](#11-thank-outside-contributors-and-reporters).
+
+### Hotfix while a canary is on `main`
+
+Branch from the latest stable tag instead of `main`, and publish from the fix branch:
+
+1. Branch from the stable tag: `git checkout -b fix/describe-the-bug v1.15.0`
+2. Fix, validate, bump the patch version and update both changelogs, as in steps 2 and 3
+3. Open a PR to `main` and wait for its checks, but don't merge it yet
+4. Tag the fix branch and push the tag: `git tag v1.15.1 && git push origin v1.15.1`. This is the one case where the tag isn't on `main`
+5. Verify the publish as in [step 8](#8-verify-the-publish) of the standard release
+6. Merge the fix branch, not `main`, into `website`: `git checkout website && git pull origin website && git merge --no-ff fix/describe-the-bug && git push origin website`
+7. Merge the `main` PR, keeping the canary's version numbers in `package.json` where they conflict. Get the fix into `develop` as in step 4
+8. Thank the reporter as in hotfix step 8 above
 
 ---
 
@@ -316,7 +363,7 @@ npm dist-tag add @storybook-astro/framework@1.0.4 latest
 |---|---|---|---|---|
 | Feature / fix | `develop` | `develop` → `main` + `website` | Yes | `main` |
 | Canary / preview | `develop` | `main` only (not `website`) | Yes (pre-release label) | `main` |
-| Hotfix | `main` | `main` + `website` + `develop` | Patch only | `main` |
+| Hotfix | `main` | PRs to `main` + `develop`, then `main` → `website` after publish | Patch only | `main` |
 | Website-only | `main` | `main` + `website` | No | — |
 
 ### Key commands
@@ -325,7 +372,7 @@ npm dist-tag add @storybook-astro/framework@1.0.4 latest
 yarn lint                          # Lint check
 yarn test                          # Unit + portable story tests
 yarn build:packages                # Build both packages (after rm -rf dist)
-yarn smoke                         # Full tarball smoke test (Astro 5 + 6)
+yarn smoke                         # Full tarball smoke test (Astro 5 + 6 + 7)
 yarn smoke 6 fresh                 # Smoke test Astro 6 only
 yarn smoke both upgrade            # Upgrade scenario (requires packages on npm)
 git tag vX.Y.Z && git push origin vX.Y.Z   # Trigger publish workflow

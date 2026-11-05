@@ -60,9 +60,9 @@ Thank you for your interest in contributing! This project is community-driven an
 |--------|---------|
 | `main` | Stable, deployable branch. All releases are tagged from here. |
 | `develop` | Integration branch for in-progress work. PRs merge here first. |
+| `website` | What Cloudflare deploys to storybook-astro.org. Gets stable releases, published hotfixes and website-only changes |
 | `feature/*` | Feature branches off `develop` (e.g. `feature/vue-slots`) |
-| `fix/*` | Bug fix branches off `develop` |
-| `release/*` | Release prep branches off `develop`, merged to `main` when ready |
+| `fix/*` | Bug fix branches off `develop` (hotfixes branch off `main`) |
 
 ### Workflow
 
@@ -86,21 +86,9 @@ Thank you for your interest in contributing! This project is community-driven an
 6. Open a PR targeting `develop`
 7. Once reviewed and merged, your changes will be included in the next release
 
-### Releases
+### Releases and hotfixes
 
-When `develop` is ready for a release:
-1. Create a `release/x.y.z` branch from `develop`
-2. Final testing and version bumps
-3. Merge to `main` and tag the release
-4. Publish to npm
-5. Merge back to `develop`
-
-### Hotfixes
-
-For critical bugs in production:
-1. Branch from `main` as `fix/critical-bug`
-2. Fix and test
-3. Merge to both `main` and `develop`
+Maintainers release by merging `develop` into `main` and `website` and tagging `main`, which publishes to npm. Hotfixes branch from `main`, go to `main` and `develop` by PR, and reach `website` after the patch is published. See [`docs/RELEASING.md`](./docs/RELEASING.md) for both.
 
 ## Code Conventions
 
