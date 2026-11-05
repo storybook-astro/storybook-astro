@@ -1,5 +1,5 @@
 import { test, expect, type FrameLocator, type Page } from '@playwright/test';
-import { showInPreview } from './navigation.ts';
+import { navigateTo, previewStayedLoaded, tagPreview } from './navigation.ts';
 
 const previewOf = (page: Page) => page.frameLocator('#storybook-preview-iframe');
 
@@ -21,10 +21,12 @@ test.describe('Scoped styles across Docs pages', () => {
     expect(await headCss(preview)).toContain('.title[');
 
     // A Docs page with no Astro stories.
-    await showInPreview(page, 'vue-accordion--docs');
+    await tagPreview(page);
+    await navigateTo(page, '/docs/vue-accordion--docs');
     await expect(preview.locator('[data-testid="vue-accordion"]').first()).toBeVisible();
 
     await expect.poll(() => headCss(preview)).not.toContain('.title[');
+    expect(await previewStayedLoaded(page)).toBe(true);
   });
 
   test('opening a Docs page removes the hidden story\'s CSS from the head', async ({ page }) => {
@@ -34,10 +36,12 @@ test.describe('Scoped styles across Docs pages', () => {
     await expect(preview.getByTestId('red-title')).toBeVisible({ timeout: 30_000 });
     expect(await headCss(preview)).toContain('.title[');
 
-    await showInPreview(page, 'vue-accordion--docs');
+    await tagPreview(page);
+    await navigateTo(page, '/docs/vue-accordion--docs');
     await expect(preview.locator('[data-testid="vue-accordion"]').first()).toBeVisible();
 
     await expect.poll(() => headCss(preview)).not.toContain('.title[');
+    expect(await previewStayedLoaded(page)).toBe(true);
   });
 });
 
@@ -51,9 +55,11 @@ test.describe('Scoped styles across stories', () => {
 
     // Straight to the next story. Clicking its component in the sidebar would
     // open the component's Docs page on the way.
-    await showInPreview(page, 'astro-scoped-styles-slotted-content--list-in-slot');
+    await tagPreview(page);
+    await navigateTo(page, '/story/astro-scoped-styles-slotted-content--list-in-slot');
     await expect(preview.getByTestId('slot-list')).toBeVisible();
 
     await expect.poll(() => headCss(preview)).not.toContain('.title[');
+    expect(await previewStayedLoaded(page)).toBe(true);
   });
 });

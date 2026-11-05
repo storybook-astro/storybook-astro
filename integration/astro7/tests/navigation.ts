@@ -1,22 +1,40 @@
 import type { Page } from '@playwright/test';
 
 /**
- * Switches the preview to another story or Docs page the way the manager's
- * sidebar does, by emitting `setCurrentStory` on its channel, so the preview
- * iframe stays loaded across the switch. Clicking the sidebar itself isn't
- * stable across Storybook majors: Storybook 11's sidebar dropped the element
- * ids Storybook 10's had.
+ * Navigates the manager to another story or Docs page without reloading the
+ * preview iframe, as clicking it in the sidebar does: it changes the manager's
+ * URL and lets its router handle the change, so the URL, the sidebar and the
+ * preview all move together. `path` is the `?path=` value, such as
+ * `/docs/vue-accordion--docs` or `/story/vue-accordion--default`.
+ *
+ * Clicking the sidebar itself isn't stable across Storybook majors: Storybook
+ * 11's sidebar dropped the element ids Storybook 10's had.
  */
-export async function showInPreview(page: Page, storyId: string) {
-  const viewMode = storyId.endsWith('--docs') ? 'docs' : 'story';
+export async function navigateTo(page: Page, path: string) {
+  await page.evaluate((path) => {
+    window.history.pushState({}, '', `?path=${path}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+}
 
-  await page.evaluate(
-    ({ storyId, viewMode }) =>
-      (
-        window as typeof window & {
-          __STORYBOOK_ADDONS_CHANNEL__: { emit: (event: string, data: unknown) => void };
-        }
-      ).__STORYBOOK_ADDONS_CHANNEL__.emit('setCurrentStory', { storyId, viewMode }),
-    { storyId, viewMode }
-  );
+/**
+ * Tags the preview iframe's window so `previewStayedLoaded` can tell whether
+ * it reloaded since. The Docs-page regressions only show up while the preview
+ * stays loaded; after a reload these tests would pass whatever the renderer
+ * does.
+ */
+export async function tagPreview(page: Page) {
+  await page
+    .frameLocator('#storybook-preview-iframe')
+    .locator('body')
+    .evaluate(() => {
+      (window as typeof window & { __previewTag?: boolean }).__previewTag = true;
+    });
+}
+
+export async function previewStayedLoaded(page: Page) {
+  return page
+    .frameLocator('#storybook-preview-iframe')
+    .locator('body')
+    .evaluate(() => (window as typeof window & { __previewTag?: boolean }).__previewTag === true);
 }

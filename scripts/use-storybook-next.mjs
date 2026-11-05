@@ -13,17 +13,17 @@
 //
 // The pinned versions keep the PR job from turning red when Storybook
 // publishes a prerelease; the scheduled storybook@next job still tracks the
-// newest one. When it passes on a newer prerelease, update the pins.
+// newest one. When it passes on a newer prerelease, bump the pins in a PR,
+// whose storybook-11 job then checks every app against them.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// storybook-solidjs-vite and @chromatic-com/storybook are maintained outside
-// Storybook core but publish their Storybook 11 builds under `next` too.
-const STORYBOOK_PACKAGE =
-  /^(storybook|@storybook\/.+|storybook-solidjs-vite|@chromatic-com\/storybook)$/;
+// storybook-solidjs-vite is community-maintained but publishes its Storybook 11
+// builds under `next` too (issue #208).
+const STORYBOOK_PACKAGE = /^(storybook|@storybook\/.+|storybook-solidjs-vite)$/;
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const rootManifestPath = join(root, 'package.json');
