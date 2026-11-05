@@ -78,7 +78,7 @@ export const WithSlot = {
 | Svelte | `@storybook/svelte` | `await Default.run()` | `packages/components/src/Counter/svelte/Counter.test.ts` |
 | React | `@storybook/react-vite` | `createRoot` + `flushSync` | `packages/components/src/Counter/react/Counter.test.ts` |
 | Preact | `storybook/preview-api` with `@storybook/preact`'s `setProjectAnnotations` | Preact's `render` | `packages/components/src/Counter/preact/Counter.test.ts` |
-| Solid | `storybook/preview-api` with `storybook-solidjs-vite/renderer/solid-legacy` annotations | Not rendered; the test checks the composed story | `packages/components/src/Counter/solid/Counter.test.ts` |
+| Solid | `storybook/preview-api` with `storybook-solidjs-vite/renderer/solid-legacy` annotations (`renderer/solid1` on the Storybook 11 builds) | Not rendered; the test checks the composed story | `packages/components/src/Counter/solid/Counter.test.ts` |
 
 Unmount what you render (`root.unmount()`, `render(null, element)`) and remove the container in a `finally` block, as those tests do.
 
