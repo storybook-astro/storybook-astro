@@ -38,7 +38,7 @@ The **Docgen Server** ([RFC](https://github.com/storybookjs/storybook/discussion
 
 | | Legacy | Docgen Server |
 |---|---|---|
-| Storybook floor | all of `^10.0.0` | 10.6+, and opt-in per project |
+| Storybook floor | the whole peer range, 10.0 and later | 10.6+, and opt-in per project |
 | Runs on | dev-server main thread, in a Vite `transform` | Node worker thread, off the critical path |
 | Static builds | inlined in the bundle | JSON snapshots written by core |
 | Stability | stable since SB 6 | experimental; payload may change before SB 11 |
@@ -63,7 +63,7 @@ We reimplement rather than depend on it. An unpublished single-maintainer packag
 
 ## Design Decisions
 
-**Decision 1 — Both delivery paths, sharing one extractor.** The legacy path is the default because it covers the whole `storybook: ^10.0.0` peer range; the Docgen Server is contributed only when the user turns it on: `features.experimentalDocgenServer` on Storybook 10.x, `features.docgenServer` on 11, which renamed it and stopped reading the old name. The preset reads whichever name the installed Storybook reads, so the wrong one can never switch off builder docgen while core never starts the service. Shipping the server path alone would leave most users with no change at all. This mirrors `@storybook/vue3-vite`, which selects between `vue-docgen-api` and `vue-component-meta` on the same flag. Extraction logic lives in one place and neither path duplicates it.
+**Decision 1 — Both delivery paths, sharing one extractor.** The legacy path is the default because it covers the whole `storybook` peer range (`^10.0.0 || ^11.0.0-beta.0`); the Docgen Server is contributed only when the user turns it on: `features.experimentalDocgenServer` on Storybook 10.x, `features.docgenServer` on 11, which renamed it and stopped reading the old name. The preset reads whichever name the installed Storybook reads, so the wrong one can never switch off builder docgen while core never starts the service. Shipping the server path alone would leave most users with no change at all. This mirrors `@storybook/vue3-vite`, which selects between `vue-docgen-api` and `vue-component-meta` on the same flag. Extraction logic lives in one place and neither path duplicates it.
 
 The two are **mutually exclusive**. A worker thread has its own module registry, so enabling both would pay the full TypeScript warm-up cost twice for identical output. When the server path is active, the Vite plugin does not inject `__docgenInfo`.
 

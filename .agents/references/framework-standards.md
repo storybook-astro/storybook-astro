@@ -95,8 +95,8 @@ export const Default = {};
 - Declares `@storybook/preact-vite` as a dependency; the entry preview comes from `@storybook/preact`
 
 ### Solid
-- Uses `storybook-solidjs-vite` (10.0.x, or 10.6 and later), not `@storybook/solidjs`
-- `@astrojs/solid-js` renders Solid 1, so the integration looks up the Solid 1 entry in the installed package's exports: `renderer/entry-preview` in 10.0.x, `renderer/solid-legacy` from 10.6. Versions 10.1–10.5 have neither and fail with an error
+- Uses `storybook-solidjs-vite` (10.0.x, 10.6 and later, or the 11.x builds for Storybook 11), not `@storybook/solidjs`
+- `@astrojs/solid-js` renders Solid 1, so the integration looks up the Solid 1 entry in the installed package's exports: `renderer/entry-preview` in 10.0.x, `renderer/solid-legacy` from 10.6, `renderer/solid1` in the 11.x builds. Versions 10.1–10.5 have neither and fail with an error
 - Depends on the delegation order above
 
 ### Alpine.js

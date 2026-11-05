@@ -8,7 +8,8 @@ import {
 import {
   extractComponentDescription,
   extractDescription,
-  loadCsf
+  loadCsf,
+  type CsfFile
 } from 'storybook/internal/csf-tools';
 import type { DocgenPayload, DocgenProviderInput, StrictArgTypes } from 'storybook/internal/types';
 import { extractArgTypes } from '@storybook-astro/renderer/extractArgTypes';
@@ -180,7 +181,7 @@ function messageOf(error: unknown): string {
  * editor as a second argument; Storybook 10 takes only the node and has no
  * `editor` on the file. Calling it this way works on both.
  */
-function readMetaDescription(csf: ReturnType<ReturnType<typeof loadCsf>['parse']>): string {
+function readMetaDescription(csf: CsfFile): string {
   const extract = extractDescription as (node: unknown, editor?: unknown) => string;
 
   return extract(csf._metaStatement, (csf as { editor?: unknown }).editor);
