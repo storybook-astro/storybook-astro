@@ -165,6 +165,18 @@ describe('values JSON cannot represent (issue #273)', () => {
       expect(literalFor([1, undefined, , 4])).toBe('[\n  1,\n  undefined,\n  undefined,\n  4\n]');
     });
 
+    test('an array with its own iterator prints its indexed entries', () => {
+      const tags = ['a', 'b'];
+
+      Object.defineProperty(tags, Symbol.iterator, {
+        value: function* () {
+          yield 'other';
+        }
+      });
+
+      expect(literalFor(tags)).toBe('[\n  "a",\n  "b"\n]');
+    });
+
     test('undefined, function and Symbol members are left out of an object', () => {
       expect(literalFor({ kept: 1, gone: undefined, onClick: () => {}, tag: Symbol('t') })).toBe(
         '{\n  kept: 1\n}'

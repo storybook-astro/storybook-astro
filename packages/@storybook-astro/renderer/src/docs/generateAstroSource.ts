@@ -234,11 +234,11 @@ function printLiteral(value: ArgValue, indent: string, ancestors: object[]): str
   const innerIndent = `${indent}  `;
 
   if (Array.isArray(value)) {
-    // Array.from reads a hole as undefined, so entries keep their positions. A
-    // function or Symbol entry has no literal, so it's written as undefined
-    // for the same reason.
-    const entries = Array.from(value, (rawEntry: ArgValue, index) => {
-      const entry = applyToJSON(rawEntry, String(index));
+    // Entries are read by index, as JSON reads them, so a hole is undefined
+    // and entries keep their positions. A function or Symbol entry has no
+    // literal, so it's written as undefined for the same reason.
+    const entries = Array.from({ length: value.length }, (_, index) => {
+      const entry = applyToJSON(value[index], String(index));
 
       return typeof entry === 'function' || typeof entry === 'symbol'
         ? 'undefined'
