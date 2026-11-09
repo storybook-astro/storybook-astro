@@ -48,14 +48,14 @@ function devServer() {
   } as unknown as ViteDevServer;
 }
 
-/** What Vite does as a dev server closes: closeBundle once for each of its environments. */
+/** What Vite does as a dev server closes: closeBundle for all of its environments at once. */
 async function closeDevServer(
   plugin: Awaited<ReturnType<typeof vitePluginStorybookAstroMiddleware>>['vitePlugin'],
   server: ViteDevServer
 ) {
-  for (const environment of Object.values(server.environments)) {
-    await plugin.closeBundle.call({ environment } as never);
-  }
+  await Promise.all(
+    Object.values(server.environments).map((environment) => plugin.closeBundle.call({ environment } as never))
+  );
 }
 
 beforeEach(() => {
@@ -92,11 +92,26 @@ describe('closing the internal Astro server', () => {
     expect(astroServers[1].close).not.toHaveBeenCalled();
   });
 
-  test('a Storybook build never started an Astro server, so there is nothing to close', async () => {
+  test('restarting a dev server keeps the new server\'s Astro server open', async () => {
+    const { vitePlugin } = await vitePluginStorybookAstroMiddleware({ resolveFrom: '/project' });
+    const oldServer = devServer();
+    const newServer = devServer();
+
+    // Vite's server.restart() starts the new server before it closes the old one.
+    await vitePlugin.configureServer(oldServer);
+    await vitePlugin.configureServer(newServer);
+    await closeDevServer(vitePlugin, oldServer);
+
+    expect(astroServers[0].close).toHaveBeenCalledTimes(1);
+    expect(astroServers[1].close).not.toHaveBeenCalled();
+  });
+
+  test('closeBundle from an environment that owns no Astro server closes nothing', async () => {
     const { vitePlugin } = await vitePluginStorybookAstroMiddleware({ resolveFrom: '/project' });
 
-    await expect(
-      vitePlugin.closeBundle.call({ environment: { name: 'client' } } as never)
-    ).resolves.toBeUndefined();
+    await vitePlugin.configureServer(devServer());
+    await vitePlugin.closeBundle.call({ environment: { name: 'client' } } as never);
+
+    expect(astroServers[0].close).not.toHaveBeenCalled();
   });
 });

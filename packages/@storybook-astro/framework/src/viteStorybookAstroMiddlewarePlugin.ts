@@ -144,7 +144,7 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
     }
   } satisfies PluginOption;
 
-  // Create asset serving plugin (only active in dev when viteServer exists)
+  // Serves /_image through the Astro server of the dev server that received the request (astroServers.get(server)), and falls through to next() when that server has none or has closed.
   const assetServingPlugin = {
     name: 'storybook-astro-assets',
     configureServer(server: ViteDevServer) {
