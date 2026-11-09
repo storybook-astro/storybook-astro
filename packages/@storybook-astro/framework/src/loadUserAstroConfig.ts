@@ -7,6 +7,7 @@ import type { StorybookFontFamily } from './vitePluginAstroFonts.ts';
 // The order Astro searches in (`configPaths` in astro/dist/core/config/config.js),
 // so a project with two config files is read from the one Astro uses (#257).
 // Astro 6 and 7 dropped `.cjs` and `.cts`; Astro 5 still reads them last.
+// Storybook checks them last on every Astro version.
 export const CONFIG_FILENAMES = [
   'astro.config.mjs',
   'astro.config.js',
