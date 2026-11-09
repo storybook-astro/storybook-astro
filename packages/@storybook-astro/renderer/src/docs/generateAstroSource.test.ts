@@ -215,6 +215,69 @@ describe('values JSON cannot represent (issue #273)', () => {
         })
       ).toBe('{\n  a: 1\n}');
     });
+
+    test('an object whose toJSON returns a fresh copy of itself prints that copy once', () => {
+      const value = {
+        a: 1,
+        toJSON() {
+          return { ...this };
+        }
+      };
+
+      expect(literalFor(value)).toBe('{\n  a: 1\n}');
+    });
+
+    test('a member whose toJSON returns a function is left out, not the whole prop', () => {
+      expect(
+        literalFor({
+          a: {
+            toJSON() {
+              return () => 1;
+            }
+          },
+          b: 1
+        })
+      ).toBe('{\n  b: 1\n}');
+    });
+
+    test('a member whose toJSON returns undefined is left out', () => {
+      expect(
+        literalFor({
+          a: {
+            toJSON() {
+              return undefined;
+            }
+          },
+          b: 1
+        })
+      ).toBe('{\n  b: 1\n}');
+    });
+
+    test('toJSON gets the member name or array index as its key', () => {
+      const keyed = {
+        toJSON(key: string) {
+          return `key=${key}`;
+        }
+      };
+
+      expect(literalFor({ a: keyed })).toBe('{\n  a: "key=a"\n}');
+      expect(literalFor([keyed])).toBe('[\n  "key=0"\n]');
+    });
+  });
+
+  test('a top-level toJSON gets an empty key, and returning undefined omits the prop', () => {
+    const keyed = {
+      toJSON(key: string) {
+        return `key=${key}`;
+      }
+    };
+    const empty = {
+      toJSON() {
+        return undefined;
+      }
+    };
+
+    expect(generateAstroSource('Card', { label: keyed, gone: empty })).toBe('<Card label="key=" />');
   });
 
   test('a top-level Symbol is omitted instead of throwing', () => {

@@ -273,14 +273,15 @@ so it stays the usage you would copy into a page.
 | number / bigint | `count={42}` |
 | `Date` | `published={new Date("2026-06-11T10:00:00.000Z")}` |
 | object / array | `author={author}`, with `const author = …` hoisted into the frontmatter, or written out in the attribute with `objectProps: 'inline'` (see below) |
-| `''`, `null`, `undefined`, functions | omitted |
+| `''`, `null`, `undefined`, functions, Symbols | omitted |
 
 Inside an object or array, a `Date` stays `new Date(...)`, a BigInt keeps its
 `n`, and `NaN`, `Infinity` and `undefined` array entries are written as
 themselves. Object members that are `undefined`, functions or Symbols are left
 out, and a function or Symbol array entry is written as `undefined`, so the
 entries after it keep their positions. Other built-ins such as `Map`, `Set` and
-`RegExp` still print as `{}`, as JSON prints them. A prop the snippet can't write
+`RegExp` still print as `{}`, as JSON prints them, and a value with a `toJSON`
+method, such as a `URL`, is shown as what `toJSON` returns. A prop the snippet can't write
 as a literal at all, such as a Symbol or an object that refers back to itself, is
 left out of the snippet rather than breaking it.
 

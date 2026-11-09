@@ -109,11 +109,13 @@ export function generateAstroSource(
 /** Returns the attribute text, or `null` when the value shouldn't be emitted. */
 function serializeProp(
   name: string,
-  value: ArgValue,
+  rawValue: ArgValue,
   componentName: string,
   hoisted: string[],
   objectProps: AstroSourceOptions['objectProps']
 ): string | null {
+  const value = applyToJSON(rawValue, '');
+
   // An absent or empty value is what the component would get by default, so
   // showing it is noise. Functions and Symbols have no Astro template
   // representation.
@@ -181,6 +183,9 @@ class UnserializableValue extends Error {}
  * `undefined`, so the entries after it keep their positions. Other built-ins
  * such as `Map`, `Set` and `RegExp` still print as `{}`, as JSON prints them.
  *
+ * An object's own toJSON isn't called here: the caller calls it first with
+ * `applyToJSON`, once per value, as JSON.stringify does.
+ *
  * `ancestors` holds the objects being printed above this one, so a cycle is
  * caught. Throws `UnserializableValue` for a cycle.
  */
@@ -227,28 +232,18 @@ function printLiteral(value: ArgValue, indent: string, ancestors: object[]): str
 
   const inside = [...ancestors, value];
   const innerIndent = `${indent}  `;
-  const toJSON = (value as { toJSON?: unknown }).toJSON;
-
-  // An object that says how it serializes (a URL, say) is shown that way, as
-  // JSON.stringify would show it. One whose toJSON returns the object itself
-  // falls through and is printed member by member.
-  if (typeof toJSON === 'function') {
-    const json = toJSON.call(value);
-
-    if (json !== value) {
-      return printLiteral(json, indent, inside);
-    }
-  }
 
   if (Array.isArray(value)) {
     // Array.from reads a hole as undefined, so entries keep their positions. A
     // function or Symbol entry has no literal, so it's written as undefined
     // for the same reason.
-    const entries = Array.from(value, (entry: ArgValue) =>
-      typeof entry === 'function' || typeof entry === 'symbol'
+    const entries = Array.from(value, (rawEntry: ArgValue, index) => {
+      const entry = applyToJSON(rawEntry, String(index));
+
+      return typeof entry === 'function' || typeof entry === 'symbol'
         ? 'undefined'
-        : printLiteral(entry, innerIndent, inside)
-    );
+        : printLiteral(entry, innerIndent, inside);
+    });
 
     return entries.length === 0
       ? '[]'
@@ -256,6 +251,7 @@ function printLiteral(value: ArgValue, indent: string, ancestors: object[]): str
   }
 
   const members = Object.entries(value)
+    .map(([key, member]): [string, ArgValue] => [key, applyToJSON(member, key)])
     .filter(
       ([, member]) =>
         member !== undefined && typeof member !== 'function' && typeof member !== 'symbol'
@@ -263,6 +259,22 @@ function printLiteral(value: ArgValue, indent: string, ancestors: object[]): str
     .map(([key, member]) => `${innerIndent}${printKey(key)}: ${printLiteral(member, innerIndent, inside)}`);
 
   return members.length === 0 ? '{}' : `{\n${members.join(',\n')}\n${indent}}`;
+}
+
+/**
+ * An object that says how it serializes (a URL, say) is shown that way, as
+ * JSON.stringify would show it: toJSON is called once, with the value's key
+ * ('' at the top level), before the value is filtered or printed, and never
+ * on what it returns. A Date keeps its own `new Date(...)` form instead.
+ */
+function applyToJSON(value: ArgValue, key: string): ArgValue {
+  if (typeof value !== 'object' || value === null || value instanceof Date) {
+    return value;
+  }
+
+  const toJSON = (value as { toJSON?: unknown }).toJSON;
+
+  return typeof toJSON === 'function' ? toJSON.call(value, key) : value;
 }
 
 /**
