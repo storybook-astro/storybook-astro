@@ -99,7 +99,7 @@ export type Message = RenderRequestMessage | RenderResponseMessage;
 export type RenderPromise = {
   resolve: (value: RenderResponseMessage['data']) => void;
   reject: (reason?: unknown) => void;
-  timeoutId: NodeJS.Timeout;
+  timeoutId: ReturnType<typeof setTimeout>;
 };
 
 // Global type extensions
