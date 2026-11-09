@@ -93,8 +93,18 @@ describe('args the snippet cannot print (issue #273)', () => {
       }
     };
 
-    expect(sourceDecorator(storyFn, context({ args }))).toBe('story-result');
-    expect(emitTransformCode).not.toHaveBeenCalled();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(sourceDecorator(storyFn, context({ args }))).toBe('story-result');
+      expect(emitTransformCode).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('Show code skipped'),
+        expect.any(Error)
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test('a Symbol or circular arg is left out and the rest still emits', () => {

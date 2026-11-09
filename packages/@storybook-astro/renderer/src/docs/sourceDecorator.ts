@@ -35,10 +35,13 @@ export const sourceDecorator = (
 
     // Show code is a docs feature, so an arg it can't print (a getter that
     // throws, say) must not surface as a story render error (issue #273).
-    // The snippet is skipped instead.
+    // The snippet is skipped instead, and the error is logged so the skip is
+    // visible.
     try {
       code = astroSourceFor(context);
-    } catch {
+    } catch (error) {
+      console.warn('[storybook-astro] Show code skipped: generating the Astro snippet failed', error);
+
       return;
     }
 

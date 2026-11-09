@@ -193,10 +193,27 @@ describe('values JSON cannot represent (issue #273)', () => {
       );
     });
 
-    test('an array holding a function or Symbol is left out instead of throwing', () => {
+    test('a function or Symbol array entry is written as undefined, keeping positions', () => {
+      expect(literalFor(['a', () => {}, Symbol('s'), 'b'])).toBe(
+        '[\n  "a",\n  undefined,\n  undefined,\n  "b"\n]'
+      );
+    });
+
+    test('Number and String wrapper objects print as the value they wrap', () => {
+      expect(literalFor({ count: new Number(5), label: new String('ab') })).toBe(
+        '{\n  count: 5,\n  label: "ab"\n}'
+      );
+    });
+
+    test('an object whose toJSON returns itself prints its members', () => {
       expect(
-        generateAstroSource('Card', { a: [() => {}], b: [Symbol('s')], title: 'Hi' }, { objectProps })
-      ).toBe('<Card title="Hi" />');
+        literalFor({
+          a: 1,
+          toJSON() {
+            return this;
+          }
+        })
+      ).toBe('{\n  a: 1\n}');
     });
   });
 

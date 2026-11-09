@@ -173,15 +173,16 @@ class UnserializableValue extends Error {}
 
 /**
  * Writes a value as a JavaScript literal, laid out like
- * `JSON.stringify(value, null, 2)` but keeping the types JSON loses (issue
+ * `JSON.stringify(value, null, 2)` but keeping these types JSON loses (issue
  * #273): a Date stays a `new Date(...)`, a BigInt keeps its `n`, and `NaN`,
  * `Infinity` and `undefined` array entries stay themselves instead of becoming
  * `null`. Object members that are `undefined`, functions or Symbols are left
- * out, as JSON leaves them out.
+ * out, as JSON leaves them out. A function or Symbol array entry is written as
+ * `undefined`, so the entries after it keep their positions. Other built-ins
+ * such as `Map`, `Set` and `RegExp` still print as `{}`, as JSON prints them.
  *
  * `ancestors` holds the objects being printed above this one, so a cycle is
- * caught. Throws `UnserializableValue` for a cycle, or for a function or Symbol
- * in an array, where leaving it out would shift the entries after it.
+ * caught. Throws `UnserializableValue` for a cycle.
  */
 function printLiteral(value: ArgValue, indent: string, ancestors: object[]): string {
   if (value === null) {
@@ -208,6 +209,12 @@ function printLiteral(value: ArgValue, indent: string, ancestors: object[]): str
     throw new UnserializableValue();
   }
 
+  // A Number, String or Boolean wrapper prints as the value it wraps, as JSON
+  // unwraps it.
+  if (value instanceof Number || value instanceof String || value instanceof Boolean) {
+    return printLiteral(value.valueOf(), indent, ancestors);
+  }
+
   if (value instanceof Date) {
     const time = value.getTime();
 
@@ -223,14 +230,25 @@ function printLiteral(value: ArgValue, indent: string, ancestors: object[]): str
   const toJSON = (value as { toJSON?: unknown }).toJSON;
 
   // An object that says how it serializes (a URL, say) is shown that way, as
-  // JSON.stringify would show it.
+  // JSON.stringify would show it. One whose toJSON returns the object itself
+  // falls through and is printed member by member.
   if (typeof toJSON === 'function') {
-    return printLiteral(toJSON.call(value), indent, inside);
+    const json = toJSON.call(value);
+
+    if (json !== value) {
+      return printLiteral(json, indent, inside);
+    }
   }
 
   if (Array.isArray(value)) {
-    // Array.from reads a hole as undefined, so entries keep their positions.
-    const entries = Array.from(value, (entry: ArgValue) => printLiteral(entry, innerIndent, inside));
+    // Array.from reads a hole as undefined, so entries keep their positions. A
+    // function or Symbol entry has no literal, so it's written as undefined
+    // for the same reason.
+    const entries = Array.from(value, (entry: ArgValue) =>
+      typeof entry === 'function' || typeof entry === 'symbol'
+        ? 'undefined'
+        : printLiteral(entry, innerIndent, inside)
+    );
 
     return entries.length === 0
       ? '[]'
