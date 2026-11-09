@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - A `@storybook/addon-vitest` run exits as soon as its tests finish, instead of printing `close timed out after 10000ms` and waiting out Vitest's `teardownTimeout` (#312). The addon starts two Vite servers, and the framework's internal Astro server for the first one was never closed.
-- In a project with more than one `astro.config.*` file, Storybook now reads the one Astro uses, searching `.mjs`, `.js`, `.ts`, `.mts`, `.cjs`, `.cts` in that order (#257). Before, it checked `astro.config.ts` first, so a leftover `astro.config.ts` next to an `astro.config.mjs` supplied the integrations, `vite.plugins`, fonts, `scopedStyleStrategy` and `compressHTML`.
+- In a project with more than one `astro.config.*` file, Storybook now searches in Astro's order, `.mjs`, `.js`, `.ts`, `.mts`, then `.cjs` and `.cts`, which only Astro 5 reads (#257). Before, it checked `astro.config.ts` first, so a leftover `astro.config.ts` next to an `astro.config.mjs` supplied the integrations, `vite.plugins`, fonts, `scopedStyleStrategy` and `compressHTML`.
 
 ## [1.15.0] - 2026-11-02
 
