@@ -281,9 +281,9 @@ themselves. Object members that are `undefined`, functions or Symbols are left
 out, and a function or Symbol array entry is written as `undefined`, so the
 entries after it keep their positions. Other built-ins such as `Map`, `Set` and
 `RegExp` still print as `{}`, as JSON prints them, and a value with a `toJSON`
-method, such as a `URL`, is shown as what `toJSON` returns. A prop the snippet can't write
-as a literal at all, such as a Symbol or an object that refers back to itself, is
-left out of the snippet rather than breaking it.
+method, such as a `URL`, is shown as what `toJSON` returns. A prop the snippet
+can't write as a literal at all, such as a Symbol or an object that refers back
+to itself, is left out of the snippet rather than breaking it.
 
 `args.slots` becomes the component's children — the `default` slot inline, and
 named slots wrapped in `<Fragment slot="name">`. A component (rather than a
