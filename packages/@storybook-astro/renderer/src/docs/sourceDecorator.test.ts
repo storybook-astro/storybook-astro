@@ -85,6 +85,28 @@ describe('the objectProps parameter', () => {
   });
 });
 
+describe('args the snippet cannot print (issue #273)', () => {
+  test('an arg that throws while being read skips the snippet without breaking the story', () => {
+    const args = {
+      get broken() {
+        throw new Error('getter failed');
+      }
+    };
+
+    expect(sourceDecorator(storyFn, context({ args }))).toBe('story-result');
+    expect(emitTransformCode).not.toHaveBeenCalled();
+  });
+
+  test('a Symbol or circular arg is left out and the rest still emits', () => {
+    const loop: Record<string, unknown> = {};
+
+    loop.self = loop;
+    sourceDecorator(storyFn, context({ args: { title: 'Hello', tag: Symbol('t'), loop } }));
+
+    expect(emitTransformCode.mock.calls[0][0]).toContain('<Card title="Hello" />');
+  });
+});
+
 describe('skipping', () => {
   test('a story with docs.source.code set — the documented workaround wins', () => {
     sourceDecorator(storyFn, context({ parameters: { docs: { source: { code: 'custom' } } } }));

@@ -115,8 +115,15 @@ function serializeProp(
   objectProps: AstroSourceOptions['objectProps']
 ): string | null {
   // An absent or empty value is what the component would get by default, so
-  // showing it is noise. Functions have no Astro template representation.
-  if (value === undefined || value === null || value === '' || typeof value === 'function') {
+  // showing it is noise. Functions and Symbols have no Astro template
+  // representation.
+  if (
+    value === undefined ||
+    value === null ||
+    value === '' ||
+    typeof value === 'function' ||
+    typeof value === 'symbol'
+  ) {
     return null;
   }
 
@@ -124,29 +131,31 @@ function serializeProp(
     return name;
   }
 
-  if (value === false) {
-    return `${name}={false}`;
-  }
-
-  if (typeof value === 'number') {
-    return `${name}={${value}}`;
-  }
-
-  if (typeof value === 'bigint') {
-    return `${name}={${value}n}`;
-  }
-
   if (typeof value === 'string') {
     return `${name}=${quoteString(value)}`;
   }
 
-  if (value instanceof Date) {
-    return `${name}={new Date(${JSON.stringify(value.toISOString())})}`;
+  let literal: string;
+
+  try {
+    literal = printLiteral(value, '', []);
+  } catch (error) {
+    // A value a snippet can't express is left out rather than allowed to
+    // break Show code for the whole story (issue #273).
+    if (error instanceof UnserializableValue) {
+      return null;
+    }
+
+    throw error;
+  }
+
+  if (typeof value !== 'object' || value instanceof Date) {
+    return `${name}={${literal}}`;
   }
 
   if (objectProps === 'inline') {
     // Indented one level past the attribute, which sits on its own line.
-    return `${name}={${prettyPrint(value).replaceAll('\n', '\n  ')}}`;
+    return `${name}={${literal.replaceAll('\n', '\n  ')}}`;
   }
 
   // By default objects and arrays become a frontmatter `const` the attribute
@@ -154,9 +163,101 @@ function serializeProp(
   // snippets use.
   const constName = uniqueConstName(name, componentName, hoisted);
 
-  hoisted.push(`const ${constName} = ${prettyPrint(value)};`);
+  hoisted.push(`const ${constName} = ${literal};`);
 
   return `${name}={${constName}}`;
+}
+
+/** Thrown for a value no JavaScript literal can stand for. */
+class UnserializableValue extends Error {}
+
+/**
+ * Writes a value as a JavaScript literal, laid out like
+ * `JSON.stringify(value, null, 2)` but keeping the types JSON loses (issue
+ * #273): a Date stays a `new Date(...)`, a BigInt keeps its `n`, and `NaN`,
+ * `Infinity` and `undefined` array entries stay themselves instead of becoming
+ * `null`. Object members that are `undefined`, functions or Symbols are left
+ * out, as JSON leaves them out.
+ *
+ * `ancestors` holds the objects being printed above this one, so a cycle is
+ * caught. Throws `UnserializableValue` for a cycle, or for a function or Symbol
+ * in an array, where leaving it out would shift the entries after it.
+ */
+function printLiteral(value: ArgValue, indent: string, ancestors: object[]): string {
+  if (value === null) {
+    return 'null';
+  }
+
+  if (value === undefined) {
+    return 'undefined';
+  }
+
+  if (typeof value === 'string') {
+    return JSON.stringify(value);
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (typeof value === 'bigint') {
+    return `${value}n`;
+  }
+
+  if (typeof value !== 'object') {
+    throw new UnserializableValue();
+  }
+
+  if (value instanceof Date) {
+    const time = value.getTime();
+
+    return Number.isNaN(time) ? 'new Date(NaN)' : `new Date(${JSON.stringify(value.toISOString())})`;
+  }
+
+  if (ancestors.includes(value)) {
+    throw new UnserializableValue();
+  }
+
+  const inside = [...ancestors, value];
+  const innerIndent = `${indent}  `;
+  const toJSON = (value as { toJSON?: unknown }).toJSON;
+
+  // An object that says how it serializes (a URL, say) is shown that way, as
+  // JSON.stringify would show it.
+  if (typeof toJSON === 'function') {
+    return printLiteral(toJSON.call(value), indent, inside);
+  }
+
+  if (Array.isArray(value)) {
+    // Array.from reads a hole as undefined, so entries keep their positions.
+    const entries = Array.from(value, (entry: ArgValue) => printLiteral(entry, innerIndent, inside));
+
+    return entries.length === 0
+      ? '[]'
+      : `[\n${entries.map((entry) => innerIndent + entry).join(',\n')}\n${indent}]`;
+  }
+
+  const members = Object.entries(value)
+    .filter(
+      ([, member]) =>
+        member !== undefined && typeof member !== 'function' && typeof member !== 'symbol'
+    )
+    .map(([key, member]) => `${innerIndent}${printKey(key)}: ${printLiteral(member, innerIndent, inside)}`);
+
+  return members.length === 0 ? '{}' : `{\n${members.join(',\n')}\n${indent}}`;
+}
+
+/**
+ * A key is quoted only where JavaScript needs it. `__proto__` is written as a
+ * computed key, since in a literal both `__proto__:` and `"__proto__":` set the
+ * object's prototype instead of adding a key.
+ */
+function printKey(key: string): string {
+  if (key === '__proto__') {
+    return '["__proto__"]';
+  }
+
+  return /^[A-Za-z_$][\w$]*$/.test(key) ? key : JSON.stringify(key);
 }
 
 /**
@@ -266,11 +367,6 @@ function formatFrontmatter(
   }
 
   return lines.length > 0 ? `---\n${lines.join('\n')}\n---` : null;
-}
-
-/** JSON with the quotes left on keys only where JS would need them. */
-function prettyPrint(value: ArgValue): string {
-  return JSON.stringify(value, null, 2).replace(/^(\s*)"([A-Za-z_$][\w$]*)":/gm, '$1$2:');
 }
 
 function uniqueConstName(propName: string, componentName: string, hoisted: string[]): string {

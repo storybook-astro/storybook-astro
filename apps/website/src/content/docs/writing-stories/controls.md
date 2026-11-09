@@ -275,6 +275,13 @@ so it stays the usage you would copy into a page.
 | object / array | `author={author}`, with `const author = …` hoisted into the frontmatter, or written out in the attribute with `objectProps: 'inline'` (see below) |
 | `''`, `null`, `undefined`, functions | omitted |
 
+Inside an object or array, values keep their JavaScript form: a `Date` stays
+`new Date(...)`, a BigInt keeps its `n`, and `NaN`, `Infinity` and `undefined`
+array entries are written as themselves. Object members that are `undefined`,
+functions or Symbols are left out. A prop the snippet can't write as a literal at
+all, such as a Symbol or an object that refers back to itself, is left out of the
+snippet rather than breaking it.
+
 `args.slots` becomes the component's children — the `default` slot inline, and
 named slots wrapped in `<Fragment slot="name">`. A component (rather than a
 string) passed as slot content is shown as a placeholder comment, since it has no
