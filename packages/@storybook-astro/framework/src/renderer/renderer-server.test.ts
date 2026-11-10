@@ -31,10 +31,18 @@ describe('createServerRenderer', () => {
       authToken: 'secret'
     });
 
-    await expect(renderer.render(renderPayload, { timeoutMs: 1000 })).resolves.toEqual({
+    const story = new AbortController();
+    const removeListener = vi.spyOn(story.signal, 'removeEventListener');
+
+    await expect(
+      renderer.render(renderPayload, { signal: story.signal, timeoutMs: 1000 })
+    ).resolves.toEqual({
       id: 'uuid-1',
       html: '<div>rendered</div>'
     });
+    // A settled request stops listening on the story's signal, so rerenders
+    // don't pile up listeners on it.
+    expect(removeListener).toHaveBeenCalledWith('abort', expect.any(Function));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(

@@ -36,6 +36,7 @@ describe('dev render requests', () => {
     init();
 
     const story = new AbortController();
+    const removeListener = vi.spyOn(story.signal, 'removeEventListener');
     const rendering = render(renderPayload, { signal: story.signal, timeoutMs: 5000 });
     const response = { id: sentRequestId!, html: '<button>Click</button>' };
 
@@ -43,10 +44,9 @@ describe('dev render requests', () => {
 
     await expect(rendering).resolves.toBe(response);
     expect(vi.getTimerCount()).toBe(0);
-
-    story.abort();
-
-    await expect(rendering).resolves.toBe(response);
+    // A settled request stops listening on the story's signal, so rerenders
+    // don't pile up listeners on it.
+    expect(removeListener).toHaveBeenCalledWith('abort', expect.any(Function));
   });
 
   test('stop waiting on the response, and its timeout, when Storybook removes the story (issue #342)', async () => {
