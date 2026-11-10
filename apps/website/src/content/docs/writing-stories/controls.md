@@ -226,8 +226,8 @@ exist yet, so extraction stays in the builder and logs a note saying so.
 
 ## Components manifest and AI agents
 
-Storybook's components manifest lists your components with their description
-and props, in a JSON file that tools can read.
+Storybook's components manifest lists your components in a JSON file that tools
+can read, with each Astro component's description and props.
 `@storybook/addon-mcp` reads it to give AI agents your components'
 descriptions and props, so an agent can find a component and use it correctly
 without opening its source.
@@ -247,9 +247,11 @@ export default {
 };
 ```
 
-As in the previous section, use the Docgen Server flag your Storybook reads. A
-static build (`storybook build`) then writes `manifests/components.json` to the
-output directory, with an entry for each component; an Astro component's entry
+Use the Docgen Server flag your Storybook reads (see
+[Moving extraction off the dev server](#moving-extraction-off-the-dev-server)).
+A static build (`storybook build`) then writes `manifests/components.json` to
+the output directory, with an entry for each component (stories tagged
+`!manifest` are left out); an Astro component's entry
 holds its description and a reference to its props under
 `services/core/docgen/`. Only Astro components get a description and props.
 Components from React, Vue, Svelte, Solid and Preact are listed by name only.
@@ -263,9 +265,8 @@ With extraction turned off (`docgen: false`), the build still writes
 description or props. Unlike the props table, the manifest doesn't need
 `@storybook/addon-docs`. With the Docgen Server off, the build writes no
 `components.json`. On Storybook 10.0–10.5, Storybook Astro can't run the Docgen
-Server, so Astro components aren't in the manifest. On 10.0–10.4 the build
-writes no components manifest for them. On 10.5, with both flags on, the build
-also logs a manifest error.
+Server, so the manifest has no description or props for Astro components. On
+10.5, with both flags on, the build also logs a manifest error.
 
 ## Turning extraction off
 
