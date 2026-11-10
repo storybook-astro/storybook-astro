@@ -209,10 +209,19 @@ export async function renderToCanvas(
   showMain();
 
   if (isAstroComponent(element) || isDecoratedTree(element)) {
+    const canvasWasConnected = canvasElement.isConnected;
+
     showRenderLoadingIndicator(canvasElement);
 
     try {
-      await renderAstroToCanvas(element, storyContext.args, canvasElement, thisRender, storyContext);
+      await renderAstroToCanvas(
+        element,
+        storyContext.args,
+        canvasElement,
+        thisRender,
+        canvasWasConnected,
+        storyContext
+      );
     } catch (error) {
       // Storybook keeps the last render's teardown when a render throws, and
       // that teardown no longer matches once this render has written, so
@@ -223,9 +232,13 @@ export async function renderToCanvas(
         clearAstroRender(canvasElement);
       }
 
-      // A newer render has taken over the canvas, so this one's error is
-      // out of date and shouldn't show over the newer story.
-      if (latestRenderByCanvas.get(canvasElement) === thisRender) {
+      // A newer render has taken over the canvas, or the story has gone, so
+      // this one's error is out of date. A portable story's showError throws,
+      // and a Docs page's would reach a story block that has unmounted (#303).
+      if (
+        latestRenderByCanvas.get(canvasElement) === thisRender &&
+        !renderWasAbandoned(canvasElement, canvasWasConnected, storyContext.abortSignal)
+      ) {
         if (!isAstroServerUnavailableError(error)) {
           throw error;
         }
@@ -241,10 +254,16 @@ export async function renderToCanvas(
     } finally {
       // Only the latest render settles what the canvas shows. An older one
       // that finishes late leaves the newer render's indicator and held
-      // height alone.
+      // height alone. A render Storybook aborted keeps the height a teardown
+      // held: Storybook removed its story, and the next render into the
+      // canvas releases the height when it writes or fails. A canvas that only
+      // left the document gets no such next render, so it gets its height back.
       if (latestRenderByCanvas.get(canvasElement) === thisRender) {
         hideRenderLoadingIndicator(canvasElement);
-        releaseCanvasHeight(canvasElement);
+
+        if (!storyContext.abortSignal?.aborted) {
+          releaseCanvasHeight(canvasElement);
+        }
       }
     }
 
@@ -303,11 +322,67 @@ function isAstroComponent(element: unknown): element is AstroComponentFactory {
   );
 }
 
+/**
+ * The story went away while its render waited on the server. Storybook aborts
+ * a render when it removes the story (navigation, a remount, a Docs page
+ * closing). A canvas that leaves the document, as when a later portable story
+ * run removed an earlier run's container, gets its teardown late or never
+ * (#288). A canvas that was never in the document, such as a caller's own
+ * detached div, still gets the story.
+ */
+function renderWasAbandoned(
+  canvasElement: HTMLElement,
+  canvasWasConnected: boolean,
+  abortSignal: AbortSignal | undefined
+) {
+  return Boolean(abortSignal?.aborted) || (canvasWasConnected && !canvasElement.isConnected);
+}
+
+/** What `serverResponseUnlessAborted` settles with once Storybook aborts the render. */
+const RENDER_ABORTED = Symbol('render aborted');
+
+/**
+ * Settles with the server's response, or with `RENDER_ABORTED` as soon as
+ * Storybook aborts the render. Storybook's teardown waits only three ticks for
+ * an aborted render to settle before it reloads the preview iframe (#271).
+ */
+async function serverResponseUnlessAborted<T>(
+  response: Promise<T>,
+  abortSignal: AbortSignal | undefined
+): Promise<T | typeof RENDER_ABORTED> {
+  if (!abortSignal) {
+    return response;
+  }
+
+  if (abortSignal.aborted) {
+    // Nothing waits on the server's promise now, so a failure it brings
+    // later isn't reported as unhandled.
+    response.catch(() => {});
+
+    return RENDER_ABORTED;
+  }
+
+  let settleAsAborted!: () => void;
+  const aborted = new Promise<typeof RENDER_ABORTED>((resolve) => {
+    settleAsAborted = () => resolve(RENDER_ABORTED);
+    abortSignal.addEventListener('abort', settleAsAborted);
+  });
+
+  // The race keeps a handler on the server's promise, so a failure that
+  // arrives after the abort isn't reported as unhandled.
+  try {
+    return await Promise.race([response, aborted]);
+  } finally {
+    abortSignal.removeEventListener('abort', settleAsAborted);
+  }
+}
+
 async function renderAstroToCanvas(
   element: AstroComponentFactory | AstroComponentSlot | SlotValue[],
   args: Record<string, unknown>,
   canvasElement: HTMLElement,
   renderToken: object,
+  canvasWasConnected: boolean,
   storyContext?: StoryContext<AstroRenderer>
 ): Promise<void> {
   // An undecorated story's root moduleId is `element` itself. A decorated tree
@@ -325,9 +400,9 @@ async function renderAstroToCanvas(
 
   const { props: componentArgs, slots } = splitStoryArgs(args, storyContext?.initialArgs);
   const decoratedTree = isDecoratedTree(element) ? element : undefined;
-  const canvasWasConnected = canvasElement.isConnected;
+  const abortSignal = storyContext?.abortSignal;
 
-  const response = await astroRenderer.render({
+  const response = await serverResponseUnlessAborted(astroRenderer.render({
     component: rootComponent.moduleId,
     args: serializeAstroComponentMarkers(componentArgs) as Record<string, unknown>,
     slots: serializeAstroComponentMarkers(slots) as Record<string, SlotValue>,
@@ -339,7 +414,7 @@ async function renderAstroToCanvas(
           name: storyContext.name
         }
       : undefined
-  });
+  }), abortSignal);
 
   // A newer render into this canvas started while this one waited on the
   // server, so this response is out of date.
@@ -347,13 +422,10 @@ async function renderAstroToCanvas(
     return;
   }
 
-  // The canvas left the document while this render waited, as when a later
-  // portable story run removed an earlier run's container. Its teardown runs
-  // late or never, so this response's CSS would stay in the head, and the head
-  // would count the detached canvas as one of its holders (#288). A canvas
-  // that was never in the document, such as a caller's own detached div,
-  // still gets the story.
-  if (canvasWasConnected && !canvasElement.isConnected) {
+  // The story went away while this render waited. Writing it would leave its
+  // CSS in the head, which would count the gone canvas as one of its holders
+  // (#288).
+  if (response === RENDER_ABORTED || renderWasAbandoned(canvasElement, canvasWasConnected, abortSignal)) {
     return;
   }
 
