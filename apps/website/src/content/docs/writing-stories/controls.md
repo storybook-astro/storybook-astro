@@ -248,8 +248,9 @@ export default {
 
 An AI agent then gets each Astro component's description, props and slots. Its
 props come as a Markdown `Props` type, the same shape Storybook gives React
-components: each prop with its type, a `?` when it's optional, its default and
-its JSDoc description. A **Slots** list follows, with each slot's `@slot`
+components: each prop with its type, a `?` when it's optional, its default as
+the component's `Astro.props` destructuring writes it, and its JSDoc
+description. A **Slots** list follows, with each slot's `@slot`
 description and a line on how a story fills them. Both come from the rows the
 extractor builds for the props table, so a prop it leaves out because it comes
 from a dependency (see [Inherited props](#inherited-props)) is left out here
@@ -265,7 +266,7 @@ export type Props = {
   /**
     Visual treatment.
   */
-  variant?: "solid" | "soft" | "outline" = "solid";
+  variant?: "solid" | "soft" | "outline" = 'solid';
   disabled?: boolean = false;
   href?: string | URL | null;
 }

@@ -148,7 +148,7 @@ describe('an Astro story', () => {
         '  /**',
         '    Heading text.',
         '  */',
-        '  title?: string = "Hello";',
+        "  title?: string = 'Hello';",
         '}',
         '```'
       ].join('\n')

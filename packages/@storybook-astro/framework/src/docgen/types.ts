@@ -30,7 +30,11 @@ export interface AstroDocgenProp {
   required: boolean;
   type: AstroDocgenPropType;
   description: string;
-  defaultValue: { value: string | number | boolean | null } | null;
+  /**
+   * `value` feeds the props table. `source` is the initializer as written,
+   * which the API description for AI agents prints so quoting survives.
+   */
+  defaultValue: { value: string | number | boolean | null; source?: string } | null;
   parent?: DeclarationRef;
   declarations?: DeclarationRef[];
   tags?: Record<string, string>;

@@ -89,6 +89,55 @@ describe('the props an agent reads', () => {
 
     expect(markdown).toContain("  items?: string[] = [ 'a', 'b' ];\n}");
   });
+
+  test('prints a default as the component wrote it, whatever the declared type', () => {
+    const markdown = describeComponent({
+      props: {
+        href: prop('href', {
+          type: { name: 'string | URL' },
+          defaultValue: { value: '/home', source: "'/home'" }
+        }),
+        title: prop('title', { defaultValue: { value: 'defaultTitle', source: 'defaultTitle' } })
+      }
+    });
+
+    expect(markdown).toContain("  href?: string | URL = '/home';");
+    expect(markdown).toContain('  title?: string = defaultTitle;');
+  });
+
+  test('prints a null default', () => {
+    const markdown = describeComponent({
+      props: {
+        nothing: prop('nothing', {
+          type: { name: 'string | null' },
+          defaultValue: { value: null, source: 'null' }
+        })
+      }
+    });
+
+    expect(markdown).toContain('  nothing?: string | null = null;');
+  });
+
+  test('keeps a multi-line array default written in the source on its prop line', () => {
+    const source = "[\n  'a',\n  'b'\n]";
+    const markdown = describeComponent({
+      props: {
+        items: prop('items', { type: { name: 'string[]' }, defaultValue: { value: source, source } })
+      }
+    });
+
+    expect(markdown).toContain("  items?: string[] = [ 'a', 'b' ];\n}");
+  });
+
+  test('keeps the spacing inside a string default', () => {
+    const markdown = describeComponent({
+      props: {
+        label: prop('label', { defaultValue: { value: 'Read  more', source: "'Read  more'" } })
+      }
+    });
+
+    expect(markdown).toContain("  label?: string = 'Read  more';");
+  });
 });
 
 describe('the slots an agent reads', () => {
@@ -138,6 +187,14 @@ describe('the slots an agent reads', () => {
     expect(markdown).toContain(
       ['## Slots', '', '- `footer`: Shown under the body. Accepts markup. Keep it short.', ''].join('\n')
     );
+  });
+
+  test('keeps Markdown emphasis at the start of a slot description line', () => {
+    const markdown = describeComponent({
+      slots: [{ name: 'body', description: '**Required.** The body\n*Optional* footer' }]
+    });
+
+    expect(markdown).toContain('- `body`: **Required.** The body *Optional* footer\n');
   });
 });
 

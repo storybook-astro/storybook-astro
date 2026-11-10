@@ -14,8 +14,10 @@ import type { AstroDocgenInfo } from './types.ts';
  *
  * It is built from the extractor's argTypes, the rows the props table starts
  * from, so a prop the extractor leaves out (the prop filter) is left out
- * here too, and defaults read the same. A story's `argTypes` aren't
- * applied: `table: { disable: true }` there hides a row from the table only.
+ * here too. Defaults print as the author wrote them, from the extractor's
+ * `defaultValue.source`, falling back to the table's summary. A story's
+ * `argTypes` aren't applied: `table: { disable: true }` there hides a row
+ * from the table only.
  * The type text comes from the extractor, since the table summarizes a literal
  * union as `enum`.
  */
@@ -39,17 +41,21 @@ function propsSection(argTypes: StrictArgTypes | null, info: AstroDocgenInfo): s
   const lines = ['## Props', '', '```', 'export type Props = {'];
 
   for (const [key, argType] of props) {
-    const { type } = info.props[key];
+    const { type, defaultValue: extracted } = info.props[key];
     const typeText = type.name === 'enum' && type.raw ? type.raw : type.name;
     const optional = argType.type?.required ? '' : '?';
-    // Typed as a string, but a `false` or `0` default arrives as itself.
-    const defaultValue: unknown = argType.table?.defaultValue?.summary;
+    // The source text keeps the author's quoting: the table quotes a default
+    // by its declared type, so `'/home'` on `string | URL` would lose its
+    // quotes and an identifier on `string` would gain some. Typed as a string,
+    // but a `false` or `0` summary arrives as itself.
+    const defaultValue: unknown = extracted?.source ?? argType.table?.defaultValue?.summary;
     // An array or object default keeps its source's line breaks, which would
-    // read as stray members of the type.
+    // read as stray members of the type. Only whitespace around a line break
+    // goes, so spaces inside a string literal stay as written.
     const fallback =
       defaultValue == null || defaultValue === ''
         ? ''
-        : ` = ${String(defaultValue).replace(/\s+/g, ' ')}`;
+        : ` = ${String(defaultValue).replace(/\s*\n\s*/g, ' ')}`;
 
     lines.push(...docComment(argType.description));
     lines.push(`  ${key}${optional}: ${typeText}${fallback};`);
@@ -72,9 +78,12 @@ function slotsSection(info: AstroDocgenInfo): string[] {
   for (const { name, description } of slots) {
     const label = name === 'default' ? '`default` (child content)' : `\`${name}\``;
     // A wrapped `@slot` comment would otherwise break out of its list item.
+    // Only a continuation line's JSDoc `*` goes, not Markdown emphasis.
     const text = description
       .split('\n')
-      .map((line) => line.replace(/^\s*\*?\s*/, '').trim())
+      .map((line, index) =>
+        index === 0 ? line.trim() : line.replace(/^\s*\*(?:\s+|$)/, '').trim()
+      )
       .filter(Boolean)
       .join(' ');
 
