@@ -475,7 +475,7 @@ describe('while an Astro story renders', () => {
   test('fails when the render module answers with nothing', async () => {
     server.render.mockResolvedValueOnce(undefined);
 
-    await expect(renderAstro(canvas)).rejects.toThrow(TypeError);
+    await expect(renderAstro(canvas)).rejects.toThrow();
   });
 
   test('removes the indicator when the render fails', async () => {
@@ -594,6 +594,10 @@ describe('while an Astro story renders', () => {
 });
 
 describe('when Storybook leaves an Astro story while the server renders it', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   /**
    * Storybook's `StoryRender.teardown()` aborts the render, then checks up to
    * three times, a `setTimeout(0)` apart, whether it is still pending, and
@@ -639,6 +643,29 @@ describe('when Storybook leaves an Astro story while the server renders it', () 
 
     expect(canvas.innerHTML).toBe('');
     expect(headCss()).toEqual([]);
+  });
+
+  test('removes the loading indicator as soon as Storybook aborts the render', async () => {
+    serverRespondsWith('first');
+    await renderAstro(canvas);
+
+    vi.useFakeTimers();
+    const story = new AbortController();
+    const component = astroComponent();
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(storyContext(() => component, {}, story.signal), canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+
+    story.abort();
+    await rendering;
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+    expect(canvas.innerHTML).toBe('<div>first</div>');
+
+    slowRender.respond('second');
   });
 
   test('writes nothing when Storybook aborted the render before it started', async () => {

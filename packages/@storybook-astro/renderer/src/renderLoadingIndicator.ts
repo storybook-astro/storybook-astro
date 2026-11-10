@@ -199,7 +199,7 @@ export function holdCanvasHeight(canvasElement: HTMLElement) {
   canvasElement.style.minHeight = `${height}px`;
 }
 
-/** Gives the canvas back its own height once the next Astro render writes its markup or fails, or a framework story starts rendering. */
+/** Gives the canvas back its own height once the next Astro render writes its markup or fails (a render Storybook aborted leaves it for the render after it), once the canvas leaves the document, or once a framework story starts rendering. */
 export function releaseCanvasHeight(canvasElement: HTMLElement) {
   const minHeight = heldHeightByCanvas.get(canvasElement);
 
