@@ -29,7 +29,7 @@ function storyContext(
   storyFn: () => unknown,
   parameters: Record<string, unknown> = {},
   // Storybook passes every render a live signal.
-  abortSignal: AbortSignal | undefined = new AbortController().signal
+  abortSignal: AbortSignal = new AbortController().signal
 ) {
   return {
     storyFn,
@@ -569,10 +569,7 @@ describe('while an Astro story renders', () => {
 
     const component = astroComponent();
     const slowRender = serverWaits();
-    const rendering = renderToCanvas(
-      storyContext(() => component, {}, new AbortController().signal),
-      canvas
-    );
+    const rendering = renderToCanvas(storyContext(() => component), canvas);
 
     canvas.remove();
     slowRender.respond('second');
@@ -751,7 +748,7 @@ describe('when Storybook leaves an Astro story while the server renders it', () 
 
   test('still shows the unreachable-server error for a story that is still there', async () => {
     const component = astroComponent();
-    const context = storyContext(() => component, {}, new AbortController().signal);
+    const context = storyContext(() => component);
     const unavailable = Object.assign(new Error('Unable to reach Astro rendering server'), {
       name: 'AstroRenderServerUnavailableError'
     });
