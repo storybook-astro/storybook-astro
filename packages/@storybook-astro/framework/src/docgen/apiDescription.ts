@@ -15,11 +15,11 @@ import type { AstroDocgenInfo } from './types.ts';
  * It is built from the extractor's argTypes, the rows the props table starts
  * from, so a prop the extractor leaves out (the prop filter) is left out
  * here too. Defaults print as the author wrote them, from the extractor's
- * `defaultValue.source`, falling back to the table's summary. A story's
- * `argTypes` aren't applied: `table: { disable: true }` there hides a row
- * from the table only.
- * The type text comes from the extractor, since the table summarizes a literal
- * union as `enum`.
+ * `defaultValue.source`. A story's `argTypes` aren't applied:
+ * `table: { disable: true }` there hides a row from the table only.
+ * The type text comes from the extractor, and a literal union prints as its
+ * members, since the table summarizes it as `enum` and the extractor's type
+ * text names an aliased union (`type Variant = …`) only by its alias.
  */
 export function formatApiDescription(
   argTypes: StrictArgTypes | null,
@@ -42,20 +42,21 @@ function propsSection(argTypes: StrictArgTypes | null, info: AstroDocgenInfo): s
 
   for (const [key, argType] of props) {
     const { type, defaultValue: extracted } = info.props[key];
-    const typeText = type.name === 'enum' && type.raw ? type.raw : type.name;
+    // `null` and `undefined` members aren't in `value`, so a required
+    // `'a' | 'b' | null` prints without its `| null`.
+    const typeText =
+      type.name === 'enum' && type.value
+        ? type.value.map(({ value }) => value).join(' | ')
+        : type.name;
     const optional = argType.type?.required ? '' : '?';
     // The source text keeps the author's quoting: the table quotes a default
     // by its declared type, so `'/home'` on `string | URL` would lose its
-    // quotes and an identifier on `string` would gain some. Typed as a string,
-    // but a `false` or `0` summary arrives as itself.
-    const defaultValue: unknown = extracted?.source ?? argType.table?.defaultValue?.summary;
+    // quotes and an identifier on `string` would gain some.
+    const source = extracted?.source;
     // An array or object default keeps its source's line breaks, which would
     // read as stray members of the type. Only whitespace around a line break
     // goes, so spaces inside a string literal stay as written.
-    const fallback =
-      defaultValue == null || defaultValue === ''
-        ? ''
-        : ` = ${String(defaultValue).replace(/\s*\n\s*/g, ' ')}`;
+    const fallback = source ? ` = ${source.replace(/\s*\n\s*/g, ' ')}` : '';
 
     lines.push(...docComment(argType.description));
     lines.push(`  ${key}${optional}: ${typeText}${fallback};`);

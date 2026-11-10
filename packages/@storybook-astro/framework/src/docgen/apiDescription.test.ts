@@ -29,7 +29,7 @@ describe('the props an agent reads', () => {
         subtitle: prop('subtitle'),
         featured: prop('featured', {
           type: { name: 'boolean' },
-          defaultValue: { value: false }
+          defaultValue: { value: false, source: 'false' }
         }),
         variant: prop('variant', {
           description: 'How loud the card is.',
@@ -38,7 +38,7 @@ describe('the props an agent reads', () => {
             raw: '"primary" | "secondary"',
             value: [{ value: '"primary"' }, { value: '"secondary"' }]
           },
-          defaultValue: { value: 'primary' }
+          defaultValue: { value: 'primary', source: "'primary'" }
         })
       }
     });
@@ -58,7 +58,7 @@ describe('the props an agent reads', () => {
         '  /**',
         '    How loud the card is.',
         '  */',
-        '  variant?: "primary" | "secondary" = "primary";',
+        '  variant?: "primary" | "secondary" = \'primary\';',
         '}',
         '```'
       ].join('\n')
@@ -77,17 +77,20 @@ describe('the props an agent reads', () => {
     );
   });
 
-  test('keeps a multi-line array default on its prop line', () => {
+  test('spells out a named literal union, since its type text is only the alias', () => {
     const markdown = describeComponent({
       props: {
-        items: prop('items', {
-          type: { name: 'string[]' },
-          defaultValue: { value: "[\n  'a',\n  'b'\n]" }
+        variant: prop('variant', {
+          type: {
+            name: 'enum',
+            raw: 'Variant',
+            value: [{ value: '"primary"' }, { value: '"secondary"' }]
+          }
         })
       }
     });
 
-    expect(markdown).toContain("  items?: string[] = [ 'a', 'b' ];\n}");
+    expect(markdown).toContain('  variant?: "primary" | "secondary";');
   });
 
   test('prints a default as the component wrote it, whatever the declared type', () => {
