@@ -10,6 +10,7 @@ const renderPayload = {
 
 describe('createServerRenderer', () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -164,6 +165,5 @@ describe('createServerRenderer', () => {
 
     await vi.advanceTimersByTimeAsync(1000);
     await failure;
-    vi.useRealTimers();
   });
 });

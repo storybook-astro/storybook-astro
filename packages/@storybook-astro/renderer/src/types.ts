@@ -81,9 +81,11 @@ export type RenderComponentInput = {
 
 export type RenderRequestOptions = {
   /**
-   * Storybook's abort signal for the story. When it fires, the transport drops
-   * the request (dev) or cancels the fetch (server mode) and rejects with the
-   * signal's reason (#342).
+   * Storybook's abort signal for the story. When it fires, the dev transport
+   * drops the request and the server-mode transport cancels the fetch, and both
+   * reject with the signal's reason (#342). The static transport ignores it,
+   * since it reads prerendered HTML from one shared fetch, so callers must not
+   * rely on the transport alone to settle an aborted render.
    */
   signal?: AbortSignal;
   timeoutMs?: number;
