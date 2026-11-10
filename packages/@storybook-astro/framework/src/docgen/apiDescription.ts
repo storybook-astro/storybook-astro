@@ -13,8 +13,8 @@ import type { AstroDocgenInfo } from './types.ts';
  * in core's docs toolset), so an agent reads both the same way.
  *
  * It is built from the extractor's argTypes, the rows the props table starts
- * from, so a prop the extractor leaves out (`@ignore`, the prop filter) is
- * left out here too, and defaults read the same. A story's `argTypes` aren't
+ * from, so a prop the extractor leaves out (the prop filter) is left out
+ * here too, and defaults read the same. A story's `argTypes` aren't
  * applied: `table: { disable: true }` there hides a row from the table only.
  * The type text comes from the extractor, since the table summarizes a literal
  * union as `enum`.

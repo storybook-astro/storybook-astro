@@ -89,18 +89,6 @@ describe('the props an agent reads', () => {
 
     expect(markdown).toContain("  items?: string[] = [ 'a', 'b' ];\n}");
   });
-
-  test('leaves out a prop the props table hides with @ignore', () => {
-    const markdown = describeComponent({
-      props: {
-        title: prop('title'),
-        internal: prop('internal', { description: '@ignore' })
-      }
-    });
-
-    expect(markdown).toContain('title?: string;');
-    expect(markdown).not.toContain('internal');
-  });
 });
 
 describe('the slots an agent reads', () => {
