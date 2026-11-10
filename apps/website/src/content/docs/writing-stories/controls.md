@@ -249,14 +249,17 @@ export default {
 
 As in the previous section, use the Docgen Server flag your Storybook reads. A
 static build (`storybook build`) then writes `manifests/components.json` to the
-output directory, with an entry for each Astro component holding its
-description and a reference to its props under `services/core/docgen/`.
+output directory, with an entry for each component; an Astro component's entry
+holds its description and a reference to its props under
+`services/core/docgen/`.
 
 The manifest comes from the same extraction as the props table, so it needs
-`@storybook/addon-docs` and TypeScript installed (see
-[Turning extraction off](#turning-extraction-off)). With the Docgen Server off,
-the build writes no `components.json`. Storybook 10.0–10.5 can't run the Docgen
-Server, so Astro components can't reach the manifest there.
+TypeScript installed (see [Turning extraction off](#turning-extraction-off)).
+Unlike the props table, it doesn't need `@storybook/addon-docs`. With the
+Docgen Server off, the build writes no `components.json`. On Storybook
+10.0–10.5, Storybook Astro can't run the Docgen Server, so Astro components get
+no description or props in the manifest, and with both flags on the build logs
+a manifest error.
 
 ## Turning extraction off
 
@@ -267,8 +270,8 @@ options: {
 }
 ```
 
-Extraction is also skipped automatically when `@storybook/addon-docs` isn't
-installed, and during test builds.
+Extraction is also skipped automatically during test builds and, unless the
+Docgen Server is on, when `@storybook/addon-docs` isn't installed.
 
 It needs TypeScript 5.0 or newer, which Astro projects already have. Without it,
 docgen is skipped with a warning and everything else keeps working.
