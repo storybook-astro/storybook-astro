@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { render } from './renderer-dev.ts';
+import type { RenderResponseMessage } from '@storybook-astro/renderer/types';
+import { init, render } from './renderer-dev.ts';
 
 const renderPayload = {
   component: '/src/components/Button.astro',
@@ -11,6 +12,41 @@ const renderPayload = {
 describe('dev render requests', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  test('resolve with the server\'s response and drop its timeout', async () => {
+    vi.useFakeTimers();
+
+    // A stand-in for Vite's HMR client: vitest.config.ts points the
+    // transport's `import.meta.hot` calls here.
+    let deliverResponse!: (data: RenderResponseMessage['data']) => void;
+    let sentRequestId: string | undefined;
+
+    vi.stubGlobal('__storybookAstroTestHot', {
+      on: (event: string, handler: typeof deliverResponse) => {
+        if (event === 'astro:render:response') {
+          deliverResponse = handler;
+        }
+      },
+      send: (_event: string, request: { id: string }) => {
+        sentRequestId = request.id;
+      }
+    });
+    init();
+
+    const story = new AbortController();
+    const rendering = render(renderPayload, { signal: story.signal, timeoutMs: 5000 });
+    const response = { id: sentRequestId!, html: '<button>Click</button>' };
+
+    deliverResponse(response);
+
+    await expect(rendering).resolves.toBe(response);
+    expect(vi.getTimerCount()).toBe(0);
+
+    story.abort();
+
+    await expect(rendering).resolves.toBe(response);
   });
 
   test('stop waiting on the response, and its timeout, when Storybook removes the story (issue #342)', async () => {

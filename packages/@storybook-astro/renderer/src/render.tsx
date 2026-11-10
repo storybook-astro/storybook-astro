@@ -347,6 +347,11 @@ const RENDER_ABORTED = Symbol('render aborted');
  * an aborted render to settle before it reloads the preview iframe (#271).
  * The transport cancels the request on the same signal (#342), but this
  * doesn't count on how many ticks its rejection takes to arrive.
+ *
+ * It expects a signal that hasn't aborted yet. `renderAstroToCanvas` returns
+ * before sending a request for a story Storybook has already removed (#342),
+ * so an already-aborted signal never reaches it; if one did, the race would
+ * wait on the transport.
  */
 async function serverResponseUnlessAborted<T>(
   response: Promise<T>,
