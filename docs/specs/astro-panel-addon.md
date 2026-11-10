@@ -155,18 +155,20 @@ import { addons } from 'storybook/internal/preview-api';
 import { ASTRO_RENDER_INFO_EVENT, type AstroRenderInfo } from './types.ts';
 
 // Build the request first, so serializing args isn't counted as round trip.
+// canvasWasConnected is a parameter, captured in renderToCanvas.
 const request = { component: rootComponent.moduleId, /* args, slots, node, story as today */ };
-const canvasWasConnected = canvasElement.isConnected;
+const abortSignal = storyContext?.abortSignal;
 const startedAt = performance.now();
-const response = await astroRenderer.render(request);
+const response = await serverResponseUnlessAborted(astroRenderer.render(request), abortSignal);
 const roundTripMs = performance.now() - startedAt;
 
 if (latestRenderByCanvas.get(canvasElement) !== renderToken) {
   return;
 }
 
-// Storybook removed the canvas while the request was in flight (#288).
-if (canvasWasConnected && !canvasElement.isConnected) {
+// Storybook aborted the render (#271), or removed the canvas while the
+// request was in flight (#288).
+if (response === RENDER_ABORTED || renderWasAbandoned(canvasElement, canvasWasConnected, abortSignal)) {
   return;
 }
 
@@ -185,6 +187,7 @@ if (storyContext?.viewMode === 'story') {
 }
 ```
 
+- `roundTripMs` is only used for a response that wasn't abandoned. An aborted render returns before the emit, so it emits nothing.
 - The HTML comes from the response, not from `canvasElement.innerHTML`. The canvas copy has had its links and scripts moved or replaced, and with #236 it can contain the loading indicator.
 - `addons.getChannel()` returns a mock channel when the preview has none installed, so this is safe in portable stories and in `render.test.ts`.
 - Framework-delegated stories, string stories and DOM-node stories never reach `renderAstroToCanvas`, so they don't emit.

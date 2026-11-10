@@ -254,10 +254,15 @@ export async function renderToCanvas(
     } finally {
       // Only the latest render settles what the canvas shows. An older one
       // that finishes late leaves the newer render's indicator and held
-      // height alone.
+      // height alone. An abandoned render keeps the height a teardown held:
+      // Storybook removed its story, and the next render into the canvas
+      // releases the height when it writes or fails.
       if (latestRenderByCanvas.get(canvasElement) === thisRender) {
         hideRenderLoadingIndicator(canvasElement);
-        releaseCanvasHeight(canvasElement);
+
+        if (!renderWasAbandoned(canvasElement, canvasWasConnected, storyContext.abortSignal)) {
+          releaseCanvasHeight(canvasElement);
+        }
       }
     }
 
@@ -332,29 +337,35 @@ function renderWasAbandoned(
   return Boolean(abortSignal?.aborted) || (canvasWasConnected && !canvasElement.isConnected);
 }
 
+/** What `serverResponseUnlessAborted` settles with once Storybook aborts the render. */
+const RENDER_ABORTED = Symbol('render aborted');
+
 /**
- * Settles with the server's response, or with `undefined` as soon as Storybook
- * aborts the render. Storybook's teardown waits only three ticks for an aborted
- * render to settle before it reloads the preview iframe (#271).
+ * Settles with the server's response, or with `RENDER_ABORTED` as soon as
+ * Storybook aborts the render. Storybook's teardown waits only three ticks for
+ * an aborted render to settle before it reloads the preview iframe (#271).
  */
 async function serverResponseUnlessAborted<T>(
   response: Promise<T>,
   abortSignal: AbortSignal | undefined
-): Promise<T | undefined> {
+): Promise<T | typeof RENDER_ABORTED> {
   if (!abortSignal) {
     return response;
   }
 
-  let settleAsAborted!: () => void;
-  const aborted = new Promise<undefined>((resolve) => {
-    settleAsAborted = () => resolve(undefined);
-  });
-
   if (abortSignal.aborted) {
-    settleAsAborted();
+    // Nothing waits on the server's promise now, so a failure it brings
+    // later isn't reported as unhandled.
+    response.catch(() => {});
+
+    return RENDER_ABORTED;
   }
 
-  abortSignal.addEventListener('abort', settleAsAborted, { once: true });
+  let settleAsAborted!: () => void;
+  const aborted = new Promise<typeof RENDER_ABORTED>((resolve) => {
+    settleAsAborted = () => resolve(RENDER_ABORTED);
+    abortSignal.addEventListener('abort', settleAsAborted);
+  });
 
   // The race keeps a handler on the server's promise, so a failure that
   // arrives after the abort isn't reported as unhandled.
@@ -413,7 +424,7 @@ async function renderAstroToCanvas(
   // The story went away while this render waited. Writing it would leave its
   // CSS in the head, which would count the gone canvas as one of its holders
   // (#288).
-  if (response === undefined || renderWasAbandoned(canvasElement, canvasWasConnected, abortSignal)) {
+  if (response === RENDER_ABORTED || renderWasAbandoned(canvasElement, canvasWasConnected, abortSignal)) {
     return;
   }
 
