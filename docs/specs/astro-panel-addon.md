@@ -154,12 +154,21 @@ In `renderAstroToCanvas`:
 import { addons } from 'storybook/internal/preview-api';
 import { ASTRO_RENDER_INFO_EVENT, type AstroRenderInfo } from './types.ts';
 
+const abortSignal = storyContext?.abortSignal;
+
+// No request for a story Storybook already removed (#342).
+if (abortSignal?.aborted) {
+  return;
+}
+
 // Build the request first, so serializing args isn't counted as round trip.
 // canvasWasConnected is a parameter, captured in renderToCanvas.
 const request = { component: rootComponent.moduleId, /* args, slots, node, story as today */ };
-const abortSignal = storyContext?.abortSignal;
 const startedAt = performance.now();
-const response = await serverResponseUnlessAborted(astroRenderer.render(request), abortSignal);
+const response = await serverResponseUnlessAborted(
+  astroRenderer.render(request, { signal: abortSignal }),
+  abortSignal
+);
 const roundTripMs = performance.now() - startedAt;
 
 if (latestRenderByCanvas.get(canvasElement) !== renderToken) {

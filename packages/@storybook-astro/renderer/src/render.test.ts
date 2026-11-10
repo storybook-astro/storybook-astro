@@ -109,7 +109,8 @@ describe('rendering an Astro story', () => {
     await renderToCanvas(context, canvas);
 
     expect(server.render).toHaveBeenCalledWith(
-      expect.objectContaining({ args: { title: 'Hello' }, slots: { default: 'Edited' } })
+      expect.objectContaining({ args: { title: 'Hello' }, slots: { default: 'Edited' } }),
+      expect.anything()
     );
   });
 
@@ -665,16 +666,32 @@ describe('when Storybook leaves an Astro story while the server renders it', () 
     slowRender.respond('second');
   });
 
-  test('writes nothing when Storybook aborted the render before it started', async () => {
+  test('doesn\'t ask the server to render when Storybook aborted the render before it started (issue #342)', async () => {
     const story = new AbortController();
     const component = astroComponent();
+    const context = storyContext(() => component, {}, story.signal);
 
     story.abort();
-    serverRespondsWith('first');
-    await renderToCanvas(storyContext(() => component, {}, story.signal), canvas);
 
+    await expect(renderToCanvas(context, canvas)).resolves.toBeUndefined();
+    expect(server.render).not.toHaveBeenCalled();
     expect(canvas.innerHTML).toBe('');
     expect(headCss()).toEqual([]);
+    expect(context.showError).not.toHaveBeenCalled();
+  });
+
+  test('hands Storybook\'s abort signal to the render request, so leaving the story cancels it (issue #342)', async () => {
+    const story = new AbortController();
+    const component = astroComponent();
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(storyContext(() => component, {}, story.signal), canvas);
+
+    expect(server.render).toHaveBeenCalledWith(expect.anything(), { signal: story.signal });
+
+    story.abort();
+    slowRender.fail(new DOMException('The operation was aborted.', 'AbortError'));
+
+    await expect(rendering).resolves.toBeUndefined();
   });
 
   test('doesn\'t show the error when the server fails after Storybook aborted the render', async () => {
@@ -688,32 +705,6 @@ describe('when Storybook leaves an Astro story while the server renders it', () 
     slowRender.fail();
 
     await expect(rendering).resolves.toBeUndefined();
-    expect(context.showError).not.toHaveBeenCalled();
-  });
-
-  test('doesn\'t show the error when the server has already failed and Storybook had already aborted the render', async () => {
-    const story = new AbortController();
-    const component = astroComponent();
-    const context = storyContext(() => component, {}, story.signal);
-
-    story.abort();
-    server.render.mockRejectedValueOnce(new Error('Render failed'));
-
-    await expect(renderToCanvas(context, canvas)).resolves.toBeUndefined();
-    expect(context.showError).not.toHaveBeenCalled();
-  });
-
-  test('doesn\'t throw when the render request fails to start after Storybook aborted the render', async () => {
-    const story = new AbortController();
-    const component = astroComponent();
-    const context = storyContext(() => component, {}, story.signal);
-
-    story.abort();
-    server.render.mockImplementationOnce(() => {
-      throw new Error('Render failed');
-    });
-
-    await expect(renderToCanvas(context, canvas)).resolves.toBeUndefined();
     expect(context.showError).not.toHaveBeenCalled();
   });
 

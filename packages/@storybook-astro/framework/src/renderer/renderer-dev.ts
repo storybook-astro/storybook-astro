@@ -2,6 +2,7 @@
 import type {
   RenderComponentInput,
   RenderPromise,
+  RenderRequestOptions,
   RenderResponseMessage
 } from '@storybook-astro/renderer/types';
 
@@ -10,13 +11,33 @@ const ASTRO_SERVER_UNAVAILABLE_ERROR_NAME = 'AstroRenderServerUnavailableError';
 
 export const isStaticMode = false;
 
-export async function render(data: RenderComponentInput, timeoutMs = 5000) {
+export async function render(
+  data: RenderComponentInput,
+  { signal, timeoutMs = 5000 }: RenderRequestOptions = {}
+) {
+  // A story Storybook has already removed doesn't need the server's render.
+  signal?.throwIfAborted();
+
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
   const id = crypto.randomUUID();
 
   const promise = new Promise<RenderResponseMessage['data']>((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
+    const forget = () => {
+      clearTimeout(timeoutId);
       pendingMessages.delete(id);
+      signal?.removeEventListener('abort', abandon);
+    };
+
+    // Storybook removed the story, so stop waiting on its response now
+    // instead of holding the entry and its timer until the response or the
+    // timeout (#342). The middleware still finishes the render.
+    const abandon = () => {
+      forget();
+      reject(signal?.reason);
+    };
+
+    const timeoutId = setTimeout(() => {
+      forget();
 
       const error = new Error(
         `Unable to reach Astro rendering server. No render response was received within ${timeoutMs}ms.`
@@ -27,7 +48,15 @@ export async function render(data: RenderComponentInput, timeoutMs = 5000) {
       reject(error);
     }, timeoutMs);
 
-    pendingMessages.set(id, { resolve, reject, timeoutId });
+    signal?.addEventListener('abort', abandon);
+    pendingMessages.set(id, {
+      resolve: (response) => {
+        forget();
+        resolve(response);
+      },
+      reject,
+      timeoutId
+    });
   });
 
   import.meta.hot?.send('astro:render:request', {
@@ -50,8 +79,6 @@ export function init() {
       return;
     }
 
-    clearTimeout(pendingMessage.timeoutId);
-    pendingMessages.delete(data.id);
     pendingMessage.resolve(data);
   });
 }
