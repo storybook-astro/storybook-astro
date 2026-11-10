@@ -173,8 +173,8 @@ removed. With the [Docgen Server](#moving-extraction-off-the-dev-server)
 enabled, slots are listed but have no text control yet
 ([#267](https://github.com/storybook-astro/storybook-astro/issues/267)). Slot
 rows and their controls come from the same extraction as the props table, so
-they need `@storybook/addon-docs` and TypeScript installed (see
-[Turning extraction off](#turning-extraction-off)).
+they need TypeScript installed, and `@storybook/addon-docs` unless the Docgen
+Server is on (see [Turning extraction off](#turning-extraction-off)).
 
 Each control is stored in a story arg named `slot-<name>`, for example
 `slot-footer`, which the renderer folds back into `args.slots`. You don't need to
@@ -226,8 +226,8 @@ exist yet, so extraction stays in the builder and logs a note saying so.
 
 ## Components manifest and AI agents
 
-Storybook's components manifest lists every component in your Storybook with its
-description and props, in a JSON file that tools can read.
+Storybook's components manifest lists your components with their description
+and props, in a JSON file that tools can read.
 `@storybook/addon-mcp` reads it to give AI agents your components'
 descriptions and props, so an agent can find a component and use it correctly
 without opening its source.
@@ -251,15 +251,21 @@ As in the previous section, use the Docgen Server flag your Storybook reads. A
 static build (`storybook build`) then writes `manifests/components.json` to the
 output directory, with an entry for each component; an Astro component's entry
 holds its description and a reference to its props under
-`services/core/docgen/`.
+`services/core/docgen/`. Only Astro components get a description and props.
+Components from React, Vue, Svelte, Solid and Preact are listed by name only.
+The JSON file is written by `storybook build`; in dev with the Docgen Server on,
+Storybook doesn't serve it.
 
 The manifest comes from the same extraction as the props table, so it needs
 TypeScript installed (see [Turning extraction off](#turning-extraction-off)).
-Unlike the props table, it doesn't need `@storybook/addon-docs`. With the
-Docgen Server off, the build writes no `components.json`. On Storybook
-10.0–10.5, Storybook Astro can't run the Docgen Server, so Astro components get
-no description or props in the manifest, and with both flags on the build logs
-a manifest error.
+With extraction turned off (`docgen: false`), the build still writes
+`components.json`, but Astro components are listed by name only, with no
+description or props. Unlike the props table, the manifest doesn't need
+`@storybook/addon-docs`. With the Docgen Server off, the build writes no
+`components.json`. On Storybook 10.0–10.5, Storybook Astro can't run the Docgen
+Server, so Astro components aren't in the manifest. On 10.0–10.4 the build
+writes no components manifest for them. On 10.5, with both flags on, the build
+also logs a manifest error.
 
 ## Turning extraction off
 
