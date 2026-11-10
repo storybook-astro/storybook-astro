@@ -254,13 +254,14 @@ export async function renderToCanvas(
     } finally {
       // Only the latest render settles what the canvas shows. An older one
       // that finishes late leaves the newer render's indicator and held
-      // height alone. An abandoned render keeps the height a teardown held:
-      // Storybook removed its story, and the next render into the canvas
-      // releases the height when it writes or fails.
+      // height alone. A render Storybook aborted keeps the height a teardown
+      // held: Storybook removed its story, and the next render into the
+      // canvas releases the height when it writes or fails. A canvas that only
+      // left the document gets no such next render, so it gets its height back.
       if (latestRenderByCanvas.get(canvasElement) === thisRender) {
         hideRenderLoadingIndicator(canvasElement);
 
-        if (!renderWasAbandoned(canvasElement, canvasWasConnected, storyContext.abortSignal)) {
+        if (!storyContext.abortSignal?.aborted) {
           releaseCanvasHeight(canvasElement);
         }
       }

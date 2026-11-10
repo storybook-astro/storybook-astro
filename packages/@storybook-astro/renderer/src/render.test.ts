@@ -28,7 +28,8 @@ function astroComponent() {
 function storyContext(
   storyFn: () => unknown,
   parameters: Record<string, unknown> = {},
-  abortSignal?: AbortSignal
+  // Storybook passes every render a live signal.
+  abortSignal: AbortSignal | undefined = new AbortController().signal
 ) {
   return {
     storyFn,
@@ -557,6 +558,27 @@ describe('while an Astro story renders', () => {
 
     expect(canvas.style.minHeight).toBe('');
     expect(canvas.innerHTML).toBe('<div>third</div>');
+  });
+
+  test('gives the held height back when the canvas leaves the document while the next render waits', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    const component = astroComponent();
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(
+      storyContext(() => component, {}, new AbortController().signal),
+      canvas
+    );
+
+    canvas.remove();
+    slowRender.respond('second');
+    await rendering;
+
+    expect(canvas.style.minHeight).toBe('');
   });
 
   test('gives the height back when a framework story renders next', async () => {
