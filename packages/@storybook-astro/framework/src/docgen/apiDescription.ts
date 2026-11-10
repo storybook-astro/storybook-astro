@@ -56,10 +56,10 @@ function propsSection(argTypes: StrictArgTypes | null, info: AstroDocgenInfo): s
     // An array or object default keeps its source's line breaks, which would
     // read as stray members of the type. Only whitespace around a line break
     // goes, so spaces inside a string literal stay as written.
-    const fallback = source ? ` = ${source.replace(/\s*\n\s*/g, ' ')}` : '';
+    const defaultText = source ? ` = ${source.replace(/\s*\n\s*/g, ' ')}` : '';
 
     lines.push(...docComment(argType.description));
-    lines.push(`  ${key}${optional}: ${typeText}${fallback};`);
+    lines.push(`  ${key}${optional}: ${typeText}${defaultText};`);
   }
 
   lines.push('}', '```', '');
