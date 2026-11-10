@@ -159,7 +159,10 @@ import { ASTRO_RENDER_INFO_EVENT, type AstroRenderInfo } from './types.ts';
 const request = { component: rootComponent.moduleId, /* args, slots, node, story as today */ };
 const abortSignal = storyContext?.abortSignal;
 const startedAt = performance.now();
-const response = await serverResponseUnlessAborted(astroRenderer.render(request), abortSignal);
+const response = await serverResponseUnlessAborted(
+  astroRenderer.render(request, { signal: abortSignal }),
+  abortSignal
+);
 const roundTripMs = performance.now() - startedAt;
 
 if (latestRenderByCanvas.get(canvasElement) !== renderToken) {

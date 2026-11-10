@@ -345,6 +345,8 @@ const RENDER_ABORTED = Symbol('render aborted');
  * Settles with the server's response, or with `RENDER_ABORTED` as soon as
  * Storybook aborts the render. Storybook's teardown waits only three ticks for
  * an aborted render to settle before it reloads the preview iframe (#271).
+ * The transport cancels the request on the same signal (#342), but this
+ * doesn't count on how many ticks its rejection takes to arrive.
  */
 async function serverResponseUnlessAborted<T>(
   response: Promise<T>,
@@ -352,14 +354,6 @@ async function serverResponseUnlessAborted<T>(
 ): Promise<T | typeof RENDER_ABORTED> {
   if (!abortSignal) {
     return response;
-  }
-
-  if (abortSignal.aborted) {
-    // Nothing waits on the server's promise now, so a failure it brings
-    // later isn't reported as unhandled.
-    response.catch(() => {});
-
-    return RENDER_ABORTED;
   }
 
   let settleAsAborted!: () => void;
@@ -385,6 +379,16 @@ async function renderAstroToCanvas(
   canvasWasConnected: boolean,
   storyContext?: StoryContext<AstroRenderer>
 ): Promise<void> {
+  const abortSignal = storyContext?.abortSignal;
+
+  // Storybook removed the story before this render began, as when a play
+  // function calls `mount()` after the story was aborted or a Docs block cleans
+  // up late. Nothing would show the server's render, so don't ask for one
+  // (#342).
+  if (abortSignal?.aborted) {
+    return;
+  }
+
   // An undecorated story's root moduleId is `element` itself. A decorated tree
   // carries the story leaf somewhere inside it instead (wherever a decorator
   // placed `Story()`), so its moduleId comes from the story's own meta
@@ -400,7 +404,6 @@ async function renderAstroToCanvas(
 
   const { props: componentArgs, slots } = splitStoryArgs(args, storyContext?.initialArgs);
   const decoratedTree = isDecoratedTree(element) ? element : undefined;
-  const abortSignal = storyContext?.abortSignal;
 
   const response = await serverResponseUnlessAborted(astroRenderer.render({
     component: rootComponent.moduleId,
@@ -414,7 +417,7 @@ async function renderAstroToCanvas(
           name: storyContext.name
         }
       : undefined
-  }), abortSignal);
+  }, { signal: abortSignal }), abortSignal);
 
   // A newer render into this canvas started while this one waited on the
   // server, so this response is out of date.

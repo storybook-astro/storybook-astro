@@ -79,6 +79,16 @@ export type RenderComponentInput = {
   };
 };
 
+export type RenderRequestOptions = {
+  /**
+   * Storybook's abort signal for the story. When it fires, the transport drops
+   * the request (dev) or cancels the fetch (server mode) and rejects with the
+   * signal's reason (#342).
+   */
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
 export type RenderResponseMessage = {
   type: 'astro:render:response';
   data: {
