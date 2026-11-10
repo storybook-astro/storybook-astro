@@ -135,6 +135,28 @@ describe('an Astro story', () => {
     docgen.dispose();
   });
 
+  test('describes the props in Markdown for AI agents, which never see argTypes', async () => {
+    const docgen = createAstroDocgen({ projectRoot: workingDir });
+    const payload = await build(storyEntry('Card.stories.jsx', 'Astro/Card'), docgen);
+
+    expect(payload?.apiDescription).toBe(
+      [
+        '## Props',
+        '',
+        '```',
+        'export type Props = {',
+        '  /**',
+        '    Heading text.',
+        '  */',
+        '  title?: string = "Hello";',
+        '}',
+        '```'
+      ].join('\n')
+    );
+
+    docgen.dispose();
+  });
+
   test('carries the component JSDoc tags through', async () => {
     const docgen = createAstroDocgen({ projectRoot: workingDir });
     const payload = await build(storyEntry('Card.stories.jsx', 'Astro/Card'), docgen);
@@ -168,6 +190,7 @@ describe('slots on the Docgen Server path', () => {
       control: { disable: true },
       table: { category: 'slots' }
     });
+    expect(payload?.apiDescription).toContain('- `default` (child content): The card body');
   });
 });
 

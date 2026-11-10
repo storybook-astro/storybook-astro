@@ -246,10 +246,39 @@ export default {
 };
 ```
 
-A static build (`storybook build`) then writes `manifests/components.json` to
-the output directory, with an entry for each component (a component is left out
-when all of its stories are tagged `!manifest`); an Astro component's entry
-holds its description and a reference to its props under
+An AI agent then gets each Astro component's description, props and slots. Its
+props come as a Markdown `Props` type, the same shape Storybook gives React
+components: each prop with its type, a `?` when it's optional, its default and
+its JSDoc description. A **Slots** list follows, with each slot's `@slot`
+description. Both come from the same rows as the props table, so a prop the
+table hides, with `@ignore` or because it comes from a dependency (see
+[Inherited props](#inherited-props)), is left out here too. For example,
+`docs-show` from `@storybook/addon-mcp` returns this for a button:
+
+````md
+## Props
+
+```
+export type Props = {
+  /**
+    Visual treatment.
+  */
+  variant?: "solid" | "soft" | "outline" = "solid";
+  disabled?: boolean = false;
+  href?: string | URL | null;
+}
+```
+
+## Slots
+
+- `default` (child content)
+````
+
+In dev, `/manifests/components.html` shows the same Markdown for each Astro
+component. A static build (`storybook build`) writes `manifests/components.json`
+to the output directory, with an entry for each component (a component is left
+out when all of its stories are tagged `!manifest`); an Astro component's entry
+holds its description and a reference to its props and that Markdown under
 `services/core/docgen/`. Only Astro components get a description and props.
 Components from React, Vue, Svelte, Solid and Preact are listed without a
 description or props. The JSON file is written by `storybook build`; in dev
