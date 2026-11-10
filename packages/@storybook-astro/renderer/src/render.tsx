@@ -350,8 +350,10 @@ const RENDER_ABORTED = Symbol('render aborted');
  *
  * It expects a signal that hasn't aborted yet. `renderAstroToCanvas` returns
  * before sending a request for a story Storybook has already removed (#342),
- * so an already-aborted signal never reaches it; if one did, the race would
- * wait on the transport.
+ * so an already-aborted signal never reaches it. If one did, the dev and
+ * server transports would still reject at once, but the static transport,
+ * which ignores the signal, would hold the race until its shared fetch
+ * settles.
  */
 async function serverResponseUnlessAborted<T>(
   response: Promise<T>,
