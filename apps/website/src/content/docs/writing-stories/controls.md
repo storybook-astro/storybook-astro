@@ -224,10 +224,39 @@ Two caveats:
 On Storybook 10.0–10.5 the flag is accepted but the helpers this builds on don't
 exist yet, so extraction stays in the builder and logs a note saying so.
 
-The Docgen Server also feeds Storybook's components manifest
-(`features.componentsManifest`), which `@storybook/addon-mcp` reads to give AI
-agents your components' descriptions and props. With both features on, static
-builds write `manifests/components.json` with an entry for each Astro component.
+## Components manifest and AI agents
+
+Storybook's components manifest lists every component in your Storybook with its
+description and props, in a JSON file that tools can read.
+`@storybook/addon-mcp` reads it to give AI agents your components'
+descriptions and props, so an agent can find a component and use it correctly
+without opening its source.
+
+Astro components reach the manifest through the
+[Docgen Server](#moving-extraction-off-the-dev-server), so turn it on together
+with `componentsManifest`. This needs Storybook 10.6 or newer:
+
+```js
+// .storybook/main.js
+export default {
+  features: {
+    experimentalDocgenServer: true, // Storybook 10.6–10.x
+    // docgenServer: true,          // Storybook 11 renames the flag
+    componentsManifest: true,
+  },
+};
+```
+
+As in the previous section, use the Docgen Server flag your Storybook reads. A
+static build (`storybook build`) then writes `manifests/components.json` to the
+output directory, with an entry for each Astro component holding its
+description and a reference to its props under `services/core/docgen/`.
+
+The manifest comes from the same extraction as the props table, so it needs
+`@storybook/addon-docs` and TypeScript installed (see
+[Turning extraction off](#turning-extraction-off)). With the Docgen Server off,
+the build writes no `components.json`. Storybook 10.0–10.5 can't run the Docgen
+Server, so Astro components can't reach the manifest there.
 
 ## Turning extraction off
 
