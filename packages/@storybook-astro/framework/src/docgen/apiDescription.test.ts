@@ -77,6 +77,19 @@ describe('the props an agent reads', () => {
     );
   });
 
+  test('keeps a multi-line array default on its prop line', () => {
+    const markdown = describeComponent({
+      props: {
+        items: prop('items', {
+          type: { name: 'string[]' },
+          defaultValue: { value: "[\n  'a',\n  'b'\n]" }
+        })
+      }
+    });
+
+    expect(markdown).toContain("  items?: string[] = [ 'a', 'b' ];\n}");
+  });
+
   test('leaves out a prop the props table hides with @ignore', () => {
     const markdown = describeComponent({
       props: {
@@ -115,10 +128,28 @@ describe('the slots an agent reads', () => {
     expect(markdown).not.toContain('slot-default');
   });
 
-  test('a component with only a default slot gets no named-slot hint', () => {
+  test('a component with only a default slot is told to fill it through args.slots', () => {
     const markdown = describeComponent({ slots: [{ name: 'default', description: '' }] });
 
-    expect(markdown).toBe(['## Slots', '', '- `default` (child content)'].join('\n'));
+    expect(markdown).toBe(
+      [
+        '## Slots',
+        '',
+        '- `default` (child content)',
+        '',
+        "In a story, pass slot content in `args.slots` (`slots: { default: '…' }`)."
+      ].join('\n')
+    );
+  });
+
+  test('keeps a wrapped @slot description in one list item', () => {
+    const markdown = describeComponent({
+      slots: [{ name: 'footer', description: 'Shown under the body.\n * Accepts markup.\nKeep it short.' }]
+    });
+
+    expect(markdown).toContain(
+      ['## Slots', '', '- `footer`: Shown under the body. Accepts markup. Keep it short.', ''].join('\n')
+    );
   });
 });
 

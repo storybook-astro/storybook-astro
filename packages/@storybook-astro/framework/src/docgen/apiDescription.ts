@@ -15,8 +15,9 @@ import type { AstroDocgenInfo } from './types.ts';
  * It is built from the extractor's argTypes, the rows the props table starts
  * from, so a prop the extractor leaves out (`@ignore`, the prop filter) is
  * left out here too, and defaults read the same. A story's `argTypes` aren't
- * applied: `table: { disable: true }` there hides a row from the table only. The type text comes from the extractor, since the table
- * summarizes a literal union as `enum`.
+ * applied: `table: { disable: true }` there hides a row from the table only.
+ * The type text comes from the extractor, since the table summarizes a literal
+ * union as `enum`.
  */
 export function formatApiDescription(
   argTypes: StrictArgTypes | null,
@@ -43,7 +44,12 @@ function propsSection(argTypes: StrictArgTypes | null, info: AstroDocgenInfo): s
     const optional = argType.type?.required ? '' : '?';
     // Typed as a string, but a `false` or `0` default arrives as itself.
     const defaultValue: unknown = argType.table?.defaultValue?.summary;
-    const fallback = defaultValue == null || defaultValue === '' ? '' : ` = ${defaultValue}`;
+    // An array or object default keeps its source's line breaks, which would
+    // read as stray members of the type.
+    const fallback =
+      defaultValue == null || defaultValue === ''
+        ? ''
+        : ` = ${String(defaultValue).replace(/\s+/g, ' ')}`;
 
     lines.push(...docComment(argType.description));
     lines.push(`  ${key}${optional}: ${typeText}${fallback};`);
@@ -65,18 +71,27 @@ function slotsSection(info: AstroDocgenInfo): string[] {
 
   for (const { name, description } of slots) {
     const label = name === 'default' ? '`default` (child content)' : `\`${name}\``;
+    // A wrapped `@slot` comment would otherwise break out of its list item.
+    const text = description
+      .split('\n')
+      .map((line) => line.replace(/^\s*\*?\s*/, '').trim())
+      .filter(Boolean)
+      .join(' ');
 
-    lines.push(description ? `- ${label}: ${description}` : `- ${label}`);
+    lines.push(text ? `- ${label}: ${text}` : `- ${label}`);
   }
 
   lines.push('');
 
+  // Astro stories have no `children` arg, so even a default slot needs saying.
   if (slots.some(({ name }) => name !== 'default')) {
     lines.push(
       'In a story, pass slot content in `args.slots` (`slots: { <name>: \'…\' }`). ' +
         'In an Astro template, put `slot="<name>"` on the child element.',
       ''
     );
+  } else {
+    lines.push('In a story, pass slot content in `args.slots` (`slots: { default: \'…\' }`).', '');
   }
 
   return lines;

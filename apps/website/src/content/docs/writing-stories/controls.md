@@ -250,12 +250,12 @@ An AI agent then gets each Astro component's description, props and slots. Its
 props come as a Markdown `Props` type, the same shape Storybook gives React
 components: each prop with its type, a `?` when it's optional, its default and
 its JSDoc description. A **Slots** list follows, with each slot's `@slot`
-description. Both come from the rows the extractor builds for the props table,
-so a prop it leaves out, with `@ignore` or because it comes from a dependency
-(see [Inherited props](#inherited-props)), is left out here too. Hiding a row
-with `table: { disable: true }` in a story's `argTypes` only hides it from the
-table: the agent still sees the prop. For example,
-`docs-show` from `@storybook/addon-mcp` returns this for a button:
+description and a line on how a story fills them. Both come from the rows the
+extractor builds for the props table, so a prop it leaves out, with `@ignore` or
+because it comes from a dependency (see [Inherited props](#inherited-props)), is
+left out here too. Hiding a row with `table: { disable: true }` in a story's
+`argTypes` only hides it from the table: the agent still sees the prop. For
+example, `docs-show` from `@storybook/addon-mcp` returns this for a button:
 
 ````md
 ## Props
@@ -274,6 +274,8 @@ export type Props = {
 ## Slots
 
 - `default` (child content)
+
+In a story, pass slot content in `args.slots` (`slots: { default: '…' }`).
 ````
 
 In dev, `/manifests/components.html` shows the same Markdown for each Astro
