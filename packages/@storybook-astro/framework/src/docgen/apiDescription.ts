@@ -12,9 +12,10 @@ import type { AstroDocgenInfo } from './types.ts';
  * section copies the shape core gives React components (`formatPropsSection`
  * in core's docs toolset), so an agent reads both the same way.
  *
- * It is built from the argTypes the props table shows, so a prop the table
- * leaves out (`@ignore`, the prop filter) is left out here too, and defaults
- * read the same. The type text comes from the extractor, since the table
+ * It is built from the extractor's argTypes, the rows the props table starts
+ * from, so a prop the extractor leaves out (`@ignore`, the prop filter) is
+ * left out here too, and defaults read the same. A story's `argTypes` aren't
+ * applied: `table: { disable: true }` there hides a row from the table only. The type text comes from the extractor, since the table
  * summarizes a literal union as `enum`.
  */
 export function formatApiDescription(
@@ -71,7 +72,11 @@ function slotsSection(info: AstroDocgenInfo): string[] {
   lines.push('');
 
   if (slots.some(({ name }) => name !== 'default')) {
-    lines.push('Pass content to a named slot with `slot="<name>"` on the child element.', '');
+    lines.push(
+      'In a story, pass slot content in `args.slots` (`slots: { <name>: \'…\' }`). ' +
+        'In an Astro template, put `slot="<name>"` on the child element.',
+      ''
+    );
   }
 
   return lines;

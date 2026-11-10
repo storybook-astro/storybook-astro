@@ -107,7 +107,8 @@ describe('the slots an agent reads', () => {
         '- `default` (child content): The card body',
         '- `actions`',
         '',
-        'Pass content to a named slot with `slot="<name>"` on the child element.'
+        "In a story, pass slot content in `args.slots` (`slots: { <name>: '…' }`). " +
+          'In an Astro template, put `slot="<name>"` on the child element.'
       ].join('\n')
     );
     // Slot rows live in the same argTypes, but they are not props.
