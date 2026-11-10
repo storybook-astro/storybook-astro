@@ -1,7 +1,12 @@
-import type { Options } from 'storybook/internal/types';
+import type { IndexEntry, Options, StoryDocsPayload } from 'storybook/internal/types';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-// eslint-disable-next-line camelcase -- the preset keys Storybook core reads.
-import { experimental_docgenProvider, experimental_manifests } from './preset.ts';
+/* eslint-disable camelcase -- the preset keys Storybook core reads. */
+import {
+  experimental_docgenProvider,
+  experimental_manifests,
+  experimental_storyDocsProvider
+} from './preset.ts';
+/* eslint-enable camelcase */
 import type { FrameworkOptions } from './types.ts';
 
 interface Scenario {
@@ -183,5 +188,30 @@ describe('declaring the docgen engine for the components manifest (issue #183)',
     const existing = { docs: { v: 0, docs: {} } };
 
     expect(await experimental_manifests(existing, storybookOptions())).toBe(existing);
+  });
+});
+
+describe('providing story docs for AI agents (issue #354)', () => {
+  const reactEntry = {
+    type: 'story',
+    subtype: 'story',
+    id: 'react-widget--default',
+    name: 'Default',
+    title: 'React/Widget',
+    importPath: './src/Widget.stories.jsx'
+  } as IndexEntry;
+
+  test('passes a stories file with no Astro component to the next provider', async () => {
+    const theirs: StoryDocsPayload = {
+      id: 'react-widget',
+      name: 'Widget',
+      path: './src/Widget.stories.jsx',
+      stories: {}
+    };
+    const next = vi.fn(async () => theirs);
+    const provider = await experimental_storyDocsProvider(next);
+
+    expect(await provider({ entry: reactEntry })).toBe(theirs);
+    expect(next).toHaveBeenCalledWith({ entry: reactEntry });
   });
 });

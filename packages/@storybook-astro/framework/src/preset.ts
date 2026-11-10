@@ -6,7 +6,8 @@ import type {
   ComponentsManifest,
   DocgenProviderDescriptor,
   Manifests,
-  Options
+  Options,
+  StoryDocsProvider
 } from 'storybook/internal/types';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
@@ -390,6 +391,31 @@ export const experimental_docgenProvider = async (
       }
     }
   ];
+};
+
+/**
+ * Gives Storybook's story docs service, which AI agents read through
+ * `docs-show` and `docs-show-story`, each Astro story's description and an
+ * Astro snippet from the generator behind Show code. Stories files that don't
+ * document an `.astro` component go on to the next provider.
+ *
+ * Core applies this preset only when the Docgen Server is on, so it needs no
+ * flag check of its own. The builder is imported on the first request, since
+ * the `csf-tools` helpers it uses landed in Storybook 10.6 and this file loads
+ * on every version in our peer range.
+ */
+// eslint-disable-next-line camelcase -- the preset key Storybook core reads.
+export const experimental_storyDocsProvider = async (
+  next: StoryDocsProvider
+): Promise<StoryDocsProvider> => {
+  return async (input) => {
+    const { buildStoryDocsPayload } = await import('./docgen/story-docs-payload.ts');
+
+    const ours = await buildStoryDocsPayload(input);
+
+    // Merged over the rest of the chain, as `@storybook/react` merges its own.
+    return ours ? { ...(await next(input)), ...ours } : next(input);
+  };
 };
 
 /**

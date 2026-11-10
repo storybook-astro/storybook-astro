@@ -279,9 +279,36 @@ export type Props = {
 In a story, pass slot content in `args.slots` (`slots: { default: '…' }`).
 ````
 
-As for React components, `docs-show` shows code for a component's first three
-stories and lists the rest by name. An agent fetches those with the story
-documentation tool.
+Each story also gets its description and an Astro snippet, the usage Show code
+prints for the story (see [Showing component source](#showing-component-source)),
+with the component's import in the frontmatter. The description is the story's
+JSDoc comment, or else its `parameters.docs.description.story`. As for React
+components, `docs-show` shows a component's first three stories with their
+snippets and lists the rest by name, and `docs-show-story` returns one story:
+
+````md
+# Button - Outline
+
+Outline variant at large size.
+
+```
+---
+import Button from './Button.astro';
+---
+<Button size="lg" variant="outline">
+  Read the docs
+</Button>
+```
+````
+
+The snippet is built from the stories file without running it, so it uses the
+story's args as written, merged over the meta's. An arg that isn't a literal
+value, such as a component in a slot, an imported image or the result of a
+function call, can't be read that way. That story gets a warning naming the arg
+instead of a snippet, and `docs-show` lists it by name. A function arg is left
+out, as Show code leaves it out. A story that sets `parameters.renderer` to a
+framework integration has no Astro snippet. `storybook build` writes the story
+snippets to `services/core/story-docs/` in the output directory.
 
 In dev, `/manifests/components.html` shows the same Markdown for each Astro
 component. A static build (`storybook build`) writes `manifests/components.json`

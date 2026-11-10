@@ -13,6 +13,8 @@ export default defineConfig({
     'src/decoratedTree.ts',
     'src/storyStyles.ts',
     'src/slotArgs.ts',
+    // The framework's story docs provider builds AI agents' snippets with it.
+    'src/docs/generateAstroSource.ts',
     'src/index.ts',
   ],
   format: ['esm'],
@@ -21,8 +23,8 @@ export default defineConfig({
     // resolved during isolated DTS compilation. Both are runtime-only entries
     // loaded by Vite/Storybook — they have no public API consumers needing DTS.
     // extractArgTypes.ts, preview-defaults.ts, decorators.ts, decoratedTree.ts,
-    // storyStyles.ts and slotArgs.ts are virtual-module-free, so the framework
-    // imports their types directly.
+    // storyStyles.ts, slotArgs.ts and docs/generateAstroSource.ts are
+    // virtual-module-free, so the framework imports their types directly.
     entry: [
       'src/preset.ts',
       'src/types.ts',
@@ -32,6 +34,7 @@ export default defineConfig({
       'src/decoratedTree.ts',
       'src/storyStyles.ts',
       'src/slotArgs.ts',
+      'src/docs/generateAstroSource.ts',
       'src/index.ts',
     ],
   },
