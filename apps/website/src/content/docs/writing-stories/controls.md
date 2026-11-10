@@ -246,10 +246,48 @@ export default {
 };
 ```
 
-A static build (`storybook build`) then writes `manifests/components.json` to
-the output directory, with an entry for each component (a component is left out
-when all of its stories are tagged `!manifest`); an Astro component's entry
-holds its description and a reference to its props under
+An AI agent then gets each Astro component's description, props and slots. Its
+props come as a Markdown `Props` type, the same shape Storybook gives React
+components: each prop with its type, a `?` when it's optional, its default as
+the component's `Astro.props` destructuring writes it, and its JSDoc
+description. A **Slots** list follows, with each slot's `@slot`
+description and a line on how a story fills them. Both come from the rows the
+extractor builds for the props table, so a prop it leaves out because it comes
+from a dependency (see [Inherited props](#inherited-props)) is left out here
+too. Hiding a row with `table: { disable: true }` in a story's
+`argTypes` only hides it from the table: the agent still sees the prop. For
+example, `docs-show` from `@storybook/addon-mcp` returns this for a button:
+
+````md
+## Props
+
+```
+export type Props = {
+  /**
+    Visual treatment.
+  */
+  variant?: "solid" | "soft" | "outline" = 'solid';
+  disabled?: boolean = false;
+  href?: string | URL | null;
+}
+```
+
+## Slots
+
+- `default` (child content)
+
+In a story, pass slot content in `args.slots` (`slots: { default: '…' }`).
+````
+
+As for React components, `docs-show` shows code for a component's first three
+stories and lists the rest by name. An agent fetches those with the story
+documentation tool.
+
+In dev, `/manifests/components.html` shows the same Markdown for each Astro
+component. A static build (`storybook build`) writes `manifests/components.json`
+to the output directory, with an entry for each component (a component is left
+out when all of its stories are tagged `!manifest`); an Astro component's entry
+holds its description and a reference to its props and that Markdown under
 `services/core/docgen/`. Only Astro components get a description and props.
 Components from React, Vue, Svelte, Solid and Preact are listed without a
 description or props. The JSON file is written by `storybook build`; in dev
