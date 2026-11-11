@@ -108,6 +108,56 @@ beforeAll(() => {
     '};'
   ]);
 
+  write('Shapes.stories.jsx', [
+    "import Button from './Button.astro';",
+    '',
+    'export default {',
+    "  title: 'Astro/Shapes',",
+    '  component: Button',
+    '};',
+    '',
+    "export const CustomRender = { render: () => 'x', args: { label: 'a' } };",
+    '',
+    "export const RenderWithArgs = { render: (args) => args.label, args: { label: 'a' } };",
+    '',
+    "export const NoParams = () => 'x';"
+  ]);
+
+  write('HiddenParameters.stories.jsx', [
+    "import Button from './Button.astro';",
+    '',
+    "const delegated = { renderer: 'react' };",
+    "const reactParams = { renderer: 'react' };",
+    "const RENDERER = 'react';",
+    '',
+    'export default {',
+    "  title: 'Astro/HiddenParameters',",
+    '  component: Button',
+    '};',
+    '',
+    "export const FromVariable = { parameters: delegated, args: { variant: 'solid' } };",
+    '',
+    "export const FromSpread = { parameters: { ...reactParams }, args: { variant: 'solid' } };",
+    '',
+    "export const RendererVariable = { parameters: { renderer: RENDERER }, args: { variant: 'solid' } };",
+    '',
+    "export const Readable = { parameters: { layout: 'centered' }, args: { variant: 'solid' } };"
+  ]);
+
+  write('HiddenMetaParameters.stories.jsx', [
+    "import Button from './Button.astro';",
+    '',
+    "const shared = { renderer: 'react' };",
+    '',
+    'export default {',
+    "  title: 'Astro/HiddenMetaParameters',",
+    '  component: Button,',
+    '  parameters: shared',
+    '};',
+    '',
+    "export const Default = { args: { variant: 'solid' } };"
+  ]);
+
   write('Widget.tsx', ['export const Widget = () => null;']);
 
   write('Widget.stories.jsx', [
@@ -282,6 +332,60 @@ describe('function args and unreadable source', () => {
 
     expect(story.snippet).toBeUndefined();
     expect(story.warning).toContain('parameters.docs.source.code');
+  });
+});
+
+describe('a story whose snippet the stories file cannot show', () => {
+  test('a render function that takes no args gets a warning, not a snippet from its args', async () => {
+    const payload = await build('Shapes.stories.jsx', 'Astro/Shapes');
+    const story = payload!.stories['astro-shapes--custom-render'];
+
+    expect(story.snippet).toBeUndefined();
+    expect(story.warning).toContain('`render` function');
+  });
+
+  test('a CSF2 function story with no args gets a warning', async () => {
+    const payload = await build('Shapes.stories.jsx', 'Astro/Shapes');
+    const story = payload!.stories['astro-shapes--no-params'];
+
+    expect(story.snippet).toBeUndefined();
+    expect(story.warning).toContain('`render` function');
+  });
+
+  test('a render function that takes args keeps its snippet, as in Show code', async () => {
+    const payload = await build('Shapes.stories.jsx', 'Astro/Shapes');
+    const story = payload!.stories['astro-shapes--render-with-args'];
+
+    expect(story.warning).toBeUndefined();
+    expect(story.snippet).toContain('<Button label="a" />');
+  });
+
+  test.each([
+    ['parameters set from a variable', 'astro-hiddenparameters--from-variable'],
+    ['parameters that spread another object', 'astro-hiddenparameters--from-spread'],
+    ['a renderer set from a variable', 'astro-hiddenparameters--renderer-variable']
+  ])('%s gets a warning, since the story may be delegated', async (_, id) => {
+    const payload = await build('HiddenParameters.stories.jsx', 'Astro/HiddenParameters');
+    const story = payload!.stories[id];
+
+    expect(story.snippet).toBeUndefined();
+    expect(story.warning).toBe('No static snippet: `parameters` could not be read statically.');
+  });
+
+  test('parameters written inline keep the snippet', async () => {
+    const payload = await build('HiddenParameters.stories.jsx', 'Astro/HiddenParameters');
+    const story = payload!.stories['astro-hiddenparameters--readable'];
+
+    expect(story.warning).toBeUndefined();
+    expect(story.snippet).toContain('<Button variant="solid" />');
+  });
+
+  test("a meta's parameters set from a variable gets every story a warning", async () => {
+    const payload = await build('HiddenMetaParameters.stories.jsx', 'Astro/HiddenMetaParameters');
+    const story = payload!.stories['astro-hiddenmetaparameters--default'];
+
+    expect(story.snippet).toBeUndefined();
+    expect(story.warning).toContain('`parameters` could not be read statically');
   });
 });
 

@@ -309,7 +309,11 @@ function call, can't be read that way. That story gets a warning naming the arg
 instead of a snippet, and `docs-show` lists it by name. A function arg, such as
 an `fn()` spy from `storybook/test` or a method like `onClick() {}`, is left
 out, as Show code leaves it out. A story that sets `parameters.renderer` to a
-framework integration has no Astro snippet. A story's own
+framework integration has no Astro snippet, and neither does a story with a
+`render` function that doesn't take args. A story whose `parameters`, or its
+meta's, isn't written inline (set from a variable, spreading another object, or
+with a `renderer` set from a variable) gets a warning instead of a snippet,
+since it may render with another integration. A story's own
 `parameters.docs.source.code` is its snippet as written. When it isn't a plain
 string, such as one built with `dedent`, the story gets a warning instead of a
 snippet. A story set to `docs.source.type: 'code'` without one gets no snippet.

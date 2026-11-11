@@ -42,8 +42,10 @@ export interface StoryDocsPayloadContext {
  * `warning` and no snippet, since a snippet missing an arg would show the
  * wrong usage. A story's hand-written `parameters.docs.source.code` is used
  * as it is, or gets a warning when it can't be read statically, and
- * `docs.source.type: 'code'` without one gets no snippet. Show code prints
- * this snippet even for a story set to `docs.source.type: 'dynamic'`.
+ * `docs.source.type: 'code'` without one gets no snippet. A story whose
+ * `render` doesn't take args, or whose `parameters` (or its meta's) can't be
+ * read statically, gets a warning and no snippet. Show code prints this
+ * snippet even for a story set to `docs.source.type: 'dynamic'`.
  * Args set in `.storybook/preview.js` aren't read.
  *
  * Returns `undefined` when the stories file doesn't document an `.astro`
@@ -114,7 +116,12 @@ export async function buildStoryDocsPayload(
         doc.summary = summary;
       }
 
-      if (typeof renderer === 'string' && renderer !== 'astro') {
+      if (parametersUnreadable(storyMembers.properties) || parametersUnreadable(metaMembers.properties)) {
+        // A `parameters` this can't see into may set a renderer or a
+        // hand-written source, so a snippet built from args could be the wrong
+        // one. Without one here, the Docs page falls back to its own.
+        doc.warning = 'No static snippet: `parameters` could not be read statically.';
+      } else if (typeof renderer === 'string' && renderer !== 'astro') {
         // Show code has no snippet for these either: the story renders
         // through the integration's own Storybook renderer.
         doc.warning = `This story renders with the ${renderer} integration, so it has no Astro snippet.`;
@@ -128,6 +135,11 @@ export async function buildStoryDocsPayload(
       } else if (sourceType === 'code') {
         // Show code prints the story's CSF source here, which isn't Astro
         // usage, so agents get neither a snippet nor a warning.
+      } else if (story.parameters?.__isArgsStory === false) {
+        // A `render` that doesn't take args draws what it likes, so a snippet
+        // built from args wouldn't match the story. Show code prints the
+        // story's source for it instead.
+        doc.warning = 'This story renders through its own `render` function, so it has no snippet built from args.';
       } else {
         // What the resolver couldn't follow, plus any value that isn't a
         // literal. A method-shorthand arg is a function, which Show code
@@ -207,6 +219,38 @@ function parameterNode(configProperties: Record<string, unknown>, path: string[]
   }
 
   return node;
+}
+
+/**
+ * Whether the story's or meta's `parameters` hides what it sets: it isn't an
+ * object written inline (a variable, a call), it spreads another object in, or
+ * its `renderer` isn't a literal. Reading it would treat a delegated story as
+ * an Astro one.
+ */
+function parametersUnreadable(configProperties: Record<string, unknown>): boolean {
+  const parameters = configProperties.parameters as AstNode | undefined;
+
+  if (!parameters) {
+    return false;
+  }
+
+  const node = unwrap(parameters);
+
+  if (node.type !== 'ObjectExpression') {
+    return true;
+  }
+  if ((node.properties as AstNode[]).some((member) => staticKey(member) === undefined)) {
+    return true;
+  }
+
+  const renderer = objectMember(node, 'renderer');
+  const unresolved: string[] = [];
+
+  if (renderer) {
+    readValue(renderer, unresolved);
+  }
+
+  return unresolved.length > 0;
 }
 
 /** A literal under `parameters`, or `undefined` when it isn't there or isn't a literal. */
