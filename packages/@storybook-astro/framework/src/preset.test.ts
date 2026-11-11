@@ -1,8 +1,14 @@
-import type { Options } from 'storybook/internal/types';
+import type { IndexEntry, Options, StoryDocsPayload } from 'storybook/internal/types';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-// eslint-disable-next-line camelcase -- the preset keys Storybook core reads.
-import { experimental_docgenProvider, experimental_manifests } from './preset.ts';
+/* eslint-disable camelcase -- the preset keys Storybook core reads. */
+import {
+  experimental_docgenProvider,
+  experimental_manifests,
+  experimental_storyDocsProvider
+} from './preset.ts';
+/* eslint-enable camelcase */
 import type { FrameworkOptions } from './types.ts';
+import type * as StoryDocsPayloadModule from './docgen/story-docs-payload.ts';
 
 interface Scenario {
   features?: Record<string, unknown>;
@@ -40,11 +46,42 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
   };
 });
 
+// Lets a test make the story docs builder throw, as an unexpected stories
+// file shape could.
+const storyDocsBuilder = vi.hoisted(() => ({
+  error: undefined as Error | undefined,
+  loadError: undefined as Error | undefined
+}));
+
+vi.mock('./docgen/story-docs-payload.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof StoryDocsPayloadModule>();
+
+  return {
+    ...actual,
+    // A getter, so reading the export fails as a module that can't link would.
+    get buildStoryDocsPayload() {
+      if (storyDocsBuilder.loadError) {
+        throw storyDocsBuilder.loadError;
+      }
+
+      return (...args: Parameters<typeof actual.buildStoryDocsPayload>) => {
+        if (storyDocsBuilder.error) {
+          throw storyDocsBuilder.error;
+        }
+
+        return actual.buildStoryDocsPayload(...args);
+      };
+    }
+  };
+});
+
 const flagOn = { experimentalDocgenServer: true };
 
 afterEach(() => {
   vi.restoreAllMocks();
   installed.storybook = '10.6.0';
+  storyDocsBuilder.error = undefined;
+  storyDocsBuilder.loadError = undefined;
 });
 
 describe('contributing the Docgen Server descriptor', () => {
@@ -183,5 +220,60 @@ describe('declaring the docgen engine for the components manifest (issue #183)',
     const existing = { docs: { v: 0, docs: {} } };
 
     expect(await experimental_manifests(existing, storybookOptions())).toBe(existing);
+  });
+});
+
+describe('providing story docs for AI agents (issue #354)', () => {
+  const reactEntry = {
+    type: 'story',
+    subtype: 'story',
+    id: 'react-widget--default',
+    name: 'Default',
+    title: 'React/Widget',
+    importPath: './src/Widget.stories.jsx'
+  } as IndexEntry;
+
+  test('passes a stories file it does not document to the next provider', async () => {
+    const theirs: StoryDocsPayload = {
+      id: 'react-widget',
+      name: 'Widget',
+      path: './src/Widget.stories.jsx',
+      stories: {}
+    };
+    const next = vi.fn(async () => theirs);
+    const provider = await experimental_storyDocsProvider(next);
+
+    expect(await provider({ entry: reactEntry })).toBe(theirs);
+    expect(next).toHaveBeenCalledWith({ entry: reactEntry });
+  });
+
+  test('passes the request on to the next provider when building the story docs throws', async () => {
+    storyDocsBuilder.error = new Error('Unexpected stories file');
+
+    const theirs: StoryDocsPayload = {
+      id: 'react-widget',
+      name: 'Widget',
+      path: './src/Widget.stories.jsx',
+      stories: {}
+    };
+    const next = vi.fn(async () => theirs);
+    const provider = await experimental_storyDocsProvider(next);
+
+    expect(await provider({ entry: reactEntry })).toBe(theirs);
+  });
+
+  test('passes the request on to the next provider when the story docs module fails to load', async () => {
+    storyDocsBuilder.loadError = new SyntaxError("The requested module does not provide an export named 'loadCsf'");
+
+    const theirs: StoryDocsPayload = {
+      id: 'react-widget',
+      name: 'Widget',
+      path: './src/Widget.stories.jsx',
+      stories: {}
+    };
+    const next = vi.fn(async () => theirs);
+    const provider = await experimental_storyDocsProvider(next);
+
+    expect(await provider({ entry: reactEntry })).toBe(theirs);
   });
 });

@@ -82,8 +82,15 @@ describe('a plain component', () => {
   test('reads defaults from the Astro.props destructuring', () => {
     const props = docgen()!.props;
 
-    expect(props.title.defaultValue).toEqual({ value: 'Default title' });
-    expect(props.highlight.defaultValue).toEqual({ value: false });
+    expect(props.title.defaultValue?.value).toBe('Default title');
+    expect(props.highlight.defaultValue?.value).toBe(false);
+  });
+
+  test('records each default as written, so its quotes survive for AI agents', () => {
+    const props = docgen()!.props;
+
+    expect(props.title.defaultValue?.source).toBe("'Default title'");
+    expect(props.highlight.defaultValue?.source).toBe('false');
   });
 
   test('a prop with a default is not required', () => {

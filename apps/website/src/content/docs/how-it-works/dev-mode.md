@@ -11,7 +11,7 @@ In dev mode (`storybook dev`), Astro components are rendered on-demand through a
 
 2. **Component detection** — The renderer checks imported components for the `isAstroComponentFactory` flag to identify Astro components.
 
-3. **Server rendering** — When an Astro component is detected, a render request is sent to the Vite dev server middleware via HMR (Hot Module Replacement). If the render takes longer than 200 ms, the canvas shows "Rendering story…", in place of an emptied canvas or over the story it still shows. When Storybook tears a story down, the canvas keeps its height until the next render writes its markup or fails, so the content below it doesn't collapse in between.
+3. **Server rendering** — When an Astro component is detected, a render request is sent to the Vite dev server middleware via HMR (Hot Module Replacement). If the render takes longer than 200 ms, the canvas shows "Rendering story…", in place of an emptied canvas or over the story it still shows. When Storybook tears a story down, the canvas keeps its height until the next render writes its markup or fails, so the content below it doesn't collapse in between. If you leave a story while it's still rendering, the renderer stops waiting and drops the response when it arrives. The server still finishes that render.
 
 4. **Container rendering** — The middleware uses Astro's Container API to render the component with the provided props and slots. The `patchCreateAstroCompat` wrapper bridges the Astro compiler v2/v3 calling convention difference.
 

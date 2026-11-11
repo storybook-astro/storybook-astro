@@ -79,6 +79,18 @@ export type RenderComponentInput = {
   };
 };
 
+export type RenderRequestOptions = {
+  /**
+   * Storybook's abort signal for the story. When it fires, the dev transport
+   * drops the request and the server-mode transport cancels the fetch, and both
+   * reject with the signal's reason (#342). The static transport ignores it,
+   * since it reads prerendered HTML from one shared fetch, so callers must not
+   * rely on the transport alone to settle an aborted render.
+   */
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
 export type RenderResponseMessage = {
   type: 'astro:render:response';
   data: {
@@ -99,7 +111,7 @@ export type Message = RenderRequestMessage | RenderResponseMessage;
 export type RenderPromise = {
   resolve: (value: RenderResponseMessage['data']) => void;
   reject: (reason?: unknown) => void;
-  timeoutId: NodeJS.Timeout;
+  timeoutId: ReturnType<typeof setTimeout>;
 };
 
 // Global type extensions

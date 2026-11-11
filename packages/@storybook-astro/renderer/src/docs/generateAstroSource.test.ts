@@ -129,6 +129,194 @@ describe('writing complex values inline (issue #190)', () => {
   });
 });
 
+describe('values JSON cannot represent (issue #273)', () => {
+  const modes = ['frontmatter', 'inline'] as const;
+
+  describe.each(modes)('with objectProps %s', (objectProps) => {
+    /** The printed literal for `value`, from whichever place the mode puts it. */
+    function literalFor(value: unknown): string {
+      const source = generateAstroSource('Card', { value }, { objectProps });
+
+      if (objectProps === 'inline') {
+        return source.replace(/^<Card\n {2}value=\{/, '').replace(/\}\n\/>$/, '').replaceAll('\n  ', '\n');
+      }
+
+      return source.replace(/^---\nconst value = /, '').replace(/;\n---\n<Card value=\{value\} \/>$/, '');
+    }
+
+    test('a nested Date stays a Date', () => {
+      expect(literalFor({ start: new Date('2026-06-11T00:00:00Z') })).toBe(
+        '{\n  start: new Date("2026-06-11T00:00:00.000Z")\n}'
+      );
+    });
+
+    test('a nested BigInt keeps its n instead of throwing', () => {
+      expect(literalFor({ big: 1n })).toBe('{\n  big: 1n\n}');
+    });
+
+    test('nested NaN and Infinity stay themselves', () => {
+      expect(literalFor({ a: NaN, b: Infinity, c: -Infinity })).toBe(
+        '{\n  a: NaN,\n  b: Infinity,\n  c: -Infinity\n}'
+      );
+    });
+
+    test('undefined array entries and holes stay undefined, keeping positions', () => {
+      // eslint-disable-next-line no-sparse-arrays
+      expect(literalFor([1, undefined, , 4])).toBe('[\n  1,\n  undefined,\n  undefined,\n  4\n]');
+    });
+
+    test('an array with its own iterator prints its indexed entries', () => {
+      const tags = ['a', 'b'];
+
+      Object.defineProperty(tags, Symbol.iterator, {
+        value: function* () {
+          yield 'other';
+        }
+      });
+
+      expect(literalFor(tags)).toBe('[\n  "a",\n  "b"\n]');
+    });
+
+    test('undefined, function and Symbol members are left out of an object', () => {
+      expect(literalFor({ kept: 1, gone: undefined, onClick: () => {}, tag: Symbol('t') })).toBe(
+        '{\n  kept: 1\n}'
+      );
+    });
+
+    test('an own __proto__ key is written as a computed key', () => {
+      const literal = literalFor(JSON.parse('{"__proto__": {"a": 1}}'));
+
+      expect(literal).toBe('{\n  ["__proto__"]: {\n    a: 1\n  }\n}');
+      // Evaluated, the literal has an own key rather than a new prototype.
+      expect(Object.keys(new Function(`return ${literal};`)())).toEqual(['__proto__']);
+    });
+
+    test('keys that are not identifiers stay quoted', () => {
+      expect(literalFor({ 'data-id': 1 })).toBe('{\n  "data-id": 1\n}');
+    });
+
+    test('a circular value is left out instead of throwing', () => {
+      const node: Record<string, unknown> = { name: 'root' };
+
+      node.self = node;
+
+      expect(generateAstroSource('Card', { value: node, title: 'Hi' }, { objectProps })).toBe(
+        '<Card title="Hi" />'
+      );
+    });
+
+    test('a function or Symbol array entry is written as undefined, keeping positions', () => {
+      expect(literalFor(['a', () => {}, Symbol('s'), 'b'])).toBe(
+        '[\n  "a",\n  undefined,\n  undefined,\n  "b"\n]'
+      );
+    });
+
+    test('Number and String wrapper objects print as the value they wrap', () => {
+      expect(literalFor({ count: new Number(5), label: new String('ab') })).toBe(
+        '{\n  count: 5,\n  label: "ab"\n}'
+      );
+    });
+
+    test('an object whose toJSON returns itself prints its members', () => {
+      expect(
+        literalFor({
+          a: 1,
+          toJSON() {
+            return this;
+          }
+        })
+      ).toBe('{\n  a: 1\n}');
+    });
+
+    test('an object whose toJSON returns a fresh copy of itself prints that copy once', () => {
+      const value = {
+        a: 1,
+        toJSON() {
+          return { ...this };
+        }
+      };
+
+      expect(literalFor(value)).toBe('{\n  a: 1\n}');
+    });
+
+    test('a member whose toJSON returns a function is left out, not the whole prop', () => {
+      expect(
+        literalFor({
+          a: {
+            toJSON() {
+              return () => 1;
+            }
+          },
+          b: 1
+        })
+      ).toBe('{\n  b: 1\n}');
+    });
+
+    test('a member whose toJSON returns undefined is left out', () => {
+      expect(
+        literalFor({
+          a: {
+            toJSON() {
+              return undefined;
+            }
+          },
+          b: 1
+        })
+      ).toBe('{\n  b: 1\n}');
+    });
+
+    test('toJSON gets the member name or array index as its key', () => {
+      const keyed = {
+        toJSON(key: string) {
+          return `key=${key}`;
+        }
+      };
+
+      expect(literalFor({ a: keyed })).toBe('{\n  a: "key=a"\n}');
+      expect(literalFor([keyed])).toBe('[\n  "key=0"\n]');
+    });
+  });
+
+  test('a top-level toJSON gets an empty key, and returning undefined omits the prop', () => {
+    const keyed = {
+      toJSON(key: string) {
+        return `key=${key}`;
+      }
+    };
+    const empty = {
+      toJSON() {
+        return undefined;
+      }
+    };
+
+    expect(generateAstroSource('Card', { label: keyed, gone: empty })).toBe('<Card label="key=" />');
+  });
+
+  test('a top-level Symbol is omitted instead of throwing', () => {
+    expect(generateAstroSource('Card', { tag: Symbol('t'), title: 'Hi' })).toBe(
+      '<Card title="Hi" />'
+    );
+  });
+
+  test('top-level NaN and Infinity render as expressions', () => {
+    expect(generateAstroSource('Card', { a: NaN, b: Infinity })).toBe('<Card a={NaN} b={Infinity} />');
+  });
+
+  test('an invalid Date renders as new Date(NaN) instead of throwing', () => {
+    expect(generateAstroSource('Card', { when: new Date('nope') })).toBe(
+      '<Card when={new Date(NaN)} />'
+    );
+  });
+
+  test('a shared, non-circular reference is printed each time it appears', () => {
+    const shared = { a: 1 };
+
+    expect(generateAstroSource('Card', { pair: [shared, shared] }, { objectProps: 'inline' })).toBe(
+      ['<Card', '  pair={[', '    {', '      a: 1', '    },', '    {', '      a: 1', '    }', '  ]}', '/>'].join('\n')
+    );
+  });
+});
+
 describe('slots edited in Controls (issue #203)', () => {
   test('a per-slot arg becomes slot content, not an attribute', () => {
     const source = generateAstroSource('Card', {

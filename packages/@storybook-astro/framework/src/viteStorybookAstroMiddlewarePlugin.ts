@@ -37,9 +37,12 @@ import {
 } from './loadUserAstroConfig.ts';
 
 export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptions) {
-  // The internal Vite server is created lazily inside configureServer (dev-only).
-  // During builds, configureServer never fires, so no server is created.
-  let viteServer: ViteDevServer | null = null;
+  // Each dev server Storybook or Vitest starts gets its own internal Astro SSR
+  // server, created in configureServer (dev-only; builds never call it).
+  // @storybook/addon-vitest runs this plugin in two servers, the project's and
+  // the browser's, so one variable would lose the first and never close it
+  // (#312).
+  const astroServers = new Map<ViteDevServer, ViteDevServer>();
 
   const resolveFrom = options.resolveFrom ?? process.cwd();
 
@@ -48,7 +51,9 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
     async configureServer(server) {
       const fontCss = await generateFontCss(options.fonts ?? [], resolveFrom);
 
-      viteServer = await createViteServer(options.integrations ?? [], resolveFrom, options.fonts);
+      const viteServer = await createViteServer(options.integrations ?? [], resolveFrom, options.fonts);
+
+      astroServers.set(server, viteServer);
       const storyRulesConfigFilePath = resolveRulesConfigFilePath(options.storyRules, resolveFrom);
 
       const filePath = fileURLToPath(new URL('./middleware', import.meta.url));
@@ -60,16 +65,16 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
         sanitization: options.sanitization,
         rulesConfigFilePath: storyRulesConfigFilePath,
         resolveRulesConfigModule: () =>
-          loadRulesConfigModule(viteServer!, storyRulesConfigFilePath),
+          loadRulesConfigModule(viteServer, storyRulesConfigFilePath),
         invalidateModuleGraph: () => {
-          viteServer?.moduleGraph.invalidateAll();
+          viteServer.moduleGraph.invalidateAll();
         },
         loadModule: (id: string) =>
-          ssrLoadModuleWithFsFallback(viteServer!, id, {
+          ssrLoadModuleWithFsFallback(viteServer, id, {
             fixStacktrace: true
           }),
         loadComponentStyles: (componentIds: string[]) =>
-          loadComponentStyles(viteServer!, componentIds),
+          loadComponentStyles(viteServer, componentIds),
         resolveFrom
       });
 
@@ -126,19 +131,26 @@ export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptio
     },
     // The internal Astro SSR server owns a file watcher and an HTTP server, so
     // leaving it running keeps the whole process alive after Storybook or Vitest
-    // is done. Vite calls this when the parent server closes. During builds
+    // is done. Vite calls this for each environment of a dev server as that
+    // server closes, so close the Astro server that belongs to it. During builds
     // `configureServer` never ran, so there is nothing to close.
     async closeBundle() {
-      await viteServer?.close();
-      viteServer = null;
+      for (const [server, viteServer] of astroServers) {
+        if (Object.values(server.environments).some((environment) => environment === this.environment)) {
+          astroServers.delete(server);
+          await viteServer.close();
+        }
+      }
     }
   } satisfies PluginOption;
 
-  // Create asset serving plugin (only active in dev when viteServer exists)
+  // Serves /_image through the Astro server of the dev server that received the request (astroServers.get(server)), and falls through to next() when that server has none or has closed.
   const assetServingPlugin = {
     name: 'storybook-astro-assets',
     configureServer(server: ViteDevServer) {
       server.middlewares.use('/_image', (req: Connect.IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
+        const viteServer = astroServers.get(server);
+
         if (!viteServer) {
           next();
 

@@ -10,9 +10,9 @@ Storybook Astro tracks Astro's major releases and includes a small set of compat
 | Tool | Supported |
 | --- | --- |
 | **Astro** | 5.5.3+, 6.x, or 7.x |
-| **Storybook** | 10.0.0+ |
+| **Storybook** | 10.x, or 11 (betas included) |
 | **Vite** | 6.4.1+ (required by Astro 5), 7.x, or 8.x |
-| **Node.js** | 20.16.0+, 22.19.0+, or 24.0.0+ |
+| **Node.js** | 20.16.0+, 22.19.0+, or 24.0.0+ (Storybook 11 needs 22.12.0+) |
 
 Each supported Astro major has a matching integration example in the repository (`integration/astro5`, `integration/astro6`, `integration/astro7`) plus a server-render variant, and every release is smoke-tested against all three majors. A weekly CI job also runs the test suites against the newest release of each major, so new Astro minors are checked as they ship.
 
