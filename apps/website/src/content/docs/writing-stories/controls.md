@@ -306,16 +306,19 @@ The snippet is built from the stories file without running it, so it uses the
 story's args as written, merged over the meta's. An arg that isn't a literal
 value, such as a component in a slot, an imported image or the result of a
 function call, can't be read that way. That story gets a warning naming the arg
-instead of a snippet, and `docs-show` lists it by name. A function arg is left
+instead of a snippet, and `docs-show` lists it by name. A function arg, such as
+an `fn()` spy from `storybook/test` or a method like `onClick() {}`, is left
 out, as Show code leaves it out. A story that sets `parameters.renderer` to a
 framework integration has no Astro snippet. A story's own
-`parameters.docs.source.code` is its snippet as written, and a story set to
-`docs.source.type: 'code'` without one gets no snippet. `objectProps: 'inline'`
-applies when the story or its meta sets it. With the Docgen Server on, the Docs
-page's Show code shows this snippet, built from the stories file's args, so it
-doesn't follow Controls (the Code panel still does after the first edit), and a
-`parameters.docs.source.objectProps` set in `.storybook/preview.js` isn't
-applied to it. `storybook build` writes the story snippets to
+`parameters.docs.source.code` is its snippet as written. When it isn't a plain
+string, such as one built with `dedent`, the story gets a warning instead of a
+snippet. A story set to `docs.source.type: 'code'` without one gets no snippet.
+`objectProps: 'inline'` applies when the story or its meta sets it. With the
+Docgen Server on, the Docs page's Show code shows this snippet, built from the
+stories file's args, so it doesn't follow Controls, even for a story set to
+`docs.source.type: 'dynamic'` (the Code panel still does after the first edit).
+Args and a `parameters.docs.source.objectProps` set in `.storybook/preview.js`
+aren't applied to it. `storybook build` writes the story snippets to
 `services/core/story-docs/` in the output directory.
 
 In dev, `/manifests/components.html` shows the same Markdown for each Astro

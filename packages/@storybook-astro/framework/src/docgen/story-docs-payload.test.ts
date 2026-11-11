@@ -36,9 +36,9 @@ beforeAll(() => {
     "  args: { ...shared, variant: 'outline', items: [1, 2], slots: { default: 'Read the docs' } }",
     '};',
     '',
-    'export const Labelled = {',
+    'export const Labeled = {',
     "  name: 'With a label',",
-    "  args: { 'slot-default': 'Labelled', onClick: () => {} }",
+    "  args: { 'slot-default': 'Labeled', onClick: () => {} }",
     '};'
   ]);
 
@@ -86,6 +86,28 @@ beforeAll(() => {
     '};'
   ]);
 
+  write('Handlers.stories.jsx', [
+    "import { fn } from 'storybook/test';",
+    "import dedent from 'ts-dedent';",
+    "import Button from './Button.astro';",
+    '',
+    'export default {',
+    "  title: 'Astro/Handlers',",
+    '  component: Button,',
+    "  args: { variant: 'solid', onClick: fn() }",
+    '};',
+    '',
+    'export const Spy = {};',
+    '',
+    'export const Method = {',
+    '  args: { onHover() {} }',
+    '};',
+    '',
+    'export const TaggedCode = {',
+    '  parameters: { docs: { source: { code: dedent`<Button>Tagged</Button>` } } }',
+    '};'
+  ]);
+
   write('Widget.tsx', ['export const Widget = () => null;']);
 
   write('Widget.stories.jsx', [
@@ -126,7 +148,7 @@ describe('an Astro stories file', () => {
     expect(Object.keys(payload!.stories)).toEqual([
       'astro-button--default',
       'astro-button--outline',
-      'astro-button--labelled'
+      'astro-button--labeled'
     ]);
 
     expect(payload!.stories['astro-button--default']).toEqual({
@@ -171,7 +193,7 @@ describe('an Astro stories file', () => {
 
     // An unedited `slot-<name>` arg defers to `args.slots`, as in Show code
     // and the canvas, so a story that sets only the per-slot arg fills no slot.
-    expect(payload!.stories['astro-button--labelled']).toMatchObject({
+    expect(payload!.stories['astro-button--labeled']).toMatchObject({
       name: 'With a label',
       snippet: expect.stringContaining('<Button variant="solid" />')
     });
@@ -232,6 +254,34 @@ describe('the options Show code reads', () => {
 
     expect(story.snippet).toBeUndefined();
     expect(story.warning).toBeUndefined();
+  });
+});
+
+describe('function args and unreadable source', () => {
+  test('a meta-level fn() spy is left out, as Show code leaves it out', async () => {
+    const payload = await build('Handlers.stories.jsx', 'Astro/Handlers');
+    const story = payload!.stories['astro-handlers--spy'];
+
+    expect(story.warning).toBeUndefined();
+    expect(story.snippet).toContain('<Button variant="solid" />');
+    expect(story.snippet).not.toContain('onClick');
+  });
+
+  test('a method-shorthand arg is left out instead of removing the snippet', async () => {
+    const payload = await build('Handlers.stories.jsx', 'Astro/Handlers');
+    const story = payload!.stories['astro-handlers--method'];
+
+    expect(story.warning).toBeUndefined();
+    expect(story.snippet).toContain('<Button variant="solid" />');
+    expect(story.snippet).not.toContain('onHover');
+  });
+
+  test('a docs.source.code that cannot be read statically gets a warning, not a generated snippet', async () => {
+    const payload = await build('Handlers.stories.jsx', 'Astro/Handlers');
+    const story = payload!.stories['astro-handlers--tagged-code'];
+
+    expect(story.snippet).toBeUndefined();
+    expect(story.warning).toContain('parameters.docs.source.code');
   });
 });
 

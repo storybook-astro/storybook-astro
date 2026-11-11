@@ -41,7 +41,10 @@ export interface StoryDocsPayloadContext {
  * doesn't follow Controls. A story whose args can't all be read gets a
  * `warning` and no snippet, since a snippet missing an arg would show the
  * wrong usage. A story's hand-written `parameters.docs.source.code` is used
- * as it is, and `docs.source.type: 'code'` without one gets no snippet.
+ * as it is, or gets a warning when it can't be read statically, and
+ * `docs.source.type: 'code'` without one gets no snippet. Show code prints
+ * this snippet even for a story set to `docs.source.type: 'dynamic'`.
+ * Args set in `.storybook/preview.js` aren't read.
  *
  * Returns `undefined` when the stories file doesn't document an `.astro`
  * component, so the request goes on to the next provider.
@@ -89,7 +92,7 @@ export async function buildStoryDocsPayload(
     };
 
     try {
-      const { args, unresolved, storyMembers, metaMembers } = argsResolver.resolve(exportName);
+      const { args, imports, unresolved, storyMembers, metaMembers } = argsResolver.resolve(exportName);
       const { description, summary } = readStoryDescription(csf, exportName, storyMembers.properties);
       const renderer =
         readParameter(storyMembers.properties, ['renderer']) ??
@@ -97,7 +100,11 @@ export async function buildStoryDocsPayload(
       const readSourceParameter = (key: string) =>
         readParameter(storyMembers.properties, ['docs', 'source', key]) ??
         readParameter(metaMembers.properties, ['docs', 'source', key]);
-      const sourceCode = readSourceParameter('code');
+      const sourceCodeNode =
+        parameterNode(storyMembers.properties, ['docs', 'source', 'code']) ??
+        parameterNode(metaMembers.properties, ['docs', 'source', 'code']);
+      const sourceCodeUnreadable: string[] = [];
+      const sourceCode = sourceCodeNode && readValue(sourceCodeNode, sourceCodeUnreadable);
       const sourceType = readSourceParameter('type');
 
       if (description) {
@@ -111,6 +118,10 @@ export async function buildStoryDocsPayload(
         // Show code has no snippet for these either: the story renders
         // through the integration's own Storybook renderer.
         doc.warning = `This story renders with the ${renderer} integration, so it has no Astro snippet.`;
+      } else if (sourceCodeUnreadable.length > 0) {
+        // Show code prints the author's source as it runs, so a snippet
+        // generated from args would contradict it.
+        doc.warning = 'No static snippet: `parameters.docs.source.code` could not be read statically.';
       } else if (typeof sourceCode === 'string') {
         // The author's own source wins, as it does in Show code.
         doc.snippet = sourceCode;
@@ -118,9 +129,15 @@ export async function buildStoryDocsPayload(
         // Show code prints the story's CSF source here, which isn't Astro
         // usage, so agents get neither a snippet nor a warning.
       } else {
-        // What the resolver couldn't follow, plus any value that isn't a literal.
-        const unreadable = [...unresolved];
-        const values = readArgValues(args, unreadable);
+        // What the resolver couldn't follow, plus any value that isn't a
+        // literal. A method-shorthand arg is a function, which Show code
+        // leaves out, so it doesn't count.
+        const methodArgs = new Set([
+          ...methodArgSources(storyMembers.properties.args),
+          ...methodArgSources(metaMembers.properties.args)
+        ]);
+        const unreadable = unresolved.filter((source) => !methodArgs.has(source));
+        const values = readArgValues(args, unreadable, spyNames(imports));
 
         if (unreadable.length > 0) {
           doc.warning = noSnippetWarning(unreadable);
@@ -181,13 +198,20 @@ function readStoryDescription(
   return extract(csf._storyStatements[exportName], (csf as { editor?: unknown }).editor);
 }
 
-/** A literal under `parameters`, or `undefined` when it isn't there or isn't a literal. */
-function readParameter(configProperties: Record<string, unknown>, path: string[]): unknown {
+/** The node written at `path` under `parameters`, or `undefined` when there's none. */
+function parameterNode(configProperties: Record<string, unknown>, path: string[]): AstNode | undefined {
   let node = configProperties.parameters as AstNode | undefined;
 
   for (const key of path) {
     node = node && objectMember(unwrap(node), key);
   }
+
+  return node;
+}
+
+/** A literal under `parameters`, or `undefined` when it isn't there or isn't a literal. */
+function readParameter(configProperties: Record<string, unknown>, path: string[]): unknown {
+  const node = parameterNode(configProperties, path);
 
   if (!node) {
     return undefined;
@@ -202,13 +226,46 @@ function readParameter(configProperties: Record<string, unknown>, path: string[]
 /**
  * Reads each arg's node into the value Show code would see. Anything that
  * isn't a literal (a component, an imported name, a call) is added to
- * `unresolved`. Functions are read as `undefined`, which Show code leaves out
- * too, since a template can't hold one.
+ * `unresolved`. Functions, `fn()` spies included, are read as `undefined`,
+ * which Show code leaves out too, since a template can't hold one.
  */
-function readArgValues(args: Record<string, unknown>, unresolved: string[]): Record<string, unknown> {
+function readArgValues(
+  args: Record<string, unknown>,
+  unresolved: string[],
+  spies: ReadonlySet<string>
+): Record<string, unknown> {
   return Object.fromEntries(
-    Object.entries(args).map(([name, node]) => [name, readValue(node as AstNode, unresolved)])
+    Object.entries(args).map(([name, node]) => [name, readValue(node as AstNode, unresolved, spies)])
   );
+}
+
+const SPY_MODULES = new Set(['storybook/test', '@storybook/test']);
+
+/** Local names the stories file binds to Storybook's `fn`, such as `fn` or `spy` in `import { fn as spy }`. */
+function spyNames(imports: Array<{ importId?: string; importName?: string; localImportName?: string }>) {
+  return new Set(
+    imports
+      .filter((ref) => ref.importName === 'fn' && ref.importId && SPY_MODULES.has(ref.importId))
+      .map((ref) => ref.localImportName)
+      .filter((name): name is string => name !== undefined)
+  );
+}
+
+/**
+ * The source text core reports for each method-shorthand arg (`onClick() {}`)
+ * written in an inline `args` object. Core leaves those out of the args and
+ * lists them as unresolved.
+ */
+function methodArgSources(argsNode: unknown): string[] {
+  const node = argsNode ? unwrap(argsNode as AstNode) : undefined;
+
+  if (node?.type !== 'ObjectExpression') {
+    return [];
+  }
+
+  return (node.properties as AstNode[])
+    .filter((member) => member.type === 'ObjectMethod' || member.method === true)
+    .map((member) => describeNode(member));
 }
 
 /**
@@ -227,7 +284,7 @@ const describeNode = ((csfTools as Record<string, unknown>).sourceOf ??
 
 const FUNCTION_TYPES = new Set(['ArrowFunctionExpression', 'FunctionExpression', 'ObjectMethod']);
 
-function readValue(rawNode: AstNode, unresolved: string[]): unknown {
+function readValue(rawNode: AstNode, unresolved: string[], spies: ReadonlySet<string> = new Set()): unknown {
   const node = unwrap(rawNode);
 
   switch (node.type) {
@@ -264,7 +321,7 @@ function readValue(rawNode: AstNode, unresolved: string[]): unknown {
       }
       break;
     case 'UnaryExpression': {
-      const argument = readValue(node.argument as AstNode, unresolved);
+      const argument = readValue(node.argument as AstNode, unresolved, spies);
 
       if (node.operator === 'void') {
         return undefined;
@@ -285,16 +342,24 @@ function readValue(rawNode: AstNode, unresolved: string[]): unknown {
           return undefined;
         }
 
-        return readValue(element, unresolved);
+        return readValue(element, unresolved, spies);
       });
     case 'ObjectExpression':
-      return readObject(node, unresolved);
+      return readObject(node, unresolved, spies);
+    case 'CallExpression': {
+      const callee = node.callee as AstNode;
+
+      if (callee.type === 'Identifier' && spies.has(callee.name as string)) {
+        return undefined;
+      }
+      break;
+    }
     case 'NewExpression': {
       const [argument] = node.arguments as AstNode[];
       const callee = node.callee as AstNode;
 
       if (callee.type === 'Identifier' && callee.name === 'Date' && argument) {
-        const value = readValue(argument, unresolved);
+        const value = readValue(argument, unresolved, spies);
 
         if (typeof value === 'string' || typeof value === 'number') {
           return new Date(value);
@@ -313,7 +378,7 @@ function readValue(rawNode: AstNode, unresolved: string[]): unknown {
   return undefined;
 }
 
-function readObject(node: AstNode, unresolved: string[]): Record<string, unknown> {
+function readObject(node: AstNode, unresolved: string[], spies: ReadonlySet<string>): Record<string, unknown> {
   const object: Record<string, unknown> = {};
 
   for (const member of node.properties as AstNode[]) {
@@ -327,7 +392,7 @@ function readObject(node: AstNode, unresolved: string[]): Record<string, unknown
     object[key] =
       member.type === 'ObjectMethod' || member.method === true
         ? undefined
-        : readValue(member.value as AstNode, unresolved);
+        : readValue(member.value as AstNode, unresolved, spies);
   }
 
   return object;
