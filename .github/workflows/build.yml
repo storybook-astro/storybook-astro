@@ -63,7 +63,16 @@ jobs:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: |
+          # The runner's Ubuntu mirror sometimes can't be resolved, which fails
+          # --with-deps. Retry it, then fall back to Chromium alone: the
+          # ubuntu-24.04 image already has the libraries headless Chromium needs.
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install --with-deps failed (attempt $attempt)"
+            sleep 20
+          done
+          npx playwright install chromium
 
       - name: Browser tests (Astro 7 static)
         run: yarn workspace @storybook-astro/integration-astro7 test:browser
@@ -150,7 +159,16 @@ jobs:
 
       - name: Install Playwright browsers
         if: ${{ !cancelled() }}
-        run: npx playwright install --with-deps chromium
+        run: |
+          # The runner's Ubuntu mirror sometimes can't be resolved, which fails
+          # --with-deps. Retry it, then fall back to Chromium alone: the
+          # ubuntu-24.04 image already has the libraries headless Chromium needs.
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install --with-deps failed (attempt $attempt)"
+            sleep 20
+          done
+          npx playwright install chromium
 
       - name: Browser tests (static build)
         if: ${{ !cancelled() }}
