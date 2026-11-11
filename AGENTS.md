@@ -37,7 +37,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 - `src/lib/componentStyles.ts` - Collects the scoped CSS Astro compiled for every component a render loaded, and the stylesheets imported by those components and the modules they import (as an Astro page ships them). The render handler prepends it to the HTML, one `<style>` element per block or stylesheet, and the renderer's `storyStyles.ts` moves those into the iframe head
 - `src/vitePluginAstroFonts.ts` - Resolves Astro's Font Provider API in Storybook's SSR context and auto-loads fonts declared in `astro.config.*`
 - `src/portable-stories.ts` - `composeStories`/`composeStory` for testing outside Storybook
-- `src/docgen/` - Extracts component descriptions and prop tables from `.astro` frontmatter JSDoc. `index.ts` owns the runtime (guarded `typescript` import, tsconfig discovery, caching), `tsProject.ts` the one shared TypeScript language service, `extract.ts` the extraction itself. `docgen-worker.ts` and `docgen-payload.ts` are the Storybook 10.6 Docgen Server path: the worker-target module core's docgen worker imports, and the index-entry-to-`DocgenPayload` step behind it. Design record: `docs/specs/docgen.md`
+- `src/docgen/` - Extracts component descriptions and prop tables from `.astro` frontmatter JSDoc. `index.ts` owns the runtime (guarded `typescript` import, tsconfig discovery, caching), `tsProject.ts` the one shared TypeScript language service, `extract.ts` the extraction itself. `apiDescription.ts` turns the props table's rows into the Markdown props and slots AI agents read through the components manifest. `docgen-worker.ts` and `docgen-payload.ts` are the Storybook 10.6 Docgen Server path: the worker-target module core's docgen worker imports, and the index-entry-to-`DocgenPayload` step behind it. `story-docs-payload.ts` builds the per-story snippets AI agents read (`experimental_storyDocsProvider` in `preset.ts`), from the renderer's `generateAstroSource` with args read statically from the CSF file. Design record: `docs/specs/docgen.md`
 - `src/integrations/` - Integration adapters for each supported framework
 - `src/serverApp/` - Server-mode production build (`renderMode: 'server', server: { adapter }`). `storybook-astro build` runs Storybook, then `build.ts` generates a small Astro app in `.astro/storybook-server/` and builds it with `astro build` (the project's own Astro, `configFile: false`, user integrations/Vite plugins/aliases loaded like the dev SSR server) and the adapter's official Astro adapter; `storybook-static/` is its public directory, so one deployment serves the UI and `/api`. The app has one render page per story file (`files.ts`), importing only the `.astro` components that file and `.storybook/preview` reach (recorded during the iframe build by `vitePluginStoryAstroImports.ts`), so Astro attaches only their styles and islands. `renderApi.ts` is the `/api` Hono app: auth, story rules, a serial render queue, and an in-process `context.rewrite` to the story's render page with the request in `locals` (pages answer 404 without it). The page resolves the request with `storyTree.ts` (the args pipeline, producing components instead of HTML) and renders it with a generated recursive `StoryNode.astro`. Story-rule module mocks go through switch modules (`vite/moduleMockSwitchesPlugin.ts`, `moduleMockSwitches.ts`), since built modules can't reload. Nothing starts Vite at request time. `renderApi.ts`'s rewrite is the seam for Astro's coming `renderToResponse` (`@astrojs/runtime`). Adapters are packages (`@storybook-astro/adapter-node`, `-vercel`, `-netlify`, `-cloudflare`) that load the matching `@astrojs/*` from the project. `integration/astro{5,6,7}-server` cover the Node adapter (CI runs Playwright against them), and `integration/astro{5,6,7}-server-{vercel,cloudflare,netlify}` cover each host with story rules, a local preview and a Playwright suite shared from `integration/server-shared` (see its README). `scripts/test-server-adapter.mjs` runs each Vercel function from a copy outside the repo.
 
@@ -52,7 +52,7 @@ This document provides guidance for AI assistants working on the `@storybook-ast
 
 **Important Files**:
 - `src/render.tsx` - Exports `render()` and `renderToCanvas()` functions
-- `src/renderLoadingIndicator.ts` - Shows "Rendering story…" in a canvas when an Astro render takes over 200 ms, in place of an emptied canvas or over a story the canvas still shows, and holds the canvas height from a teardown until the next Astro render writes its markup or fails (a framework story releases it when it starts rendering)
+- `src/renderLoadingIndicator.ts` - Shows "Rendering story…" in a canvas when an Astro render takes over 200 ms, in place of an emptied canvas or over a story the canvas still shows, and holds the canvas height from a teardown until the next Astro render writes its markup or fails (a render Storybook aborted leaves it for the render after it, a render whose canvas left the document while it waited gives it back when it settles, and a framework story releases it when it starts rendering)
 - `src/storyStyles.ts` - Moves the scoped `<style>` elements a render response carries into the iframe head. A canvas holds its styles until the next render into it replaces them or the teardown `renderToCanvas` returns removes them. Canvases that ship the same CSS share one element, which leaves with its last canvas; see `moveStoryStylesToHead` for where CSS goes
 - `src/preset.ts` - Defines preview annotations
 - `src/extractArgTypes.ts` - Maps the `__docgenInfo` the framework attaches to a component stub into Storybook's props table. Registered through `preview-defaults.ts` so both CSF3 and CSF-factory stories pick it up, and exported as `./extractArgTypes` so the framework's docgen worker converts identically on the Docgen Server path
@@ -145,47 +145,72 @@ Before finishing a change, ask whether every abstraction pays rent. If removing 
 
 ### Adding a New Framework Integration
 
-1. Create integration file: `packages/@storybook-astro/framework/src/integrations/[framework].ts`
-2. Extend `BaseIntegration` class from `base.ts`
-3. Implement required methods:
-   - `getAstroRenderer()` - Returns Astro integration
-   - `getVitePlugins()` - Returns Vite plugins for the framework
-   - `getStorybookRenderer()` - Returns Storybook renderer name
-   - `resolveClient()` - Handles client-side module resolution
-4. Export factory function in `integrations/index.ts`
-5. Add to `.storybook/main.js` configuration example
+1. Create `packages/@storybook-astro/framework/src/integrations/[framework].ts` with a class that `implements Integration` (the abstract class in `base.ts`). `react.ts` is the simplest complete example.
+2. Fill in the contract:
+   - `name` - The key stories use in `parameters.renderer`, and a JavaScript identifier: the generated `virtual:storybook-renderer-fallback` module exports the Storybook renderer under this name
+   - `factoryName` - Only when the factory export in `index.ts` differs from `name` (Alpine: `name = 'alpine'`, factory `alpinejs`)
+   - `dependencies` - Packages the integration needs installed
+   - `options` - Passed to the Astro integration, which adds the framework's Vite plugins (`include`/`exclude` select which files they compile)
+   - `renderer` - The Astro renderer's `server` and `client` entrypoints, registered with the Astro Container and the browser build
+   - `storybookEntryPreview` - The Storybook renderer's `entry-preview` module, used for framework-delegated stories. Omit it if stories never delegate to a Storybook renderer (Alpine)
+   - `clientOptimizeDeps` - Optional. Browser packages the Vite dependency scanner can't reach from the integration's client entrypoint
+   - `resolveClient(moduleName)` - Maps the Astro renderer's client module to a browser URL, or returns `undefined`
+   - `loadIntegration(resolveFrom)` - Imports the Astro integration package from the user's project with `importModule` and calls it with `options`
+3. Export a factory function from `integrations/index.ts`
+4. Add the framework's packages to the framework `package.json` `peerDependencies`, marked optional in `peerDependenciesMeta`
+5. Add example components under `packages/components/src/<Component>/<framework>/`, and the framework's Vite plugin to `packages/components/vitest.config.ts` so their tests compile. Register the integration in `.storybook/main.js` and `vitest.config.ts` of `integration/astro5`, `astro6` and `astro7` with recursive `include` globs
 
-**Template**:
+**Template** (from `react.ts`):
 ```typescript
-import { BaseIntegration, type BaseOptions } from './base.ts';
+import type { Integration } from './base.ts';
+import { importModule } from './moduleResolver.ts';
 
-export type Options = BaseOptions & {
-  // Framework-specific options
+export type Options = {
+  include?: string[];
+  exclude?: string[];
 };
 
-export class FrameworkIntegration extends BaseIntegration {
-  constructor(options?: Options) {
-    super(options);
+export class FrameworkIntegration implements Integration {
+  readonly name = 'framework';
+  readonly dependencies = ['@astrojs/framework', '@storybook/framework', 'framework'];
+  readonly options: Options;
+  readonly storybookEntryPreview = '@storybook/framework/entry-preview';
+
+  readonly renderer = {
+    server: {
+      name: '@astrojs/framework',
+      entrypoint: '@astrojs/framework/server.js'
+    },
+    client: {
+      name: '@astrojs/framework',
+      entrypoint: '@astrojs/framework/client.js'
+    }
+  };
+
+  constructor(options: Options = {}) {
+    this.options = options;
   }
 
-  override getAstroRenderer() {
-    // Return Astro framework integration
-    return frameworkIntegration(/* config */);
+  resolveClient(moduleName: string): string | undefined {
+    if (moduleName.startsWith('@astrojs/framework/client')) {
+      return `/@id/${moduleName}`;
+    }
   }
 
-  override getVitePlugins() {
-    // Return Vite plugins needed for this framework
-    return [frameworkVitePlugin(/* config */)];
-  }
+  async loadIntegration(resolveFrom = process.cwd()) {
+    const framework = await importModule<{
+      default: (options: Options) => Awaited<ReturnType<Integration['loadIntegration']>>;
+    }>('@astrojs/framework', resolveFrom);
 
-  override getStorybookRenderer() {
-    return '@storybook/framework-name';
+    return framework.default(this.options);
   }
+}
+```
 
-  override resolveClient(specifier: string) {
-    // Handle client-side module resolution if needed
-    return null;
-  }
+And in `integrations/index.ts`:
+```typescript
+export function framework(options?: FrameworkOptions) {
+  return new FrameworkIntegration(options);
 }
 ```
 
@@ -233,7 +258,7 @@ console.log('Container created:', container);
 - Uses Vitest with happy-dom environment
 - Config: `vitest.config.ts`
 - Test files use `.test.ts` extension
-- All 17 test suites (36 tests) pass, covering Astro, React, Vue, Svelte, Preact, Solid, and Alpine.js
+- Test suites cover Astro, React, Vue, Svelte, Preact, Solid, and Alpine.js
 
 **Manual Testing**: Run with `yarn dev` or a workspace `dev` script such as `yarn workspace @storybook-astro/integration-astro6 dev`
 - Example stories in `src/components/*/`
@@ -374,7 +399,7 @@ export const MyStory = {
 
 ### Styles Not Applying
 **Symptom**: Component renders but styles are missing
-**Fix**: Scoped CSS ships with the render response: `createAstroRenderHandler` prepends one `<style data-storybook-astro-styles>` element per `<style>` block or imported stylesheet, from `loadComponentStyles` in `lib/componentStyles.ts`. That function walks the SSR server's module graph from every component the render loaded, first compiling, without running, each import the server hasn't compiled, such as a dynamic `import()` or `import.meta.glob` target no render has called, as Astro 7's dev server does (`ensureModulesLoaded`), so its CSS doesn't depend on render order and every component a glob matches ships its CSS. It leaves alone an import loaded with a query (`?raw`, `?url`), and assets (Vite's `assetsInclude`) and JSON files, which can't import CSS. A module Vite has invalidated (an edit, or the `invalidateAll` after a story with module mocks) is compiled for its current imports, then its transform result is cleared again, since Vite's `fetchModule` tells a module runner that holds a module with a transform result to keep its cached copy. The walk records when it cleared one, so later walks don't compile it again until Vite invalidates it again. A component that fails to compile isn't walked, since its imports in the graph are from before the broken edit. It reloads an edited stylesheet through the runner so CSS Module class names stay in step, and stops at Astro's page virtual modules (`virtual:astro:page:*`) and dev CSS collectors, as Astro's dev server does, so reaching Astro 7's page list (through `astro:config/server`, say) doesn't ship every page's CSS. It then ships the CSS of every stylesheet it reaches, in import order, as an Astro page ships them: each `?astro&type=style&index=N&lang.*` sub-module, each stylesheet imported by those components and the modules they import (`import './card.css'`, Sass, CSS Modules), Vue and Svelte style blocks, and plugin virtual stylesheets. Not one loaded with `?raw`, `?url` or `?inline`. The CSS is what the SSR server compiled while rendering, recorded by `vitePluginCompiledStylesheets` (`lib/compiledStylesheets.ts`), the last normal-order plugin in both SSR servers (not `enforce: 'post'`, which would run after `vite:css-post` turned the CSS into JS), so CSS Module class names match the markup's. The renderer then moves them into the iframe head (`moveStoryStylesToHead` in the renderer's `storyStyles.ts`). Each canvas holds its styles: a rerender with changed CSS replaces them (a rerender with unchanged CSS leaves the head as it is), and the teardown `renderToCanvas` returns removes them with the story's markup whenever Storybook removes the story (navigation, remount, leaving a Docs page, the start of the next portable story run). Canvases that ship the same CSS, such as a Docs page's stories, share one `<style>` element, which leaves with its last canvas (#234); see `moveStoryStylesToHead` for where CSS goes. A teardown only clears its canvas while the canvas still shows its render, since a Docs story block runs teardowns late, and a server response that arrives after a newer render into the same canvas started, or after its canvas left the document while the render waited, is dropped (#288). Server-mode stylesheet links go in ahead of all story CSS, so the story CSS wins ties against them however the page was reached. CSS added to the head later, such as a hydrated island's, still wins ties against it, as in 1.14. Check that the `<style>` elements are in the response, that they reach the head, and that their selectors use the same scope as the markup (the `data-astro-cid-*` attribute, or the `astro-*` class with `scopedStyleStrategy: 'class'` or `'where'`).
+**Fix**: Scoped CSS ships with the render response: `createAstroRenderHandler` prepends one `<style data-storybook-astro-styles>` element per `<style>` block or imported stylesheet, from `loadComponentStyles` in `lib/componentStyles.ts`. That function walks the SSR server's module graph from every component the render loaded, first compiling, without running, each import the server hasn't compiled, such as a dynamic `import()` or `import.meta.glob` target no render has called, as Astro 7's dev server does (`ensureModulesLoaded`), so its CSS doesn't depend on render order and every component a glob matches ships its CSS. It leaves alone an import loaded with a query (`?raw`, `?url`), and assets (Vite's `assetsInclude`) and JSON files, which can't import CSS. A module Vite has invalidated (an edit, or the `invalidateAll` after a story with module mocks) is compiled for its current imports, then its transform result is cleared again, since Vite's `fetchModule` tells a module runner that holds a module with a transform result to keep its cached copy. The walk records when it cleared one, so later walks don't compile it again until Vite invalidates it again. A component that fails to compile isn't walked, since its imports in the graph are from before the broken edit. It reloads an edited stylesheet through the runner so CSS Module class names stay in step, and stops at Astro's page virtual modules (`virtual:astro:page:*`) and dev CSS collectors, as Astro's dev server does, so reaching Astro 7's page list (through `astro:config/server`, say) doesn't ship every page's CSS. It then ships the CSS of every stylesheet it reaches, in import order, as an Astro page ships them: each `?astro&type=style&index=N&lang.*` sub-module, each stylesheet imported by those components and the modules they import (`import './card.css'`, Sass, CSS Modules), Vue and Svelte style blocks, and plugin virtual stylesheets. Not one loaded with `?raw`, `?url` or `?inline`. The CSS is what the SSR server compiled while rendering, recorded by `vitePluginCompiledStylesheets` (`lib/compiledStylesheets.ts`), the last normal-order plugin in both SSR servers (not `enforce: 'post'`, which would run after `vite:css-post` turned the CSS into JS), so CSS Module class names match the markup's. The renderer then moves them into the iframe head (`moveStoryStylesToHead` in the renderer's `storyStyles.ts`). Each canvas holds its styles: a rerender with changed CSS replaces them (a rerender with unchanged CSS leaves the head as it is), and the teardown `renderToCanvas` returns removes them with the story's markup whenever Storybook removes the story (navigation, remount, leaving a Docs page, the start of the next portable story run). Canvases that ship the same CSS, such as a Docs page's stories, share one `<style>` element, which leaves with its last canvas (#234); see `moveStoryStylesToHead` for where CSS goes. A teardown only clears its canvas while the canvas still shows its render, since a Docs story block runs teardowns late, and a server response that arrives after a newer render into the same canvas started, after Storybook aborted the render (#271), or after its canvas left the document while the render waited (#288), is dropped, along with a server error that arrives then (#303). Server-mode stylesheet links go in ahead of all story CSS, so the story CSS wins ties against them however the page was reached. CSS added to the head later, such as a hydrated island's, still wins ties against it, as in 1.14. Check that the `<style>` elements are in the response, that they reach the head, and that their selectors use the same scope as the markup (the `data-astro-cid-*` attribute, or the `astro-*` class with `scopedStyleStrategy: 'class'` or `'where'`).
 
 If only one component's styles are missing, check that the render used it: the story's `component`, a component in its args, slots or decorator tree that the handler loaded, or a component reachable through their imports, dynamic `import()` and `import.meta.glob` included. The walk skips the imports of a module that failed to run, as an earlier story's render may have left it. The walk doesn't follow a stylesheet's imports, so a component that only a CSS file or a PostCSS plugin refers to isn't included.
 
@@ -426,6 +451,21 @@ After the PR is open, later rounds can target it by number (`/code-review high <
 
 When you finish writing a change that's headed for a PR, tell the user to run this review in a fresh session instead of reviewing your own work.
 
+## Project Skills
+
+Task-specific skills live in `.agents/skills/`, and `.agents/references/` holds the background they draw on. Claude Code finds the skills through `.claude/skills`, a symlink to `.agents/skills`. Other tools can read a skill's `SKILL.md` directly.
+
+| Skill | Use it for |
+|-------|------------|
+| `release-manager` | Any release: stable, canary, test or hotfix, and closing out the milestone and project board. Keep it in step with [`docs/RELEASING.md`](./docs/RELEASING.md) |
+| `create-pr` | PR titles, bodies and target branches |
+| `code-reviewer` | Checking a change against the project's conventions while you work. It doesn't replace the fresh-context review in [Before Opening a PR](#before-opening-a-pr) |
+| `docs-reviewer` | Reviewing changes to AGENTS.md, `docs/` and the website docs |
+| `test-generator` | Writing component tests with portable stories |
+| `skill-creator` | Adding or changing a skill in `.agents/skills/` |
+
+When a process changes, update the skill along with the doc it follows, so the two don't drift.
+
 ## External Resources
 
 - [Storybook Framework API](https://storybook.js.org/docs/configure/integration/frameworks)
@@ -437,7 +477,7 @@ When you finish writing a change that's headed for a PR, tell the user to run th
 
 See [`docs/RELEASING.md`](./docs/RELEASING.md) for the full release process, including:
 - Semantic versioning conventions
-- Gitflow branching model (`main`, `develop`, `feature/*`, `fix/*`, `release/*`)
+- Branching model (`main`, `develop`, `website`, `feature/*`, `fix/*`). Releases merge `develop` straight into `main` and `website`
 - Distinction between **package releases** (go through `develop` → `main`) and **website-only changes** (merge directly to `main`)
 - Hotfix and mixed-change workflows
 - Pre-publish smoke test (`yarn smoke`)

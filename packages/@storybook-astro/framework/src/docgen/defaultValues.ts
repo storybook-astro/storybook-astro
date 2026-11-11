@@ -4,6 +4,13 @@ export interface AstroPropsBinding {
   /** Prop name → default, for props destructured with one. */
   defaults: Map<string, string | number | boolean | null>;
   /**
+   * Prop name → its default's source text, exactly as written (`'/home'`,
+   * `defaultTitle`). `defaults` turns a string literal and an identifier into
+   * the same plain string, so the API description an agent reads prints this
+   * instead and keeps the author's quoting.
+   */
+  defaultSources: Map<string, string>;
+  /**
    * Every prop name the component destructures, with or without a default.
    *
    * This is the author's own statement of the public surface, so the prop
@@ -27,6 +34,7 @@ export function readAstroPropsBinding(
   sourceFile: ts.SourceFile
 ): AstroPropsBinding {
   const defaults = new Map<string, string | number | boolean | null>();
+  const defaultSources = new Map<string, string>();
   const destructured = new Set<string>();
 
   for (const statement of sourceFile.statements) {
@@ -57,12 +65,13 @@ export function readAstroPropsBinding(
 
         if (element.initializer) {
           defaults.set(propName, literalValueOf(typescript, element.initializer, sourceFile));
+          defaultSources.set(propName, element.initializer.getText(sourceFile));
         }
       }
     }
   }
 
-  return { defaults, destructured };
+  return { defaults, defaultSources, destructured };
 }
 
 /** Matches `Astro.props`, `Astro.props as Props` and `Astro.props satisfies Props`. */

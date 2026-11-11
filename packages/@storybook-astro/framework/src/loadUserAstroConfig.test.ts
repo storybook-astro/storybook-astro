@@ -96,6 +96,13 @@ describe('loadUserAstroCompileOptions', () => {
     expect(await loadUserAstroCompileOptions(tmpDir)).toEqual({ scopedStyleStrategy: 'where' });
   });
 
+  test('reads the config file Astro uses when a project has two', async () => {
+    await writeConfig(`export default { scopedStyleStrategy: 'class' };`);
+    await writeFile(join(tmpDir, 'astro.config.ts'), `export default { scopedStyleStrategy: 'where' };`);
+
+    expect(await loadUserAstroCompileOptions(tmpDir)).toEqual({ scopedStyleStrategy: 'class' });
+  });
+
   test('leaves out values Astro wouldn\'t accept', async () => {
     await writeConfig(`export default { scopedStyleStrategy: 'inline', compressHTML: 'yes' };`);
 

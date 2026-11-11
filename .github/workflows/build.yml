@@ -12,7 +12,9 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    # Pinned because ubuntu-latest moved to 26.04, where Playwright 1.60 can't
+    # install Chromium. Move back once Playwright supports it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
@@ -62,7 +64,16 @@ jobs:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: |
+          # The runner's Ubuntu mirror sometimes can't be resolved, which fails
+          # --with-deps. Retry it, then fall back to Chromium alone: the
+          # ubuntu-24.04 image already has the libraries headless Chromium needs.
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install --with-deps failed (attempt $attempt)"
+            sleep 20
+          done
+          npx playwright install chromium
 
       - name: Browser tests (Astro 7 static)
         run: yarn workspace @storybook-astro/integration-astro7 test:browser
@@ -94,8 +105,83 @@ jobs:
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
+  # Runs astro5, astro6 and astro7 against Storybook 11 (#205), since both
+  # packages support 10 and 11; the framework and renderer unit suites run in
+  # the astro7 leg. The versions are pinned in scripts/storybook-next-versions.json
+  # so a new Storybook prerelease can't turn unrelated PRs red; the scheduled
+  # Storybook next job tracks the newest. Every suite runs even after one fails,
+  # so one run shows everything Storybook 11 breaks.
+  storybook-11:
+    # Pinned for the same reason as build-and-test.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [astro7, astro6, astro5]
+
+    env:
+      APP: '@storybook-astro/integration-${{ matrix.app }}'
+      STORYBOOK_DISABLE_TELEMETRY: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          check-latest: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      # The pin script only reads and writes package.json, so one install
+      # picks up the pinned versions.
+      - name: Install the pinned Storybook 11 versions
+        run: |
+          node scripts/use-storybook-next.mjs --pinned
+          YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+
+      - name: Build packages
+        run: yarn build:packages
+
+      - name: Framework and renderer unit tests
+        if: ${{ !cancelled() && matrix.app == 'astro7' }}
+        run: |
+          yarn workspace @storybook-astro/framework test
+          yarn workspace @storybook-astro/renderer test
+
+      - name: Component tests
+        if: ${{ !cancelled() }}
+        run: yarn workspace "$APP" test --run
+
+      - name: Install Playwright browsers
+        if: ${{ !cancelled() }}
+        run: |
+          # The runner's Ubuntu mirror sometimes can't be resolved, which fails
+          # --with-deps. Retry it, then fall back to Chromium alone: the
+          # ubuntu-24.04 image already has the libraries headless Chromium needs.
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install --with-deps failed (attempt $attempt)"
+            sleep 20
+          done
+          npx playwright install chromium
+
+      - name: Browser tests (static build)
+        if: ${{ !cancelled() }}
+        run: yarn workspace "$APP" test:browser
+
+      - name: Storybook Test addon
+        if: ${{ !cancelled() }}
+        run: yarn workspace "$APP" test:storybook
+
   server-mode:
-    runs-on: ubuntu-latest
+    # Pinned for the same reason as build-and-test.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
@@ -117,7 +203,14 @@ jobs:
         run: yarn build:packages
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: |
+          # Same retry and fallback as build-and-test.
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install --with-deps failed (attempt $attempt)"
+            sleep 20
+          done
+          npx playwright install chromium
 
       # Each app builds with the Node adapter and runs Playwright against its
       # standalone server.

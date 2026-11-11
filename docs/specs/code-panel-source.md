@@ -67,7 +67,9 @@ Props (all args except `slots`), sorted alphabetically:
 | number / bigint | `name={42}` |
 | `Date` | `name={new Date("2026-06-11T…")}` |
 | object / array | `name={items}` + frontmatter `const items = <pretty-printed literal>;` (collision-suffixed if needed). With `parameters.docs.source.objectProps: 'inline'`, `name={<pretty-printed literal>}`, which breaks the tag onto lines when the literal spans lines (issue #190) |
-| function | omitted |
+| function / Symbol | omitted |
+
+Object and array literals are laid out like `JSON.stringify(value, null, 2)` but keep these types JSON loses (issue #273): a nested `Date` is `new Date("…")`, a BigInt keeps its `n`, `NaN`, `Infinity` and `undefined` array entries stay themselves, object members that are `undefined`, functions or Symbols are left out, and a function or Symbol array entry is written as `undefined`, so later entries keep their positions. Other built-ins such as `Map`, `Set` and `RegExp` still print as `{}`, as JSON prints them. A value with a `toJSON` method (other than a `Date`) is shown as what it returns: as in JSON, `toJSON` is called once, with the member name, array index or `''` for the prop itself, before the value is filtered, so a `toJSON` that returns `undefined` or a function leaves the member out. An own `__proto__` key is written as the computed key `["__proto__"]`, since `__proto__:` in a literal sets the prototype. A prop that has no literal form (a cycle) is omitted, and the decorator skips emitting source, logging a console warning, if generation throws for any other reason, so a bad arg never breaks the story render.
 
 Slots (`args.slots`):
 

@@ -1,4 +1,8 @@
-import type { RenderComponentInput, RenderResponseMessage } from '@storybook-astro/renderer/types';
+import type {
+  RenderComponentInput,
+  RenderRequestOptions,
+  RenderResponseMessage
+} from '@storybook-astro/renderer/types';
 
 export const isStaticMode = false;
 
@@ -22,8 +26,8 @@ export function createServerRenderer(defaults: ServerRendererDefaults = {}) {
   return {
     // A serverless render function's first request also starts it; the
     // timeout leaves room for a slow cold start rather than retrying into one.
-    render(data: RenderComponentInput, timeoutMs = 60_000) {
-      return renderWithHttp(data, timeoutMs, defaults);
+    render(data: RenderComponentInput, { signal, timeoutMs = 60_000 }: RenderRequestOptions = {}) {
+      return renderWithHttp(data, timeoutMs, signal, defaults);
     },
     init() {
       // Fire-and-forget warmup at preview startup: starts a serverless
@@ -45,28 +49,41 @@ export function createServerRenderer(defaults: ServerRendererDefaults = {}) {
 async function renderWithHttp(
   data: RenderComponentInput,
   timeoutMs: number,
+  signal: AbortSignal | undefined,
   defaults: ServerRendererDefaults
 ) {
+  // A story Storybook has already removed doesn't need the server's render.
+  signal?.throwIfAborted();
+
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
   const id = crypto.randomUUID();
   const serverUrl = '/api';
   const authToken = resolveAuthToken(defaults);
   const authHeader = resolveAuthHeader(defaults);
+  const headers: Record<string, string> = {
+    'content-type': 'application/json'
+  };
+
+  if (authToken) {
+    headers[authHeader] =
+      authHeader.toLowerCase() === 'authorization' && !authToken.startsWith('Bearer ')
+        ? `Bearer ${authToken}`
+        : authToken;
+  }
+
+  // One controller cancels the request on the timeout or when Storybook
+  // removes the story. An abandoned request left open holds one of the
+  // browser's few connections to the render server, so clicking through slow
+  // stories used to queue the current story's request behind them until it
+  // timed out (#342).
   const controller = new AbortController();
+  const cancelForStory = () => controller.abort(signal?.reason);
+
+  signal?.addEventListener('abort', cancelForStory);
+
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const headers: Record<string, string> = {
-      'content-type': 'application/json'
-    };
-
-    if (authToken) {
-      headers[authHeader] =
-        authHeader.toLowerCase() === 'authorization' && !authToken.startsWith('Bearer ')
-          ? `Bearer ${authToken}`
-          : authToken;
-    }
-
     // eslint-disable-next-line n/no-unsupported-features/node-builtins
     const response = await fetch(`${serverUrl}/render`, {
       method: 'POST',
@@ -97,6 +114,11 @@ async function renderWithHttp(
   } catch (error) {
     clearTimeout(timeoutId);
 
+    // The story went away, not the server: the renderer drops this render.
+    if (signal?.aborted) {
+      throw error;
+    }
+
     if (error instanceof Error && error.name === 'AbortError') {
       throw createServerUnavailableError(
         serverUrl,
@@ -112,6 +134,8 @@ async function renderWithHttp(
     }
 
     throw error;
+  } finally {
+    signal?.removeEventListener('abort', cancelForStory);
   }
 }
 

@@ -8,6 +8,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-11-11
+
+### Added
+- Storybook 11 support, alongside Storybook 10, including the Storybook 11 builds of `storybook-solidjs-vite` (#205, #207, #208). Storybook 11 needs Node 22.12 or later.
+- With the Docgen Server and the components manifest on, AI agents using `@storybook/addon-mcp` get each Astro component's props and slots, and each story's description and an Astro snippet (#353, #354). The Controls & ArgTypes page has a new "Components manifest and AI agents" section (#323).
+
+### Fixed
+- Leaving an Astro story while it renders no longer reloads the preview, cancels the render request, and no longer reports a server error that arrives afterwards (#271, #303, #342).
+- Show code and the Code panel no longer break on args that JSON can't represent, such as a Symbol, a BigInt or an object that refers to itself (#273).
+- A `@storybook/addon-vitest` run exits as soon as its tests finish (#312).
+- With more than one `astro.config.*` file, Storybook reads the one Astro would (#257).
+
 ## [1.15.0] - 2026-11-02
 
 ### Added

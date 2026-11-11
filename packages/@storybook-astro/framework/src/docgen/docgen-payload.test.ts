@@ -31,6 +31,28 @@ beforeAll(() => {
     '<h1>{title}</h1>'
   ]);
 
+  write('Badge.astro', [
+    '---',
+    "type Variant = 'primary' | 'secondary';",
+    'interface Props {',
+    '  variant?: Variant;',
+    '}',
+    "const { variant = 'primary' } = Astro.props;",
+    '---',
+    '<span class={variant}>Badge</span>'
+  ]);
+
+  write('Badge.stories.jsx', [
+    "import Badge from './Badge.astro';",
+    '',
+    'export default {',
+    "  title: 'Astro/Badge',",
+    '  component: Badge',
+    '};',
+    '',
+    'export const Default = {};'
+  ]);
+
   write('Card.stories.jsx', [
     "import Card from './Card.astro';",
     '',
@@ -135,6 +157,39 @@ describe('an Astro story', () => {
     docgen.dispose();
   });
 
+  test('describes the props in Markdown for AI agents, which never see argTypes', async () => {
+    const docgen = createAstroDocgen({ projectRoot: workingDir });
+    const payload = await build(storyEntry('Card.stories.jsx', 'Astro/Card'), docgen);
+
+    expect(payload?.apiDescription).toBe(
+      [
+        '## Props',
+        '',
+        '```',
+        'export type Props = {',
+        '  /**',
+        '    Heading text.',
+        '  */',
+        "  title?: string = 'Hello';",
+        '}',
+        '```'
+      ].join('\n')
+    );
+
+    docgen.dispose();
+  });
+
+  test('spells out the members of an aliased literal union for AI agents', async () => {
+    const docgen = createAstroDocgen({ projectRoot: workingDir });
+    const payload = await build(storyEntry('Badge.stories.jsx', 'Astro/Badge'), docgen);
+
+    expect(payload?.apiDescription).toContain(
+      `  variant?: "primary" | "secondary" = 'primary';`
+    );
+
+    docgen.dispose();
+  });
+
   test('carries the component JSDoc tags through', async () => {
     const docgen = createAstroDocgen({ projectRoot: workingDir });
     const payload = await build(storyEntry('Card.stories.jsx', 'Astro/Card'), docgen);
@@ -168,6 +223,7 @@ describe('slots on the Docgen Server path', () => {
       control: { disable: true },
       table: { category: 'slots' }
     });
+    expect(payload?.apiDescription).toContain('- `default` (child content): The card body');
   });
 });
 

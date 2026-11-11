@@ -36,7 +36,7 @@ The handler returns one string. After rendering, it calls `loadStylesOrWarn`, wh
 - **Static prerender.** `pointStoryCssUrlsAtFsPaths`, called from `rewriteAssetPaths`, finds the elements with a regex (`STORY_STYLES`) to rewrite `url()` paths in the CSS only, never in HTML attributes.
 - **Server mode and static prerender.** `addStaticStylesheets` (`lib/staticHtmlRewriting.ts`) prepends `<link rel="stylesheet">` tags for hydrated framework components. The renderer's `syncServerRenderedStylesheets` moves them into the head. These are unrelated to #235 and stay in the HTML (see [Settled questions](#settled-questions)).
 
-`render.tsx` has also changed since this spec was first written. Each render into a canvas gets a token (`latestRenderByCanvas`, `shownRenderByCanvas`). A response that arrives after a newer render into the same canvas has started, or after a canvas that was in the document when the render started has left it, is dropped. The teardown `renderToCanvas` returns clears a canvas only while the canvas still shows that render.
+`render.tsx` has also changed since this spec was first written. Each render into a canvas gets a token (`latestRenderByCanvas`, `shownRenderByCanvas`). A response that arrives after a newer render into the same canvas has started, or after a canvas that was in the document when the render started has left it, is dropped. So is a response that arrives once Storybook has aborted the render (#271). The teardown `renderToCanvas` returns clears a canvas only while the canvas still shows that render.
 
 ## Design decisions
 
@@ -154,19 +154,30 @@ In `renderAstroToCanvas`:
 import { addons } from 'storybook/internal/preview-api';
 import { ASTRO_RENDER_INFO_EVENT, type AstroRenderInfo } from './types.ts';
 
+const abortSignal = storyContext?.abortSignal;
+
+// No request for a story Storybook already removed (#342).
+if (abortSignal?.aborted) {
+  return;
+}
+
 // Build the request first, so serializing args isn't counted as round trip.
+// canvasWasConnected is a parameter, captured in renderToCanvas.
 const request = { component: rootComponent.moduleId, /* args, slots, node, story as today */ };
-const canvasWasConnected = canvasElement.isConnected;
 const startedAt = performance.now();
-const response = await astroRenderer.render(request);
+const response = await serverResponseUnlessAborted(
+  astroRenderer.render(request, { signal: abortSignal }),
+  abortSignal
+);
 const roundTripMs = performance.now() - startedAt;
 
 if (latestRenderByCanvas.get(canvasElement) !== renderToken) {
   return;
 }
 
-// Storybook removed the canvas while the request was in flight (#288).
-if (canvasWasConnected && !canvasElement.isConnected) {
+// Storybook aborted the render (#271), or removed the canvas while the
+// request was in flight (#288).
+if (response === RENDER_ABORTED || renderWasAbandoned(canvasElement, canvasWasConnected, abortSignal)) {
   return;
 }
 
@@ -185,10 +196,11 @@ if (storyContext?.viewMode === 'story') {
 }
 ```
 
+- `roundTripMs` is only used for a response that wasn't abandoned. An aborted render returns before the emit, so it emits nothing.
 - The HTML comes from the response, not from `canvasElement.innerHTML`. The canvas copy has had its links and scripts moved or replaced, and with #236 it can contain the loading indicator.
 - `addons.getChannel()` returns a mock channel when the preview has none installed, so this is safe in portable stories and in `render.test.ts`.
 - Framework-delegated stories, string stories and DOM-node stories never reach `renderAstroToCanvas`, so they don't emit.
-- A failed render emits too, so the panel never presents an earlier render of the story as the current one. In the `catch` in `renderToCanvas`, inside the existing `latestRenderByCanvas.get(canvasElement) === thisRender` check and only in story view, emit the same event with `html: ''`, `stylesheetSources: []` and `error` set to the error's message. An out-of-date render's error stays silent, as it does today.
+- A failed render emits too, so the panel never presents an earlier render of the story as the current one. In the `catch` in `renderToCanvas`, inside the existing check, which requires that the render is the latest for the canvas (`latestRenderByCanvas.get(canvasElement) === thisRender`) and was not abandoned (`!renderWasAbandoned(...)`), and only in story view, emit the same event with `html: ''`, `stylesheetSources: []` and `error` set to the error's message. An out-of-date or abandoned render's error stays silent, as it does today.
 
 ## Renderer virtual module: `viteStorybookAstroRendererPlugin.ts`
 

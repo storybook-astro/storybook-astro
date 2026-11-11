@@ -6,7 +6,9 @@ import type {
   ComponentsManifest,
   DocgenProviderDescriptor,
   Manifests,
-  Options
+  Options,
+  StoryDocsPayload,
+  StoryDocsProvider
 } from 'storybook/internal/types';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
 import { vitePluginStorybookAstroMiddleware } from './viteStorybookAstroMiddlewarePlugin.ts';
@@ -359,8 +361,8 @@ function mergeEnvPrefixes(
  *
  * Only when the user opted into the Docgen Server (`features.docgenServer`, or
  * `features.experimentalDocgenServer` before Storybook 11). Otherwise
- * extraction stays in the Vite plugin, which covers our whole `storybook:
- * ^10.0.0` peer range (docs/specs/docgen.md#design-decisions).
+ * extraction stays in the Vite plugin, which covers our whole `storybook`
+ * peer range (docs/specs/docgen.md#design-decisions).
  */
 // eslint-disable-next-line camelcase -- the preset key Storybook core reads.
 export const experimental_docgenProvider = async (
@@ -402,6 +404,40 @@ export const experimental_docgenProvider = async (
       }
     }
   ];
+};
+
+/**
+ * Gives Storybook's story docs service, which AI agents read through
+ * `docs-show` and `docs-show-story`, each Astro story's description and an
+ * Astro snippet from the generator behind Show code. Stories files that don't
+ * document an `.astro` component go on to the next provider.
+ *
+ * Core applies this preset only when the Docgen Server is on, so it needs no
+ * flag check of its own. The builder is imported on the first request, since
+ * the `csf-tools` helpers it uses landed in Storybook 10.6 and this file loads
+ * on every version in our peer range.
+ */
+// eslint-disable-next-line camelcase -- the preset key Storybook core reads.
+export const experimental_storyDocsProvider = async (
+  next: StoryDocsProvider
+): Promise<StoryDocsProvider> => {
+  return async (input) => {
+    let ours: StoryDocsPayload | undefined;
+
+    try {
+      const { buildStoryDocsPayload } = await import('./docgen/story-docs-payload.ts');
+
+      ours = await buildStoryDocsPayload(input);
+    } catch {
+      // A stories file this provider can't handle, or a module that fails to
+      // load on this Storybook version, shouldn't fail the request: the rest
+      // of the chain may still document it, as `@storybook/vue3` does.
+      return next(input);
+    }
+
+    // Merged over the rest of the chain, as `@storybook/react` merges its own.
+    return ours ? { ...(await next(input)), ...ours } : next(input);
+  };
 };
 
 /**

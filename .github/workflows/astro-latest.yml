@@ -18,7 +18,9 @@ permissions:
 
 jobs:
   latest-astro:
-    runs-on: ubuntu-latest
+    # Pinned for the same reason as build.yml: Playwright 1.60 can't install
+    # Chromium on ubuntu-latest (26.04). Move back once Playwright supports it.
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false

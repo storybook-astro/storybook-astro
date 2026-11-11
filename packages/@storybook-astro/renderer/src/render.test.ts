@@ -25,7 +25,12 @@ function astroComponent() {
   return Object.assign(() => {}, { isAstroComponentFactory: true, moduleId: '/src/Card.astro' });
 }
 
-function storyContext(storyFn: () => unknown, parameters: Record<string, unknown> = {}) {
+function storyContext(
+  storyFn: () => unknown,
+  parameters: Record<string, unknown> = {},
+  // Storybook passes every render a live signal.
+  abortSignal: AbortSignal = new AbortController().signal
+) {
   return {
     storyFn,
     kind: 'Card',
@@ -33,7 +38,7 @@ function storyContext(storyFn: () => unknown, parameters: Record<string, unknown
     showMain: vi.fn(),
     showError: vi.fn(),
     forceRemount: false,
-    storyContext: { id: 'card--default', title: 'Card', name: 'Default', args: {}, parameters }
+    storyContext: { id: 'card--default', title: 'Card', name: 'Default', args: {}, parameters, abortSignal }
   } as unknown as RenderContext<AstroRenderer>;
 }
 
@@ -59,12 +64,12 @@ function serverRespondsWith(classNames: string | string[]) {
 /** Holds the next server render until the test answers or fails it. */
 function serverWaits() {
   let respond!: (classNames: string | string[]) => void;
-  let fail!: () => void;
+  let fail!: (error?: Error) => void;
 
   server.render.mockReturnValueOnce(
     new Promise((resolve, reject) => {
       respond = (classNames) => resolve({ html: storyHtml(classNames) });
-      fail = () => reject(new Error('Render failed'));
+      fail = (error = new Error('Render failed')) => reject(error);
     })
   );
 
@@ -104,7 +109,8 @@ describe('rendering an Astro story', () => {
     await renderToCanvas(context, canvas);
 
     expect(server.render).toHaveBeenCalledWith(
-      expect.objectContaining({ args: { title: 'Hello' }, slots: { default: 'Edited' } })
+      expect.objectContaining({ args: { title: 'Hello' }, slots: { default: 'Edited' } }),
+      expect.anything()
     );
   });
 
@@ -467,6 +473,12 @@ describe('while an Astro story renders', () => {
     await rendering;
   });
 
+  test('fails when the render module answers with nothing', async () => {
+    server.render.mockResolvedValueOnce(undefined);
+
+    await expect(renderAstro(canvas)).rejects.toThrow();
+  });
+
   test('removes the indicator when the render fails', async () => {
     vi.useFakeTimers();
     const slowRender = serverWaits();
@@ -524,6 +536,49 @@ describe('while an Astro story renders', () => {
     expect(heightWhenScriptsRan).toEqual(['']);
   });
 
+  test('keeps the held height when Storybook aborts the next render, until a render writes', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    const story = new AbortController();
+    const component = astroComponent();
+    const slowRender = serverWaits();
+    const aborted = renderToCanvas(storyContext(() => component, {}, story.signal), canvas);
+
+    story.abort();
+    await aborted;
+    slowRender.respond('second');
+
+    expect(canvas.style.minHeight).toBe('900px');
+
+    serverRespondsWith('third');
+    await renderAstro(canvas);
+
+    expect(canvas.style.minHeight).toBe('');
+    expect(canvas.innerHTML).toBe('<div>third</div>');
+  });
+
+  test('gives the held height back when the canvas leaves the document while the next render waits', async () => {
+    serverRespondsWith('first');
+    const teardown = await renderAstro(canvas);
+
+    Object.defineProperty(canvas, 'offsetHeight', { configurable: true, value: 900 });
+    await teardown?.();
+
+    const component = astroComponent();
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(storyContext(() => component), canvas);
+
+    canvas.remove();
+    slowRender.respond('second');
+    await rendering;
+
+    expect(canvas.style.minHeight).toBe('');
+  });
+
   test('gives the height back when a framework story renders next', async () => {
     serverRespondsWith('first');
     const teardown = await renderAstro(canvas);
@@ -533,5 +588,167 @@ describe('while an Astro story renders', () => {
     await renderToCanvas(storyContext(() => null, { renderer: 'react' }), canvas);
 
     expect(canvas.style.minHeight).toBe('');
+  });
+});
+
+describe('when Storybook leaves an Astro story while the server renders it', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /**
+   * Storybook's `StoryRender.teardown()` aborts the render, then checks up to
+   * three times, a `setTimeout(0)` apart, whether it is still pending, and
+   * reloads the preview iframe if it is (#271).
+   */
+  async function settlesBeforeStorybookReloads(rendering: Promise<unknown>) {
+    let settled = false;
+
+    rendering.finally(() => (settled = true)).catch(() => {});
+
+    for (let check = 0; check < 3; check += 1) {
+      if (settled) {
+        return true;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    return false;
+  }
+
+  test('settles as soon as Storybook aborts the render, so leaving the story doesn\'t reload the preview (issue #271)', async () => {
+    serverRespondsWith('first');
+    await renderAstro(canvas);
+
+    const story = new AbortController();
+    const component = astroComponent();
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(storyContext(() => component, {}, story.signal), canvas);
+
+    story.abort();
+
+    expect(await settlesBeforeStorybookReloads(rendering)).toBe(true);
+
+    slowRender.respond('second');
+    const teardown = await rendering;
+
+    expect(canvas.innerHTML).toBe('<div>first</div>');
+    expect(headCss()).toEqual(['.first {}']);
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+
+    await teardown?.();
+
+    expect(canvas.innerHTML).toBe('');
+    expect(headCss()).toEqual([]);
+  });
+
+  test('removes the loading indicator as soon as Storybook aborts the render', async () => {
+    serverRespondsWith('first');
+    await renderAstro(canvas);
+
+    vi.useFakeTimers();
+    const story = new AbortController();
+    const component = astroComponent();
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(storyContext(() => component, {}, story.signal), canvas);
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).not.toBeNull();
+
+    story.abort();
+    await rendering;
+
+    expect(canvas.querySelector('[data-storybook-astro-loading]')).toBeNull();
+    expect(canvas.innerHTML).toBe('<div>first</div>');
+
+    slowRender.respond('second');
+  });
+
+  test('doesn\'t ask the server to render when Storybook aborted the render before it started (issue #342)', async () => {
+    const story = new AbortController();
+    const component = astroComponent();
+    const context = storyContext(() => component, {}, story.signal);
+
+    story.abort();
+
+    await expect(renderToCanvas(context, canvas)).resolves.toBeUndefined();
+    expect(server.render).not.toHaveBeenCalled();
+    expect(canvas.innerHTML).toBe('');
+    expect(headCss()).toEqual([]);
+    expect(context.showError).not.toHaveBeenCalled();
+  });
+
+  test('hands Storybook\'s abort signal to the render request, so leaving the story cancels it (issue #342)', async () => {
+    const story = new AbortController();
+    const component = astroComponent();
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(storyContext(() => component, {}, story.signal), canvas);
+
+    expect(server.render).toHaveBeenCalledWith(expect.anything(), { signal: story.signal });
+
+    story.abort();
+    slowRender.fail(new DOMException('The operation was aborted.', 'AbortError'));
+
+    await expect(rendering).resolves.toBeUndefined();
+  });
+
+  test('doesn\'t show the error when the server fails after Storybook aborted the render', async () => {
+    const story = new AbortController();
+    const component = astroComponent();
+    const context = storyContext(() => component, {}, story.signal);
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(context, canvas);
+
+    story.abort();
+    slowRender.fail();
+
+    await expect(rendering).resolves.toBeUndefined();
+    expect(context.showError).not.toHaveBeenCalled();
+  });
+
+  test('doesn\'t throw the error when the server fails after the canvas left the document (issue #303)', async () => {
+    const component = astroComponent();
+    const context = storyContext(() => component);
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(context, canvas);
+
+    canvas.remove();
+    slowRender.fail();
+
+    await expect(rendering).resolves.toBeUndefined();
+    expect(context.showError).not.toHaveBeenCalled();
+  });
+
+  test('doesn\'t show the unreachable-server error after the canvas left the document (issue #303)', async () => {
+    const component = astroComponent();
+    const context = storyContext(() => component);
+    const slowRender = serverWaits();
+    const rendering = renderToCanvas(context, canvas);
+    const unavailable = Object.assign(new Error('Unable to reach Astro rendering server'), {
+      name: 'AstroRenderServerUnavailableError'
+    });
+
+    canvas.remove();
+    slowRender.fail(unavailable);
+
+    await expect(rendering).resolves.toBeUndefined();
+    expect(context.showError).not.toHaveBeenCalled();
+  });
+
+  test('still shows the unreachable-server error for a story that is still there', async () => {
+    const component = astroComponent();
+    const context = storyContext(() => component);
+    const unavailable = Object.assign(new Error('Unable to reach Astro rendering server'), {
+      name: 'AstroRenderServerUnavailableError'
+    });
+
+    server.render.mockRejectedValueOnce(unavailable);
+    await renderToCanvas(context, canvas);
+
+    expect(context.showError).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Unable to reach Astro rendering server.' })
+    );
   });
 });

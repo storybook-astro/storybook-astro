@@ -172,8 +172,8 @@ slot content, so attributes outside the allowlist, such as `data-*`, are
 removed. With the [Docgen Server](#moving-extraction-off-the-dev-server)
 enabled, slots are listed but have no text control yet
 ([#267](https://github.com/storybook-astro/storybook-astro/issues/267)). Slot
-rows and their controls come from the same extraction as the props table, so
-they need `@storybook/addon-docs` and TypeScript installed (see
+rows come from the same extraction as the props table, so they need TypeScript
+installed, and `@storybook/addon-docs` unless the Docgen Server is on (see
 [Turning extraction off](#turning-extraction-off)).
 
 Each control is stored in a story arg named `slot-<name>`, for example
@@ -224,10 +224,129 @@ Two caveats:
 On Storybook 10.0–10.5 the flag is accepted but the helpers this builds on don't
 exist yet, so extraction stays in the builder and logs a note saying so.
 
-The Docgen Server also feeds Storybook's components manifest
-(`features.componentsManifest`), which `@storybook/addon-mcp` reads to give AI
-agents your components' descriptions and props. With both features on, static
-builds write `manifests/components.json` with an entry for each Astro component.
+## Components manifest and AI agents
+
+Storybook's components manifest lists your components in a JSON file that tools
+can read, with each Astro component's description and a reference to its props.
+`@storybook/addon-mcp` reads it so an AI agent can find your components and how
+to use them without opening their source.
+
+Astro components reach the manifest through the
+[Docgen Server](#moving-extraction-off-the-dev-server), so turn it on together
+with `componentsManifest`. This needs Storybook 10.6 or newer:
+
+```js
+// .storybook/main.js
+export default {
+  features: {
+    experimentalDocgenServer: true, // Storybook 10.6–10.x
+    // docgenServer: true,          // Storybook 11 renames the flag
+    componentsManifest: true,
+  },
+};
+```
+
+An AI agent then gets each Astro component's description, props and slots. Its
+props come as a Markdown `Props` type, the same shape Storybook gives React
+components: each prop with its type, a `?` when it's optional, its default as
+the component's `Astro.props` destructuring writes it, and its JSDoc
+description. A **Slots** list follows, with each slot's `@slot`
+description and a line on how a story fills them. Both come from the rows the
+extractor builds for the props table, so a prop it leaves out because it comes
+from a dependency (see [Inherited props](#inherited-props)) is left out here
+too. Hiding a row with `table: { disable: true }` in a story's
+`argTypes` only hides it from the table: the agent still sees the prop. For
+example, `docs-show` from `@storybook/addon-mcp` returns this for a button:
+
+````md
+## Props
+
+```
+export type Props = {
+  /**
+    Visual treatment.
+  */
+  variant?: "solid" | "soft" | "outline" = 'solid';
+  disabled?: boolean = false;
+  href?: string | URL | null;
+}
+```
+
+## Slots
+
+- `default` (child content)
+
+In a story, pass slot content in `args.slots` (`slots: { default: '…' }`).
+````
+
+Each story also gets its description and an Astro snippet from the same
+generator as Show code (see [Showing component source](#showing-component-source)),
+with the component's import in the frontmatter. The description is the story's
+`parameters.docs.description.story`, which the Docs page shows too, or else its
+JSDoc comment. As for React
+components, `docs-show` shows a component's first three stories with their
+snippets and lists the rest by name, and `docs-show-story` returns one story:
+
+````md
+# Button - Outline
+
+Outline variant at large size.
+
+```
+---
+import Button from './Button.astro';
+---
+<Button size="lg" variant="outline">
+  Read the docs
+</Button>
+```
+````
+
+The snippet is built from the stories file without running it, so it uses the
+story's args as written, merged over the meta's. An arg that isn't a literal
+value, such as a component in a slot, an imported image or the result of a
+function call, can't be read that way. That story gets a warning naming the arg
+instead of a snippet, and `docs-show` lists it by name. A function arg, such as
+an `fn()` spy from `storybook/test` or a method like `onClick() {}`, is left
+out, as Show code leaves it out. A story that sets `parameters.renderer` to a
+framework integration has no Astro snippet, and neither does a story with a
+`render` function that doesn't take args. A story whose `parameters`, or its
+meta's, isn't written inline (set from a variable, spreading another object, or
+with a `renderer` set from a variable) gets a warning instead of a snippet,
+since it may render with another integration. A story's own
+`parameters.docs.source.code` is its snippet as written. When it isn't a plain
+string, such as one built with `dedent`, the story gets a warning instead of a
+snippet. A story set to `docs.source.type: 'code'` without one gets no snippet.
+`objectProps: 'inline'` applies when the story or its meta sets it. With the
+Docgen Server on, a standalone `<Source>` block, such as one in an MDX page,
+shows this snippet, built from the stories file's args, so it doesn't follow
+Controls, even for a story set to `docs.source.type: 'dynamic'`. Show code under
+a story on the Docs page doesn't use it and still follows Controls, and so does
+the Code panel after the first edit. Args and a
+`parameters.docs.source.objectProps` set in `.storybook/preview.js` aren't
+applied to the snippet. `storybook build` writes the story snippets to
+`services/core/story-docs/` in the output directory.
+
+In dev, `/manifests/components.html` shows the same Markdown for each Astro
+component. A static build (`storybook build`) writes `manifests/components.json`
+to the output directory, with an entry for each component (a component is left
+out when all of its stories are tagged `!manifest`); an Astro component's entry
+holds its description and a reference to its props and that Markdown under
+`services/core/docgen/`. Only Astro components get a description and props.
+Components from React, Vue, Svelte, Solid and Preact are listed without a
+description or props. The JSON file is written by `storybook build`; in dev
+with the Docgen Server on, Storybook doesn't serve it.
+
+The manifest comes from the same extraction as the props table, so it needs
+TypeScript installed (see [Turning extraction off](#turning-extraction-off)).
+With extraction turned off (`docgen: false`) or in a test build
+(`storybook build --test`), the build still writes `components.json`, but Astro
+components are listed without a description or props. Unlike the props table,
+the manifest doesn't need `@storybook/addon-docs`. On Storybook 10.6 and newer,
+with the Docgen Server off, the build writes no `components.json`. On Storybook
+10.0–10.5, Storybook Astro can't run the Docgen Server, so the manifest has no
+description or props for Astro components; on 10.5 with both flags on, the
+build also logs a manifest error.
 
 ## Turning extraction off
 
@@ -238,8 +357,8 @@ options: {
 }
 ```
 
-Extraction is also skipped automatically when `@storybook/addon-docs` isn't
-installed, and during test builds.
+Extraction is also skipped automatically during test builds and, unless the
+Docgen Server is on, when `@storybook/addon-docs` isn't installed.
 
 It needs TypeScript 5.0 or newer, which Astro projects already have. Without it,
 docgen is skipped with a warning and everything else keeps working.
@@ -273,7 +392,17 @@ so it stays the usage you would copy into a page.
 | number / bigint | `count={42}` |
 | `Date` | `published={new Date("2026-06-11T10:00:00.000Z")}` |
 | object / array | `author={author}`, with `const author = …` hoisted into the frontmatter, or written out in the attribute with `objectProps: 'inline'` (see below) |
-| `''`, `null`, `undefined`, functions | omitted |
+| `''`, `null`, `undefined`, functions, Symbols | omitted |
+
+Inside an object or array, a `Date` stays `new Date(...)`, a BigInt keeps its
+`n`, and `NaN`, `Infinity` and `undefined` array entries are written as
+themselves. Object members that are `undefined`, functions or Symbols are left
+out, and a function or Symbol array entry is written as `undefined`, so the
+entries after it keep their positions. Other built-ins such as `Map`, `Set` and
+`RegExp` still print as `{}`, as JSON prints them, and a value with a `toJSON`
+method, such as a `URL`, is shown as what `toJSON` returns. A prop the snippet
+can't write as a literal at all, such as a Symbol or an object that refers back
+to itself, is left out of the snippet rather than breaking it.
 
 `args.slots` becomes the component's children — the `default` slot inline, and
 named slots wrapped in `<Fragment slot="name">`. A component (rather than a
