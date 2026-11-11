@@ -37,8 +37,9 @@ export interface StoryDocsPayloadContext {
  *
  * The snippet comes from the same generator as Show code, built from the args
  * written in the stories file, read statically from the CSF file. With the
- * Docgen Server on, the Docs page's Show code prints this snippet, so it
- * doesn't follow Controls. A story whose args can't all be read gets a
+ * Docgen Server on, a standalone `<Source>` block prints this snippet, so it
+ * doesn't follow Controls; Show code under a story (`<Canvas>`) never reads
+ * it. A story whose args can't all be read gets a
  * `warning` and no snippet, since a snippet missing an arg would show the
  * wrong usage. A story's hand-written `parameters.docs.source.code` is used
  * as it is, or gets a warning when it can't be read statically, and

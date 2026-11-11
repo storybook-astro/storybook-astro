@@ -318,11 +318,13 @@ since it may render with another integration. A story's own
 string, such as one built with `dedent`, the story gets a warning instead of a
 snippet. A story set to `docs.source.type: 'code'` without one gets no snippet.
 `objectProps: 'inline'` applies when the story or its meta sets it. With the
-Docgen Server on, the Docs page's Show code shows this snippet, built from the
-stories file's args, so it doesn't follow Controls, even for a story set to
-`docs.source.type: 'dynamic'` (the Code panel still does after the first edit).
-Args and a `parameters.docs.source.objectProps` set in `.storybook/preview.js`
-aren't applied to it. `storybook build` writes the story snippets to
+Docgen Server on, a standalone `<Source>` block, such as one in an MDX page,
+shows this snippet, built from the stories file's args, so it doesn't follow
+Controls, even for a story set to `docs.source.type: 'dynamic'`. Show code under
+a story on the Docs page doesn't use it and still follows Controls, and so does
+the Code panel after the first edit. Args and a
+`parameters.docs.source.objectProps` set in `.storybook/preview.js` aren't
+applied to the snippet. `storybook build` writes the story snippets to
 `services/core/story-docs/` in the output directory.
 
 In dev, `/manifests/components.html` shows the same Markdown for each Astro
