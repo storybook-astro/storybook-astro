@@ -12,11 +12,15 @@ declare module 'virtual:astro-files' {
 }
 
 declare module 'virtual:storybook-astro-renderer' {
-  import type { RenderComponentInput, RenderResponseMessage } from '@storybook-astro/renderer/types';
+  import type {
+    RenderComponentInput,
+    RenderRequestOptions,
+    RenderResponseMessage
+  } from '@storybook-astro/renderer/types';
 
   export function render(
     input: RenderComponentInput,
-    timeoutMs?: number
+    options?: RenderRequestOptions
   ): Promise<RenderResponseMessage['data']>;
   export function init(): void;
   export function applyStyles(): void;

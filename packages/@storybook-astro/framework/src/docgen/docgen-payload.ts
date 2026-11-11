@@ -14,6 +14,7 @@ import {
 import type { DocgenPayload, DocgenProviderInput, StrictArgTypes } from 'storybook/internal/types';
 import { extractArgTypes } from '@storybook-astro/renderer/extractArgTypes';
 import { slotArgName } from '@storybook-astro/renderer/slotArgs';
+import { formatApiDescription } from './apiDescription.ts';
 import type { AstroDocgenInfo } from './types.ts';
 
 /** One instance per worker: the resolver caches its module resolutions. */
@@ -115,13 +116,17 @@ export async function buildDocgenPayload(
     toJsDocTags(info.tags)
   );
 
+  const argTypes = extractArgTypes({ __docgenInfo: info });
+
   return {
     ...base,
     name: localName || info.displayName || base.name,
     description,
     summary,
     jsDocTags,
-    argTypes: withoutSlotControls(extractArgTypes({ __docgenInfo: info }), info),
+    argTypes: withoutSlotControls(argTypes, info),
+    // Core strips argTypes before an agent sees the component (issue #353).
+    apiDescription: formatApiDescription(argTypes, info),
     renderer: 'astro'
   };
 }

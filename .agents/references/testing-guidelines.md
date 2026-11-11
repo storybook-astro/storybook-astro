@@ -89,7 +89,7 @@ Unmount what you render (`root.unmount()`, `render(null, element)`) and remove t
 
 ## Before Pushing
 
-The pre-PR checklist in [AGENTS.md](../../AGENTS.md#before-opening-a-pr) is `yarn lint`, `yarn lint:links` and `yarn test`. CI (`.github/workflows/build.yml`) also builds each integration app and runs `test:browser` and `test:storybook` for astro5, astro6 and astro7.
+The pre-PR checklist in [AGENTS.md](../../AGENTS.md#before-opening-a-pr) is `yarn lint`, `yarn lint:links` and `yarn test`. CI (`.github/workflows/build.yml`) also builds each integration app and runs `test:browser` and `test:storybook` for astro5, astro6 and astro7, on Storybook 10 and again on the Storybook 11 versions pinned in `scripts/storybook-next-versions.json`.
 
 ## Best Practices
 

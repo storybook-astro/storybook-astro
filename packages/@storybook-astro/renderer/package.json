@@ -1,6 +1,6 @@
 {
   "name": "@storybook-astro/renderer",
-  "version": "1.16.0-next.0",
+  "version": "1.16.0-canary.1",
   "description": "Client-side renderer for Storybook Astro framework",
   "module": "./dist/preset.js",
   "type": "module",
@@ -54,6 +54,10 @@
     "./decoratedTree": {
       "types": "./dist/decoratedTree.d.ts",
       "import": "./dist/decoratedTree.js"
+    },
+    "./generateAstroSource": {
+      "types": "./dist/docs/generateAstroSource.d.ts",
+      "import": "./dist/docs/generateAstroSource.js"
     },
     "./slotArgs": {
       "types": "./dist/slotArgs.d.ts",

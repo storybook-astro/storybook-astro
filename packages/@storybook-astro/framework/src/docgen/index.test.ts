@@ -41,7 +41,7 @@ describe('extraction through the runtime', () => {
 
     expect(result?.displayName).toBe('Card');
     expect(result?.description).toBe('A card.');
-    expect(result?.props.title.defaultValue).toEqual({ value: 'Hello' });
+    expect(result?.props.title.defaultValue).toEqual({ value: 'Hello', source: "'Hello'" });
 
     docgen.dispose();
   });

@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import type ts from 'typescript';
-import { readAstroPropsBinding } from './defaultValues.ts';
+import { readAstroPropsBinding, type AstroPropsBinding } from './defaultValues.ts';
 import { readComponentDescription } from './description.ts';
 import { createDefaultPropFilter } from './propFilter.ts';
 import { readSlots } from './slots.ts';
@@ -73,7 +73,7 @@ export function extractAstroDocgen(
   const props: Record<string, AstroDocgenProp> = {};
 
   for (const { symbol, checker } of properties) {
-    const prop = buildProp(typescript, checker, symbol, binding.defaults);
+    const prop = buildProp(typescript, checker, symbol, binding);
 
     if (propFilter(prop, { name: displayName })) {
       props[prop.name] = prop;
@@ -204,7 +204,7 @@ function buildProp(
   typescript: typeof ts,
   checker: ts.TypeChecker,
   symbol: ts.Symbol,
-  defaults: ReadonlyMap<string, string | number | boolean | null>
+  { defaults, defaultSources }: AstroPropsBinding
 ): AstroDocgenProp {
   const name = symbol.getName();
   const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
@@ -221,7 +221,9 @@ function buildProp(
     required,
     type: describeType(checker, type, required),
     description: typescript.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
-    defaultValue: hasDefault ? { value: defaults.get(name) ?? null } : null,
+    defaultValue: hasDefault
+      ? { value: defaults.get(name) ?? null, source: defaultSources.get(name) }
+      : null,
     parent: declarationRefOf(typescript, declaration),
     declarations: (symbol.declarations ?? [])
       .map((each) => declarationRefOf(typescript, each))
