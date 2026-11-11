@@ -8,6 +8,7 @@ import {
 } from './preset.ts';
 /* eslint-enable camelcase */
 import type { FrameworkOptions } from './types.ts';
+import type * as StoryDocsPayloadModule from './docgen/story-docs-payload.ts';
 
 interface Scenario {
   features?: Record<string, unknown>;
@@ -45,11 +46,31 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
   };
 });
 
+// Lets a test make the story docs builder throw, as an unexpected stories
+// file shape could.
+const storyDocsBuilder = vi.hoisted(() => ({ error: undefined as Error | undefined }));
+
+vi.mock('./docgen/story-docs-payload.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof StoryDocsPayloadModule>();
+
+  return {
+    ...actual,
+    buildStoryDocsPayload: (...args: Parameters<typeof actual.buildStoryDocsPayload>) => {
+      if (storyDocsBuilder.error) {
+        throw storyDocsBuilder.error;
+      }
+
+      return actual.buildStoryDocsPayload(...args);
+    }
+  };
+});
+
 const flagOn = { experimentalDocgenServer: true };
 
 afterEach(() => {
   vi.restoreAllMocks();
   installed.storybook = '10.6.0';
+  storyDocsBuilder.error = undefined;
 });
 
 describe('contributing the Docgen Server descriptor', () => {
@@ -201,7 +222,7 @@ describe('providing story docs for AI agents (issue #354)', () => {
     importPath: './src/Widget.stories.jsx'
   } as IndexEntry;
 
-  test('passes a stories file with no Astro component to the next provider', async () => {
+  test('passes a stories file it does not document to the next provider', async () => {
     const theirs: StoryDocsPayload = {
       id: 'react-widget',
       name: 'Widget',
@@ -213,5 +234,20 @@ describe('providing story docs for AI agents (issue #354)', () => {
 
     expect(await provider({ entry: reactEntry })).toBe(theirs);
     expect(next).toHaveBeenCalledWith({ entry: reactEntry });
+  });
+
+  test('passes the request on to the next provider when building the story docs throws', async () => {
+    storyDocsBuilder.error = new Error('Unexpected stories file');
+
+    const theirs: StoryDocsPayload = {
+      id: 'react-widget',
+      name: 'Widget',
+      path: './src/Widget.stories.jsx',
+      stories: {}
+    };
+    const next = vi.fn(async () => theirs);
+    const provider = await experimental_storyDocsProvider(next);
+
+    expect(await provider({ entry: reactEntry })).toBe(theirs);
   });
 });

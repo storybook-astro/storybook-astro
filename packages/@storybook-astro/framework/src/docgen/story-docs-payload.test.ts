@@ -56,6 +56,36 @@ beforeAll(() => {
     "export const Delegated = { parameters: { renderer: 'react' }, args: { variant: 'solid' } };"
   ]);
 
+  write('Options.stories.jsx', [
+    "import Button from './Button.astro';",
+    '',
+    'export default {',
+    "  title: 'Astro/Options',",
+    '  component: Button,',
+    "  args: { 'slot-default': 'Fallback' }",
+    '};',
+    '',
+    "export const SlotsArg = { args: { slots: { default: 'Real content' } } };",
+    '',
+    'export const InlineObjects = {',
+    "  parameters: { docs: { source: { objectProps: 'inline' } } },",
+    '  args: { items: [1, 2] }',
+    '};',
+    '',
+    '/** From the JSDoc. */',
+    'export const BothDescriptions = {',
+    "  parameters: { docs: { description: { story: 'From the parameter.' } } }",
+    '};',
+    '',
+    'export const HandWritten = {',
+    "  parameters: { docs: { source: { code: '<Button>Hand-written</Button>' } } }",
+    '};',
+    '',
+    'export const CsfSource = {',
+    "  parameters: { docs: { source: { type: 'code' } } }",
+    '};'
+  ]);
+
   write('Widget.tsx', ['export const Widget = () => null;']);
 
   write('Widget.stories.jsx', [
@@ -136,12 +166,14 @@ describe('an Astro stories file', () => {
     );
   });
 
-  test('keeps a story name, reads a per-slot arg and leaves out functions', async () => {
+  test('keeps a story name and leaves out functions', async () => {
     const payload = await build('Button.stories.jsx', 'Astro/Button');
 
+    // An unedited `slot-<name>` arg defers to `args.slots`, as in Show code
+    // and the canvas, so a story that sets only the per-slot arg fills no slot.
     expect(payload!.stories['astro-button--labelled']).toMatchObject({
       name: 'With a label',
-      snippet: expect.stringContaining('<Button variant="solid">\n  Labelled\n</Button>')
+      snippet: expect.stringContaining('<Button variant="solid" />')
     });
   });
 
@@ -159,6 +191,47 @@ describe('an Astro stories file', () => {
 
     expect(story.snippet).toBeUndefined();
     expect(story.warning).toContain('react');
+  });
+});
+
+describe('the options Show code reads', () => {
+  test('args.slots wins over a meta slot-<name> arg nobody edited', async () => {
+    const payload = await build('Options.stories.jsx', 'Astro/Options');
+    const snippet = payload!.stories['astro-options--slots-arg'].snippet;
+
+    expect(snippet).toContain('Real content');
+    expect(snippet).not.toContain('Fallback');
+  });
+
+  test('a story that sets objectProps: inline gets its object props inline', async () => {
+    const payload = await build('Options.stories.jsx', 'Astro/Options');
+    const snippet = payload!.stories['astro-options--inline-objects'].snippet;
+
+    expect(snippet).toContain('items={[');
+    expect(snippet).not.toContain('const items');
+  });
+
+  test('parameters.docs.description.story wins over the JSDoc, as on the Docs page', async () => {
+    const payload = await build('Options.stories.jsx', 'Astro/Options');
+
+    expect(payload!.stories['astro-options--both-descriptions'].description).toBe('From the parameter.');
+  });
+
+  test('a hand-written docs.source.code is the snippet', async () => {
+    const payload = await build('Options.stories.jsx', 'Astro/Options');
+
+    expect(payload!.stories['astro-options--hand-written']).toMatchObject({
+      snippet: '<Button>Hand-written</Button>'
+    });
+    expect(payload!.stories['astro-options--hand-written'].warning).toBeUndefined();
+  });
+
+  test("docs.source.type: 'code' without code gets no snippet and no warning", async () => {
+    const payload = await build('Options.stories.jsx', 'Astro/Options');
+    const story = payload!.stories['astro-options--csf-source'];
+
+    expect(story.snippet).toBeUndefined();
+    expect(story.warning).toBeUndefined();
   });
 });
 

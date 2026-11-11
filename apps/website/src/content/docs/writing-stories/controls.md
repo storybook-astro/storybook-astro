@@ -279,10 +279,11 @@ export type Props = {
 In a story, pass slot content in `args.slots` (`slots: { default: '…' }`).
 ````
 
-Each story also gets its description and an Astro snippet, the usage Show code
-prints for the story (see [Showing component source](#showing-component-source)),
+Each story also gets its description and an Astro snippet from the same
+generator as Show code (see [Showing component source](#showing-component-source)),
 with the component's import in the frontmatter. The description is the story's
-JSDoc comment, or else its `parameters.docs.description.story`. As for React
+`parameters.docs.description.story`, which the Docs page shows too, or else its
+JSDoc comment. As for React
 components, `docs-show` shows a component's first three stories with their
 snippets and lists the rest by name, and `docs-show-story` returns one story:
 
@@ -307,8 +308,15 @@ value, such as a component in a slot, an imported image or the result of a
 function call, can't be read that way. That story gets a warning naming the arg
 instead of a snippet, and `docs-show` lists it by name. A function arg is left
 out, as Show code leaves it out. A story that sets `parameters.renderer` to a
-framework integration has no Astro snippet. `storybook build` writes the story
-snippets to `services/core/story-docs/` in the output directory.
+framework integration has no Astro snippet. A story's own
+`parameters.docs.source.code` is its snippet as written, and a story set to
+`docs.source.type: 'code'` without one gets no snippet. `objectProps: 'inline'`
+applies when the story or its meta sets it. With the Docgen Server on, the Docs
+page's Show code shows this snippet, built from the stories file's args, so it
+doesn't follow Controls (the Code panel still does after the first edit), and a
+`parameters.docs.source.objectProps` set in `.storybook/preview.js` isn't
+applied to it. `storybook build` writes the story snippets to
+`services/core/story-docs/` in the output directory.
 
 In dev, `/manifests/components.html` shows the same Markdown for each Astro
 component. A static build (`storybook build`) writes `manifests/components.json`

@@ -411,7 +411,15 @@ export const experimental_storyDocsProvider = async (
   return async (input) => {
     const { buildStoryDocsPayload } = await import('./docgen/story-docs-payload.ts');
 
-    const ours = await buildStoryDocsPayload(input);
+    let ours: Awaited<ReturnType<typeof buildStoryDocsPayload>>;
+
+    try {
+      ours = await buildStoryDocsPayload(input);
+    } catch {
+      // A stories file this provider can't handle shouldn't fail the request:
+      // the rest of the chain may still document it, as `@storybook/vue3` does.
+      return next(input);
+    }
 
     // Merged over the rest of the chain, as `@storybook/react` merges its own.
     return ours ? { ...(await next(input)), ...ours } : next(input);

@@ -35,10 +35,13 @@ export interface StoryDocsPayloadContext {
  * Builds the story docs AI agents read through `docs-show` and
  * `docs-show-story`: each story's name, description and an Astro snippet.
  *
- * The snippet is what Show code prints for the story when it first loads,
- * from the same generator, but with the args read statically from the CSF
- * file. A story whose args can't all be read gets a `warning` and no snippet,
- * since a snippet missing an arg would show the wrong usage.
+ * The snippet comes from the same generator as Show code, built from the args
+ * written in the stories file, read statically from the CSF file. With the
+ * Docgen Server on, the Docs page's Show code prints this snippet, so it
+ * doesn't follow Controls. A story whose args can't all be read gets a
+ * `warning` and no snippet, since a snippet missing an arg would show the
+ * wrong usage. A story's hand-written `parameters.docs.source.code` is used
+ * as it is, and `docs.source.type: 'code'` without one gets no snippet.
  *
  * Returns `undefined` when the stories file doesn't document an `.astro`
  * component, so the request goes on to the next provider.
@@ -91,6 +94,11 @@ export async function buildStoryDocsPayload(
       const renderer =
         readParameter(storyMembers.properties, ['renderer']) ??
         readParameter(metaMembers.properties, ['renderer']);
+      const readSourceParameter = (key: string) =>
+        readParameter(storyMembers.properties, ['docs', 'source', key]) ??
+        readParameter(metaMembers.properties, ['docs', 'source', key]);
+      const sourceCode = readSourceParameter('code');
+      const sourceType = readSourceParameter('type');
 
       if (description) {
         doc.description = description;
@@ -103,6 +111,12 @@ export async function buildStoryDocsPayload(
         // Show code has no snippet for these either: the story renders
         // through the integration's own Storybook renderer.
         doc.warning = `This story renders with the ${renderer} integration, so it has no Astro snippet.`;
+      } else if (typeof sourceCode === 'string') {
+        // The author's own source wins, as it does in Show code.
+        doc.snippet = sourceCode;
+      } else if (sourceType === 'code') {
+        // Show code prints the story's CSF source here, which isn't Astro
+        // usage, so agents get neither a snippet nor a warning.
       } else {
         // What the resolver couldn't follow, plus any value that isn't a literal.
         const unreadable = [...unresolved];
@@ -112,7 +126,11 @@ export async function buildStoryDocsPayload(
           doc.warning = noSnippetWarning(unreadable);
         } else {
           doc.snippet = generateAstroSource(componentName, values, {
-            importPath: resolveImportPath(resolved.component.path, componentName)
+            importPath: resolveImportPath(resolved.component.path, componentName),
+            objectProps: readSourceParameter('objectProps') === 'inline' ? 'inline' : 'frontmatter',
+            // Nothing has been edited, so an unedited `slot-<name>` arg defers
+            // to `args.slots`, as it does in Show code.
+            initialArgs: values
           });
         }
       }
@@ -137,8 +155,8 @@ export async function buildStoryDocsPayload(
 }
 
 /**
- * The story's JSDoc, as other frameworks read it, or else the
- * `parameters.docs.description.story` string the Docs page shows.
+ * The story's `parameters.docs.description.story` string, which the Docs page
+ * shows over the JSDoc, or else the story's JSDoc, as other frameworks read it.
  *
  * Storybook 11 reads comments through the CSF file's source editor, so
  * `extractStoryJSDocInfo` takes it as a second argument. Storybook 10 takes
@@ -149,19 +167,18 @@ function readStoryDescription(
   exportName: string,
   storyProperties: Record<string, unknown>
 ): { description?: string; summary?: string } {
+  const fromParameters = readParameter(storyProperties, ['docs', 'description', 'story']);
+
+  if (typeof fromParameters === 'string') {
+    return { description: fromParameters };
+  }
+
   const extract = extractStoryJSDocInfo as (
     node: unknown,
     editor?: unknown
   ) => { description?: string; summary?: string };
-  const fromJsDoc = extract(csf._storyStatements[exportName], (csf as { editor?: unknown }).editor);
 
-  if (fromJsDoc.description) {
-    return fromJsDoc;
-  }
-
-  const fromParameters = readParameter(storyProperties, ['docs', 'description', 'story']);
-
-  return typeof fromParameters === 'string' ? { description: fromParameters } : fromJsDoc;
+  return extract(csf._storyStatements[exportName], (csf as { editor?: unknown }).editor);
 }
 
 /** A literal under `parameters`, or `undefined` when it isn't there or isn't a literal. */
