@@ -7,6 +7,7 @@ import type {
   DocgenProviderDescriptor,
   Manifests,
   Options,
+  StoryDocsPayload,
   StoryDocsProvider
 } from 'storybook/internal/types';
 import type { StorybookConfigVite, FrameworkOptions } from './types.ts';
@@ -409,15 +410,16 @@ export const experimental_storyDocsProvider = async (
   next: StoryDocsProvider
 ): Promise<StoryDocsProvider> => {
   return async (input) => {
-    const { buildStoryDocsPayload } = await import('./docgen/story-docs-payload.ts');
-
-    let ours: Awaited<ReturnType<typeof buildStoryDocsPayload>>;
+    let ours: StoryDocsPayload | undefined;
 
     try {
+      const { buildStoryDocsPayload } = await import('./docgen/story-docs-payload.ts');
+
       ours = await buildStoryDocsPayload(input);
     } catch {
-      // A stories file this provider can't handle shouldn't fail the request:
-      // the rest of the chain may still document it, as `@storybook/vue3` does.
+      // A stories file this provider can't handle, or a module that fails to
+      // load on this Storybook version, shouldn't fail the request: the rest
+      // of the chain may still document it, as `@storybook/vue3` does.
       return next(input);
     }
 

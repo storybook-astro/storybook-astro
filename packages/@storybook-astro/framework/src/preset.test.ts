@@ -48,19 +48,29 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
 
 // Lets a test make the story docs builder throw, as an unexpected stories
 // file shape could.
-const storyDocsBuilder = vi.hoisted(() => ({ error: undefined as Error | undefined }));
+const storyDocsBuilder = vi.hoisted(() => ({
+  error: undefined as Error | undefined,
+  loadError: undefined as Error | undefined
+}));
 
 vi.mock('./docgen/story-docs-payload.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof StoryDocsPayloadModule>();
 
   return {
     ...actual,
-    buildStoryDocsPayload: (...args: Parameters<typeof actual.buildStoryDocsPayload>) => {
-      if (storyDocsBuilder.error) {
-        throw storyDocsBuilder.error;
+    // A getter, so reading the export fails as a module that can't link would.
+    get buildStoryDocsPayload() {
+      if (storyDocsBuilder.loadError) {
+        throw storyDocsBuilder.loadError;
       }
 
-      return actual.buildStoryDocsPayload(...args);
+      return (...args: Parameters<typeof actual.buildStoryDocsPayload>) => {
+        if (storyDocsBuilder.error) {
+          throw storyDocsBuilder.error;
+        }
+
+        return actual.buildStoryDocsPayload(...args);
+      };
     }
   };
 });
@@ -71,6 +81,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   installed.storybook = '10.6.0';
   storyDocsBuilder.error = undefined;
+  storyDocsBuilder.loadError = undefined;
 });
 
 describe('contributing the Docgen Server descriptor', () => {
@@ -238,6 +249,21 @@ describe('providing story docs for AI agents (issue #354)', () => {
 
   test('passes the request on to the next provider when building the story docs throws', async () => {
     storyDocsBuilder.error = new Error('Unexpected stories file');
+
+    const theirs: StoryDocsPayload = {
+      id: 'react-widget',
+      name: 'Widget',
+      path: './src/Widget.stories.jsx',
+      stories: {}
+    };
+    const next = vi.fn(async () => theirs);
+    const provider = await experimental_storyDocsProvider(next);
+
+    expect(await provider({ entry: reactEntry })).toBe(theirs);
+  });
+
+  test('passes the request on to the next provider when the story docs module fails to load', async () => {
+    storyDocsBuilder.loadError = new SyntaxError("The requested module does not provide an export named 'loadCsf'");
 
     const theirs: StoryDocsPayload = {
       id: 'react-widget',
