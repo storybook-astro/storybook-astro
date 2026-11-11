@@ -279,9 +279,51 @@ export type Props = {
 In a story, pass slot content in `args.slots` (`slots: { default: '…' }`).
 ````
 
-As for React components, `docs-show` shows code for a component's first three
-stories and lists the rest by name. An agent fetches those with the story
-documentation tool.
+Each story also gets its description and an Astro snippet from the same
+generator as Show code (see [Showing component source](#showing-component-source)),
+with the component's import in the frontmatter. The description is the story's
+`parameters.docs.description.story`, which the Docs page shows too, or else its
+JSDoc comment. As for React
+components, `docs-show` shows a component's first three stories with their
+snippets and lists the rest by name, and `docs-show-story` returns one story:
+
+````md
+# Button - Outline
+
+Outline variant at large size.
+
+```
+---
+import Button from './Button.astro';
+---
+<Button size="lg" variant="outline">
+  Read the docs
+</Button>
+```
+````
+
+The snippet is built from the stories file without running it, so it uses the
+story's args as written, merged over the meta's. An arg that isn't a literal
+value, such as a component in a slot, an imported image or the result of a
+function call, can't be read that way. That story gets a warning naming the arg
+instead of a snippet, and `docs-show` lists it by name. A function arg, such as
+an `fn()` spy from `storybook/test` or a method like `onClick() {}`, is left
+out, as Show code leaves it out. A story that sets `parameters.renderer` to a
+framework integration has no Astro snippet, and neither does a story with a
+`render` function that doesn't take args. A story whose `parameters`, or its
+meta's, isn't written inline (set from a variable, spreading another object, or
+with a `renderer` set from a variable) gets a warning instead of a snippet,
+since it may render with another integration. A story's own
+`parameters.docs.source.code` is its snippet as written. When it isn't a plain
+string, such as one built with `dedent`, the story gets a warning instead of a
+snippet. A story set to `docs.source.type: 'code'` without one gets no snippet.
+`objectProps: 'inline'` applies when the story or its meta sets it. With the
+Docgen Server on, the Docs page's Show code shows this snippet, built from the
+stories file's args, so it doesn't follow Controls, even for a story set to
+`docs.source.type: 'dynamic'` (the Code panel still does after the first edit).
+Args and a `parameters.docs.source.objectProps` set in `.storybook/preview.js`
+aren't applied to it. `storybook build` writes the story snippets to
+`services/core/story-docs/` in the output directory.
 
 In dev, `/manifests/components.html` shows the same Markdown for each Astro
 component. A static build (`storybook build`) writes `manifests/components.json`
