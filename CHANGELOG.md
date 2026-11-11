@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-11
+
 ### Added
 - Storybook 11 support, alongside Storybook 10 (#205). Both packages accept Storybook 11, its prereleases included, as do the framework's optional peers for the React, Preact, Vue and Svelte renderers. Storybook 11 needs Node 22.12 or later. Install `@storybook/builder-vite` at the same version as `storybook`. The renderer's type declarations now build against Storybook 11's story context types, and with the Docgen Server enabled, a stories file's meta docblock still becomes the component description on Storybook 11 (#207).
 - Solid stories work with the Storybook 11 builds of `storybook-solidjs-vite`, which export the Solid 1 preview entry as `renderer/solid1` (#208).
