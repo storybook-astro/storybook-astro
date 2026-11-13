@@ -24030,6 +24030,7 @@ __metadata:
     vite: "npm:^8.0.13"
     vitest: "npm:^4.1.9"
     vue-eslint-parser: "npm:^10.1.3"
+    wrangler: "npm:4.160.1"
   languageName: unknown
   linkType: soft
 
@@ -27197,35 +27198,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"wrangler@npm:4.59.2":
-  version: 4.59.2
-  resolution: "wrangler@npm:4.59.2"
-  dependencies:
-    "@cloudflare/kv-asset-handler": "npm:0.4.2"
-    "@cloudflare/unenv-preset": "npm:2.10.0"
-    blake3-wasm: "npm:2.1.5"
-    esbuild: "npm:0.27.0"
-    fsevents: "npm:~2.3.2"
-    miniflare: "npm:4.20260114.0"
-    path-to-regexp: "npm:6.3.0"
-    unenv: "npm:2.0.0-rc.24"
-    workerd: "npm:1.20260114.0"
-  peerDependencies:
-    "@cloudflare/workers-types": ^4.20260114.0
-  dependenciesMeta:
-    fsevents:
-      optional: true
-  peerDependenciesMeta:
-    "@cloudflare/workers-types":
-      optional: true
-  bin:
-    wrangler: bin/wrangler.js
-    wrangler2: bin/wrangler.js
-  checksum: 10c0/72c18f923b76450b3b14df75fa1a420838e7b93d69bf57e9ec6dea809b90e753a16ac8419326042dc58bcfa3a1f5e929fd8e508b5aa3286f4a6037e5f514a04c
-  languageName: node
-  linkType: hard
-
-"wrangler@npm:^4.125.0, wrangler@npm:^4.46.0":
+"wrangler@npm:4.160.1, wrangler@npm:^4.125.0, wrangler@npm:^4.46.0":
   version: 4.160.1
   resolution: "wrangler@npm:4.160.1"
   dependencies:
@@ -27252,6 +27225,34 @@ __metadata:
     wrangler: bin/wrangler.js
     wrangler2: bin/wrangler.js
   checksum: 10c0/28ea414c7f360c8f5c9f66b44586a7c5c506b7b986338aeed852af38f19e0a4a0bd9b3dede8c26b7a65d993bdfcdfbb94ff80121a6f3d532291f219b912927f4
+  languageName: node
+  linkType: hard
+
+"wrangler@npm:4.59.2":
+  version: 4.59.2
+  resolution: "wrangler@npm:4.59.2"
+  dependencies:
+    "@cloudflare/kv-asset-handler": "npm:0.4.2"
+    "@cloudflare/unenv-preset": "npm:2.10.0"
+    blake3-wasm: "npm:2.1.5"
+    esbuild: "npm:0.27.0"
+    fsevents: "npm:~2.3.2"
+    miniflare: "npm:4.20260114.0"
+    path-to-regexp: "npm:6.3.0"
+    unenv: "npm:2.0.0-rc.24"
+    workerd: "npm:1.20260114.0"
+  peerDependencies:
+    "@cloudflare/workers-types": ^4.20260114.0
+  dependenciesMeta:
+    fsevents:
+      optional: true
+  peerDependenciesMeta:
+    "@cloudflare/workers-types":
+      optional: true
+  bin:
+    wrangler: bin/wrangler.js
+    wrangler2: bin/wrangler.js
+  checksum: 10c0/72c18f923b76450b3b14df75fa1a420838e7b93d69bf57e9ec6dea809b90e753a16ac8419326042dc58bcfa3a1f5e929fd8e508b5aa3286f4a6037e5f514a04c
   languageName: node
   linkType: hard
 
