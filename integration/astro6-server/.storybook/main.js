@@ -1,5 +1,7 @@
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { node } from '@storybook-astro/adapter-node';
+import { vercel } from '@storybook-astro/adapter-vercel';
 import { preact } from '@storybook-astro/framework/integrations';
 
 const componentsRoot = getAbsolutePath('@storybook-astro/components');
@@ -23,7 +25,7 @@ const config = {
       renderMode: 'server',
       storyRules: './.storybook/story-rules.ts',
       server: {
-        serverUrl: process.env.STORYBOOK_ASTRO_SERVER_URL ?? '/api/storybook-astro',
+        adapter: process.env.STORYBOOK_ADAPTER === 'vercel' ? vercel() : node(),
         authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
         authHeader: process.env.STORYBOOK_ASTRO_SERVER_AUTH_HEADER
       },

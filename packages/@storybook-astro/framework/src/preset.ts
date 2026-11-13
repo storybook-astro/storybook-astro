@@ -17,12 +17,14 @@ import { viteStorybookAstroRendererPlugin } from './viteStorybookAstroRendererPl
 import { vitePluginAstroComponentMarker } from './vitePluginAstroComponentMarker.ts';
 import { vitePluginAstroSvgComponentMarker } from './vitePluginAstroSvgComponentMarker.ts';
 import { vitePluginAstroBuildPrerender } from './vitePluginAstroBuildPrerender.ts';
-import { vitePluginAstroBuildServer } from './vitePluginAstroBuildServer.ts';
 import { vitePluginAstroFonts } from './vitePluginAstroFonts.ts';
+import { storyAstroImportsFile } from './serverApp/build.ts';
+import { vitePluginStoryAstroImports } from './serverApp/vitePluginStoryAstroImports.ts';
 import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegrationOptsFallback.ts';
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
+import { FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import {
   astroDepScanEsbuildPlugin,
@@ -49,6 +51,12 @@ export const core = {
 export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storybookOptions) => {
   const { configType, presets, configDir } = storybookOptions;
   const frameworkOptions = await presets.apply<FrameworkOptions>('frameworkOptions');
+
+  if (frameworkOptions.renderMode === 'server' && typeof frameworkOptions.server?.adapter?.createAstroAdapter !== 'function') {
+    throw new Error(
+      'Server mode requires server.adapter, e.g. node() from @storybook-astro/adapter-node. Configure it and run storybook-astro build.'
+    );
+  }
   const resolveFrom = frameworkOptions.resolveFrom ?? dirname(configDir);
 
   // Auto-load fonts from the user's astro.config.* when the framework option
@@ -84,19 +92,22 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
 
   config.envPrefix = mergeEnvPrefixes(config.envPrefix, 'STORYBOOK_');
 
+  // Story files and renderer glue can resolve physically different copies of
+  // a framework package (workspace hoisting limits, nested installs). Two
+  // copies of e.g. preact in the preview bundle break hooks at hydration, so
+  // force single instances in Storybook's own build too — the island asset
+  // build applies the same list (see lib/hydratedComponentBuild.ts).
+  config.resolve = {
+    ...config.resolve,
+    dedupe: Array.from(
+      new Set([...(config.resolve?.dedupe ?? []), ...FRAMEWORK_RUNTIME_PACKAGES])
+    )
+  };
+
   const { vitePlugin: storybookAstroMiddlewarePlugin, viteConfig } =
     await vitePluginStorybookAstroMiddleware(options);
 
-  // Every `.astro` file the iframe build's client graph reaches — story
-  // components, and anything imported only from `.storybook/preview.*` like a
-  // decorator's Wrapper.astro — passes through the marker plugin's `transform`
-  // hook. Server-mode builds need that full list to snapshot decorator/slot-only
-  // components the story index never mentions
-  // (docs/specs/decorators.md#server-snapshot), so collect it here and hand it
-  // to `vitePluginAstroBuildServer` below.
-  const clientAstroComponentIds = new Set<string>();
   const componentMarkerPlugin = vitePluginAstroComponentMarker({
-    onClientAstroModuleId: (moduleId) => clientAstroComponentIds.add(moduleId),
     docgen: await createDocgenIfEnabled(options, resolveFrom, storybookOptions)
   });
 
@@ -124,8 +135,9 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       config.plugins.push(vitePluginAstroBuildPrerender(options) as any);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      config.plugins.push(vitePluginAstroBuildServer(options, clientAstroComponentIds) as any);
+      // Server mode renders in the Astro app `storybook-astro build` builds next;
+      // this build only records which components each story file uses.
+      config.plugins.push(vitePluginStoryAstroImports(storyAstroImportsFile(resolveFrom)));
     }
 
     config.build = {

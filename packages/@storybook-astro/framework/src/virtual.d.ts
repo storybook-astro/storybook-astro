@@ -47,18 +47,4 @@ declare module 'virtual:storybook-astro/server-auth' {
   export const storybookAstroServerAuthHeader: string;
 }
 
-declare module 'virtual:storybook-astro/server-runtime' {
-  import type { Integration } from './integrations/index.ts';
-
-  export const runtimeConfig: {
-    snapshotDirName: string;
-    storyRulesConfigRelativePath: string | undefined;
-    componentPathMap: Record<string, string>;
-    staticModuleMap: Record<string, string>;
-    staticCssMap: Record<string, string[]>;
-    trackedSpecifiers: string[];
-  };
-  export const integrations: Integration[];
-}
-
 declare module 'virtual:storybook-renderer-fallback' {}

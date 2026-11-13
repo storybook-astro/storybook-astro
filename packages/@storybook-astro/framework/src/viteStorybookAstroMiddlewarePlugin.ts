@@ -35,6 +35,7 @@ import {
   loadUserAstroIntegrations,
   loadUserAstroVitePlugins
 } from './loadUserAstroConfig.ts';
+import { FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 
 export async function vitePluginStorybookAstroMiddleware(options: FrameworkOptions) {
   // Each dev server Storybook or Vitest starts gets its own internal Astro SSR
@@ -243,6 +244,18 @@ export async function createViteServer(
   const serverConfig: InlineConfig = {
     configFile: false,
     ...config,
+    resolve: {
+      ...config.resolve,
+      // Story components and renderer glue can resolve physically different
+      // copies of a framework runtime in this SSR graph — an app-local preact
+      // under yarn hoistingLimits: "workspaces" vs the hoisted copy
+      // packages/components sees. Two copies break hooks ("Cannot read
+      // properties of undefined (reading '__H')"), so force one instance each.
+      // Storybook's preview build and the island asset build apply the same list.
+      dedupe: Array.from(
+        new Set([...(config.resolve?.dedupe ?? []), ...FRAMEWORK_RUNTIME_PACKAGES])
+      )
+    },
     // Astro's own runtime (e.g. `astro/assets/runtime`'s `createSvgComponent`,
     // used to reconstruct an `.svg`-as-component arg — issue #154) reads
     // `import.meta.env.DEV`. SSR-externalized deps load through Node's native

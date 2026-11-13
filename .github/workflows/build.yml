@@ -15,6 +15,7 @@ jobs:
     # Pinned because ubuntu-latest moved to 26.04, where Playwright 1.60 can't
     # install Chromium. Move back once Playwright supports it.
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -48,17 +49,17 @@ jobs:
         run: yarn test
 
       - name: Build Storybook (Astro 7)
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro7 build --test || test $? -eq 124
+        run: yarn workspace @storybook-astro/integration-astro7 build --test
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 6)
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro6 build --test || test $? -eq 124
+        run: yarn workspace @storybook-astro/integration-astro6 build --test
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
       - name: Build Storybook (Astro 5)
-        run: timeout 180 yarn workspace @storybook-astro/integration-astro5 build --test || test $? -eq 124
+        run: yarn workspace @storybook-astro/integration-astro5 build --test
         env:
           STORYBOOK_DISABLE_TELEMETRY: 1
 
@@ -177,3 +178,67 @@ jobs:
       - name: Storybook Test addon
         if: ${{ !cancelled() }}
         run: yarn workspace "$APP" test:storybook
+
+  server-mode:
+    # Pinned for the same reason as build-and-test.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build packages
+        run: yarn build:packages
+
+      - name: Install Playwright browsers
+        run: |
+          # Same retry and fallback as build-and-test.
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install --with-deps failed (attempt $attempt)"
+            sleep 20
+          done
+          npx playwright install chromium
+
+      # Each app builds with the Node adapter and runs Playwright against its
+      # standalone server.
+      - name: Browser tests (Astro 7 server, Node)
+        run: yarn workspace @storybook-astro/integration-astro7-server test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Browser tests (Astro 6 server, Node)
+        run: yarn workspace @storybook-astro/integration-astro6-server test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Browser tests (Astro 5 server, Node)
+        run: yarn workspace @storybook-astro/integration-astro5-server test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Browser tests (Astro 6 server, Cloudflare Workers)
+        run: yarn workspace @storybook-astro/integration-astro6-server-cloudflare test:browser
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1
+
+      - name: Verify relocated Vercel outputs
+        run: |
+          for app in astro5-server astro6-server astro7-server; do
+            yarn workspace @storybook-astro/integration-$app build:vercel
+            node scripts/test-server-adapter.mjs integration/$app
+          done
+        env:
+          STORYBOOK_DISABLE_TELEMETRY: 1

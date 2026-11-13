@@ -63,6 +63,12 @@ export default defineStoryRules({
         const pathKey = resolveStoryPathKey(story.keys, 'astro/githubstars/');
         const stars = resolveStoryValue(githubStarsByPath, pathKey);
 
+        if (pathKey === '/hundred-k') {
+          mock('./githubClient.ts', './mocks/githubClient.hundredK.ts');
+
+          return;
+        }
+
         mock('./githubClient.ts', () => ({
           fetchGithubRepositoryStats: async () => {
             if (stars === null) {

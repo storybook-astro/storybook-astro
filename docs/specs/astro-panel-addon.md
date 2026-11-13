@@ -122,7 +122,7 @@ export type AstroRenderInfo = {
 
 ## Mode 2: Server
 
-- **`server/index.ts`**: the `/render` route returns `context.json({ html, stylesheets, timings })`. `rewriteBuiltModulePaths` and `addStaticStylesheets` run on `html` only. Today `rewriteBuiltModulePaths` also runs over the CSS, because the CSS is inside the HTML string. It maps JS module sources (tracked specifiers, hydrated components), which CSS has no reason to reference, so it isn't applied to the CSS. The 400 and 401 responses stay text. The client checks `response.ok` before reading the body.
+- **`serverApp/renderApi.ts`**: the `/render` route returns `context.json({ html, stylesheets, timings })`. `rewriteBuiltModulePaths` and `addStaticStylesheets` run on `html` only. Today `rewriteBuiltModulePaths` also runs over the CSS, because the CSS is inside the HTML string. It maps JS module sources (tracked specifiers, hydrated components), which CSS has no reason to reference, so it isn't applied to the CSS. The 400 and 401 responses stay text. The client checks `response.ok` before reading the body.
 - **`renderer/renderer-server.ts`**: `renderWithHttp` reads `response.json()` when the `content-type` is JSON and returns `{ id, ...body }`, otherwise `{ id, html: await response.text(), stylesheets: [] }` (Decision 7).
 - **`renderer-server.test.ts`**: the `fetch` mocks return `text()` only. They need a JSON response, plus one test for the text fallback.
 
@@ -261,7 +261,7 @@ import { ASTRO_RENDER_INFO_EVENT, type AstroRenderInfo } from '@storybook-astro/
 | `framework/src/astroRenderHandler.ts` | Return `RenderResult`; timings; no `<style>` building |
 | `framework/src/viteStorybookAstroMiddlewarePlugin.ts` | Send the new shape; font CSS as a stylesheet |
 | `framework/src/productionRenderRuntime.ts` | `RenderResult` return types; rename `renderProductionStoryToHtml` |
-| `framework/src/server/index.ts` | `/render` returns JSON |
+| `framework/src/serverApp/renderApi.ts` | `/render` returns JSON |
 | `framework/src/renderer/renderer-server.ts` | Read JSON, fall back to text |
 | `framework/src/vitePluginAstroBuildPrerender.ts` | New manifest value; rewrite CSS and HTML separately |
 | `framework/src/renderer/renderer-static.ts` | Read the new manifest value |

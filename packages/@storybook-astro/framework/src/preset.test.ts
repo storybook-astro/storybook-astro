@@ -4,7 +4,8 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   experimental_docgenProvider,
   experimental_manifests,
-  experimental_storyDocsProvider
+  experimental_storyDocsProvider,
+  viteFinal
 } from './preset.ts';
 /* eslint-enable camelcase */
 import type { FrameworkOptions } from './types.ts';
@@ -157,6 +158,12 @@ describe('a prop filter cannot cross the worker boundary', () => {
     expect(descriptors).toHaveLength(1);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('propFilter'));
   });
+});
+
+test('server mode without an adapter fails with a clear message', async () => {
+  const options = storybookOptions({ frameworkOptions: { renderMode: 'server' } });
+
+  await expect(viteFinal!({}, options)).rejects.toThrow('Server mode requires server.adapter');
 });
 
 describe('the flag name follows the installed Storybook', () => {

@@ -150,28 +150,29 @@ export default {
 
 ### Render modes (production builds)
 
-`storybook build` supports two Astro render modes:
-
-- `static` (default): pre-renders Astro stories into `astro-prerendered-stories.json` and serves without a render server
-- `server`: builds `storybook-static` and a standalone Astro render server in `storybook-server`
+Static mode is the default: run `storybook build` and host `storybook-static/` anywhere.
+For interactive Astro Controls in production, choose a server adapter:
 
 ```javascript
+import { node } from '@storybook-astro/adapter-node';
+
 export default {
   framework: {
     name: '@storybook-astro/framework',
     options: {
       renderMode: 'server',
-      server: {
-        serverUrl: 'https://storybook-render.example.com',
-        authToken: process.env.STORYBOOK_ASTRO_SERVER_TOKEN,
-        authHeader: 'authorization',
-      },
+      server: { adapter: node() },
     },
   },
 };
 ```
 
-For token-based auth in server mode, you can also use runtime env/global values: `STORYBOOK_ASTRO_SERVER_URL`, `STORYBOOK_ASTRO_SERVER_TOKEN`, and `STORYBOOK_ASTRO_SERVER_AUTH_HEADER`.
+Run `storybook-astro build` to produce the deployment output: a small Astro app
+built with the official Astro adapter for your host. Adapters exist for Node.js
+(`@storybook-astro/adapter-node`), Vercel (`@storybook-astro/adapter-vercel`),
+Netlify (`@storybook-astro/adapter-netlify`) and Cloudflare (`@storybook-astro/adapter-cloudflare`); each needs the
+`@astrojs/*` adapter that matches your Astro version. See the
+[Deployment guide](https://storybook-astro.org/guides/deployment/).
 
 ### Sanitization
 
@@ -375,6 +376,8 @@ Runs inside Storybook's preview iframe: detects component types, sends render re
 **Dev mode (`storybook dev`):** the renderer detects Astro components via the `isAstroComponentFactory` flag, sends a render request to the dev-server middleware over HMR, and the middleware renders the component with the Container API. The returned HTML is injected into the canvas and client scripts run for hydration. Non-Astro framework components are delegated to their framework renderer before `storyFn()` is called, which avoids orphaned reactive effects.
 
 **Static build (`storybook build`):** because Astro components require server-side rendering, the build pre-renders each story at build time using an internal Vite SSR server with the Container API. The pre-rendered HTML is attached to each story export and the client runtime uses it directly. As a result, changing Astro story args via the Controls panel has no effect in static builds (framework component stories remain fully interactive).
+
+**Server build (`storybook-astro build` with `renderMode: 'server'`):** after the Storybook build, the framework generates a small Astro app with a render page per story file and an `/api` route, and builds it with `astro build` and your host's Astro adapter. The preview posts each render to `/api/render`, which renders the story's page in process; nothing compiles at request time.
 
 For the detailed compatibility layers and implementation notes, see [`AGENTS.md`](./AGENTS.md).
 

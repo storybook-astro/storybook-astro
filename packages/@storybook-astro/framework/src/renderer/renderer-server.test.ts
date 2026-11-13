@@ -27,7 +27,6 @@ describe('createServerRenderer', () => {
     vi.stubGlobal('crypto', { randomUUID: () => 'uuid-1' });
 
     const renderer = createServerRenderer({
-      serverUrl: 'http://localhost:4000',
       authToken: 'secret'
     });
 
@@ -46,7 +45,7 @@ describe('createServerRenderer', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/render',
+      '/api/render',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -69,7 +68,6 @@ describe('createServerRenderer', () => {
     vi.stubGlobal('crypto', { randomUUID: () => 'uuid-2' });
 
     const renderer = createServerRenderer({
-      serverUrl: 'http://localhost:5000',
       authToken: 'token-123',
       authHeader: 'x-storybook-token'
     });
@@ -77,7 +75,7 @@ describe('createServerRenderer', () => {
     await renderer.render(renderPayload, { timeoutMs: 1000 });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:5000/render',
+      '/api/render',
       expect.objectContaining({
         headers: {
           'content-type': 'application/json',
@@ -99,7 +97,6 @@ describe('createServerRenderer', () => {
     vi.stubGlobal('crypto', { randomUUID: () => 'uuid-3' });
 
     const renderer = createServerRenderer({
-      serverUrl: 'http://localhost:6000',
       authToken: 'wrong'
     });
 

@@ -11,13 +11,11 @@ type StorybookImportMetaEnv = ImportMeta & {
 };
 
 type StorybookGlobalEnv = typeof globalThis & {
-  STORYBOOK_ASTRO_SERVER_URL?: string;
   STORYBOOK_ASTRO_SERVER_TOKEN?: string;
   STORYBOOK_ASTRO_SERVER_AUTH_HEADER?: string;
 };
 
 type ServerRendererDefaults = {
-  serverUrl?: string;
   authToken?: string;
   authHeader?: string;
 };
@@ -26,11 +24,21 @@ const ASTRO_SERVER_UNAVAILABLE_ERROR_NAME = 'AstroRenderServerUnavailableError';
 
 export function createServerRenderer(defaults: ServerRendererDefaults = {}) {
   return {
-    render(data: RenderComponentInput, { signal, timeoutMs = 5000 }: RenderRequestOptions = {}) {
+    // A serverless render function's first request also starts it; the
+    // timeout leaves room for a slow cold start rather than retrying into one.
+    render(data: RenderComponentInput, { signal, timeoutMs = 60_000 }: RenderRequestOptions = {}) {
       return renderWithHttp(data, timeoutMs, signal, defaults);
     },
     init() {
-      return;
+      // Fire-and-forget warmup at preview startup: starts a serverless
+      // render function while the Storybook UI is still loading, so its cold
+      // start doesn't land on the first story render.
+      try {
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins
+        fetch('/api/render', { method: 'GET' }).catch(() => {});
+      } catch {
+        // Never let warmup break preview startup.
+      }
     },
     applyStyles() {
       return;
@@ -49,7 +57,7 @@ async function renderWithHttp(
 
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
   const id = crypto.randomUUID();
-  const serverUrl = resolveServerUrl(defaults);
+  const serverUrl = '/api';
   const authToken = resolveAuthToken(defaults);
   const authHeader = resolveAuthHeader(defaults);
   const headers: Record<string, string> = {
@@ -129,13 +137,6 @@ async function renderWithHttp(
   } finally {
     signal?.removeEventListener('abort', cancelForStory);
   }
-}
-
-function resolveServerUrl(defaults: ServerRendererDefaults) {
-  const envServerUrl = (import.meta as StorybookImportMetaEnv).env?.STORYBOOK_ASTRO_SERVER_URL;
-  const globalServerUrl = (globalThis as StorybookGlobalEnv).STORYBOOK_ASTRO_SERVER_URL;
-
-  return defaults.serverUrl || envServerUrl || globalServerUrl || 'http://localhost:3000';
 }
 
 function resolveAuthToken(defaults: ServerRendererDefaults) {

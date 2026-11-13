@@ -1,0 +1,33 @@
+{
+  "name": "@storybook-astro/integration-astro5-server-vercel",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "storybook dev -p 6150",
+    "build": "storybook-astro build",
+    "lint": "eslint .",
+    "test:browser": "playwright test",
+    "serve": "node ../server-shared/serve-build.mjs vercel 6151",
+    "deploy": "vercel deploy --prebuilt --prod --yes"
+  },
+  "dependencies": {
+    "@astrojs/preact": "^4.0.8",
+    "@astrojs/vercel": "9.0.5",
+    "@storybook-astro/components": "workspace:*",
+    "astro": "5.17.2",
+    "preact": "^10.28.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0",
+    "@storybook-astro/adapter-vercel": "workspace:*",
+    "@storybook-astro/framework": "workspace:*",
+    "@storybook-astro/integration-server-shared": "workspace:*",
+    "eslint": "^9.39.2",
+    "storybook": "10.6.0",
+    "vite": "^6.2.5"
+  },
+  "installConfig": {
+    "hoistingLimits": "workspaces"
+  }
+}

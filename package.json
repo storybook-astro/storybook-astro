@@ -7,16 +7,16 @@
     "node": ">=20.16.0 || >=22.19.0 || >=24.0.0"
   },
   "scripts": {
-    "dev": "yarn build:packages && yarn workspaces foreach -A --parallel --interlaced --exclude '@storybook-astro/{integration-astro6-server,integration-astro7-server}' run dev",
-    "dev:packages": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{framework,renderer}' run dev",
+    "dev": "yarn build:packages && yarn workspaces foreach -A --parallel --interlaced --exclude '@storybook-astro/{integration-astro*-server*,integration-server-shared}' run dev",
+    "dev:packages": "yarn workspaces foreach -A --parallel --interlaced --include '@storybook-astro/{framework,renderer,adapter-node,adapter-vercel,adapter-netlify,adapter-cloudflare}' run dev",
     "website": "yarn workspace @storybook-astro/website dev",
-    "build": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced --exclude '@storybook-astro/{framework,renderer}' run build",
+    "build": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced --exclude '@storybook-astro/{framework,renderer,adapter-node,adapter-vercel,adapter-netlify,adapter-cloudflare}' run build",
     "serve": "yarn workspaces foreach -A --parallel --interlaced run serve",
     "lint": "eslint scripts eslint.config.js prettier.config.js && yarn workspaces foreach -A --parallel --interlaced run lint",
     "lint:fix": "eslint . --fix",
     "lint:links": "node scripts/check-doc-links.mjs",
     "test": "yarn build:packages && yarn workspaces foreach -A --topological --interlaced run test",
-    "build:packages": "yarn workspaces foreach -A --topological --include '@storybook-astro/{framework,renderer}' run build",
+    "build:packages": "yarn workspaces foreach -A --topological-dev --include '@storybook-astro/{framework,renderer,adapter-node,adapter-vercel,adapter-netlify,adapter-cloudflare}' run build",
     "smoke": "bash scripts/smoke-test.sh"
   },
   "devDependencies": {
@@ -46,7 +46,8 @@
     "typescript-eslint": "^8.18.2",
     "vite": "^8.0.13",
     "vitest": "^4.1.9",
-    "vue-eslint-parser": "^10.1.3"
+    "vue-eslint-parser": "^10.1.3",
+    "wrangler": "4.160.1"
   },
   "workspaces": [
     "packages/@storybook-astro/*",

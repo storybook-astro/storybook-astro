@@ -15,14 +15,6 @@ import type { AstroDocgen } from './docgen/index.ts';
  */
 export function vitePluginAstroComponentMarker(options?: {
   /**
-   * Called with the module id of every client-imported `.astro` file this
-   * plugin marks. Server-mode builds use this to learn about `.astro`
-   * components that never appear in the story index — e.g. a decorator's
-   * `Wrapper.astro` imported only from `.storybook/preview.*` — so they can
-   * still be copied into the deployed snapshot (docs/specs/decorators.md#server-snapshot).
-   */
-  onClientAstroModuleId?: (moduleId: string) => void;
-  /**
    * Extracts the component's props and description so Storybook's autodocs can
    * render them. The result rides along on the stub as `__docgenInfo`, which is
    * where the renderer's `extractArgTypes` reads it from
@@ -74,8 +66,6 @@ export function vitePluginAstroComponentMarker(options?: {
       if (!code.includes('Astro components cannot be used in the browser')) {return null;}
 
       const moduleId = id;
-
-      options?.onClientAstroModuleId?.(moduleId);
 
       // In dev, re-import the component's child .astro files and frontmatter
       // stylesheets so they join the client module graph: editing one then

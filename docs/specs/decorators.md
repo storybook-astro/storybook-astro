@@ -142,7 +142,7 @@ Stories with `parameters.renderer` compose through `defaultDecorateStory` and ap
 
 ### Server snapshot
 
-`vitePluginAstroBuildServer.ts` must get decorator components referenced only from `preview.js` into the snapshot and `componentPathMap`. The snapshot covers story components plus their local import closure, with a verbatim-original-path fallback (`resolveSnapshotComponentPath` in `server/index.ts`) that only works when the original project is on the same disk. `vitePluginAstroComponentMarker` transforms every client-imported `.astro` file and knows its module id; those ids are recorded during the iframe build and fed into the snapshot copy and path map. The same gap affects components referenced only via slot/prop markers from a story file, so this covers both.
+Server mode renders in a generated Astro app (`framework/src/serverApp/`), so the question here is which components each render page imports. `vitePluginStoryAstroImports` records, during the iframe build, every `.astro` module each module reaches through Vite's resolved imports. A story file's render page imports what that file reaches plus what `.storybook/preview.*` reaches, so components referenced only as decorators (component-level or global) or only via slot/prop markers are included. `resolveStoryTree` (`serverApp/storyTree.ts`) resolves the decorator tree into components, swapping the story leaf for the story's own args and slots, and `StoryNode.astro` renders it as one page.
 
 ### Portable stories
 
