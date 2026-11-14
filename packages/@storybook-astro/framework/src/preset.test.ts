@@ -4,22 +4,30 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   experimental_docgenProvider,
   experimental_manifests,
-  experimental_storyDocsProvider
+  experimental_storyDocsProvider,
+  features as applyFeatures,
+  isDocgenProviderEnabled
 } from './preset.ts';
 /* eslint-enable camelcase */
 import type { FrameworkOptions } from './types.ts';
 import type * as StoryDocsPayloadModule from './docgen/story-docs-payload.ts';
 
 interface Scenario {
+  configDir?: string;
   features?: Record<string, unknown>;
   frameworkOptions?: Partial<FrameworkOptions>;
   build?: Options['build'];
 }
 
 /** The slice of Storybook's preset `Options` the docgen provider reads. */
-function storybookOptions({ features, frameworkOptions, build }: Scenario = {}): Options {
+function storybookOptions({
+  configDir = '/project/.storybook',
+  features,
+  frameworkOptions,
+  build
+}: Scenario = {}): Options {
   return {
-    configDir: '/project/.storybook',
+    configDir,
     build,
     presets: {
       apply: async (key: string) =>
@@ -32,6 +40,16 @@ function storybookOptions({ features, frameworkOptions, build }: Scenario = {}):
 // version decides which name turns the Docgen Server on.
 const installed = vi.hoisted(() => ({ storybook: '10.6.0' }));
 
+// What Storybook 11's docgen helpers report. They aren't in Storybook 10, so
+// they're only exported while the version above is 11 or newer.
+const storybook11 = vi.hoisted(() => ({
+  typescriptReady: true,
+  typescriptChecks: 0,
+  typescriptResolvedTo: undefined as string | undefined
+}));
+
+const isStorybook11 = () => Number.parseInt(installed.storybook, 10) >= 11;
+
 vi.mock('storybook/internal/common', async (importOriginal) => {
   const actual = await importOriginal<{ versions: Record<string, string> }>();
 
@@ -42,6 +60,16 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
       get storybook() {
         return installed.storybook;
       }
+    },
+    get isTypeScriptReadyForDocgen() {
+      return isStorybook11()
+        ? async (resolve: (specifier: string) => string) => {
+            storybook11.typescriptChecks += 1;
+            storybook11.typescriptResolvedTo = resolve('typescript/package.json');
+
+            return storybook11.typescriptReady;
+          }
+        : undefined;
     }
   };
 });
@@ -80,6 +108,9 @@ const flagOn = { experimentalDocgenServer: true };
 afterEach(() => {
   vi.restoreAllMocks();
   installed.storybook = '10.6.0';
+  storybook11.typescriptReady = true;
+  storybook11.typescriptChecks = 0;
+  storybook11.typescriptResolvedTo = undefined;
   storyDocsBuilder.error = undefined;
   storyDocsBuilder.loadError = undefined;
 });
@@ -220,6 +251,77 @@ describe('declaring the docgen engine for the components manifest (issue #183)',
     const existing = { docs: { v: 0, docs: {} } };
 
     expect(await experimental_manifests(existing, storybookOptions())).toBe(existing);
+  });
+});
+
+describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () => {
+  test('when the project has TypeScript with the compiler API', async () => {
+    installed.storybook = '11.0.0';
+
+    expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(true);
+    // Looked up from the framework, which declares the `typescript` peer.
+    expect(storybook11.typescriptResolvedTo).toMatch(/[/\\]typescript[/\\]package\.json$/);
+  });
+
+  test('but not without a usable TypeScript, so the Docgen Server stays off', async () => {
+    installed.storybook = '11.0.0';
+    storybook11.typescriptReady = false;
+
+    expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+  });
+
+  test('but not when the project sets a prop filter, which the worker cannot run', async () => {
+    installed.storybook = '11.0.0';
+
+    const enabled = await isDocgenProviderEnabled(
+      false,
+      storybookOptions({ frameworkOptions: { docgen: { propFilter: () => true } } })
+    );
+
+    expect(enabled).toBe(false);
+  });
+
+  test('but not when the project turned docgen off', async () => {
+    installed.storybook = '11.0.0';
+
+    const enabled = await isDocgenProviderEnabled(
+      false,
+      storybookOptions({ frameworkOptions: { docgen: false } })
+    );
+
+    expect(enabled).toBe(false);
+  });
+
+  test('but not in a test build, which skips docgen, so TypeScript is never checked', async () => {
+    installed.storybook = '11.0.0';
+
+    const enabled = await isDocgenProviderEnabled(
+      false,
+      storybookOptions({ build: { test: { disableDocgen: true } } })
+    );
+
+    expect(enabled).toBe(false);
+    expect(storybook11.typescriptChecks).toBe(0);
+  });
+
+  test('and stays off on a Storybook without the TypeScript check', async () => {
+    expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+  });
+});
+
+describe('the components manifest is on by default on Storybook 11 (issue #214)', () => {
+  test('is turned on, keeping the other features', async () => {
+    installed.storybook = '11.0.0';
+
+    const resolved = await applyFeatures({ docgenServer: true, controls: true });
+
+    expect(resolved).toEqual({ docgenServer: true, controls: true, componentsManifest: true });
+  });
+
+  test('is left alone on Storybook 10', async () => {
+    const existing = { experimentalDocgenServer: true, componentsManifest: false };
+
+    expect(await applyFeatures(existing)).toBe(existing);
   });
 });
 

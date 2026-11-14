@@ -170,8 +170,8 @@ a text control, the JSON editor stays so that slot can still be edited. Slot
 HTML goes through the same [sanitization](/guides/sanitization/) as any string
 slot content, so attributes outside the allowlist, such as `data-*`, are
 removed. With the [Docgen Server](#moving-extraction-off-the-dev-server)
-enabled, slots are listed but have no text control yet
-([#267](https://github.com/storybook-astro/storybook-astro/issues/267)). Slot
+on, which is the default on Storybook 11, slots are listed but have no text
+control yet ([#267](https://github.com/storybook-astro/storybook-astro/issues/267)). Slot
 rows come from the same extraction as the props table, so they need TypeScript
 installed, and `@storybook/addon-docs` unless the Docgen Server is on (see
 [Turning extraction off](#turning-extraction-off)).
@@ -185,19 +185,40 @@ other character, such as an accented letter (`á`, `ñ`), out of the URL.
 
 ## Moving extraction off the dev server
 
-By default extraction runs in the Vite plugin, on the dev server. Storybook 10.6
-can instead run it in a long-lived worker thread it owns, which keeps the
-TypeScript work off the critical path:
+Storybook 10.6 and newer can run extraction in a long-lived worker thread
+Storybook owns, its Docgen Server, which keeps the TypeScript work off the
+critical path. Otherwise it runs in the Vite plugin, on the dev server.
+
+On **Storybook 11** the Docgen Server is on by default, as it is for React and
+Vue, except in three cases. A project that sets a custom `docgen.propFilter`
+keeps extraction in the Vite plugin. A project with no usable TypeScript
+installed gets no props on either path, since both need TypeScript 5 or 6;
+Storybook and Storybook Astro both log how to fix it. A project that turns
+extraction off (`docgen: false`) turns it off on both paths. To turn the Docgen
+Server off yourself:
 
 ```js
 // .storybook/main.js
 export default {
   features: {
-    experimentalDocgenServer: true, // Storybook 10.6–10.x
-    // docgenServer: true,          // Storybook 11 renames the flag
+    docgenServer: false,
   },
 };
 ```
+
+On **Storybook 10.6–10.x** it's off unless you turn it on:
+
+```js
+// .storybook/main.js
+export default {
+  features: {
+    experimentalDocgenServer: true,
+  },
+};
+```
+
+On 10.x the feature is experimental upstream, and Storybook notes the payload
+shape may still change.
 
 Use the name your Storybook reads. Storybook 11 renamed the flag to
 `docgenServer` and no longer reads the old one (its `docgen-server`
@@ -212,14 +233,19 @@ library no longer blocks story transforms while its types are checked, and
 static builds get per-component JSON snapshots under
 `services/core/docgen/` instead of inlining docgen into the preview bundle.
 
-Two caveats:
+Three caveats:
 
-- The feature is **experimental upstream**, and Storybook notes the payload
-  shape may still change. It is off unless you turn it on.
+- Slot rows have **no text control** on this path yet
+  ([#267](https://github.com/storybook-astro/storybook-astro/issues/267)), so on
+  Storybook 11 you get them back only by turning the Docgen Server off.
 - `docgen.propFilter` is **ignored** here. A filter is a function, and the worker
   receives its configuration as plain data across a thread boundary, so there is
-  no way to send one. Leave the feature off if you need a custom filter — you'll
-  get a warning if both are set.
+  no way to send one. That's why Storybook 11 leaves the Docgen Server off for a
+  project that sets one. Turning it on anyway logs a warning.
+- Stories run by `@storybook/addon-vitest` get **no extracted props** with the
+  Docgen Server on, since its worker doesn't run in Vitest ([#368](https://github.com/storybook-astro/storybook-astro/issues/368)).
+  `argTypes` a story declares still apply. React and Vue stories behave the same
+  way on Storybook 11.
 
 On Storybook 10.0–10.5 the flag is accepted but the helpers this builds on don't
 exist yet, so extraction stays in the builder and logs a note saying so.
@@ -232,15 +258,29 @@ can read, with each Astro component's description and a reference to its props.
 to use them without opening their source.
 
 Astro components reach the manifest through the
-[Docgen Server](#moving-extraction-off-the-dev-server), so turn it on together
-with `componentsManifest`. This needs Storybook 10.6 or newer:
+[Docgen Server](#moving-extraction-off-the-dev-server). On **Storybook 11** both
+are on by default, as they are for React and Vue, so there's nothing to
+configure. Where the Docgen Server stays off (a custom `docgen.propFilter`,
+`docgen: false`, no usable TypeScript, or `docgenServer: false` in your main
+config), the manifest lists no Astro components. To keep the Docgen Server but
+turn the manifest off:
 
 ```js
 // .storybook/main.js
 export default {
   features: {
-    experimentalDocgenServer: true, // Storybook 10.6–10.x
-    // docgenServer: true,          // Storybook 11 renames the flag
+    componentsManifest: false,
+  },
+};
+```
+
+On **Storybook 10.6–10.x**, turn both on:
+
+```js
+// .storybook/main.js
+export default {
+  features: {
+    experimentalDocgenServer: true,
     componentsManifest: true,
   },
 };
@@ -340,10 +380,13 @@ with the Docgen Server on, Storybook doesn't serve it.
 
 The manifest comes from the same extraction as the props table, so it needs
 TypeScript installed (see [Turning extraction off](#turning-extraction-off)).
-With extraction turned off (`docgen: false`) or in a test build
+With the Docgen Server and `componentsManifest` both on and extraction turned
+off (`docgen: false`; on Storybook 11 that means setting `docgenServer: true`
+yourself), or, on Storybook 10.6–10.x, in a test build
 (`storybook build --test`), the build still writes `components.json`, but Astro
-components are listed without a description or props. Unlike the props table,
-the manifest doesn't need `@storybook/addon-docs`. On Storybook 10.6 and newer,
+components are listed without a description or props. On Storybook 11 a test
+build turns the Docgen Server off, so no `components.json` is written.
+Unlike the props table, the manifest doesn't need `@storybook/addon-docs`. On Storybook 10.6 and newer,
 with the Docgen Server off, the build writes no `components.json`. On Storybook
 10.0–10.5, Storybook Astro can't run the Docgen Server, so the manifest has no
 description or props for Astro components; on 10.5 with both flags on, the
