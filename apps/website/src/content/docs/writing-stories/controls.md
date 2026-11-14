@@ -233,7 +233,7 @@ library no longer blocks story transforms while its types are checked, and
 static builds get per-component JSON snapshots under
 `services/core/docgen/` instead of inlining docgen into the preview bundle.
 
-Two caveats:
+Three caveats:
 
 - Slot rows have **no text control** on this path yet
   ([#267](https://github.com/storybook-astro/storybook-astro/issues/267)), so on
@@ -242,6 +242,10 @@ Two caveats:
   receives its configuration as plain data across a thread boundary, so there is
   no way to send one. That's why Storybook 11 leaves the Docgen Server off for a
   project that sets one. Turning it on anyway logs a warning.
+- Stories run by `@storybook/addon-vitest` get **no extracted props** with the
+  Docgen Server on, since its worker doesn't run in Vitest ([#368](https://github.com/storybook-astro/storybook-astro/issues/368)).
+  `argTypes` a story declares still apply. React and Vue stories behave the same
+  way on Storybook 11.
 
 On Storybook 10.0–10.5 the flag is accepted but the helpers this builds on don't
 exist yet, so extraction stays in the builder and logs a note saying so.
