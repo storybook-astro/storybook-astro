@@ -217,6 +217,9 @@ export default {
 };
 ```
 
+On 10.x the feature is experimental upstream, and Storybook notes the payload
+shape may still change.
+
 Use the name your Storybook reads. Storybook 11 renamed the flag to
 `docgenServer` and no longer reads the old one (its `docgen-server`
 automigration rewrites it for you). If you set the name your version ignores,
