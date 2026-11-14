@@ -13,15 +13,21 @@ import type { FrameworkOptions } from './types.ts';
 import type * as StoryDocsPayloadModule from './docgen/story-docs-payload.ts';
 
 interface Scenario {
+  configDir?: string;
   features?: Record<string, unknown>;
   frameworkOptions?: Partial<FrameworkOptions>;
   build?: Options['build'];
 }
 
 /** The slice of Storybook's preset `Options` the docgen provider reads. */
-function storybookOptions({ features, frameworkOptions, build }: Scenario = {}): Options {
+function storybookOptions({
+  configDir = '/project/.storybook',
+  features,
+  frameworkOptions,
+  build
+}: Scenario = {}): Options {
   return {
-    configDir: '/project/.storybook',
+    configDir,
     build,
     presets: {
       apply: async (key: string) =>
@@ -38,8 +44,15 @@ const installed = vi.hoisted(() => ({ storybook: '10.6.0' }));
 // they're only exported while the version above is 11 or newer.
 const storybook11 = vi.hoisted(() => ({
   typescriptReady: true,
-  docgenServerOffInMainConfig: false,
+  typescriptChecks: 0,
   typescriptResolvedTo: undefined as string | undefined
+}));
+
+// The project's main config, as `loadMainConfig` returns it, and how often
+// it's been loaded.
+const mainConfig = vi.hoisted(() => ({
+  value: {} as Record<string, unknown>,
+  loads: 0
 }));
 
 const isStorybook11 = () => Number.parseInt(installed.storybook, 10) >= 11;
@@ -58,14 +71,17 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
     get isTypeScriptReadyForDocgen() {
       return isStorybook11()
         ? async (resolve: (specifier: string) => string) => {
+            storybook11.typescriptChecks += 1;
             storybook11.typescriptResolvedTo = resolve('typescript/package.json');
 
             return storybook11.typescriptReady;
           }
         : undefined;
     },
-    get isDocgenServerDisabledInMainConfig() {
-      return isStorybook11() ? async () => storybook11.docgenServerOffInMainConfig : undefined;
+    loadMainConfig: async () => {
+      mainConfig.loads += 1;
+
+      return mainConfig.value;
     }
   };
 });
@@ -105,7 +121,9 @@ afterEach(() => {
   vi.restoreAllMocks();
   installed.storybook = '10.6.0';
   storybook11.typescriptReady = true;
-  storybook11.docgenServerOffInMainConfig = false;
+  storybook11.typescriptChecks = 0;
+  mainConfig.value = {};
+  mainConfig.loads = 0;
   storybook11.typescriptResolvedTo = undefined;
   storyDocsBuilder.error = undefined;
   storyDocsBuilder.loadError = undefined;
@@ -288,16 +306,38 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     expect(enabled).toBe(false);
   });
 
+  test('but not in a test build, which skips docgen, so TypeScript is never checked', async () => {
+    installed.storybook = '11.0.0';
+
+    const enabled = await isDocgenProviderEnabled(
+      false,
+      storybookOptions({ build: { test: { disableDocgen: true } } })
+    );
+
+    expect(enabled).toBe(false);
+    expect(storybook11.typescriptChecks).toBe(0);
+  });
+
   test('and stays off on a Storybook without the TypeScript check', async () => {
     expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
   });
 });
 
+// The preset reads each project's main config once, so every scenario that
+// reads it gets a project of its own.
+let projectCount = 0;
+
+function freshProject() {
+  projectCount += 1;
+
+  return storybookOptions({ configDir: `/project-${projectCount}/.storybook` });
+}
+
 describe('the components manifest follows the Docgen Server on Storybook 11 (issue #214)', () => {
   test('is turned on when the Docgen Server is on', async () => {
     installed.storybook = '11.0.0';
 
-    const resolved = await applyFeatures({ docgenServer: true, controls: true }, storybookOptions());
+    const resolved = await applyFeatures({ docgenServer: true, controls: true }, freshProject());
 
     expect(resolved).toEqual({ docgenServer: true, controls: true, componentsManifest: true });
   });
@@ -306,17 +346,39 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
     installed.storybook = '11.0.0';
     const existing = { docgenServer: false, componentsManifest: false };
 
-    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
+    expect(await applyFeatures(existing, freshProject())).toBe(existing);
   });
 
   test('is left alone when the main config turns the Docgen Server off', async () => {
     // Core merges the main config after this preset, so the default still
     // reads true here.
     installed.storybook = '11.0.0';
-    storybook11.docgenServerOffInMainConfig = true;
+    mainConfig.value = { features: { docgenServer: false } };
     const existing = { docgenServer: true, componentsManifest: false };
 
-    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
+    expect(await applyFeatures(existing, freshProject())).toBe(existing);
+  });
+
+  test('is turned on when the main config turns the Docgen Server on over a false default', async () => {
+    // A prop filter or a missing TypeScript makes the default false, but an
+    // explicit `docgenServer: true` still starts the Docgen Server.
+    installed.storybook = '11.0.0';
+    mainConfig.value = { features: { docgenServer: true } };
+
+    const resolved = await applyFeatures({ docgenServer: false }, freshProject());
+
+    expect(resolved).toEqual({ docgenServer: false, componentsManifest: true });
+  });
+
+  test('reads the main config once per project, however often features are applied', async () => {
+    installed.storybook = '11.0.0';
+    const project = freshProject();
+
+    await applyFeatures({ docgenServer: true }, project);
+    await applyFeatures({ docgenServer: true }, project);
+    await applyFeatures({ docgenServer: true }, project);
+
+    expect(mainConfig.loads).toBe(1);
   });
 
   test('is left alone in a test build, which turns the Docgen Server off later', async () => {

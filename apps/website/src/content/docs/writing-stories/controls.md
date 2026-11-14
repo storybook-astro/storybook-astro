@@ -191,8 +191,8 @@ critical path. Otherwise it runs in the Vite plugin, on the dev server.
 
 On **Storybook 11** the Docgen Server is on by default, as it is for React and
 Vue, except in a project that sets a custom `docgen.propFilter`, turns
-extraction off (`docgen: false`), or has no TypeScript 5 or 6 installed (Storybook
-then logs how to fix it). Those keep extraction in the Vite plugin. To turn the
+extraction off (`docgen: false`), or has no usable TypeScript installed
+(Storybook logs how to fix it). Those keep extraction in the Vite plugin. To turn the
 Docgen Server off yourself:
 
 ```js
@@ -252,7 +252,7 @@ Astro components reach the manifest through the
 [Docgen Server](#moving-extraction-off-the-dev-server). On **Storybook 11** both
 are on by default: Storybook Astro turns `componentsManifest` on whenever the
 Docgen Server is on, so there's nothing to configure. Where the Docgen Server
-stays off (a custom `docgen.propFilter`, `docgen: false`, no TypeScript, or
+stays off (a custom `docgen.propFilter`, `docgen: false`, no usable TypeScript, or
 `docgenServer: false` in your main config), the manifest stays off too, unless
 you turn it on yourself. To keep the Docgen Server but turn the manifest off:
 

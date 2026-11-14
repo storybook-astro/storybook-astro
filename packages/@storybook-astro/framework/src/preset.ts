@@ -347,8 +347,9 @@ function mergeEnvPrefixes(
  * `src/docgen/docgen-worker.ts`, which core's worker imports and composes into
  * its provider chain.
  *
- * Only when the user opted into the Docgen Server (`features.docgenServer`, or
- * `features.experimentalDocgenServer` before Storybook 11). Otherwise
+ * Only when the Docgen Server flag is on (`features.docgenServer`, or
+ * `features.experimentalDocgenServer` before Storybook 11): opt-in on 10.x, on
+ * by default on 11 through `isDocgenProviderEnabled`. Otherwise
  * extraction stays in the Vite plugin, which covers our whole `storybook`
  * peer range (docs/specs/docgen.md#design-decisions).
  */
@@ -464,12 +465,17 @@ export const experimental_manifests = async (
  * worker boundary), or no `typescript` with the compiler API. Storybook's
  * `isTypeScriptReadyForDocgen` warns with the fix in that last case. It shipped
  * in 11.0.0-alpha.9 and isn't in 10.x, so it's looked up rather than imported
- * by name, which would fail to load on 10.x.
+ * by name, which would fail to load on 10.x. A test build skips docgen anyway,
+ * so it doesn't check TypeScript or warn.
  */
 export const isDocgenProviderEnabled = async (
   _existing: unknown,
   storybookOptions: Options
 ): Promise<boolean> => {
+  if (storybookOptions.build?.test?.disableDocgen) {
+    return false;
+  }
+
   const frameworkOptions =
     await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
 
@@ -500,9 +506,10 @@ export const isDocgenProviderEnabled = async (
  * that turned the Docgen Server off keep their setting.
  *
  * This runs before the project's main config is merged, so an explicit
- * `componentsManifest` there wins either way. A `docgenServer: false` there
- * isn't applied yet, so it's read from the main config instead, and a test
- * build turns the Docgen Server off after this runs too.
+ * `componentsManifest` there wins either way. An explicit `docgenServer` there
+ * isn't applied yet, so it's read from the main config and wins over the
+ * default `isDocgenProviderEnabled` gave. A test build turns the Docgen Server
+ * off after this runs too.
  */
 export const features = async (
   existing: Record<string, unknown> = {},
@@ -510,33 +517,63 @@ export const features = async (
 ): Promise<Record<string, unknown>> => {
   const { flag } = await docgenServerFlags();
 
-  if (
-    flag !== 'docgenServer' ||
-    existing.docgenServer !== true ||
-    storybookOptions.build?.test?.disableDocgen ||
-    (await isDocgenServerOffInMainConfig(storybookOptions))
-  ) {
+  if (flag !== 'docgenServer' || storybookOptions.build?.test?.disableDocgen) {
+    return existing;
+  }
+
+  const docgenServer =
+    (await readDocgenServerFromMainConfig(storybookOptions.configDir)) ?? existing.docgenServer;
+
+  if (docgenServer !== true) {
     return existing;
   }
 
   return { ...existing, componentsManifest: true };
 };
 
-async function isDocgenServerOffInMainConfig(storybookOptions: Options): Promise<boolean> {
-  const { isDocgenServerDisabledInMainConfig } = (await import('storybook/internal/common')) as {
-    isDocgenServerDisabledInMainConfig?: (options: Pick<Options, 'configDir'>) => Promise<boolean>;
-  };
+// Core applies `features` many times at startup, and a main config change
+// restarts Storybook, so each config directory is read once per process.
+const docgenServerInMainConfig = new Map<string, Promise<boolean | undefined>>();
 
-  return typeof isDocgenServerDisabledInMainConfig === 'function'
-    ? isDocgenServerDisabledInMainConfig(storybookOptions)
-    : false;
+/**
+ * The `features.docgenServer` the project's main config sets, or `undefined`
+ * when it sets none. Read with `loadMainConfig`, which Storybook 10 and 11 both
+ * ship, since core's own helper for this landed after 11.0.0-beta.0.
+ */
+function readDocgenServerFromMainConfig(configDir: string): Promise<boolean | undefined> {
+  let value = docgenServerInMainConfig.get(configDir);
+
+  if (!value) {
+    value = (async () => {
+      try {
+        const { loadMainConfig } = await import('storybook/internal/common');
+        const { features: mainFeatures } = await loadMainConfig({ configDir });
+
+        // A non-object `features` sets no flags, as core treats it.
+        if (typeof mainFeatures !== 'object' || mainFeatures === null) {
+          return undefined;
+        }
+
+        const { docgenServer } = mainFeatures as Record<string, unknown>;
+
+        return typeof docgenServer === 'boolean' ? docgenServer : undefined;
+      } catch {
+        // A main config that fails to load fails Storybook elsewhere, with a
+        // better message; here it just leaves the default in place.
+        return undefined;
+      }
+    })();
+    docgenServerInMainConfig.set(configDir, value);
+  }
+
+  return value;
 }
 
 /**
  * Whether the Docgen Server owns extraction instead of the Vite plugin.
  *
- * Two things have to line up. The user has to opt into Storybook's docgen
- * service, and their Storybook has to actually ship the provider helpers the
+ * Two things have to line up. The Docgen Server flag has to be on (opt-in on
+ * 10.x, default on 11), and their Storybook has to actually ship the provider helpers the
  * worker is built on — those landed in 10.6, while our peer range goes back to
  * 10.0. On an older Storybook we say so and stay on the builder path, which
  * produces the same table.
@@ -547,16 +584,19 @@ async function isDocgenServerOffInMainConfig(storybookOptions: Options): Promise
  */
 async function usesDocgenService(storybookOptions: Options): Promise<boolean> {
   // Typed against the Storybook we build with, which knows only one of the names.
-  const features = (await storybookOptions.presets.apply('features', {})) as Record<string, unknown>;
+  const resolvedFeatures = (await storybookOptions.presets.apply('features', {})) as Record<
+    string,
+    unknown
+  >;
   const { flag, ignoredFlag } = await docgenServerFlags();
 
-  if (features[ignoredFlag] === true && features[flag] !== true) {
+  if (resolvedFeatures[ignoredFlag] === true && resolvedFeatures[flag] !== true) {
     warnOnce(
       `\`features.${ignoredFlag}\` has no effect on this version of Storybook; it reads \`features.${flag}\`. Component documentation is still extracted in the builder.`
     );
   }
 
-  if (features[flag] !== true) {
+  if (resolvedFeatures[flag] !== true) {
     return false;
   }
 
