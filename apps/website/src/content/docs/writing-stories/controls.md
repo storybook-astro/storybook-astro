@@ -169,11 +169,9 @@ editor, since an edit in a slot's control would override it. If any slot lacks
 a text control, the JSON editor stays so that slot can still be edited. Slot
 HTML goes through the same [sanitization](/guides/sanitization/) as any string
 slot content, so attributes outside the allowlist, such as `data-*`, are
-removed. With the [Docgen Server](#moving-extraction-off-the-dev-server)
-on, which is the default on Storybook 11, slots are listed but have no text
-control yet ([#267](https://github.com/storybook-astro/storybook-astro/issues/267)). Slot
-rows come from the same extraction as the props table, so they need TypeScript
-installed, and `@storybook/addon-docs` unless the Docgen Server is on (see
+removed. Slot rows come from the same extraction as the props table, so they
+need TypeScript installed, and `@storybook/addon-docs` unless the
+[Docgen Server](#moving-extraction-off-the-dev-server) is on (see
 [Turning extraction off](#turning-extraction-off)).
 
 Each control is stored in a story arg named `slot-<name>`, for example
@@ -227,17 +225,13 @@ extraction stays in the builder and Storybook Astro logs a warning naming the
 right flag.
 
 The props table and description are the same either way — it is the same
-extractor, just running somewhere else. The one difference is that slot rows
-have no text control on this path yet. What you gain is that a large component
-library no longer blocks story transforms while its types are checked, and
-static builds get per-component JSON snapshots under
+extractor, just running somewhere else. What you gain is that a large
+component library no longer blocks story transforms while its types are
+checked, and static builds get per-component JSON snapshots under
 `services/core/docgen/` instead of inlining docgen into the preview bundle.
 
-Three caveats:
+Two caveats:
 
-- Slot rows have **no text control** on this path yet
-  ([#267](https://github.com/storybook-astro/storybook-astro/issues/267)), so on
-  Storybook 11 you get them back only by turning the Docgen Server off.
 - `docgen.propFilter` is **ignored** here. A filter is a function, and the worker
   receives its configuration as plain data across a thread boundary, so there is
   no way to send one. That's why Storybook 11 leaves the Docgen Server off for a

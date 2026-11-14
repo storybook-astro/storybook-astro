@@ -96,7 +96,7 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 **Shipped in**: 1.15.0
 
-The Docs props table lists the slots an Astro component accepts in a **Slots** section, with descriptions from `{/* @slot … */}` comments, even when no story fills them. Each slot also gets a text control in the Controls panel, so slot HTML can be edited without the `args.slots` JSON editor (not yet with the Docgen Server, the default on Storybook 11, [#267](https://github.com/storybook-astro/storybook-astro/issues/267)).
+The Docs props table lists the slots an Astro component accepts in a **Slots** section, with descriptions from `{/* @slot … */}` comments, even when no story fills them. Each slot also gets a text control in the Controls panel, so slot HTML can be edited without the `args.slots` JSON editor.
 
 **Tracking**: [Issue #188](https://github.com/storybook-astro/storybook-astro/issues/188), [Issue #203](https://github.com/storybook-astro/storybook-astro/issues/203)
 
@@ -288,7 +288,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Stories (CSF) | ✅ Supported | Component Story Format for defining stories |
-| Args & Controls | ✅ Supported | Interactive controls for component props, and a text control for each slot except with the Docgen Server (dev only for Astro components; pre-rendered in static builds) |
+| Args & Controls | ✅ Supported | Interactive controls for component props, and a text control for each slot (dev only for Astro components; pre-rendered in static builds) |
 | Actions | ✅ Supported | Log user interactions and events |
 | Docs (Autodocs) | ✅ Supported | Automatic documentation pages, with props tables generated from frontmatter JSDoc and a Slots section listing each slot |
 | Docs (MDX) | ✅ Supported | Custom documentation pages with MDX |
