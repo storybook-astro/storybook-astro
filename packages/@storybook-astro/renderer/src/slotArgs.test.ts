@@ -185,12 +185,23 @@ describe('with the Docgen Server on', () => {
     expect(argTypes[slotArgName('footer')]).toBeUndefined();
   });
 
-  test('keeps the JSON editor on the slots row, since the preview can\'t see which slots have a row', () => {
+  test('removes the JSON editor from the slots row when every filled slot holds text, which the manager gives a text control', () => {
     vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
 
     const argTypes = lockNonTextSlotControls({
       argTypes: {},
-      initialArgs: { slots: { default: '<p>Body</p>' } }
+      initialArgs: { slots: { default: '<p>A</p>' } }
+    } as never);
+
+    expect(argTypes.slots?.control).toEqual({ disable: true });
+  });
+
+  test('keeps the JSON editor on the slots row for a slot holding a component', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const argTypes = lockNonTextSlotControls({
+      argTypes: {},
+      initialArgs: { slots: { default: '<p>A</p>', footer: () => {} } }
     } as never);
 
     expect(argTypes.slots).toBeUndefined();

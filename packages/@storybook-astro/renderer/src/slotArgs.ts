@@ -69,7 +69,9 @@ export function splitStoryArgs(args: Args, initialArgs?: Args): { props: Args; s
  * per-slot controls cover every slot, and a slot edited there would override
  * the JSON. A slot without a text control, or `slots: {}`, keeps the JSON
  * editor, since it's the only way to edit that content. The row stays in the
- * Docs table.
+ * Docs table. With the Docgen Server on, every slot the story fills with text
+ * counts as having a text control: the manager gives it one, from the payload's
+ * row or by inference from the seeded arg.
  */
 export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => {
   const initialSlots = context.initialArgs?.slots;
@@ -79,7 +81,9 @@ export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => 
     return argTypes;
   }
 
-  for (const slot of Object.keys(initialSlots)) {
+  const slotNames = Object.keys(initialSlots);
+
+  for (const slot of slotNames) {
     const key = slotArgName(slot);
 
     if ((argTypes[key] || isDocgenServerOn()) && holdsNonText(initialSlots, slot)) {
@@ -87,11 +91,8 @@ export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => 
     }
   }
 
-  const slotNames = Object.keys(initialSlots);
   const everySlotHasTextControl = slotNames.every(
-    (slot) =>
-      argTypes[slotArgName(slot)] &&
-      (initialSlots[slot] === undefined || typeof initialSlots[slot] === 'string')
+    (slot) => (argTypes[slotArgName(slot)] || isDocgenServerOn()) && !holdsNonText(initialSlots, slot)
   );
 
   if (slotNames.length > 0 && everySlotHasTextControl) {
@@ -129,10 +130,12 @@ export const seedSlotArgs: ArgsEnhancer<Renderer> = (context) => {
  * `slot-<name>` rows reach the manager from the docgen payload, which merges
  * them under the argTypes the preview prepared (#267). So the preview can't
  * tell which slots have a row, and seeds and locks every slot the story fills.
+ * Each filled text slot ends up with a text control either way, from the
+ * payload's row or inferred from its seeded arg.
  * Storybook 10 reads `experimentalDocgenServer`; Storybook 11 renamed it to
  * `docgenServer`.
  */
-function isDocgenServerOn(): boolean {
+export function isDocgenServerOn(): boolean {
   const features = (globalThis as { FEATURES?: Record<string, unknown> }).FEATURES;
 
   return Boolean(features?.experimentalDocgenServer || features?.docgenServer);
