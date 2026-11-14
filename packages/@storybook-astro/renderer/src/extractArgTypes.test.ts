@@ -42,6 +42,38 @@ describe('extractArgTypes', () => {
     expect(Object.keys(argTypes ?? {})).toEqual(['slot-default']);
   });
 
+  test('shows a default as the component writes it, null included (issue #355)', () => {
+    const argTypes = extractArgTypes({
+      __docgenInfo: {
+        displayName: 'Link',
+        description: '',
+        props: {
+          href: {
+            ...titleProp,
+            name: 'href',
+            type: { name: 'string | URL' },
+            defaultValue: { value: "'/home'", computed: false }
+          },
+          label: {
+            ...titleProp,
+            name: 'label',
+            defaultValue: { value: 'defaultLabel', computed: true }
+          },
+          icon: {
+            ...titleProp,
+            name: 'icon',
+            type: { name: 'string | null' },
+            defaultValue: { value: 'null', computed: false }
+          }
+        }
+      }
+    });
+
+    expect(argTypes?.href.table?.defaultValue).toEqual({ summary: "'/home'" });
+    expect(argTypes?.label.table?.defaultValue).toEqual({ summary: 'defaultLabel' });
+    expect(argTypes?.icon.table?.defaultValue).toEqual({ summary: 'null' });
+  });
+
   test('returns nothing for a component with neither props nor slots', () => {
     expect(extractArgTypes({ __docgenInfo: { displayName: 'Empty', description: '', props: {} } })).toBeNull();
   });

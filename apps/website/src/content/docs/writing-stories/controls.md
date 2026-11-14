@@ -254,7 +254,8 @@ description. A **Slots** list follows, with each slot's `@slot`
 description and a line on how a story fills them. Both come from the rows the
 extractor builds for the props table, so a prop it leaves out because it comes
 from a dependency (see [Inherited props](#inherited-props)) is left out here
-too. Hiding a row with `table: { disable: true }` in a story's
+too, as is a prop whose JSDoc has `@ignore`. Hiding a row with
+`table: { disable: true }` in a story's
 `argTypes` only hides it from the table: the agent still sees the prop. For
 example, `docs-show` from `@storybook/addon-mcp` returns this for a button:
 

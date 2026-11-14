@@ -27,8 +27,11 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
 
   const argTypes: StrictArgTypes = {};
 
-  for (const { propDef } of props) {
+  for (const { propDef, docgenInfo } of props) {
     const { name, description, type, sbType, defaultValue, jsDocTags, required } = propDef;
+    // docs-tools drops a default whose text is `null`, but `= null` is a real
+    // default the component chose (issue #355).
+    const nullDefault = docgenInfo.defaultValue?.value === 'null' ? { summary: 'null' } : undefined;
 
     argTypes[name] = {
       name,
@@ -37,7 +40,7 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
       table: {
         type: type ?? undefined,
         jsDocTags,
-        defaultValue: defaultValue ?? undefined
+        defaultValue: defaultValue ?? nullDefault
       }
     };
   }

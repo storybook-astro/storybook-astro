@@ -30,20 +30,37 @@ export interface AstroDocgenProp {
   required: boolean;
   type: AstroDocgenPropType;
   description: string;
-  /**
-   * `value` feeds the props table. `source` is the initializer as written,
-   * which the API description for AI agents prints so quoting survives.
-   */
-  defaultValue: { value: string | number | boolean | null; source?: string } | null;
+  defaultValue: AstroDocgenDefault | null;
   parent?: DeclarationRef;
   declarations?: DeclarationRef[];
   tags?: Record<string, string>;
+}
+
+/**
+ * A destructuring default in `react-docgen`'s shape: the initializer exactly
+ * as written (`'/home'`, `defaultTitle`, `null`), and whether it's an
+ * expression rather than a literal.
+ *
+ * The source text keeps the difference between a string literal and an
+ * identifier, which a parsed value loses, so the props table and the API
+ * description for AI agents both print it as written. Because `computed` is
+ * set, docs-tools prints `value` as it is instead of quoting it by the prop's
+ * declared type (issue #355), as it does for React's `react-docgen`.
+ */
+export interface AstroDocgenDefault {
+  value: string;
+  computed: boolean;
 }
 
 export interface AstroDocgenPropType {
   name: string;
   /** Full type text, when `name` is a summary like `Array` or `signature`. */
   raw?: string;
+  /**
+   * The whole type text, when TypeScript shortened `name` (`{ ...; }`). Only
+   * the API description for AI agents prints it; the table keeps the summary.
+   */
+  untruncated?: string;
   /** Constituents of a literal union, for select controls. */
   value?: Array<{ value: string }>;
 }

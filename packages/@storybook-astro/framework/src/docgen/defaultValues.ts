@@ -1,15 +1,9 @@
 import type ts from 'typescript';
+import type { AstroDocgenDefault } from './types.ts';
 
 export interface AstroPropsBinding {
-  /** Prop name → default, for props destructured with one. */
-  defaults: Map<string, string | number | boolean | null>;
-  /**
-   * Prop name → its default's source text, exactly as written (`'/home'`,
-   * `defaultTitle`). `defaults` turns a string literal and an identifier into
-   * the same plain string, so the API description an agent reads prints this
-   * instead and keeps the author's quoting.
-   */
-  defaultSources: Map<string, string>;
+  /** Prop name → its default, for props destructured with one. */
+  defaults: Map<string, AstroDocgenDefault>;
   /**
    * Every prop name the component destructures, with or without a default.
    *
@@ -33,8 +27,7 @@ export function readAstroPropsBinding(
   typescript: typeof ts,
   sourceFile: ts.SourceFile
 ): AstroPropsBinding {
-  const defaults = new Map<string, string | number | boolean | null>();
-  const defaultSources = new Map<string, string>();
+  const defaults = new Map<string, AstroDocgenDefault>();
   const destructured = new Set<string>();
 
   for (const statement of sourceFile.statements) {
@@ -64,14 +57,16 @@ export function readAstroPropsBinding(
         destructured.add(propName);
 
         if (element.initializer) {
-          defaults.set(propName, literalValueOf(typescript, element.initializer, sourceFile));
-          defaultSources.set(propName, element.initializer.getText(sourceFile));
+          defaults.set(propName, {
+            value: element.initializer.getText(sourceFile),
+            computed: !isLiteral(typescript, element.initializer)
+          });
         }
       }
     }
   }
 
-  return { defaults, defaultSources, destructured };
+  return { defaults, destructured };
 }
 
 /** Matches `Astro.props`, `Astro.props as Props` and `Astro.props satisfies Props`. */
@@ -95,43 +90,21 @@ function isAstroProps(typescript: typeof ts, node: ts.Expression): boolean {
   );
 }
 
-/**
- * Narrows an initializer to something safe to serialise into the bundle.
- * Anything that isn't a plain literal keeps its source text, which is what
- * readers want to see for `navItems = defaultNavItems`.
- */
-function literalValueOf(
-  typescript: typeof ts,
-  node: ts.Expression,
-  sourceFile: ts.SourceFile
-): string | number | boolean | null {
-  if (typescript.isStringLiteral(node) || typescript.isNoSubstitutionTemplateLiteral(node)) {
-    return node.text;
-  }
-
-  if (node.kind === typescript.SyntaxKind.TrueKeyword) {
-    return true;
-  }
-
-  if (node.kind === typescript.SyntaxKind.FalseKeyword) {
-    return false;
-  }
-
-  if (node.kind === typescript.SyntaxKind.NullKeyword) {
-    return null;
-  }
-
-  if (typescript.isNumericLiteral(node)) {
-    return Number(node.text);
-  }
-
+/** A string, number, boolean or `null` literal, including a negative number. */
+function isLiteral(typescript: typeof ts, node: ts.Expression): boolean {
   if (
     typescript.isPrefixUnaryExpression(node) &&
-    node.operator === typescript.SyntaxKind.MinusToken &&
-    typescript.isNumericLiteral(node.operand)
+    node.operator === typescript.SyntaxKind.MinusToken
   ) {
-    return -Number(node.operand.text);
+    return typescript.isNumericLiteral(node.operand);
   }
 
-  return node.getText(sourceFile);
+  return (
+    typescript.isStringLiteral(node) ||
+    typescript.isNoSubstitutionTemplateLiteral(node) ||
+    typescript.isNumericLiteral(node) ||
+    node.kind === typescript.SyntaxKind.TrueKeyword ||
+    node.kind === typescript.SyntaxKind.FalseKeyword ||
+    node.kind === typescript.SyntaxKind.NullKeyword
+  );
 }

@@ -67,7 +67,7 @@ We reimplement rather than depend on it. An unpublished single-maintainer packag
 
 The two are **mutually exclusive**. A worker thread has its own module registry, so enabling both would pay the full TypeScript warm-up cost twice for identical output. When the server path is active, the Vite plugin does not inject `__docgenInfo`.
 
-**Decision 2 — Emit the `react-docgen-typescript` shape.** The extractor produces `{ displayName, description, props: { <name>: { name, required, type, description, defaultValue } } }` rather than Storybook's `StrictArgTypes`. `extractComponentProps` in `storybook/internal/docs-tools` consumes that shape directly, routing it through `javaScriptFactory` → `convert()` → `sbType`. That gives JSDoc tag parsing, `@ignore` handling, enum and union control inference, default-value formatting, and the existing string-quoting workaround for free. Converting to `StrictArgTypes` afterwards is a small mapping over `PropDef[]`, matching `@storybook/react`'s own `extractArgTypes`.
+**Decision 2 — Emit the `react-docgen-typescript` shape.** The extractor produces `{ displayName, description, props: { <name>: { name, required, type, description, defaultValue } } }` rather than Storybook's `StrictArgTypes`. `extractComponentProps` in `storybook/internal/docs-tools` consumes that shape directly, routing it through `javaScriptFactory` → `convert()` → `sbType`. That gives JSDoc tag parsing, enum and union control inference and default-value formatting for free. Two things it can't do with this extractor's output, so the extractor does them itself: drop `@ignore` props, since docs-tools looks for the tag in `description` ([Issue #356](https://github.com/storybook-astro/storybook-astro/issues/356)), and print defaults as written, since it quotes a default by the prop's declared type ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)). Converting to `StrictArgTypes` afterwards is a small mapping over `PropDef[]`, matching `@storybook/react`'s own `extractArgTypes`.
 
 **Decision 3 — One long-lived `LanguageService`, never a program per file.** Measured against `astro/types` in this repo, where a single `createProgram` pulls in 243 source files:
 
@@ -138,7 +138,7 @@ Rule 3 deliberately does not exclude blocks attached to an import. Astro frontma
 
 The prior art takes the first `/** */` in the file by regex, which happily picks up a license header or a JSDoc on an import.
 
-Separately, `description` carries only the free text before the first tag; everything else goes to `__docgenInfo.tags` / `DocgenPayload.jsDocTags`. Storybook's `parseJsDoc` understands `@param`, `@returns`, `@deprecated` and `@ignore` only, and the #110 component's `@preview`, `@usage` and `@examples` blocks contain markdown and JSX that would otherwise render as noise. `@ignore` is preserved so docs-tools' existing prop-dropping still fires.
+Separately, `description` carries only the free text before the first tag; everything else goes to `__docgenInfo.tags` / `DocgenPayload.jsDocTags`. Storybook's `parseJsDoc` understands `@param`, `@returns`, `@deprecated` and `@ignore` only, and the #110 component's `@preview`, `@usage` and `@examples` blocks contain markdown and JSX that would otherwise render as noise. Because `@ignore` then never reaches docs-tools' `parseJsDoc`, the extractor drops a prop whose tags include it, so it has no row in the table and no line in `apiDescription`.
 
 ### Failure modes
 
@@ -148,7 +148,7 @@ Separately, `description` carries only the free text before the first tag; every
 - **Type errors.** Diagnostics are *signal, not gate*. A file with an unresolved import, a missing default export and an `Astro`-as-value error still yielded correct types for every resolvable prop; refusing to extract unless diagnostics are empty would disable docgen for most real projects. TS2312 triggers the heritage rewrite; an unresolved-module diagnostic triggers a one-time warning naming the specifier, because that is the failure users cannot otherwise see.
 - **No `Props` declaration.** Common for slot-only components. Return `{ displayName, description, props: {} }` rather than nothing, so the description still reaches autodocs. Bail before touching TypeScript when there is no frontmatter at all.
 
-Failures are cached by content hash so a component that legitimately yields nothing does not re-run a type check on every HMR tick. In the worker path, failures are reported on `DocgenPayload.error`. Default values are narrowed to `string | number | boolean | null` before code generation so nothing can throw at serialization time.
+Failures are cached by content hash so a component that legitimately yields nothing does not re-run a type check on every HMR tick. In the worker path, failures are reported on `DocgenPayload.error`. Default values are recorded as source text before code generation so nothing can throw at serialization time.
 
 **Decision 10 — Scan frontmatter with the existing house pattern.** `vitePluginAstroComponentMarker.ts` already extracts frontmatter with a line-anchored regex in `extractAstroImportSpecifiers`. Do the same rather than adopting `@astrojs/compiler`'s asynchronous WASM `parse()` — it keeps extraction synchronous, avoids a WASM load inside a worker thread, and matches the file it sits beside.
 
@@ -162,20 +162,21 @@ Given a `.astro` file, the extractor produces:
 | `description` | per [Description precedence](#description-precedence), free text only |
 | `tags` | JSDoc block tags other than the description |
 | `props[name].type.name` | `checker.typeToString`, with `\| undefined` stripped for optional props |
+| `props[name].type.untruncated` | `checker.typeToString` with `NoTruncation`, only when it differs from `type.name`; `apiDescription` prints it, the table keeps the summary |
 | `props[name].type.value` | literal union constituents, when the type is a union of literals |
 | `props[name].required` | not optional **and** no destructuring default |
 | `props[name].description` | `symbol.getDocumentationComment(checker)` |
 | `props[name].defaultValue` | destructuring default, else the `@default` tag, else absent |
 | `props[name].parent` | declaring interface or type alias; falls back to the declaring source file and nearest named ancestor |
 
-Default values are read from the top-level `Astro.props` destructuring, including the `as Props` and `satisfies Props` forms:
+Default values are read from the top-level `Astro.props` destructuring, including the `as Props` and `satisfies Props` forms. Like `react-docgen`'s, a default is `{ value, computed }`: `value` is the initializer's source text and `computed` says whether it's an expression rather than a literal. With `computed` set, docs-tools prints `value` as it is instead of quoting it by the prop's declared type, which would drop the quotes from `href = '/home'` on `string | URL` and add them to `title = defaultTitle` on `string` ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)). docs-tools also drops a default whose text is `null`, so the renderer's `extractArgTypes` puts it back.
 
-| Frontmatter | `defaultValue.value` |
+| Frontmatter | `defaultValue` |
 |---|---|
-| `const { a = 'x' } = Astro.props` | `"x"` |
-| `const { a = 42 } = Astro.props` | `42` |
-| `const { a = true } = Astro.props` | `true` |
-| `const { a = defaultLinks } = Astro.props` | `"defaultLinks"` (source text) |
+| `const { a = 'x' } = Astro.props` | `{ value: "'x'", computed: false }` |
+| `const { a = 42 } = Astro.props` | `{ value: '42', computed: false }` |
+| `const { a = null } = Astro.props` | `{ value: 'null', computed: false }` |
+| `const { a = defaultLinks } = Astro.props` | `{ value: 'defaultLinks', computed: true }` |
 | `const { a } = Astro.props` + `/** @default 'x' */` | `"x"` |
 | `const { a } = Astro.props` | absent → prop is required |
 
@@ -241,7 +242,7 @@ Shipped against Storybook 10.6, which is where `createLazyDocgenMiddleware` and 
 
 - `src/docgen/docgen-worker.ts` exports `createDocgenProvider()`, satisfying `DocgenWorkerModule`. It is a thin lifetime wrapper: `createLazyDocgenMiddleware` builds the extractor on the first eligible request and memoizes it, and returning `undefined` from `extract` delegates downstream. The merge convention in Storybook's `docgen/types.ts` is that helper's job, not ours.
 - `src/docgen/docgen-payload.ts` turns one index entry into a `DocgenPayload`: resolve `meta.component` back to a file with `createMetaComponentResolver({ extensions: ['.astro'] })`, run the extractor, convert with the renderer's `extractArgTypes`, and resolve the description through `extractComponentDescription` so the CSF meta docblock wins the same way it does for every other framework's provider.
-- The payload also carries `apiDescription`, Markdown built by `src/docgen/apiDescription.ts` from the same argTypes ([Issue #353](https://github.com/storybook-astro/storybook-astro/issues/353)). Core's docs toolset strips `argTypes` before it formats a component for `@storybook/addon-mcp`, and builds its props section only from React docgen fields, so without it an agent gets no props. The props section copies core's React `formatPropsSection` shape (a fenced `export type Props = { … }`), with the extractor's type text in place of the table's summary, a literal union printed as its members (the table summarizes it as `enum`, and an aliased union's type text is only the alias name), and a `## Slots` list follows. Defaults print from `defaultValue.source`, the initializer's source text, which the extractor records next to `defaultValue.value`: the table quotes a default by its declared type, so `href = '/home'` on `string | URL` would print unquoted and `title = defaultTitle` on `string` as a string. Only whitespace around line breaks is collapsed, so a multi-line array default stays on one line and spaces inside a string literal stay.
+- The payload also carries `apiDescription`, Markdown built by `src/docgen/apiDescription.ts` from the same argTypes ([Issue #353](https://github.com/storybook-astro/storybook-astro/issues/353)). Core's docs toolset strips `argTypes` before it formats a component for `@storybook/addon-mcp`, and builds its props section only from React docgen fields, so without it an agent gets no props. The props section copies core's React `formatPropsSection` shape (a fenced `export type Props = { … }`), with the extractor's untruncated type text in place of the table's summary, a literal union printed as its members (the table summarizes it as `enum`, and an aliased union's type text is only the alias name), and a `## Slots` list follows. Defaults print from `defaultValue.value`, the initializer's source text, as the table does. Only whitespace around line breaks is collapsed, so a multi-line array default stays on one line and spaces inside a string literal stay.
 - `src/preset.ts` exports `experimental_docgenProvider`, returning a descriptor only when the feature flag is set.
 - `src/preset.ts` also exports `experimental_manifests`, which declares the engine (`meta.docgen: 'astro-docgen'`) for the components manifest. Core builds `components.json` from the provider's payloads but requires the renderer to name the engine, and fails manifest generation without it when `componentsManifest` is also on ([Issue #183](https://github.com/storybook-astro/storybook-astro/issues/183)). Core types `meta.docgen` as a union of its first-party engines; the value is only displayed in `components.html`, so ours is cast until the union has an entry for it.
 - `./docgen-worker` is in the package exports and `tsup.config.ts` — core imports the descriptor's module specifier by absolute path, so it has to be separately emitted.

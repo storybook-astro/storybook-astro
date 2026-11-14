@@ -29,7 +29,7 @@ describe('the props an agent reads', () => {
         subtitle: prop('subtitle'),
         featured: prop('featured', {
           type: { name: 'boolean' },
-          defaultValue: { value: false, source: 'false' }
+          defaultValue: { value: 'false', computed: false }
         }),
         variant: prop('variant', {
           description: 'How loud the card is.',
@@ -38,7 +38,7 @@ describe('the props an agent reads', () => {
             raw: '"primary" | "secondary"',
             value: [{ value: '"primary"' }, { value: '"secondary"' }]
           },
-          defaultValue: { value: 'primary', source: "'primary'" }
+          defaultValue: { value: "'primary'", computed: false }
         })
       }
     });
@@ -63,6 +63,17 @@ describe('the props an agent reads', () => {
         '```'
       ].join('\n')
     );
+  });
+
+  test('prints the whole type when the table shows a shortened one (issue #357)', () => {
+    const untruncated = '{ heading: string; subheading: string; footer: string; }';
+    const markdown = describeComponent({
+      props: {
+        labels: prop('labels', { type: { name: '{ heading: string; ...; }', untruncated } })
+      }
+    });
+
+    expect(markdown).toContain(`  labels?: ${untruncated};`);
   });
 
   test('keeps every line of a multi-line description inside the comment', () => {
@@ -98,9 +109,9 @@ describe('the props an agent reads', () => {
       props: {
         href: prop('href', {
           type: { name: 'string | URL' },
-          defaultValue: { value: '/home', source: "'/home'" }
+          defaultValue: { value: "'/home'", computed: false }
         }),
-        title: prop('title', { defaultValue: { value: 'defaultTitle', source: 'defaultTitle' } })
+        title: prop('title', { defaultValue: { value: 'defaultTitle', computed: true } })
       }
     });
 
@@ -113,7 +124,7 @@ describe('the props an agent reads', () => {
       props: {
         nothing: prop('nothing', {
           type: { name: 'string | null' },
-          defaultValue: { value: null, source: 'null' }
+          defaultValue: { value: 'null', computed: false }
         })
       }
     });
@@ -125,7 +136,7 @@ describe('the props an agent reads', () => {
     const source = "[\n  'a',\n  'b'\n]";
     const markdown = describeComponent({
       props: {
-        items: prop('items', { type: { name: 'string[]' }, defaultValue: { value: source, source } })
+        items: prop('items', { type: { name: 'string[]' }, defaultValue: { value: source, computed: true } })
       }
     });
 
@@ -135,7 +146,7 @@ describe('the props an agent reads', () => {
   test('keeps the spacing inside a string default', () => {
     const markdown = describeComponent({
       props: {
-        label: prop('label', { defaultValue: { value: 'Read  more', source: "'Read  more'" } })
+        label: prop('label', { defaultValue: { value: "'Read  more'", computed: false } })
       }
     });
 
