@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { lockNonTextSlotControls, seedSlotArgs, slotArgName, splitStoryArgs } from './slotArgs.ts';
 
 const slotArgTypes = {
@@ -71,6 +71,14 @@ describe('splitStoryArgs', () => {
     expect(splitStoryArgs(args, initialArgs).slots).toEqual({ default: '<p>Edited</p>' });
   });
 
+  test('a text edit never replaces a component the story put in the slot', () => {
+    const Badge = () => {};
+    const initialArgs = { slots: { default: Badge } };
+    const args = { slots: { default: Badge }, [slotArgName('default')]: 'typed text' };
+
+    expect(splitStoryArgs(args, initialArgs).slots).toEqual({ default: Badge });
+  });
+
   test('ignores a slots arg that isn\'t an object', () => {
     expect(splitStoryArgs({ slots: 'nope' }).slots).toEqual({});
   });
@@ -141,5 +149,59 @@ describe('lockNonTextSlotControls', () => {
     } as never);
 
     expect(argTypes.slots).toBeUndefined();
+  });
+});
+
+describe('with the Docgen Server on', () => {
+  // The preview gets no docgen on this path, so no `slot-<name>` argTypes:
+  // those reach the manager from the docgen payload (#267).
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test.each(['experimentalDocgenServer', 'docgenServer'])(
+    'seeds each text slot without a preview argType (%s)',
+    (flag) => {
+      vi.stubGlobal('FEATURES', { [flag]: true });
+
+      const seeded = seedSlotArgs({
+        argTypes: {},
+        initialArgs: { slots: { default: '<p>Body</p>', footer: () => {} } }
+      } as never);
+
+      expect(seeded).toEqual({ [slotArgName('default')]: '<p>Body</p>' });
+    }
+  );
+
+  test('locks the control of a slot holding a component, so the payload\'s text control stays off', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const argTypes = lockNonTextSlotControls({
+      argTypes: {},
+      initialArgs: { slots: { default: () => {}, footer: '<b>OK</b>' } }
+    } as never);
+
+    expect(argTypes[slotArgName('default')]).toEqual({ control: { disable: true } });
+    expect(argTypes[slotArgName('footer')]).toBeUndefined();
+  });
+
+  test('keeps the JSON editor on the slots row, since the preview can\'t see which slots have a row', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const argTypes = lockNonTextSlotControls({
+      argTypes: {},
+      initialArgs: { slots: { default: '<p>Body</p>' } }
+    } as never);
+
+    expect(argTypes.slots).toBeUndefined();
+  });
+
+  test('without it, a slot the docgen didn\'t find gets no arg and no row', () => {
+    vi.stubGlobal('FEATURES', {});
+
+    expect(seedSlotArgs({ argTypes: {}, initialArgs: { slots: { default: '<p>Body</p>' } } } as never)).toEqual({});
+    expect(
+      lockNonTextSlotControls({ argTypes: {}, initialArgs: { slots: { default: () => {} } } } as never)
+    ).toEqual({});
   });
 });

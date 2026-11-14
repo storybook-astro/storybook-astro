@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- With the Docgen Server on, each slot row in the Controls panel has its text control again, starting at the story's content (#267). A slot whose story content is a component, such as `slots: { default: Badge }`, has no control, and a stray `slot-<name>` value, from an old URL say, no longer replaces that component with text. On this path the `slots` row keeps its JSON editor.
+
 ## [1.16.0] - 2026-11-11
 
 ### Added

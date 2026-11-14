@@ -213,14 +213,14 @@ describe('an Astro story', () => {
 });
 
 describe('slots on the Docgen Server path', () => {
-  test('are listed without a control, since the preview cannot seed or lock it', async () => {
+  test('each get a text control, which the preview seeds and locks from the story', async () => {
     const docgen = stubSource({ slots: [{ name: 'default', description: 'The card body' }] });
     const payload = await build(storyEntry('Card.stories.jsx', 'Astro/Card'), docgen);
 
     expect(payload?.argTypes?.['slot-default']).toMatchObject({
       name: 'default',
       description: 'The card body',
-      control: { disable: true },
+      control: { type: 'text' },
       table: { category: 'slots' }
     });
     expect(payload?.apiDescription).toContain('- `default` (child content): The card body');
