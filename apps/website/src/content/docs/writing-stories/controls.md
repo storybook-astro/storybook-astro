@@ -379,8 +379,9 @@ with the Docgen Server on, Storybook doesn't serve it.
 
 The manifest comes from the same extraction as the props table, so it needs
 TypeScript installed (see [Turning extraction off](#turning-extraction-off)).
-With `componentsManifest` on and extraction turned off
-(`docgen: false`), or, on Storybook 10.6–10.x, in a test build
+With the Docgen Server and `componentsManifest` both on and extraction turned
+off (`docgen: false`; on Storybook 11 that means setting `docgenServer: true`
+yourself), or, on Storybook 10.6–10.x, in a test build
 (`storybook build --test`), the build still writes `components.json`, but Astro
 components are listed without a description or props. On Storybook 11 a test
 build turns the Docgen Server off, so no `components.json` is written.
