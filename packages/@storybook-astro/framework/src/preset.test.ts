@@ -370,6 +370,24 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
     expect(resolved).toEqual({ docgenServer: false, componentsManifest: true });
   });
 
+  test('is left alone with docgen: false, even when the main config turns the Docgen Server on', async () => {
+    // The docgen provider extracts nothing with `docgen: false`, so the
+    // manifest would list Astro components without descriptions or props.
+    installed.storybook = '11.0.0';
+    mainConfig.value = { features: { docgenServer: true } };
+    const existing = { docgenServer: false };
+
+    const resolved = await applyFeatures(
+      existing,
+      storybookOptions({
+        configDir: freshProject().configDir,
+        frameworkOptions: { docgen: false }
+      })
+    );
+
+    expect(resolved).toBe(existing);
+  });
+
   test('reads the main config once per project, however often features are applied', async () => {
     installed.storybook = '11.0.0';
     const project = freshProject();

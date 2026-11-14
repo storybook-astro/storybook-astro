@@ -502,8 +502,9 @@ export const isDocgenProviderEnabled = async (
 /**
  * Turns on the components manifest that `@storybook/addon-mcp` reads, as
  * `@storybook/react` and `@storybook/vue3` do, but only where Astro components
- * reach it: Storybook 11 with the Docgen Server on. Storybook 10 and a project
- * that turned the Docgen Server off keep their setting.
+ * reach it: Storybook 11 with the Docgen Server on. Storybook 10, a project
+ * that turned the Docgen Server off and one that sets `docgen: false` keep
+ * their setting.
  *
  * This runs before the project's main config is merged, so an explicit
  * `componentsManifest` there wins either way. An explicit `docgenServer` there
@@ -518,6 +519,15 @@ export const features = async (
   const { flag } = await docgenServerFlags();
 
   if (flag !== 'docgenServer' || storybookOptions.build?.test?.disableDocgen) {
+    return existing;
+  }
+
+  // With `docgen: false` the docgen provider extracts nothing, so a manifest
+  // would list Astro components without descriptions or props.
+  const frameworkOptions =
+    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+
+  if (frameworkOptions.docgen === false) {
     return existing;
   }
 
