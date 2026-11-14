@@ -368,14 +368,15 @@ export const experimental_docgenProvider = async (
     return existing;
   }
 
-  const frameworkOptions =
-    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+  const frameworkOptions = await storybookOptions.presets.apply<FrameworkOptions | undefined>(
+    'frameworkOptions'
+  );
 
-  if (frameworkOptions.docgen === false) {
+  if (frameworkOptions?.docgen === false) {
     return existing;
   }
 
-  if (frameworkOptions.docgen?.propFilter) {
+  if (frameworkOptions?.docgen?.propFilter) {
     console.warn(
       '[storybook-astro] The `docgen.propFilter` option is ignored when the Docgen Server is enabled: a filter is a function, and the Docgen Server hands its provider plain data across a worker boundary. Turn the feature off to keep your filter.'
     );
@@ -388,8 +389,8 @@ export const experimental_docgenProvider = async (
         import.meta.resolve('@storybook-astro/framework/docgen-worker')
       ),
       options: {
-        projectRoot: frameworkOptions.resolveFrom ?? dirname(storybookOptions.configDir),
-        tsconfigPath: frameworkOptions.docgen?.tsconfigPath
+        projectRoot: frameworkOptions?.resolveFrom ?? dirname(storybookOptions.configDir),
+        tsconfigPath: frameworkOptions?.docgen?.tsconfigPath
       }
     }
   ];
@@ -476,10 +477,13 @@ export const isDocgenProviderEnabled = async (
     return false;
   }
 
-  const frameworkOptions =
-    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+  const frameworkOptions = await storybookOptions.presets.apply<FrameworkOptions | undefined>(
+    'frameworkOptions'
+  );
 
-  if (frameworkOptions.docgen === false || frameworkOptions.docgen?.propFilter) {
+  // Core's `frameworkOptions` preset gives `undefined` for a `framework` with
+  // no options, and every `features` caller reaches this hook on Storybook 11.
+  if (frameworkOptions?.docgen === false || frameworkOptions?.docgen?.propFilter) {
     return false;
   }
 
@@ -508,8 +512,9 @@ export const isDocgenProviderEnabled = async (
  *
  * This runs before the project's main config is merged, so an explicit
  * `componentsManifest` there wins either way. An explicit `docgenServer` there
- * isn't applied yet, so it's read from the main config and wins over the
- * default `isDocgenProviderEnabled` gave. A test build turns the Docgen Server
+ * isn't applied yet, so it's read from the main config (an object, or a
+ * function evaluated against these defaults) and wins over the default
+ * `isDocgenProviderEnabled` gave. A test build turns the Docgen Server
  * off after this runs too.
  */
 export const features = async (
@@ -524,15 +529,16 @@ export const features = async (
 
   // With `docgen: false` the docgen provider extracts nothing, so a manifest
   // would list Astro components without descriptions or props.
-  const frameworkOptions =
-    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+  const frameworkOptions = await storybookOptions.presets.apply<FrameworkOptions | undefined>(
+    'frameworkOptions'
+  );
 
-  if (frameworkOptions.docgen === false) {
+  if (frameworkOptions?.docgen === false) {
     return existing;
   }
 
   const docgenServer =
-    (await readDocgenServerFromMainConfig(storybookOptions.configDir)) ?? existing.docgenServer;
+    (await readDocgenServerFromMainConfig(existing, storybookOptions)) ?? existing.docgenServer;
 
   if (docgenServer !== true) {
     return existing;
@@ -542,41 +548,60 @@ export const features = async (
 };
 
 // Core applies `features` many times at startup, and a main config change
-// restarts Storybook, so each config directory is read once per process.
-const docgenServerInMainConfig = new Map<string, Promise<boolean | undefined>>();
+// restarts Storybook, so each config directory's main config is loaded once
+// per process.
+const featuresInMainConfig = new Map<string, Promise<unknown>>();
 
 /**
  * The `features.docgenServer` the project's main config sets, or `undefined`
- * when it sets none. Read with `loadMainConfig`, which Storybook 10 and 11 both
- * ship, since core's own helper for this landed after 11.0.0-beta.0.
+ * when it sets none. Loaded with `loadMainConfig`, which Storybook 10 and 11
+ * both ship, since core's own helper for this landed after 11.0.0-beta.0.
+ *
+ * The main config is applied as a preset, so its `features` can be a function
+ * of the features before it. That form is evaluated against the framework's
+ * defaults, the value core passes it once this preset has run.
  */
-function readDocgenServerFromMainConfig(configDir: string): Promise<boolean | undefined> {
-  let value = docgenServerInMainConfig.get(configDir);
+async function readDocgenServerFromMainConfig(
+  existing: Record<string, unknown>,
+  storybookOptions: Options
+): Promise<boolean | undefined> {
+  const { configDir } = storybookOptions;
+  let loading = featuresInMainConfig.get(configDir);
 
-  if (!value) {
-    value = (async () => {
+  if (!loading) {
+    loading = (async () => {
       try {
         const { loadMainConfig } = await import('storybook/internal/common');
         const { features: mainFeatures } = await loadMainConfig({ configDir });
 
-        // A non-object `features` sets no flags, as core treats it.
-        if (typeof mainFeatures !== 'object' || mainFeatures === null) {
-          return undefined;
-        }
-
-        const { docgenServer } = mainFeatures as Record<string, unknown>;
-
-        return typeof docgenServer === 'boolean' ? docgenServer : undefined;
+        return mainFeatures;
       } catch {
         // A main config that fails to load fails Storybook elsewhere, with a
         // better message; here it just leaves the default in place.
         return undefined;
       }
     })();
-    docgenServerInMainConfig.set(configDir, value);
+    featuresInMainConfig.set(configDir, loading);
   }
 
-  return value;
+  let mainFeatures = await loading;
+
+  if (typeof mainFeatures === 'function') {
+    try {
+      mainFeatures = await mainFeatures({ ...existing }, storybookOptions);
+    } catch {
+      // Core applies the same function and reports its error.
+      return undefined;
+    }
+  }
+
+  if (typeof mainFeatures !== 'object' || mainFeatures === null) {
+    return undefined;
+  }
+
+  const { docgenServer } = mainFeatures as Record<string, unknown>;
+
+  return typeof docgenServer === 'boolean' ? docgenServer : undefined;
 }
 
 /**

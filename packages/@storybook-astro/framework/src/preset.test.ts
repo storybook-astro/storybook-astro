@@ -370,6 +370,29 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
     expect(resolved).toEqual({ docgenServer: false, componentsManifest: true });
   });
 
+  test('is left alone when a features function in the main config turns the Docgen Server off', async () => {
+    // main.js is applied as a preset, so core runs this function after the
+    // framework's defaults and the Docgen Server ends up off.
+    installed.storybook = '11.0.0';
+    mainConfig.value = {
+      features: async (defaults: Record<string, unknown>) => ({ ...defaults, docgenServer: false })
+    };
+    const existing = { docgenServer: true, componentsManifest: false };
+
+    expect(await applyFeatures(existing, freshProject())).toBe(existing);
+  });
+
+  test('is turned on when a features function in the main config turns the Docgen Server on over a false default', async () => {
+    installed.storybook = '11.0.0';
+    mainConfig.value = {
+      features: (defaults: Record<string, unknown>) => ({ ...defaults, docgenServer: true })
+    };
+
+    const resolved = await applyFeatures({ docgenServer: false }, freshProject());
+
+    expect(resolved).toEqual({ docgenServer: false, componentsManifest: true });
+  });
+
   test('is left alone with docgen: false, even when the main config turns the Docgen Server on', async () => {
     // The docgen provider extracts nothing with `docgen: false`, so the
     // manifest would list Astro components without descriptions or props.
@@ -415,6 +438,39 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
     const existing = { experimentalDocgenServer: true, docgenServer: true, componentsManifest: false };
 
     expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
+  });
+});
+
+describe('a framework entry with no options (issue #214)', () => {
+  // Core's `frameworkOptions` preset returns `undefined` for
+  // `framework: { name }`, and every `features` caller reaches these hooks on
+  // Storybook 11, including ones that never run `viteFinal`.
+  function withoutFrameworkOptions(features: Record<string, unknown> = {}): Options {
+    return {
+      configDir: freshProject().configDir,
+      presets: {
+        apply: async (key: string) => (key === 'features' ? features : undefined)
+      }
+    } as unknown as Options;
+  }
+
+  test('the Docgen Server default and the components manifest still resolve', async () => {
+    installed.storybook = '11.0.0';
+
+    expect(await isDocgenProviderEnabled(false, withoutFrameworkOptions())).toBe(true);
+    expect(await applyFeatures({ docgenServer: true }, withoutFrameworkOptions())).toEqual({
+      docgenServer: true,
+      componentsManifest: true
+    });
+  });
+
+  test('the Docgen Server descriptor still points at the config directory\'s project', async () => {
+    installed.storybook = '11.0.0';
+    const options = withoutFrameworkOptions({ docgenServer: true });
+
+    const [descriptor] = await experimental_docgenProvider([], options);
+
+    expect(descriptor?.options).toMatchObject({ projectRoot: options.configDir.replace(/\/\.storybook$/, '') });
   });
 });
 
