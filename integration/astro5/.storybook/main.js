@@ -23,6 +23,14 @@ const config = {
     getAbsolutePath('@storybook/addon-docs'),
     getAbsolutePath('@storybook/addon-vitest')
   ],
+  features: {
+    // Keeps JSDoc/props extraction in the Vite plugin under the storybook-11
+    // CI job, where the Docgen Server is on by default, so the builder path
+    // stays covered on both majors. Storybook 10.x reads only
+    // `experimentalDocgenServer`, so this has no effect there
+    // (docs/specs/docgen.md#design-decisions).
+    docgenServer: false
+  },
   framework: {
     name: '@storybook-astro/framework',
     options: {
