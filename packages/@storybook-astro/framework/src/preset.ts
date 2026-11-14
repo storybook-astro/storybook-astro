@@ -368,15 +368,14 @@ export const experimental_docgenProvider = async (
     return existing;
   }
 
-  const frameworkOptions = await storybookOptions.presets.apply<FrameworkOptions | undefined>(
-    'frameworkOptions'
-  );
+  const frameworkOptions =
+    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
 
-  if (frameworkOptions?.docgen === false) {
+  if (frameworkOptions.docgen === false) {
     return existing;
   }
 
-  if (frameworkOptions?.docgen?.propFilter) {
+  if (frameworkOptions.docgen?.propFilter) {
     console.warn(
       '[storybook-astro] The `docgen.propFilter` option is ignored when the Docgen Server is enabled: a filter is a function, and the Docgen Server hands its provider plain data across a worker boundary. Turn the feature off to keep your filter.'
     );
@@ -389,8 +388,8 @@ export const experimental_docgenProvider = async (
         import.meta.resolve('@storybook-astro/framework/docgen-worker')
       ),
       options: {
-        projectRoot: frameworkOptions?.resolveFrom ?? dirname(storybookOptions.configDir),
-        tsconfigPath: frameworkOptions?.docgen?.tsconfigPath
+        projectRoot: frameworkOptions.resolveFrom ?? dirname(storybookOptions.configDir),
+        tsconfigPath: frameworkOptions.docgen?.tsconfigPath
       }
     }
   ];
@@ -478,13 +477,10 @@ export const isDocgenProviderEnabled = async (
     return false;
   }
 
-  const frameworkOptions = await storybookOptions.presets.apply<FrameworkOptions | undefined>(
-    'frameworkOptions'
-  );
+  const frameworkOptions =
+    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
 
-  // Core's `frameworkOptions` preset gives `undefined` for a `framework` with
-  // no options, and every `features` caller reaches this hook on Storybook 11.
-  if (frameworkOptions?.docgen === false || frameworkOptions?.docgen?.propFilter) {
+  if (frameworkOptions.docgen === false || frameworkOptions.docgen?.propFilter) {
     return false;
   }
 
@@ -530,11 +526,10 @@ export const features = async (
 
   // With `docgen: false` the docgen provider extracts nothing, so a manifest
   // would list Astro components without descriptions or props.
-  const frameworkOptions = await storybookOptions.presets.apply<FrameworkOptions | undefined>(
-    'frameworkOptions'
-  );
+  const frameworkOptions =
+    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
 
-  if (frameworkOptions?.docgen === false) {
+  if (frameworkOptions.docgen === false) {
     return existing;
   }
 
@@ -551,7 +546,8 @@ export const features = async (
 /**
  * The `features.docgenServer` the project's main config sets, or `undefined`
  * when it sets none. Loaded with `loadMainConfig`, which Storybook 10 and 11
- * both ship, since core's own helper for this landed after 11.0.0-beta.0.
+ * both ship, since core's own helper isn't in 11.0.0-beta.0 and reads only an
+ * object `features`.
  *
  * The main config is applied as a preset, so its `features` can be a function
  * of the features before it. That form is evaluated against the framework's

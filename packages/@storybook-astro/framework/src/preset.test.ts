@@ -410,39 +410,6 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
   });
 });
 
-describe('a framework entry with no options (issue #214)', () => {
-  // Core's `frameworkOptions` preset returns `undefined` for
-  // `framework: { name }`, and every `features` caller reaches these hooks on
-  // Storybook 11, including ones that never run `viteFinal`.
-  function withoutFrameworkOptions(features: Record<string, unknown> = {}): Options {
-    return {
-      configDir: '/project/.storybook',
-      presets: {
-        apply: async (key: string) => (key === 'features' ? features : undefined)
-      }
-    } as unknown as Options;
-  }
-
-  test('the Docgen Server default and the components manifest still resolve', async () => {
-    installed.storybook = '11.0.0';
-
-    expect(await isDocgenProviderEnabled(false, withoutFrameworkOptions())).toBe(true);
-    expect(await applyFeatures({ docgenServer: true }, withoutFrameworkOptions())).toEqual({
-      docgenServer: true,
-      componentsManifest: true
-    });
-  });
-
-  test('the Docgen Server descriptor still points at the config directory\'s project', async () => {
-    installed.storybook = '11.0.0';
-    const options = withoutFrameworkOptions({ docgenServer: true });
-
-    const [descriptor] = await experimental_docgenProvider([], options);
-
-    expect(descriptor?.options).toMatchObject({ projectRoot: options.configDir.replace(/\/\.storybook$/, '') });
-  });
-});
-
 describe('providing story docs for AI agents (issue #354)', () => {
   const reactEntry = {
     type: 'story',

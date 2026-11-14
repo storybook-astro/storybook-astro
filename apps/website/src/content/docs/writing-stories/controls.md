@@ -260,7 +260,10 @@ Docgen Server is on, so there's nothing to configure. Where the Docgen Server
 stays off (a custom `docgen.propFilter`, `docgen: false`, no usable TypeScript, or
 `docgenServer: false` in your main config), the manifest stays off too, unless
 you turn it on yourself. Turning the Docgen Server on in your main config turns
-the manifest on with it, except with `docgen: false`. To keep the Docgen Server but turn the manifest off:
+the manifest on with it, except with `docgen: false`. `@storybook/addon-mcp`
+turns `componentsManifest` on itself, so with it installed the manifest is
+always on; where the Docgen Server is off it lists no Astro components. To keep
+the Docgen Server but turn the manifest off:
 
 ```js
 // .storybook/main.js
@@ -377,11 +380,12 @@ with the Docgen Server on, Storybook doesn't serve it.
 The manifest comes from the same extraction as the props table, so it needs
 TypeScript installed (see [Turning extraction off](#turning-extraction-off)).
 If you turn `componentsManifest` on yourself with extraction turned off
-(`docgen: false`), or in a test build (`storybook build --test`), the build
-still writes `components.json`, but Astro components are listed without a
-description or props. On Storybook 11, Storybook Astro doesn't turn the
-manifest on in either case. Unlike the props table,
-the manifest doesn't need `@storybook/addon-docs`. On Storybook 10.6 and newer,
+(`docgen: false`), or, on Storybook 10.6–10.x, in a test build
+(`storybook build --test`), the build still writes `components.json`, but Astro
+components are listed without a description or props. On Storybook 11 a test
+build turns the Docgen Server off, so no `components.json` is written. On
+Storybook 11, Storybook Astro doesn't turn the manifest on in either case.
+Unlike the props table, the manifest doesn't need `@storybook/addon-docs`. On Storybook 10.6 and newer,
 with the Docgen Server off, the build writes no `components.json`. On Storybook
 10.0–10.5, Storybook Astro can't run the Docgen Server, so the manifest has no
 description or props for Astro components; on 10.5 with both flags on, the
