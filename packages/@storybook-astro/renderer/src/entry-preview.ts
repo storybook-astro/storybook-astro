@@ -4,7 +4,7 @@ import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import { enhanceArgTypes } from 'storybook/internal/docs-tools';
 
 import { defaultPreviewParameters } from './preview-defaults.ts';
-import { isDocgenServerOn, lockNonTextSlotControls, seedSlotArgs, slotArgName } from './slotArgs.ts';
+import { isDocgenServerOn, isPlainObject, lockNonTextSlotControls, seedSlotArgs, slotArgName } from './slotArgs.ts';
 
 export const parameters = {
   renderer: 'astro',
@@ -46,7 +46,7 @@ function disablePrerenderedControls(context: {
   // prop rows, still keep theirs.
   const storySlots = initialArgs?.slots;
 
-  if (isDocgenServerOn() && typeof storySlots === 'object' && storySlots !== null && !Array.isArray(storySlots)) {
+  if (isDocgenServerOn() && isPlainObject(storySlots)) {
     for (const slot of Object.keys(storySlots)) {
       const key = slotArgName(slot);
 
