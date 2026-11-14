@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The `defaultValue` a `docgen.propFilter` function receives is now `{ value }`, where `value` is the default's source text as the component writes it (`"'md'"`, `'false'`, `'defaultLabel'`, `'null'`), not a parsed string, number, boolean or `null`, and `source` is gone (#355). A filter that compares `defaultValue.value` to a parsed value needs to compare it to the source text instead.
+
 ### Fixed
 - The props table shows each default as the component's `Astro.props` destructuring writes it (#355). A string default on a prop whose type isn't just `string`, such as `href = '/home'` on `string | URL`, used to lose its quotes, a variable default on a `string` prop (`label = defaultLabel`) was quoted as if it were text, and a `null` or `undefined` default was left out. A string default now keeps the quotes the component uses, so `size = 'md'` shows `'md'` rather than `"md"`, as in React's props tables.
 - A prop whose JSDoc has `@ignore` no longer gets a props-table row, a control or a line in the props AI agents read (#356).
