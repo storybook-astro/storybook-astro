@@ -79,18 +79,11 @@ describe('a plain component', () => {
     expect(docgen()?.props.title.description).toBe('Card heading text.');
   });
 
-  test('reads defaults from the Astro.props destructuring', () => {
+  test('reads defaults from the Astro.props destructuring, as written', () => {
     const props = docgen()!.props;
 
-    expect(props.title.defaultValue?.value).toBe('Default title');
-    expect(props.highlight.defaultValue?.value).toBe(false);
-  });
-
-  test('records each default as written, so its quotes survive for AI agents', () => {
-    const props = docgen()!.props;
-
-    expect(props.title.defaultValue?.source).toBe("'Default title'");
-    expect(props.highlight.defaultValue?.source).toBe('false');
+    expect(props.title.defaultValue).toEqual({ value: 'Default title', source: "'Default title'" });
+    expect(props.highlight.defaultValue).toEqual({ value: false, source: 'false' });
   });
 
   test('a prop with a default is not required', () => {
@@ -124,6 +117,75 @@ describe('literal unions drive select controls', () => {
       '"vue"',
       '"svelte"'
     ]);
+  });
+});
+
+describe('props marked @ignore (issue #356)', () => {
+  test('are left out, so neither the table nor AI agents see them', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface Props {',
+          '  /** Shown. */',
+          '  title?: string;',
+          '  /**',
+          '   * Wired up by the parent layout.',
+          '   * @ignore',
+          '   */',
+          '  internal?: string;',
+          '}',
+          'const { title, internal } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['title']);
+  });
+});
+
+describe('long types (issue #357)', () => {
+  // Template literal types aren't literals, so this union isn't an enum.
+  const widthType = Array.from({ length: 30 }, (_, index) => `\`\${number}unit${index}\``).join(' | ');
+  const docgen = () =>
+    docgenFor(
+      astro(
+        [
+          'interface Props {',
+          '  options?: {',
+          '    firstOptionWithAVeryLongName: string;',
+          '    secondOptionWithAVeryLongName: number;',
+          '    thirdOptionWithAVeryLongName: boolean;',
+          '    fourthOptionWithAVeryLongName: string[];',
+          '    fifthOptionWithAVeryLongName: Record<string, number>;',
+          '  };',
+          `  width?: ${widthType};`,
+          '  label?: string;',
+          '}',
+          'const { options, width, label } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+  test('record the whole text next to the shortened summary the table shows', () => {
+    const { options } = docgen()!.props;
+
+    expect(options.type.name).toContain('...');
+    expect(options.type.untruncated).toBe(
+      '{ firstOptionWithAVeryLongName: string; secondOptionWithAVeryLongName: number; ' +
+        'thirdOptionWithAVeryLongName: boolean; fourthOptionWithAVeryLongName: string[]; ' +
+        'fifthOptionWithAVeryLongName: Record<string, number>; }'
+    );
+  });
+
+  test('record the whole text of a long union that is not all literals', () => {
+    const { width } = docgen()!.props;
+
+    expect(width.type.name).toContain('...');
+    expect(width.type.untruncated).toBe(widthType);
+  });
+
+  test('add nothing for a type that fits', () => {
+    expect(docgen()!.props.label.type).toEqual({ name: 'string' });
   });
 });
 

@@ -42,6 +42,32 @@ beforeAll(() => {
     '<span class={variant}>Badge</span>'
   ]);
 
+  write('Link.astro', [
+    '---',
+    "const defaultLabel = 'Read more';",
+    'interface Props {',
+    '  href?: string | URL;',
+    '  label?: string;',
+    '  icon?: string | null;',
+    '  /** @ignore */',
+    '  trackingId?: string;',
+    '}',
+    "const { href = '/home', label = defaultLabel, icon = null, trackingId } = Astro.props;",
+    '---',
+    '<a href={href} data-tracking={trackingId}>{icon}{label}</a>'
+  ]);
+
+  write('Link.stories.jsx', [
+    "import Link from './Link.astro';",
+    '',
+    'export default {',
+    "  title: 'Astro/Link',",
+    '  component: Link',
+    '};',
+    '',
+    'export const Default = {};'
+  ]);
+
   write('Badge.stories.jsx', [
     "import Badge from './Badge.astro';",
     '',
@@ -150,8 +176,8 @@ describe('an Astro story', () => {
     expect(payload?.argTypes?.title).toMatchObject({
       name: 'title',
       description: 'Heading text.',
-      // Quoted by docs-tools, which is what renders a string default as a string.
-      table: { defaultValue: { summary: '"Hello"' } }
+      // As the component writes it, as React's react-docgen tables show it.
+      table: { defaultValue: { summary: "'Hello'" } }
     });
 
     docgen.dispose();
@@ -186,6 +212,33 @@ describe('an Astro story', () => {
     expect(payload?.apiDescription).toContain(
       `  variant?: "primary" | "secondary" = 'primary';`
     );
+
+    docgen.dispose();
+  });
+
+  test('shows each default as the component writes it (issue #355)', async () => {
+    const docgen = createAstroDocgen({ projectRoot: workingDir });
+    const payload = await build(storyEntry('Link.stories.jsx', 'Astro/Link'), docgen);
+    const tableDefault = (name: string) => payload?.argTypes?.[name]?.table?.defaultValue;
+
+    // A string on a type that isn't exactly `string` keeps its quotes.
+    expect(tableDefault('href')).toEqual({ summary: "'/home'" });
+    // An identifier on a `string` prop isn't quoted as if it were text.
+    expect(tableDefault('label')).toEqual({ summary: 'defaultLabel' });
+    expect(tableDefault('icon')).toEqual({ summary: 'null' });
+    expect(payload?.apiDescription).toContain("  href?: string | URL = '/home';");
+    expect(payload?.apiDescription).toContain('  label?: string = defaultLabel;');
+    expect(payload?.apiDescription).toContain('  icon?: string | null = null;');
+
+    docgen.dispose();
+  });
+
+  test('leaves out a prop marked @ignore, for the table and AI agents alike (issue #356)', async () => {
+    const docgen = createAstroDocgen({ projectRoot: workingDir });
+    const payload = await build(storyEntry('Link.stories.jsx', 'Astro/Link'), docgen);
+
+    expect(Object.keys(payload?.argTypes ?? {})).toEqual(['href', 'label', 'icon']);
+    expect(payload?.apiDescription).not.toContain('trackingId');
 
     docgen.dispose();
   });
