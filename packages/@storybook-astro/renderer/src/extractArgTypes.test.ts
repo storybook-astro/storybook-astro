@@ -52,23 +52,23 @@ describe('extractArgTypes', () => {
             ...titleProp,
             name: 'href',
             type: { name: 'string | URL' },
-            defaultValue: { value: "'/home'" }
+            defaultValue: { value: "'/home'", source: "'/home'" }
           },
           label: {
             ...titleProp,
             name: 'label',
-            defaultValue: { value: 'defaultLabel' }
+            defaultValue: { value: 'defaultLabel', source: 'defaultLabel' }
           },
           icon: {
             ...titleProp,
             name: 'icon',
             type: { name: 'string | null' },
-            defaultValue: { value: 'null' }
+            defaultValue: { value: 'null', source: 'null' }
           },
           tooltip: {
             ...titleProp,
             name: 'tooltip',
-            defaultValue: { value: 'undefined' }
+            defaultValue: { value: 'undefined', source: 'undefined' }
           },
           title: titleProp
         }

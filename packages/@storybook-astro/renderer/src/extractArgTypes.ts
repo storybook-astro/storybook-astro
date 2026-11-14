@@ -32,6 +32,9 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
 
   for (const { propDef, docgenInfo } of props) {
     const { name, description, type, sbType, jsDocTags, required } = propDef;
+    // docs-tools types the default as react-docgen-typescript's `{ value }`;
+    // ours also carries the source text the table prints.
+    const defaultSource = (docgenInfo.defaultValue as { source?: string } | null)?.source;
 
     argTypes[name] = {
       name,
@@ -40,7 +43,7 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
       table: {
         type: type ?? undefined,
         jsDocTags,
-        defaultValue: docgenInfo.defaultValue ? { summary: docgenInfo.defaultValue.value } : undefined
+        defaultValue: defaultSource ? { summary: defaultSource } : undefined
       }
     };
   }

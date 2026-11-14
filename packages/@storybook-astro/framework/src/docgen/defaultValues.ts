@@ -57,7 +57,10 @@ export function readAstroPropsBinding(
         destructured.add(propName);
 
         if (element.initializer) {
-          defaults.set(propName, { value: element.initializer.getText(sourceFile) });
+          defaults.set(propName, {
+            value: literalValueOf(typescript, element.initializer, sourceFile),
+            source: element.initializer.getText(sourceFile)
+          });
         }
       }
     }
@@ -87,3 +90,43 @@ function isAstroProps(typescript: typeof ts, node: ts.Expression): boolean {
   );
 }
 
+/**
+ * Narrows an initializer to something safe to serialise into the bundle.
+ * Anything that isn't a plain literal keeps its source text, which is what
+ * readers want to see for `navItems = defaultNavItems`.
+ */
+function literalValueOf(
+  typescript: typeof ts,
+  node: ts.Expression,
+  sourceFile: ts.SourceFile
+): string | number | boolean | null {
+  if (typescript.isStringLiteral(node) || typescript.isNoSubstitutionTemplateLiteral(node)) {
+    return node.text;
+  }
+
+  if (node.kind === typescript.SyntaxKind.TrueKeyword) {
+    return true;
+  }
+
+  if (node.kind === typescript.SyntaxKind.FalseKeyword) {
+    return false;
+  }
+
+  if (node.kind === typescript.SyntaxKind.NullKeyword) {
+    return null;
+  }
+
+  if (typescript.isNumericLiteral(node)) {
+    return Number(node.text);
+  }
+
+  if (
+    typescript.isPrefixUnaryExpression(node) &&
+    node.operator === typescript.SyntaxKind.MinusToken &&
+    typescript.isNumericLiteral(node.operand)
+  ) {
+    return -Number(node.operand.text);
+  }
+
+  return node.getText(sourceFile);
+}

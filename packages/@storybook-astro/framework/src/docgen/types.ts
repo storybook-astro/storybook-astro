@@ -37,15 +37,18 @@ export interface AstroDocgenProp {
 }
 
 /**
- * A destructuring default: the initializer exactly as written (`'/home'`,
- * `defaultTitle`, `null`).
+ * A destructuring default.
  *
- * The source text keeps the difference between a string literal and an
- * identifier, which a parsed value loses, so the props table and the API
- * description for AI agents both print it as written (issue #355).
+ * `source` is the initializer exactly as written (`'/home'`, `defaultTitle`,
+ * `null`). It keeps the difference between a string literal and an
+ * identifier, which the parsed `value` loses, so the props table and the API
+ * description for AI agents both print it (issue #355). `value` is the
+ * initializer as a plain literal where it is one, and its source text
+ * otherwise; it stays for `docgen.propFilter` functions that read it.
  */
 export interface AstroDocgenDefault {
-  value: string;
+  value: string | number | boolean | null;
+  source: string;
 }
 
 export interface AstroDocgenPropType {

@@ -152,7 +152,7 @@ Separately, `description` carries only the free text before the first tag; every
 - **Type errors.** Diagnostics are *signal, not gate*. A file with an unresolved import, a missing default export and an `Astro`-as-value error still yielded correct types for every resolvable prop; refusing to extract unless diagnostics are empty would disable docgen for most real projects. TS2312 triggers the heritage rewrite; an unresolved-module diagnostic triggers a one-time warning naming the specifier, because that is the failure users cannot otherwise see.
 - **No `Props` declaration.** Common for slot-only components. Return `{ displayName, description, props: {} }` rather than nothing, so the description still reaches autodocs. Bail before touching TypeScript when there is no frontmatter at all.
 
-Failures are cached by content hash so a component that legitimately yields nothing does not re-run a type check on every HMR tick. In the worker path, failures are reported on `DocgenPayload.error`. Default values are recorded as source text before code generation so nothing can throw at serialization time.
+Failures are cached by content hash so a component that legitimately yields nothing does not re-run a type check on every HMR tick. In the worker path, failures are reported on `DocgenPayload.error`. Default values are narrowed to `string | number | boolean | null`, with their source text alongside, before code generation so nothing can throw at serialization time.
 
 **Decision 10 — Scan frontmatter with the existing house pattern.** `vitePluginAstroComponentMarker.ts` already extracts frontmatter with a line-anchored regex in `extractAstroImportSpecifiers`. Do the same rather than adopting `@astrojs/compiler`'s asynchronous WASM `parse()` — it keeps extraction synchronous, avoids a WASM load inside a worker thread, and matches the file it sits beside.
 
@@ -173,14 +173,14 @@ Given a `.astro` file, the extractor produces:
 | `props[name].defaultValue` | destructuring default, else the `@default` tag, else absent |
 | `props[name].parent` | declaring interface or type alias; falls back to the declaring source file and nearest named ancestor |
 
-Default values are read from the top-level `Astro.props` destructuring, including the `as Props` and `satisfies Props` forms. A default is `{ value }`, the initializer's source text. The renderer's `extractArgTypes` uses that text as the table's summary instead of docs-tools' default formatting, which quotes a default by the prop's declared type, dropping the quotes from `href = '/home'` on `string | URL` and adding them to `title = defaultTitle` on `string`, and leaves out `null` and `undefined` ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)).
+Default values are read from the top-level `Astro.props` destructuring, including the `as Props` and `satisfies Props` forms. A default is `{ value, source }`: `source` is the initializer's source text, and `value` is the initializer as a plain literal where it is one (its source text otherwise), kept for `docgen.propFilter` functions that read it. The renderer's `extractArgTypes` and `apiDescription` use `source` as the table's summary instead of docs-tools' default formatting, which quotes a default by the prop's declared type, dropping the quotes from `href = '/home'` on `string | URL` and adding them to `title = defaultTitle` on `string`, and leaves out `null` and `undefined` ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)).
 
 | Frontmatter | `defaultValue` |
 |---|---|
-| `const { a = 'x' } = Astro.props` | `{ value: "'x'" }` |
-| `const { a = 42 } = Astro.props` | `{ value: '42' }` |
-| `const { a = null } = Astro.props` | `{ value: 'null' }` |
-| `const { a = defaultLinks } = Astro.props` | `{ value: 'defaultLinks' }` |
+| `const { a = 'x' } = Astro.props` | `{ value: 'x', source: "'x'" }` |
+| `const { a = 42 } = Astro.props` | `{ value: 42, source: '42' }` |
+| `const { a = null } = Astro.props` | `{ value: null, source: 'null' }` |
+| `const { a = defaultLinks } = Astro.props` | `{ value: 'defaultLinks', source: 'defaultLinks' }` |
 | `const { a } = Astro.props` + `/** @default 'x' */` | `"x"` |
 | `const { a } = Astro.props` | absent → prop is required |
 

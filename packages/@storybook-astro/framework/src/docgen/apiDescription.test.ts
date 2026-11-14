@@ -29,7 +29,7 @@ describe('the props an agent reads', () => {
         subtitle: prop('subtitle'),
         featured: prop('featured', {
           type: { name: 'boolean' },
-          defaultValue: { value: 'false' }
+          defaultValue: { value: 'false', source: 'false' }
         }),
         variant: prop('variant', {
           description: 'How loud the card is.',
@@ -38,7 +38,7 @@ describe('the props an agent reads', () => {
             raw: '"primary" | "secondary"',
             value: [{ value: '"primary"' }, { value: '"secondary"' }]
           },
-          defaultValue: { value: "'primary'" }
+          defaultValue: { value: "'primary'", source: "'primary'" }
         })
       }
     });
@@ -109,9 +109,9 @@ describe('the props an agent reads', () => {
       props: {
         href: prop('href', {
           type: { name: 'string | URL' },
-          defaultValue: { value: "'/home'" }
+          defaultValue: { value: "'/home'", source: "'/home'" }
         }),
-        title: prop('title', { defaultValue: { value: 'defaultTitle' } })
+        title: prop('title', { defaultValue: { value: 'defaultTitle', source: 'defaultTitle' } })
       }
     });
 
@@ -124,7 +124,7 @@ describe('the props an agent reads', () => {
       props: {
         nothing: prop('nothing', {
           type: { name: 'string | null' },
-          defaultValue: { value: 'null' }
+          defaultValue: { value: 'null', source: 'null' }
         })
       }
     });
@@ -136,7 +136,7 @@ describe('the props an agent reads', () => {
     const source = "[\n  'a',\n  'b'\n]";
     const markdown = describeComponent({
       props: {
-        items: prop('items', { type: { name: 'string[]' }, defaultValue: { value: source } })
+        items: prop('items', { type: { name: 'string[]' }, defaultValue: { value: source, source: source } })
       }
     });
 
@@ -146,7 +146,7 @@ describe('the props an agent reads', () => {
   test('keeps the spacing inside a string default', () => {
     const markdown = describeComponent({
       props: {
-        label: prop('label', { defaultValue: { value: "'Read  more'" } })
+        label: prop('label', { defaultValue: { value: "'Read  more'", source: "'Read  more'" } })
       }
     });
 

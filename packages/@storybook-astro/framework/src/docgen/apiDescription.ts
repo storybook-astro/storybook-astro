@@ -15,7 +15,7 @@ import type { AstroDocgenInfo } from './types.ts';
  * It is built from the extractor's argTypes, the rows the props table starts
  * from, so a prop the extractor leaves out (the prop filter) is left out
  * here too. Defaults print as the author wrote them, from the extractor's
- * `defaultValue`. A story's `argTypes` aren't applied:
+ * `defaultValue.source`. A story's `argTypes` aren't applied:
  * `table: { disable: true }` there hides a row from the table only.
  * The type text comes from the extractor, untruncated, and a literal union
  * prints as its members, since the table summarizes it as `enum` and the
@@ -54,7 +54,7 @@ function propsSection(argTypes: StrictArgTypes | null, info: AstroDocgenInfo): s
     // read as stray members of the type. Only whitespace around a line break
     // goes, so spaces inside a string literal stay as written.
     const defaultText = defaultValue
-      ? ` = ${defaultValue.value.replace(/\s*\n\s*/g, ' ')}`
+      ? ` = ${defaultValue.source.replace(/\s*\n\s*/g, ' ')}`
       : '';
 
     lines.push(...docComment(argType.description));
