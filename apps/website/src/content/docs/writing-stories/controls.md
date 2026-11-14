@@ -166,8 +166,7 @@ object. Once you edit a slot's control, your edit wins over the same slot in
 rather than a string, has no control, since it can't be edited as text. When
 every slot a story fills has its own text control, the `slots` row has no JSON
 editor, since an edit in a slot's control would override it. If any slot lacks
-a text control, the JSON editor stays so that slot can still be edited. With the
-Docgen Server on, the JSON editor stays too. Slot
+a text control, the JSON editor stays so that slot can still be edited. Slot
 HTML goes through the same [sanitization](/guides/sanitization/) as any string
 slot content, so attributes outside the allowlist, such as `data-*`, are
 removed. Slot rows come from the same extraction as the props table, so they

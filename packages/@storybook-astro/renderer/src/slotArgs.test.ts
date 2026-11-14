@@ -153,8 +153,9 @@ describe('lockNonTextSlotControls', () => {
 });
 
 describe('with the Docgen Server on', () => {
-  // The preview gets no docgen on this path, so no `slot-<name>` argTypes:
-  // those reach the manager from the docgen payload (#267).
+  // The preview gets no docgen on this path, so no `slot-<name>` argTypes: the
+  // payload's rows reach the manager, which deep-merges the preview's rows over
+  // them (#267). So the preview adds a row for each slot the story fills.
   const astroStory = {
     component: { isAstroComponentFactory: true },
     parameters: { renderer: 'astro' }
@@ -165,46 +166,68 @@ describe('with the Docgen Server on', () => {
   });
 
   test.each(['experimentalDocgenServer', 'docgenServer'])(
-    'seeds each text slot without a preview argType (%s)',
+    'gives a text slot a text control in the slots category and seeds it (%s)',
     (flag) => {
       vi.stubGlobal('FEATURES', { [flag]: true });
 
-      const seeded = seedSlotArgs({
-        ...astroStory,
-        argTypes: {},
-        initialArgs: { slots: { default: '<p>Body</p>', footer: () => {} } }
-      } as never);
+      const initialArgs = { slots: { default: 'Hi' } };
+      const argTypes = lockNonTextSlotControls({ ...astroStory, argTypes: {}, initialArgs } as never);
 
-      expect(seeded).toEqual({ [slotArgName('default')]: '<p>Body</p>' });
+      expect(argTypes[slotArgName('default')]).toEqual({
+        name: 'default',
+        table: { category: 'slots' },
+        control: { type: 'text' }
+      });
+      expect(seedSlotArgs({ ...astroStory, argTypes, initialArgs } as never)).toEqual({
+        [slotArgName('default')]: 'Hi'
+      });
     }
   );
 
-  test('locks the control of a slot holding a component, so the payload\'s text control stays off', () => {
+  test('gives a slot holding a component a locked row, so the payload\'s text control stays off', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const Badge = () => {};
+    const initialArgs = { slots: { default: Badge } };
+    const argTypes = lockNonTextSlotControls({ ...astroStory, argTypes: {}, initialArgs } as never);
+
+    expect(argTypes[slotArgName('default')]).toEqual({
+      name: 'default',
+      table: { category: 'slots' },
+      control: { disable: true }
+    });
+    expect(seedSlotArgs({ ...astroStory, argTypes, initialArgs } as never)).toEqual({});
+  });
+
+  test('locks a preview row it already has for a slot holding a component', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const argTypes = lockNonTextSlotControls({
+      ...astroStory,
+      argTypes: { [slotArgName('default')]: { name: 'default', description: 'Body' } },
+      initialArgs: { slots: { default: () => {} } }
+    } as never);
+
+    expect(argTypes[slotArgName('default')]).toEqual({
+      name: 'default',
+      description: 'Body',
+      control: { disable: true }
+    });
+  });
+
+  test('locks the slots JSON editor when every filled slot holds text, so a JSON edit is never silently overridden', () => {
     vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
 
     const argTypes = lockNonTextSlotControls({
       ...astroStory,
       argTypes: {},
-      initialArgs: { slots: { default: () => {}, footer: '<b>OK</b>' } }
+      initialArgs: { slots: { default: '<p>A</p>', footer: '<b>OK</b>' } }
     } as never);
 
-    expect(argTypes[slotArgName('default')]).toEqual({ control: { disable: true } });
-    expect(argTypes[slotArgName('footer')]).toBeUndefined();
+    expect(argTypes.slots).toEqual({ control: { disable: true } });
   });
 
-  test('keeps the JSON editor on the slots row when every filled slot holds text, since the payload may give a slot no row', () => {
-    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
-
-    const argTypes = lockNonTextSlotControls({
-      ...astroStory,
-      argTypes: {},
-      initialArgs: { slots: { default: '<p>A</p>' } }
-    } as never);
-
-    expect(argTypes.slots).toBeUndefined();
-  });
-
-  test('keeps the JSON editor on the slots row for a slot holding a component', () => {
+  test('keeps the slots JSON editor for a slot holding a component', () => {
     vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
 
     const argTypes = lockNonTextSlotControls({

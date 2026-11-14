@@ -69,9 +69,14 @@ export function splitStoryArgs(args: Args, initialArgs?: Args): { props: Args; s
  * per-slot controls cover every slot, and a slot edited there would override
  * the JSON. A slot without a text control, or `slots: {}`, keeps the JSON
  * editor, since it's the only way to edit that content. The row stays in the
- * Docs table. With the Docgen Server on, the JSON editor stays: a slot's row
- * comes from the docgen payload, and the preview can't tell whether the payload
- * has one, so a slot may have no other control.
+ * Docs table.
+ *
+ * With the Docgen Server on, the preview never sees the component's docgen, so
+ * an Astro story's slot rows aren't here yet. Each slot the story fills gets a
+ * row from the preview instead: a text control, or a locked one for content
+ * that isn't text (#267). The manager deep-merges these over the docgen
+ * payload's rows, so the payload's description and type stay and the lock
+ * wins. Without a payload row, this row is the slot's only control.
  */
 export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => {
   const initialSlots = context.initialArgs?.slots;
@@ -82,12 +87,19 @@ export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => 
   }
 
   const slotNames = Object.keys(initialSlots);
-  const slotRowsComeFromPayload = isDocgenServerOn() && isAstroStory(context);
+  const addSlotRows = isDocgenServerOn() && isAstroStory(context);
 
   for (const slot of slotNames) {
     const key = slotArgName(slot);
+    const isText = !holdsNonText(initialSlots, slot);
 
-    if ((argTypes[key] || slotRowsComeFromPayload) && holdsNonText(initialSlots, slot)) {
+    if (!argTypes[key] && addSlotRows) {
+      argTypes[key] = {
+        name: slot,
+        table: { category: 'slots' },
+        control: isText ? { type: 'text' } : { disable: true }
+      };
+    } else if (argTypes[key] && !isText) {
       argTypes[key] = { ...argTypes[key], control: { disable: true } };
     }
   }
@@ -110,16 +122,11 @@ export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => 
 export const seedSlotArgs: ArgsEnhancer<Renderer> = (context) => {
   const storySlots = isPlainObject(context.initialArgs?.slots) ? context.initialArgs.slots : {};
   const seeded: Args = {};
-  const slotRowsComeFromPayload = isDocgenServerOn() && isAstroStory(context);
 
   for (const [slot, content] of Object.entries(storySlots)) {
     const key = slotArgName(slot);
 
-    if (
-      (context.argTypes[key] || slotRowsComeFromPayload) &&
-      typeof content === 'string' &&
-      context.initialArgs?.[key] === undefined
-    ) {
+    if (context.argTypes[key] && typeof content === 'string' && context.initialArgs?.[key] === undefined) {
       seeded[key] = content;
     }
   }
@@ -129,9 +136,10 @@ export const seedSlotArgs: ArgsEnhancer<Renderer> = (context) => {
 
 /**
  * With the Docgen Server on, the preview never sees the component's docgen: its
- * `slot-<name>` rows reach the manager from the docgen payload, which merges
- * them under the argTypes the preview prepared (#267). So the preview can't
- * tell which slots have a row, and seeds and locks every slot the story fills.
+ * `slot-<name>` rows reach the manager from the docgen payload, and the
+ * manager's `mergeServiceArgTypes` deep-merges the argTypes the preview
+ * prepared over them (#267). So `lockNonTextSlotControls` adds a row for every
+ * slot the story fills, and `seedSlotArgs` seeds from those rows.
  * Storybook 10 reads `experimentalDocgenServer`; Storybook 11 renamed it to
  * `docgenServer`.
  */

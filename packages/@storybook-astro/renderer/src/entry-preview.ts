@@ -4,7 +4,7 @@ import * as astroRenderer from 'virtual:storybook-astro-renderer';
 import { enhanceArgTypes } from 'storybook/internal/docs-tools';
 
 import { defaultPreviewParameters } from './preview-defaults.ts';
-import { isDocgenServerOn, isPlainObject, lockNonTextSlotControls, seedSlotArgs, slotArgName } from './slotArgs.ts';
+import { lockNonTextSlotControls, seedSlotArgs } from './slotArgs.ts';
 
 export const parameters = {
   renderer: 'astro',
@@ -25,9 +25,8 @@ function isAstroComponent(component: unknown): boolean {
 function disablePrerenderedControls(context: {
   component: unknown;
   argTypes: Record<string, Record<string, unknown>>;
-  initialArgs?: Record<string, unknown>;
 }) {
-  const { component, argTypes, initialArgs } = context;
+  const { component, argTypes } = context;
 
   if (!isAstroComponent(component)) {
     return argTypes;
@@ -37,21 +36,6 @@ function disablePrerenderedControls(context: {
 
   for (const [key, argType] of Object.entries(argTypes)) {
     disabledArgTypes[key] = { ...argType, control: false };
-  }
-
-  // With the Docgen Server on, a slot's row reaches the manager from the docgen
-  // payload, not from the preview, so the loop above misses a slot the story
-  // fills with text. Its seeded arg would keep a live control that never
-  // re-renders (#267). Rows for slots the story leaves empty, and the payload's
-  // prop rows, still keep theirs.
-  const storySlots = initialArgs?.slots;
-
-  if (isDocgenServerOn() && isPlainObject(storySlots)) {
-    for (const slot of Object.keys(storySlots)) {
-      const key = slotArgName(slot);
-
-      disabledArgTypes[key] = { ...argTypes[key], control: false };
-    }
   }
 
   disabledArgTypes['_astroPrerendered'] = {
