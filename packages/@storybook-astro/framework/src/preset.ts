@@ -501,91 +501,25 @@ export const isDocgenProviderEnabled = async (
 };
 
 /**
- * Turns on the components manifest that `@storybook/addon-mcp` reads, as
- * `@storybook/react` and `@storybook/vue3` do, but only where Astro components
- * reach it: Storybook 11 with the Docgen Server on. Storybook 10, a project
- * that turned the Docgen Server off and one that sets `docgen: false` keep
- * their setting.
- *
- * This runs before the project's main config is merged, so an explicit
- * `componentsManifest` there wins either way. An explicit `docgenServer` there
- * isn't applied yet, so it's read from the main config (an object, or a
- * function evaluated against these defaults) and wins over the default
- * `isDocgenProviderEnabled` gave. A test build turns the Docgen Server
- * off after this runs too.
+ * Turns on the components manifest that `@storybook/addon-mcp` reads on
+ * Storybook 11, as `@storybook/react` and `@storybook/vue3` do. A
+ * `componentsManifest` set in the project's main config is merged after this,
+ * so it wins either way. Where the Docgen Server ends up off, core writes no
+ * Astro entries to the manifest, which is also what happens when
+ * `@storybook/addon-mcp` turns the manifest on itself. Storybook 10 keeps the
+ * manifest opt-in.
  */
 export const features = async (
-  existing: Record<string, unknown> = {},
-  storybookOptions: Options
+  existing: Record<string, unknown> = {}
 ): Promise<Record<string, unknown>> => {
   const { flag } = await docgenServerFlags();
 
-  if (flag !== 'docgenServer' || storybookOptions.build?.test?.disableDocgen) {
-    return existing;
-  }
-
-  // With `docgen: false` the docgen provider extracts nothing, so a manifest
-  // would list Astro components without descriptions or props.
-  const frameworkOptions =
-    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
-
-  if (frameworkOptions.docgen === false) {
-    return existing;
-  }
-
-  const docgenServer =
-    (await readDocgenServerFromMainConfig(existing, storybookOptions)) ?? existing.docgenServer;
-
-  if (docgenServer !== true) {
+  if (flag !== 'docgenServer') {
     return existing;
   }
 
   return { ...existing, componentsManifest: true };
 };
-
-/**
- * The `features.docgenServer` the project's main config sets, or `undefined`
- * when it sets none. Loaded with `loadMainConfig`, which Storybook 10 and 11
- * both ship, since core's own helper isn't in 11.0.0-beta.0 and reads only an
- * object `features`.
- *
- * The main config is applied as a preset, so its `features` can be a function
- * of the features before it. That form is evaluated against the framework's
- * defaults, the value core passes it once this preset has run.
- */
-async function readDocgenServerFromMainConfig(
-  existing: Record<string, unknown>,
-  storybookOptions: Options
-): Promise<boolean | undefined> {
-  let mainFeatures: unknown;
-
-  try {
-    const { loadMainConfig } = await import('storybook/internal/common');
-
-    ({ features: mainFeatures } = await loadMainConfig({ configDir: storybookOptions.configDir }));
-  } catch {
-    // A main config that fails to load fails Storybook elsewhere, with a
-    // better message; here it just leaves the default in place.
-    return undefined;
-  }
-
-  if (typeof mainFeatures === 'function') {
-    try {
-      mainFeatures = await mainFeatures({ ...existing }, storybookOptions);
-    } catch {
-      // Core applies the same function and reports its error.
-      return undefined;
-    }
-  }
-
-  if (typeof mainFeatures !== 'object' || mainFeatures === null) {
-    return undefined;
-  }
-
-  const { docgenServer } = mainFeatures as Record<string, unknown>;
-
-  return typeof docgenServer === 'boolean' ? docgenServer : undefined;
-}
 
 /**
  * Whether the Docgen Server owns extraction instead of the Vite plugin.

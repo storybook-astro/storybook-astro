@@ -48,11 +48,6 @@ const storybook11 = vi.hoisted(() => ({
   typescriptResolvedTo: undefined as string | undefined
 }));
 
-// The project's main config, as `loadMainConfig` returns it.
-const mainConfig = vi.hoisted(() => ({
-  value: {} as Record<string, unknown>
-}));
-
 const isStorybook11 = () => Number.parseInt(installed.storybook, 10) >= 11;
 
 vi.mock('storybook/internal/common', async (importOriginal) => {
@@ -75,8 +70,7 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
             return storybook11.typescriptReady;
           }
         : undefined;
-    },
-    loadMainConfig: async () => mainConfig.value
+    }
   };
 });
 
@@ -116,7 +110,6 @@ afterEach(() => {
   installed.storybook = '10.6.0';
   storybook11.typescriptReady = true;
   storybook11.typescriptChecks = 0;
-  mainConfig.value = {};
   storybook11.typescriptResolvedTo = undefined;
   storyDocsBuilder.error = undefined;
   storyDocsBuilder.loadError = undefined;
@@ -316,97 +309,19 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
   });
 });
 
-describe('the components manifest follows the Docgen Server on Storybook 11 (issue #214)', () => {
-  test('is turned on when the Docgen Server is on', async () => {
+describe('the components manifest is on by default on Storybook 11 (issue #214)', () => {
+  test('is turned on, keeping the other features', async () => {
     installed.storybook = '11.0.0';
 
-    const resolved = await applyFeatures({ docgenServer: true, controls: true }, storybookOptions());
+    const resolved = await applyFeatures({ docgenServer: true, controls: true });
 
     expect(resolved).toEqual({ docgenServer: true, controls: true, componentsManifest: true });
   });
 
-  test('is left alone when the Docgen Server is off', async () => {
-    installed.storybook = '11.0.0';
-    const existing = { docgenServer: false, componentsManifest: false };
+  test('is left alone on Storybook 10', async () => {
+    const existing = { experimentalDocgenServer: true, componentsManifest: false };
 
-    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
-  });
-
-  test('is left alone when the main config turns the Docgen Server off', async () => {
-    // Core merges the main config after this preset, so the default still
-    // reads true here.
-    installed.storybook = '11.0.0';
-    mainConfig.value = { features: { docgenServer: false } };
-    const existing = { docgenServer: true, componentsManifest: false };
-
-    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
-  });
-
-  test('is turned on when the main config turns the Docgen Server on over a false default', async () => {
-    // A prop filter or a missing TypeScript makes the default false, but an
-    // explicit `docgenServer: true` still starts the Docgen Server.
-    installed.storybook = '11.0.0';
-    mainConfig.value = { features: { docgenServer: true } };
-
-    const resolved = await applyFeatures({ docgenServer: false }, storybookOptions());
-
-    expect(resolved).toEqual({ docgenServer: false, componentsManifest: true });
-  });
-
-  test('is left alone when a features function in the main config turns the Docgen Server off', async () => {
-    // main.js is applied as a preset, so core runs this function after the
-    // framework's defaults and the Docgen Server ends up off.
-    installed.storybook = '11.0.0';
-    mainConfig.value = {
-      features: async (defaults: Record<string, unknown>) => ({ ...defaults, docgenServer: false })
-    };
-    const existing = { docgenServer: true, componentsManifest: false };
-
-    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
-  });
-
-  test('is turned on when a features function in the main config turns the Docgen Server on over a false default', async () => {
-    installed.storybook = '11.0.0';
-    mainConfig.value = {
-      features: (defaults: Record<string, unknown>) => ({ ...defaults, docgenServer: true })
-    };
-
-    const resolved = await applyFeatures({ docgenServer: false }, storybookOptions());
-
-    expect(resolved).toEqual({ docgenServer: false, componentsManifest: true });
-  });
-
-  test('is left alone with docgen: false, even when the main config turns the Docgen Server on', async () => {
-    // The docgen provider extracts nothing with `docgen: false`, so the
-    // manifest would list Astro components without descriptions or props.
-    installed.storybook = '11.0.0';
-    mainConfig.value = { features: { docgenServer: true } };
-    const existing = { docgenServer: false };
-
-    const resolved = await applyFeatures(
-      existing,
-      storybookOptions({ frameworkOptions: { docgen: false } })
-    );
-
-    expect(resolved).toBe(existing);
-  });
-
-  test('is left alone in a test build, which turns the Docgen Server off later', async () => {
-    installed.storybook = '11.0.0';
-    const existing = { docgenServer: true, componentsManifest: false };
-
-    const resolved = await applyFeatures(
-      existing,
-      storybookOptions({ build: { test: { disableDocgen: true } } })
-    );
-
-    expect(resolved).toBe(existing);
-  });
-
-  test('is left alone on Storybook 10, even with the Docgen Server on', async () => {
-    const existing = { experimentalDocgenServer: true, docgenServer: true, componentsManifest: false };
-
-    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
+    expect(await applyFeatures(existing)).toBe(existing);
   });
 });
 
