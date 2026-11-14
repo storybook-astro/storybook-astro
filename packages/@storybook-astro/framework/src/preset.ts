@@ -455,6 +455,84 @@ export const experimental_manifests = async (
 };
 
 /**
+ * Storybook 11's default for `features.docgenServer`, as `@storybook/react` and
+ * `@storybook/vue3` provide it. Storybook 10 doesn't read this hook, so there
+ * the Docgen Server stays opt-in.
+ *
+ * Off when moving extraction to the worker would change what a project gets:
+ * docgen turned off, a custom `docgen.propFilter` (a function can't cross the
+ * worker boundary), or no `typescript` with the compiler API. Storybook's
+ * `isTypeScriptReadyForDocgen` warns with the fix in that last case. It shipped
+ * in 11.0.0-alpha.9 and isn't in 10.x, so it's looked up rather than imported
+ * by name, which would fail to load on 10.x.
+ */
+export const isDocgenProviderEnabled = async (
+  _existing: unknown,
+  storybookOptions: Options
+): Promise<boolean> => {
+  const frameworkOptions =
+    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+
+  if (frameworkOptions.docgen === false || frameworkOptions.docgen?.propFilter) {
+    return false;
+  }
+
+  const { isTypeScriptReadyForDocgen } = (await import('storybook/internal/common')) as {
+    isTypeScriptReadyForDocgen?: (
+      resolve: (specifier: string) => string,
+      options: Options
+    ) => Promise<boolean>;
+  };
+
+  if (typeof isTypeScriptReadyForDocgen !== 'function') {
+    return false;
+  }
+
+  // Resolved from this package, which declares `typescript` as a peer, so a
+  // strict package manager finds the copy the docgen worker will import.
+  return isTypeScriptReadyForDocgen((specifier) => import.meta.resolve(specifier), storybookOptions);
+};
+
+/**
+ * Turns on the components manifest that `@storybook/addon-mcp` reads, as
+ * `@storybook/react` and `@storybook/vue3` do, but only where Astro components
+ * reach it: Storybook 11 with the Docgen Server on. Storybook 10 and a project
+ * that turned the Docgen Server off keep their setting.
+ *
+ * This runs before the project's main config is merged, so an explicit
+ * `componentsManifest` there wins either way. A `docgenServer: false` there
+ * isn't applied yet, so it's read from the main config instead, and a test
+ * build turns the Docgen Server off after this runs too.
+ */
+export const features = async (
+  existing: Record<string, unknown> = {},
+  storybookOptions: Options
+): Promise<Record<string, unknown>> => {
+  const { flag } = await docgenServerFlags();
+
+  if (
+    flag !== 'docgenServer' ||
+    existing.docgenServer !== true ||
+    storybookOptions.build?.test?.disableDocgen ||
+    (await isDocgenServerOffInMainConfig(storybookOptions))
+  ) {
+    return existing;
+  }
+
+  return { ...existing, componentsManifest: true };
+};
+
+async function isDocgenServerOffInMainConfig(storybookOptions: Options): Promise<boolean> {
+  const { isDocgenServerDisabledInMainConfig } = (await import('storybook/internal/common')) as {
+    isDocgenServerDisabledInMainConfig?: (options: Pick<Options, 'configDir'>) => Promise<boolean>;
+  };
+
+  return typeof isDocgenServerDisabledInMainConfig === 'function'
+    ? isDocgenServerDisabledInMainConfig(storybookOptions)
+    : false;
+}
+
+/**
  * Whether the Docgen Server owns extraction instead of the Vite plugin.
  *
  * Two things have to line up. The user has to opt into Storybook's docgen
