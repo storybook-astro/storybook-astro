@@ -190,10 +190,12 @@ Storybook owns, its Docgen Server, which keeps the TypeScript work off the
 critical path. Otherwise it runs in the Vite plugin, on the dev server.
 
 On **Storybook 11** the Docgen Server is on by default, as it is for React and
-Vue, except in a project that sets a custom `docgen.propFilter` or has no
-usable TypeScript installed (Storybook logs how to fix it), which keeps
-extraction in the Vite plugin, or turns extraction off (`docgen: false`), which
-turns it off on both paths. To turn the Docgen Server off yourself:
+Vue, except in three cases. A project that sets a custom `docgen.propFilter`
+keeps extraction in the Vite plugin. A project with no usable TypeScript
+installed gets no props on either path, since both need TypeScript 5 or 6;
+Storybook and Storybook Astro both log how to fix it. A project that turns
+extraction off (`docgen: false`) turns it off on both paths. To turn the Docgen
+Server off yourself:
 
 ```js
 // .storybook/main.js

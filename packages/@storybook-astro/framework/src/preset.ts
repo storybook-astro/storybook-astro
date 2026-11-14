@@ -461,10 +461,11 @@ export const experimental_manifests = async (
  * `@storybook/vue3` provide it. Storybook 10 doesn't read this hook, so there
  * the Docgen Server stays opt-in.
  *
- * Off when moving extraction to the worker would change what a project gets:
- * docgen turned off, a custom `docgen.propFilter` (a function can't cross the
- * worker boundary), or no `typescript` with the compiler API. Storybook's
- * `isTypeScriptReadyForDocgen` warns with the fix in that last case. It shipped
+ * Off when docgen is turned off, with a custom `docgen.propFilter` (a function
+ * can't cross the worker boundary, so the Vite plugin keeps extracting), or
+ * with no usable `typescript`. In that last case neither path extracts props:
+ * Storybook's `isTypeScriptReadyForDocgen` warns with the fix, and our
+ * extractor logs the same when a component loads. The check shipped
  * in 11.0.0-alpha.9 and isn't in 10.x, so it's looked up rather than imported
  * by name, which would fail to load on 10.x. A test build skips docgen anyway,
  * so it doesn't check TypeScript or warn.
@@ -547,11 +548,6 @@ export const features = async (
   return { ...existing, componentsManifest: true };
 };
 
-// Core applies `features` many times at startup, and a main config change
-// restarts Storybook, so each config directory's main config is loaded once
-// per process.
-const featuresInMainConfig = new Map<string, Promise<unknown>>();
-
 /**
  * The `features.docgenServer` the project's main config sets, or `undefined`
  * when it sets none. Loaded with `loadMainConfig`, which Storybook 10 and 11
@@ -565,26 +561,17 @@ async function readDocgenServerFromMainConfig(
   existing: Record<string, unknown>,
   storybookOptions: Options
 ): Promise<boolean | undefined> {
-  const { configDir } = storybookOptions;
-  let loading = featuresInMainConfig.get(configDir);
+  let mainFeatures: unknown;
 
-  if (!loading) {
-    loading = (async () => {
-      try {
-        const { loadMainConfig } = await import('storybook/internal/common');
-        const { features: mainFeatures } = await loadMainConfig({ configDir });
+  try {
+    const { loadMainConfig } = await import('storybook/internal/common');
 
-        return mainFeatures;
-      } catch {
-        // A main config that fails to load fails Storybook elsewhere, with a
-        // better message; here it just leaves the default in place.
-        return undefined;
-      }
-    })();
-    featuresInMainConfig.set(configDir, loading);
+    ({ features: mainFeatures } = await loadMainConfig({ configDir: storybookOptions.configDir }));
+  } catch {
+    // A main config that fails to load fails Storybook elsewhere, with a
+    // better message; here it just leaves the default in place.
+    return undefined;
   }
-
-  let mainFeatures = await loading;
 
   if (typeof mainFeatures === 'function') {
     try {

@@ -48,11 +48,9 @@ const storybook11 = vi.hoisted(() => ({
   typescriptResolvedTo: undefined as string | undefined
 }));
 
-// The project's main config, as `loadMainConfig` returns it, and how often
-// it's been loaded.
+// The project's main config, as `loadMainConfig` returns it.
 const mainConfig = vi.hoisted(() => ({
-  value: {} as Record<string, unknown>,
-  loads: 0
+  value: {} as Record<string, unknown>
 }));
 
 const isStorybook11 = () => Number.parseInt(installed.storybook, 10) >= 11;
@@ -78,11 +76,7 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
           }
         : undefined;
     },
-    loadMainConfig: async () => {
-      mainConfig.loads += 1;
-
-      return mainConfig.value;
-    }
+    loadMainConfig: async () => mainConfig.value
   };
 });
 
@@ -123,7 +117,6 @@ afterEach(() => {
   storybook11.typescriptReady = true;
   storybook11.typescriptChecks = 0;
   mainConfig.value = {};
-  mainConfig.loads = 0;
   storybook11.typescriptResolvedTo = undefined;
   storyDocsBuilder.error = undefined;
   storyDocsBuilder.loadError = undefined;
@@ -277,7 +270,7 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     expect(storybook11.typescriptResolvedTo).toMatch(/[/\\]typescript[/\\]package\.json$/);
   });
 
-  test('but not without a usable TypeScript, so the builder keeps extracting', async () => {
+  test('but not without a usable TypeScript, so the Docgen Server stays off', async () => {
     installed.storybook = '11.0.0';
     storybook11.typescriptReady = false;
 
@@ -323,21 +316,11 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
   });
 });
 
-// The preset reads each project's main config once, so every scenario that
-// reads it gets a project of its own.
-let projectCount = 0;
-
-function freshProject() {
-  projectCount += 1;
-
-  return storybookOptions({ configDir: `/project-${projectCount}/.storybook` });
-}
-
 describe('the components manifest follows the Docgen Server on Storybook 11 (issue #214)', () => {
   test('is turned on when the Docgen Server is on', async () => {
     installed.storybook = '11.0.0';
 
-    const resolved = await applyFeatures({ docgenServer: true, controls: true }, freshProject());
+    const resolved = await applyFeatures({ docgenServer: true, controls: true }, storybookOptions());
 
     expect(resolved).toEqual({ docgenServer: true, controls: true, componentsManifest: true });
   });
@@ -346,7 +329,7 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
     installed.storybook = '11.0.0';
     const existing = { docgenServer: false, componentsManifest: false };
 
-    expect(await applyFeatures(existing, freshProject())).toBe(existing);
+    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
   });
 
   test('is left alone when the main config turns the Docgen Server off', async () => {
@@ -356,7 +339,7 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
     mainConfig.value = { features: { docgenServer: false } };
     const existing = { docgenServer: true, componentsManifest: false };
 
-    expect(await applyFeatures(existing, freshProject())).toBe(existing);
+    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
   });
 
   test('is turned on when the main config turns the Docgen Server on over a false default', async () => {
@@ -365,7 +348,7 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
     installed.storybook = '11.0.0';
     mainConfig.value = { features: { docgenServer: true } };
 
-    const resolved = await applyFeatures({ docgenServer: false }, freshProject());
+    const resolved = await applyFeatures({ docgenServer: false }, storybookOptions());
 
     expect(resolved).toEqual({ docgenServer: false, componentsManifest: true });
   });
@@ -379,7 +362,7 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
     };
     const existing = { docgenServer: true, componentsManifest: false };
 
-    expect(await applyFeatures(existing, freshProject())).toBe(existing);
+    expect(await applyFeatures(existing, storybookOptions())).toBe(existing);
   });
 
   test('is turned on when a features function in the main config turns the Docgen Server on over a false default', async () => {
@@ -388,7 +371,7 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
       features: (defaults: Record<string, unknown>) => ({ ...defaults, docgenServer: true })
     };
 
-    const resolved = await applyFeatures({ docgenServer: false }, freshProject());
+    const resolved = await applyFeatures({ docgenServer: false }, storybookOptions());
 
     expect(resolved).toEqual({ docgenServer: false, componentsManifest: true });
   });
@@ -402,24 +385,10 @@ describe('the components manifest follows the Docgen Server on Storybook 11 (iss
 
     const resolved = await applyFeatures(
       existing,
-      storybookOptions({
-        configDir: freshProject().configDir,
-        frameworkOptions: { docgen: false }
-      })
+      storybookOptions({ frameworkOptions: { docgen: false } })
     );
 
     expect(resolved).toBe(existing);
-  });
-
-  test('reads the main config once per project, however often features are applied', async () => {
-    installed.storybook = '11.0.0';
-    const project = freshProject();
-
-    await applyFeatures({ docgenServer: true }, project);
-    await applyFeatures({ docgenServer: true }, project);
-    await applyFeatures({ docgenServer: true }, project);
-
-    expect(mainConfig.loads).toBe(1);
   });
 
   test('is left alone in a test build, which turns the Docgen Server off later', async () => {
@@ -447,7 +416,7 @@ describe('a framework entry with no options (issue #214)', () => {
   // Storybook 11, including ones that never run `viteFinal`.
   function withoutFrameworkOptions(features: Record<string, unknown> = {}): Options {
     return {
-      configDir: freshProject().configDir,
+      configDir: '/project/.storybook',
       presets: {
         apply: async (key: string) => (key === 'features' ? features : undefined)
       }
