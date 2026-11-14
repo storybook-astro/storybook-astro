@@ -30,20 +30,36 @@ export interface AstroDocgenProp {
   required: boolean;
   type: AstroDocgenPropType;
   description: string;
-  /**
-   * `value` feeds the props table. `source` is the initializer as written,
-   * which the API description for AI agents prints so quoting survives.
-   */
-  defaultValue: { value: string | number | boolean | null; source?: string } | null;
+  defaultValue: AstroDocgenDefault | null;
   parent?: DeclarationRef;
   declarations?: DeclarationRef[];
   tags?: Record<string, string>;
+}
+
+/**
+ * A destructuring default.
+ *
+ * `source` is the initializer exactly as written (`'/home'`, `defaultTitle`,
+ * `null`). It keeps the difference between a string literal and an
+ * identifier, which the parsed `value` loses, so the props table and the API
+ * description for AI agents both print it (issue #355). `value` is the
+ * initializer as a plain literal where it is one, and its source text
+ * otherwise; it stays for `docgen.propFilter` functions that read it.
+ */
+export interface AstroDocgenDefault {
+  value: string | number | boolean | null;
+  source: string;
 }
 
 export interface AstroDocgenPropType {
   name: string;
   /** Full type text, when `name` is a summary like `Array` or `signature`. */
   raw?: string;
+  /**
+   * The whole type text, when TypeScript shortened `name` (`{ ...; }`). Only
+   * the API description for AI agents prints it; the table keeps the summary.
+   */
+  untruncated?: string;
   /** Constituents of a literal union, for select controls. */
   value?: Array<{ value: string }>;
 }
@@ -65,7 +81,9 @@ export interface AstroDocgenOptions {
   /**
    * Decides which props reach the table. By default props declared only under
    * `node_modules` are dropped, unless the component destructures them from
-   * `Astro.props` (docs/specs/docgen.md#prop-filtering).
+   * `Astro.props` (docs/specs/docgen.md#prop-filtering). A prop whose JSDoc
+   * has `@ignore` is dropped before the filter runs, so a filter can't bring
+   * it back.
    */
   propFilter?: PropFilter;
   /** Overrides tsconfig discovery, which otherwise walks up from the component. */

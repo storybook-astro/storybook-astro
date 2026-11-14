@@ -25,9 +25,11 @@ const config = {
   ],
   features: {
     // Move JSDoc/props extraction off the dev server into Storybook's docgen
-    // worker. Experimental and opt-in upstream; astro6 carries it so the
-    // provider stays exercised, while astro5 and astro7 keep covering the
-    // builder path (docs/specs/docgen.md#design-decisions).
+    // worker. Opt-in on Storybook 10.x, where astro6 carries it so the
+    // provider stays exercised. On Storybook 11 the Docgen Server is on by
+    // default and this flag is ignored; astro7 covers that default, and astro5
+    // covers the builder path on both majors
+    // (docs/specs/docgen.md#design-decisions).
     experimentalDocgenServer: true,
     // The components manifest (what @storybook/addon-mcp reads) is built from
     // the docgen worker's payloads; on together, the build fails unless the
