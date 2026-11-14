@@ -260,10 +260,14 @@ function describeType(
         typescript.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope
     )
   );
-  const untruncated = fullText === name ? {} : { untruncated: fullText };
+  const result: AstroDocgenPropType = { name };
+
+  if (fullText !== name) {
+    result.untruncated = fullText;
+  }
 
   if (!type.isUnion()) {
-    return { name, ...untruncated };
+    return result;
   }
 
   // An optional prop's type includes `undefined` under `strict`, which would
@@ -273,9 +277,11 @@ function describeType(
   const literals = meaningful.filter((constituent) => constituent.isLiteral());
 
   if (literals.length === 0 || literals.length !== meaningful.length) {
-    return { name, raw, ...untruncated };
+    return { ...result, raw };
   }
 
+  // apiDescription prints a literal union from `value`, so it needs no
+  // `untruncated`.
   return {
     name: 'enum',
     raw: name,

@@ -10,8 +10,11 @@ import { slotArgName } from './slotArgs.ts';
  * The heavy lifting is `extractComponentProps`, which already understands the
  * `react-docgen-typescript` shape our extractor emits — that is why it emits
  * that shape (docs/specs/docgen.md#design-decisions). It gives us JSDoc tag
- * parsing, `@ignore` handling, union-to-select inference and default-value
- * formatting, so all that is left here is the mapping onto `StrictArgTypes`.
+ * parsing and union-to-select inference, so all that is left here is the
+ * mapping onto `StrictArgTypes`. The extractor drops `@ignore` props itself,
+ * and defaults print as written because the extractor sets `computed` on them,
+ * apart from a `null` default, which docs-tools drops and this function
+ * restores.
  */
 export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | null => {
   if (!component) {
