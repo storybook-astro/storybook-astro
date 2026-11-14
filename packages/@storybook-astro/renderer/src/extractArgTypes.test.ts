@@ -42,7 +42,7 @@ describe('extractArgTypes', () => {
     expect(Object.keys(argTypes ?? {})).toEqual(['slot-default']);
   });
 
-  test('shows a default as the component writes it, null included (issue #355)', () => {
+  test('shows a default as the component writes it, null and undefined included (issue #355)', () => {
     const argTypes = extractArgTypes({
       __docgenInfo: {
         displayName: 'Link',
@@ -52,19 +52,25 @@ describe('extractArgTypes', () => {
             ...titleProp,
             name: 'href',
             type: { name: 'string | URL' },
-            defaultValue: { value: "'/home'", computed: false }
+            defaultValue: { value: "'/home'" }
           },
           label: {
             ...titleProp,
             name: 'label',
-            defaultValue: { value: 'defaultLabel', computed: true }
+            defaultValue: { value: 'defaultLabel' }
           },
           icon: {
             ...titleProp,
             name: 'icon',
             type: { name: 'string | null' },
-            defaultValue: { value: 'null', computed: false }
-          }
+            defaultValue: { value: 'null' }
+          },
+          tooltip: {
+            ...titleProp,
+            name: 'tooltip',
+            defaultValue: { value: 'undefined' }
+          },
+          title: titleProp
         }
       }
     });
@@ -72,6 +78,8 @@ describe('extractArgTypes', () => {
     expect(argTypes?.href.table?.defaultValue).toEqual({ summary: "'/home'" });
     expect(argTypes?.label.table?.defaultValue).toEqual({ summary: 'defaultLabel' });
     expect(argTypes?.icon.table?.defaultValue).toEqual({ summary: 'null' });
+    expect(argTypes?.tooltip.table?.defaultValue).toEqual({ summary: 'undefined' });
+    expect(argTypes?.title.table?.defaultValue).toBeUndefined();
   });
 
   test('returns nothing for a component with neither props nor slots', () => {

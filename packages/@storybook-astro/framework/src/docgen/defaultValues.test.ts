@@ -23,23 +23,15 @@ describe('defaults are read from the destructuring pattern', () => {
     ['const { a = 42 } = Astro.props;', '42'],
     ['const { a = -1 } = Astro.props;', '-1'],
     ['const { a = true } = Astro.props;', 'true'],
-    ['const { a = false } = Astro.props;', 'false'],
     ['const { a = null } = Astro.props;', 'null'],
-    ['const { a = `x` } = Astro.props;', '`x`']
-  ])('a literal keeps its source text: %s', (frontmatter, expected) => {
-    expect(bindingFor(frontmatter).defaults.get('a')).toEqual({ value: expected, computed: false });
-  });
-
-  test.each([
-    ['const { navItems = defaultNavItems } = Astro.props;', 'defaultNavItems'],
-    ["const { navItems = ['a', 'b'] } = Astro.props;", "['a', 'b']"],
-    ['const { navItems = -offset } = Astro.props;', '-offset'],
-    ['const { navItems = `${base}/home` } = Astro.props;', '`${base}/home`']
-  ])('an expression is marked computed: %s', (frontmatter, expected) => {
-    expect(bindingFor(frontmatter).defaults.get('navItems')).toEqual({
-      value: expected,
-      computed: true
-    });
+    ['const { a = undefined } = Astro.props;', 'undefined'],
+    ['const { a = `x` } = Astro.props;', '`x`'],
+    ['const { a = defaultNavItems } = Astro.props;', 'defaultNavItems'],
+    ["const { a = ['a', 'b'] } = Astro.props;", "['a', 'b']"],
+    ['const { a = -offset } = Astro.props;', '-offset'],
+    ['const { a = `${base}/home` } = Astro.props;', '`${base}/home`']
+  ])('a default keeps its source text: %s', (frontmatter, expected) => {
+    expect(bindingFor(frontmatter).defaults.get('a')).toEqual({ value: expected });
   });
 
   test('a prop destructured without a default has none', () => {

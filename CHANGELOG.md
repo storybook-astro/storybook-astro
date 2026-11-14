@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- The props table shows each default as the component's `Astro.props` destructuring writes it (#355). A string default on a prop whose type isn't just `string`, such as `href = '/home'` on `string | URL`, used to lose its quotes, a variable default on a `string` prop (`label = defaultLabel`) was quoted as if it were text, and a `null` default was left out. A string default now keeps the quotes the component uses, so `size = 'md'` shows `'md'` rather than `"md"`, as in React's props tables.
+- The props table shows each default as the component's `Astro.props` destructuring writes it (#355). A string default on a prop whose type isn't just `string`, such as `href = '/home'` on `string | URL`, used to lose its quotes, a variable default on a `string` prop (`label = defaultLabel`) was quoted as if it were text, and a `null` or `undefined` default was left out. A string default now keeps the quotes the component uses, so `size = 'md'` shows `'md'` rather than `"md"`, as in React's props tables.
 - A prop whose JSDoc has `@ignore` no longer gets a props-table row, a control or a line in the props AI agents read (#356).
 - AI agents get a prop's whole type, where TypeScript used to shorten a long object type to `{ ...; }` or a long union to `... 12 more ...` (#357). The props table still shows the shortened type.
 

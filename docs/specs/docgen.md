@@ -67,7 +67,7 @@ We reimplement rather than depend on it. An unpublished single-maintainer packag
 
 The two are **mutually exclusive**. A worker thread has its own module registry, so enabling both would pay the full TypeScript warm-up cost twice for identical output. When the server path is active, the Vite plugin does not inject `__docgenInfo`.
 
-**Decision 2 — Emit the `react-docgen-typescript` shape.** The extractor produces `{ displayName, description, props: { <name>: { name, required, type, description, defaultValue } } }` rather than Storybook's `StrictArgTypes`. `extractComponentProps` in `storybook/internal/docs-tools` consumes that shape directly, routing it through `javaScriptFactory` → `convert()` → `sbType`. That gives JSDoc tag parsing, enum and union control inference and default-value formatting for free. Two things it can't do with this extractor's output, so the extractor does them itself: drop `@ignore` props, since docs-tools looks for the tag in `description` ([Issue #356](https://github.com/storybook-astro/storybook-astro/issues/356)), and print defaults as written, since it quotes a default by the prop's declared type ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)). Converting to `StrictArgTypes` afterwards is a small mapping over `PropDef[]`, matching `@storybook/react`'s own `extractArgTypes`.
+**Decision 2 — Emit the `react-docgen-typescript` shape.** The extractor produces `{ displayName, description, props: { <name>: { name, required, type, description, defaultValue } } }` rather than Storybook's `StrictArgTypes`. `extractComponentProps` in `storybook/internal/docs-tools` consumes that shape directly, routing it through `javaScriptFactory` → `convert()` → `sbType`. That gives JSDoc tag parsing and enum and union control inference for free. Two things it can't do with this extractor's output: drop `@ignore` props, since docs-tools looks for the tag in `description`, so the extractor drops them itself ([Issue #356](https://github.com/storybook-astro/storybook-astro/issues/356)), and print defaults as written, since it quotes a default by the prop's declared type and leaves out `null` and `undefined`, so the renderer's `extractArgTypes` uses the recorded source text instead ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)). Converting to `StrictArgTypes` afterwards is a small mapping over `PropDef[]`, matching `@storybook/react`'s own `extractArgTypes`.
 
 **Decision 3 — One long-lived `LanguageService`, never a program per file.** Measured against `astro/types` in this repo, where a single `createProgram` pulls in 243 source files:
 
@@ -123,7 +123,7 @@ When the resolved default is a union of eight or fewer string literals, instanti
 - **Keep a prop when *any* declaration sits outside `node_modules`.** A locally redeclared `disabled` also has a declaration in `astro/types`; an any-declaration-matches filter silently deletes it. Verified: the loose form keeps only `variant`, the correct form keeps `disabled` and `variant`.
 - **Always keep names bound in the `Astro.props` destructuring pattern**, whatever their declaring file. We already walk that pattern for defaults, and it is the author's own statement of the public surface. On the #110 button this recovers `as`, `href` and `class` with no hardcoded allowlist.
 
-Net effect on that component: roughly nine meaningful rows instead of three or two hundred. `docgen.propFilter` overrides the default using the `react-docgen-typescript` signature.
+Net effect on that component: roughly nine meaningful rows instead of three or two hundred. `docgen.propFilter` overrides the default using the `react-docgen-typescript` signature. A prop whose JSDoc has `@ignore` is dropped before the filter runs, so a filter can't bring it back.
 
 ### Description precedence
 
@@ -169,14 +169,14 @@ Given a `.astro` file, the extractor produces:
 | `props[name].defaultValue` | destructuring default, else the `@default` tag, else absent |
 | `props[name].parent` | declaring interface or type alias; falls back to the declaring source file and nearest named ancestor |
 
-Default values are read from the top-level `Astro.props` destructuring, including the `as Props` and `satisfies Props` forms. Like `react-docgen`'s, a default is `{ value, computed }`: `value` is the initializer's source text and `computed` says whether it's an expression rather than a literal. With `computed` set, docs-tools prints `value` as it is instead of quoting it by the prop's declared type, which would drop the quotes from `href = '/home'` on `string | URL` and add them to `title = defaultTitle` on `string` ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)). docs-tools also drops a default whose text is `null`, so the renderer's `extractArgTypes` puts it back.
+Default values are read from the top-level `Astro.props` destructuring, including the `as Props` and `satisfies Props` forms. A default is `{ value }`, the initializer's source text. The renderer's `extractArgTypes` uses that text as the table's summary instead of docs-tools' default formatting, which quotes a default by the prop's declared type, dropping the quotes from `href = '/home'` on `string | URL` and adding them to `title = defaultTitle` on `string`, and leaves out `null` and `undefined` ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)).
 
 | Frontmatter | `defaultValue` |
 |---|---|
-| `const { a = 'x' } = Astro.props` | `{ value: "'x'", computed: false }` |
-| `const { a = 42 } = Astro.props` | `{ value: '42', computed: false }` |
-| `const { a = null } = Astro.props` | `{ value: 'null', computed: false }` |
-| `const { a = defaultLinks } = Astro.props` | `{ value: 'defaultLinks', computed: true }` |
+| `const { a = 'x' } = Astro.props` | `{ value: "'x'" }` |
+| `const { a = 42 } = Astro.props` | `{ value: '42' }` |
+| `const { a = null } = Astro.props` | `{ value: 'null' }` |
+| `const { a = defaultLinks } = Astro.props` | `{ value: 'defaultLinks' }` |
 | `const { a } = Astro.props` + `/** @default 'x' */` | `"x"` |
 | `const { a } = Astro.props` | absent → prop is required |
 

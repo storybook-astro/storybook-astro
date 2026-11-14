@@ -82,8 +82,8 @@ describe('a plain component', () => {
   test('reads defaults from the Astro.props destructuring, as written', () => {
     const props = docgen()!.props;
 
-    expect(props.title.defaultValue).toEqual({ value: "'Default title'", computed: false });
-    expect(props.highlight.defaultValue).toEqual({ value: 'false', computed: false });
+    expect(props.title.defaultValue).toEqual({ value: "'Default title'" });
+    expect(props.highlight.defaultValue).toEqual({ value: 'false' });
   });
 
   test('a prop with a default is not required', () => {

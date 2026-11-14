@@ -37,19 +37,15 @@ export interface AstroDocgenProp {
 }
 
 /**
- * A destructuring default in `react-docgen`'s shape: the initializer exactly
- * as written (`'/home'`, `defaultTitle`, `null`), and whether it's an
- * expression rather than a literal.
+ * A destructuring default: the initializer exactly as written (`'/home'`,
+ * `defaultTitle`, `null`).
  *
  * The source text keeps the difference between a string literal and an
  * identifier, which a parsed value loses, so the props table and the API
- * description for AI agents both print it as written. Because `computed` is
- * set, docs-tools prints `value` as it is instead of quoting it by the prop's
- * declared type (issue #355), as it does for React's `react-docgen`.
+ * description for AI agents both print it as written (issue #355).
  */
 export interface AstroDocgenDefault {
   value: string;
-  computed: boolean;
 }
 
 export interface AstroDocgenPropType {
@@ -82,7 +78,9 @@ export interface AstroDocgenOptions {
   /**
    * Decides which props reach the table. By default props declared only under
    * `node_modules` are dropped, unless the component destructures them from
-   * `Astro.props` (docs/specs/docgen.md#prop-filtering).
+   * `Astro.props` (docs/specs/docgen.md#prop-filtering). A prop whose JSDoc
+   * has `@ignore` is dropped before the filter runs, so a filter can't bring
+   * it back.
    */
   propFilter?: PropFilter;
   /** Overrides tsconfig discovery, which otherwise walks up from the component. */

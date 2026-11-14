@@ -57,10 +57,7 @@ export function readAstroPropsBinding(
         destructured.add(propName);
 
         if (element.initializer) {
-          defaults.set(propName, {
-            value: element.initializer.getText(sourceFile),
-            computed: !isLiteral(typescript, element.initializer)
-          });
+          defaults.set(propName, { value: element.initializer.getText(sourceFile) });
         }
       }
     }
@@ -90,21 +87,3 @@ function isAstroProps(typescript: typeof ts, node: ts.Expression): boolean {
   );
 }
 
-/** A string, number, boolean or `null` literal, including a negative number. */
-function isLiteral(typescript: typeof ts, node: ts.Expression): boolean {
-  if (
-    typescript.isPrefixUnaryExpression(node) &&
-    node.operator === typescript.SyntaxKind.MinusToken
-  ) {
-    return typescript.isNumericLiteral(node.operand);
-  }
-
-  return (
-    typescript.isStringLiteral(node) ||
-    typescript.isNoSubstitutionTemplateLiteral(node) ||
-    typescript.isNumericLiteral(node) ||
-    node.kind === typescript.SyntaxKind.TrueKeyword ||
-    node.kind === typescript.SyntaxKind.FalseKeyword ||
-    node.kind === typescript.SyntaxKind.NullKeyword
-  );
-}

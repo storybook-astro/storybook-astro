@@ -11,10 +11,10 @@ import { slotArgName } from './slotArgs.ts';
  * `react-docgen-typescript` shape our extractor emits — that is why it emits
  * that shape (docs/specs/docgen.md#design-decisions). It gives us JSDoc tag
  * parsing and union-to-select inference, so all that is left here is the
- * mapping onto `StrictArgTypes`. The extractor drops `@ignore` props itself,
- * and defaults print as written because the extractor sets `computed` on them,
- * apart from a `null` default, which docs-tools drops and this function
- * restores.
+ * mapping onto `StrictArgTypes`. The extractor drops `@ignore` props itself.
+ * Defaults skip docs-tools: the table shows the default's source text as the
+ * extractor recorded it, since docs-tools would quote it by the prop's declared
+ * type and drop `null` and `undefined` (issue #355).
  */
 export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | null => {
   if (!component) {
@@ -31,10 +31,7 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
   const argTypes: StrictArgTypes = {};
 
   for (const { propDef, docgenInfo } of props) {
-    const { name, description, type, sbType, defaultValue, jsDocTags, required } = propDef;
-    // docs-tools drops a default whose text is `null`, but `= null` is a real
-    // default the component chose (issue #355).
-    const nullDefault = docgenInfo.defaultValue?.value === 'null' ? { summary: 'null' } : undefined;
+    const { name, description, type, sbType, jsDocTags, required } = propDef;
 
     argTypes[name] = {
       name,
@@ -43,7 +40,7 @@ export const extractArgTypes: ArgTypesExtractor = (component): StrictArgTypes | 
       table: {
         type: type ?? undefined,
         jsDocTags,
-        defaultValue: defaultValue ?? nullDefault
+        defaultValue: docgenInfo.defaultValue ? { summary: docgenInfo.defaultValue.value } : undefined
       }
     };
   }
