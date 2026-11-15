@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-14
+
 ### Changed
 - On Storybook 11, the Docgen Server and the components manifest are now on by default, as they are for React and Vue (#214). AI agents using `@storybook/addon-mcp` get each Astro component's description, props, slots and story snippets without any configuration. The Docgen Server stays off in a project that sets a custom `docgen.propFilter` (a filter can't reach Storybook's docgen worker), where extraction stays in the Vite plugin, or turns extraction off with `docgen: false`. It also stays off with no usable TypeScript installed, and then neither path extracts props: Storybook and Storybook Astro both log how to fix it. Where the Docgen Server is off, the manifest lists no Astro components. A `componentsManifest` set in `.storybook/main.js` overrides this default. Turn the Docgen Server off with `features: { docgenServer: false }`, or only the manifest with `features: { componentsManifest: false }`. Measured on `integration/astro7` with Storybook 11.0.0-beta.0, the dev server was ready about 1.5 s sooner with the Docgen Server on (median 9.1 s against 10.7 s), and the first Docs props table filled about 1.6 s later (4.6 s against 3.0 s), since the worker loads TypeScript on the first request rather than while the dev server starts. Storybook 10.6 is unchanged: the Docgen Server and the manifest are still opt-in there.
 
