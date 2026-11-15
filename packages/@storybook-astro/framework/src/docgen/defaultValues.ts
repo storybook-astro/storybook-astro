@@ -1,15 +1,9 @@
 import type ts from 'typescript';
+import type { AstroDocgenDefault } from './types.ts';
 
 export interface AstroPropsBinding {
-  /** Prop name → default, for props destructured with one. */
-  defaults: Map<string, string | number | boolean | null>;
-  /**
-   * Prop name → its default's source text, exactly as written (`'/home'`,
-   * `defaultTitle`). `defaults` turns a string literal and an identifier into
-   * the same plain string, so the API description an agent reads prints this
-   * instead and keeps the author's quoting.
-   */
-  defaultSources: Map<string, string>;
+  /** Prop name → its default, for props destructured with one. */
+  defaults: Map<string, AstroDocgenDefault>;
   /**
    * Every prop name the component destructures, with or without a default.
    *
@@ -33,8 +27,7 @@ export function readAstroPropsBinding(
   typescript: typeof ts,
   sourceFile: ts.SourceFile
 ): AstroPropsBinding {
-  const defaults = new Map<string, string | number | boolean | null>();
-  const defaultSources = new Map<string, string>();
+  const defaults = new Map<string, AstroDocgenDefault>();
   const destructured = new Set<string>();
 
   for (const statement of sourceFile.statements) {
@@ -64,14 +57,16 @@ export function readAstroPropsBinding(
         destructured.add(propName);
 
         if (element.initializer) {
-          defaults.set(propName, literalValueOf(typescript, element.initializer, sourceFile));
-          defaultSources.set(propName, element.initializer.getText(sourceFile));
+          defaults.set(propName, {
+            value: literalValueOf(typescript, element.initializer, sourceFile),
+            source: element.initializer.getText(sourceFile)
+          });
         }
       }
     }
   }
 
-  return { defaults, defaultSources, destructured };
+  return { defaults, destructured };
 }
 
 /** Matches `Astro.props`, `Astro.props as Props` and `Astro.props satisfies Props`. */

@@ -167,3 +167,64 @@ describe('the renderer default does not suppress emission', () => {
     expect(emitTransformCode).toHaveBeenCalledTimes(1);
   });
 });
+
+// Storybook 11 parses stories files with OXC and sets `docs.source.originalSource`
+// to the story as authored, where 10 reprinted it with Babel. The parameters
+// here come from the installed Storybook's csf-tools, so the storybook-11 CI job
+// checks them against 11 (issue #207).
+const { versions } = await import('storybook/internal/common');
+const isStorybook11 = Number.parseInt(versions.storybook, 10) >= 11;
+
+describe('the parameters Storybook reads from the stories file (issue #207)', () => {
+  const storiesFile = [
+    "import Card from './Card.astro';",
+    'export default { component: Card };',
+    'export const Featured = {',
+    '  args: { title: "Hello",   featured: true },',
+    '};',
+    "export const Custom = { render: () => 'custom' };"
+  ].join('\n');
+
+  async function storyParameters(name: string) {
+    const csfTools = await import('storybook/internal/csf-tools');
+    const csf = csfTools.loadCsf(storiesFile, { makeTitle: () => 'Astro/Card' }).parse();
+    // What addon-docs stores as `originalSource`. Storybook 11 slices it from
+    // the file's text; 10 reprints the node and takes no second argument.
+    const extractSource = csfTools.extractSource as (node: unknown, code: string) => string;
+
+    return {
+      __isArgsStory: csf._stories[name].parameters?.__isArgsStory,
+      docs: { source: { originalSource: extractSource(csf.getStoryExport(name), storiesFile) } }
+    };
+  }
+
+  test('an args story still shows the Astro snippet, not the story as authored', async () => {
+    const parameters = await storyParameters('Featured');
+
+    sourceDecorator(
+      storyFn,
+      context({ args: { title: 'Hello', featured: true }, parameters })
+    );
+
+    expect(emitTransformCode).toHaveBeenCalledTimes(1);
+    expect(emitTransformCode.mock.calls[0][0]).toBe(
+      ['---', "import Card from './Card.astro';", '---', '<Card featured title="Hello" />'].join('\n')
+    );
+  });
+
+  test('a custom-render story emits nothing, so Show code falls back to originalSource', async () => {
+    const parameters = await storyParameters('Custom');
+
+    sourceDecorator(storyFn, context({ parameters }));
+
+    expect(parameters.__isArgsStory).toBe(false);
+    expect(parameters.docs.source.originalSource).toContain("render: () => 'custom'");
+    expect(emitTransformCode).not.toHaveBeenCalled();
+  });
+
+  test.runIf(isStorybook11)('on Storybook 11, originalSource is the story exactly as written', async () => {
+    const { docs } = await storyParameters('Featured');
+
+    expect(docs.source.originalSource).toBe('{\n  args: { title: "Hello",   featured: true },\n}');
+  });
+});

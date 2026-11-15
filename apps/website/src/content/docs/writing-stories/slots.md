@@ -230,7 +230,7 @@ export const Default = {
 
 The Docs props table lists every slot a component accepts in a **Slots** section, even when no story fills it. Describe a slot with a `{/* @slot … */}` comment directly before it in the template.
 
-Each slot row also has a text control in the Controls panel, so you can edit a slot's HTML there instead of in the `args.slots` JSON editor. A slot whose story content is a component, rather than a string, has no text control. Only plain-text edits are saved in the story's URL. See [Controls & ArgTypes](/writing-stories/controls/#slots) for how the controls and `args.slots` combine, and what the Docgen Server doesn't support yet.
+Each slot row also has a text control in the Controls panel, so you can edit a slot's HTML there instead of in the `args.slots` JSON editor. A slot whose story content is a component, rather than a string, has no text control. Only plain-text edits are saved in the story's URL. See [Controls & ArgTypes](/writing-stories/controls/#slots) for how the controls and `args.slots` combine.
 
 ## Tips
 

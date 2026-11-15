@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-14
+
+### Changed
+- On Storybook 11, the Docgen Server and the components manifest are now on by default, as they are for React and Vue (#214). AI agents using `@storybook/addon-mcp` get each Astro component's description, props, slots and story snippets without any configuration. The Docgen Server stays off in a project that sets a custom `docgen.propFilter` (a filter can't reach Storybook's docgen worker), where extraction stays in the Vite plugin, or turns extraction off with `docgen: false`. It also stays off with no usable TypeScript installed, and then neither path extracts props: Storybook and Storybook Astro both log how to fix it. Where the Docgen Server is off, the manifest lists no Astro components. A `componentsManifest` set in `.storybook/main.js` overrides this default. Turn the Docgen Server off with `features: { docgenServer: false }`, or only the manifest with `features: { componentsManifest: false }`. Measured on `integration/astro7` with Storybook 11.0.0-beta.0, the dev server was ready about 1.5 s sooner with the Docgen Server on (median 9.1 s against 10.7 s), and the first Docs props table filled about 1.6 s later (4.6 s against 3.0 s), since the worker loads TypeScript on the first request rather than while the dev server starts. Storybook 10.6 is unchanged: the Docgen Server and the manifest are still opt-in there.
+
+### Fixed
+- The props table shows each default as the component's `Astro.props` destructuring writes it (#355). A string default on a prop whose type isn't just `string`, such as `href = '/home'` on `string | URL`, used to lose its quotes, a variable default on a `string` prop (`label = defaultLabel`) was quoted as if it were text, and a `null` or `undefined` default was left out. A string default now keeps the quotes the component uses, so `size = 'md'` shows `'md'` rather than `"md"`, as in React's props tables.
+- A prop whose JSDoc has `@ignore` no longer gets a props-table row, a control or a line in the props AI agents read (#356).
+- AI agents get a prop's whole type, where TypeScript used to shorten a long object type to `{ ...; }` or a long union to `... 12 more ...` (#357). The props table still shows the shortened type.
+- With the Docgen Server on, each slot row in the Controls panel has its text control again, starting at the story's content (#267). A slot whose story content is a component, such as `slots: { default: Badge }`, has no control, and a stray `slot-<name>` value, from an old URL say, no longer replaces that component with text. As on the builder path, the `slots` JSON editor is locked when every slot the story fills has a text control.
+- In a static build, every Controls row of a story whose `component` is an Astro component is disabled (#375). With the Docgen Server on, prop rows and the rows of slots a story leaves empty kept a working control that changed args but not the pre-rendered story. With or without it, so did an arg the story sets that has no row of its own, such as `slots` holding a component or a `class` the component doesn't declare.
+
 ## [1.16.0] - 2026-11-11
 
 ### Added
