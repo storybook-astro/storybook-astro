@@ -11,7 +11,7 @@ import {
   loadCsf,
   type CsfFile
 } from 'storybook/internal/csf-tools';
-import type { DocgenPayload, DocgenProviderInput } from 'storybook/internal/types';
+import type { DocgenPayload, DocgenProviderInput, StrictArgTypes } from 'storybook/internal/types';
 import { extractArgTypes } from '@storybook-astro/renderer/extractArgTypes';
 import { formatApiDescription } from './apiDescription.ts';
 import type { AstroDocgenInfo } from './types.ts';
@@ -32,6 +32,12 @@ export interface DocgenPayloadContext {
    * against; tests pass a fixture directory instead.
    */
   workingDir?: string;
+  /**
+   * The payload is for a static build, whose stories are pre-rendered. The
+   * preview turns off the controls of the rows it knows about, but the manager
+   * merges ours under those, so ours have to be off too (issue #375).
+   */
+  prerendered?: boolean;
 }
 
 /**
@@ -116,6 +122,8 @@ export async function buildDocgenPayload(
   );
 
   const argTypes = extractArgTypes({ __docgenInfo: info });
+  const tableArgTypes =
+    argTypes && context.prerendered ? withoutControls(argTypes) : argTypes;
 
   return {
     ...base,
@@ -123,11 +131,17 @@ export async function buildDocgenPayload(
     description,
     summary,
     jsDocTags,
-    argTypes: argTypes ?? undefined,
+    argTypes: tableArgTypes ?? undefined,
     // Core strips argTypes before an agent sees the component (issue #353).
     apiDescription: formatApiDescription(argTypes, info),
     renderer: 'astro'
   };
+}
+
+function withoutControls(argTypes: StrictArgTypes): StrictArgTypes {
+  return Object.fromEntries(
+    Object.entries(argTypes).map(([key, argType]) => [key, { ...argType, control: false }])
+  );
 }
 
 /** The last segment of a story title, for when the component has no name of its own. */

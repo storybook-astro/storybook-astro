@@ -28,6 +28,8 @@ export interface AstroDocgenWorkerOptions {
   /** Where tsconfig discovery starts, and what declaring-file paths are relative to. */
   projectRoot: string;
   tsconfigPath?: string;
+  /** A static build: the stories are pre-rendered, so no row gets a live control. */
+  prerendered?: boolean;
 }
 
 /**
@@ -54,5 +56,6 @@ export const createDocgenProvider = (options?: AstroDocgenWorkerOptions): Docgen
         warn: (message) => logger.warn(message)
       });
     },
-    extract: (docgen, input) => buildDocgenPayload(input, { docgen })
+    extract: (docgen, input) =>
+      buildDocgenPayload(input, { docgen, prerendered: options?.prerendered })
   });

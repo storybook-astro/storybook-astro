@@ -280,6 +280,37 @@ describe('slots on the Docgen Server path', () => {
   });
 });
 
+describe('a static build (issue #375)', () => {
+  test('turns off every control, since the stories are pre-rendered', async () => {
+    const docgen = stubSource({
+      props: {
+        title: {
+          name: 'title',
+          required: false,
+          type: { name: 'string' },
+          description: '',
+          defaultValue: null
+        }
+      },
+      slots: [
+        { name: 'default', description: '' },
+        { name: 'footer', description: '' }
+      ]
+    });
+    const payload = await buildDocgenPayload(
+      { entry: storyEntry('Card.stories.jsx', 'Astro/Card') },
+      { docgen, workingDir, prerendered: true }
+    );
+
+    const rows = Object.values(payload?.argTypes ?? {});
+
+    expect(rows.length).toBeGreaterThan(2);
+    expect(rows.every((row) => row.control === false)).toBe(true);
+    // The table still describes the slot.
+    expect(payload?.argTypes?.['slot-footer']).toMatchObject({ name: 'footer' });
+  });
+});
+
 describe('stories that are not ours', () => {
   test('a framework component is left to its own provider', async () => {
     const docgen = stubSource();
