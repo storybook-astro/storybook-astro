@@ -17,6 +17,7 @@ interface Scenario {
   features?: Record<string, unknown>;
   frameworkOptions?: Partial<FrameworkOptions>;
   build?: Options['build'];
+  configType?: Options['configType'];
 }
 
 /** The slice of Storybook's preset `Options` the docgen provider reads. */
@@ -24,10 +25,12 @@ function storybookOptions({
   configDir = '/project/.storybook',
   features,
   frameworkOptions,
-  build
+  build,
+  configType = 'DEVELOPMENT'
 }: Scenario = {}): Options {
   return {
     configDir,
+    configType,
     build,
     presets: {
       apply: async (key: string) =>
@@ -122,7 +125,11 @@ describe('contributing the Docgen Server descriptor', () => {
     expect(descriptor.moduleSpecifier).toMatch(/docgen[/\\]docgen-worker\.js$/);
     // Absolute, because core imports it across a worker boundary.
     expect(descriptor.moduleSpecifier.startsWith('/')).toBe(true);
-    expect(descriptor.options).toEqual({ projectRoot: '/project', tsconfigPath: undefined });
+    expect(descriptor.options).toEqual({
+      projectRoot: '/project',
+      tsconfigPath: undefined,
+      prerendered: false
+    });
   });
 
   test('appends to what other presets already registered', async () => {
@@ -147,8 +154,31 @@ describe('contributing the Docgen Server descriptor', () => {
 
     expect(descriptor.options).toEqual({
       projectRoot: '/apps/site',
-      tsconfigPath: '/apps/site/tsconfig.json'
+      tsconfigPath: '/apps/site/tsconfig.json',
+      prerendered: false
     });
+  });
+
+  test('tells the worker a static build is pre-rendered (issue #375)', async () => {
+    const [descriptor] = await experimental_docgenProvider(
+      [],
+      storybookOptions({ features: flagOn, configType: 'PRODUCTION' })
+    );
+
+    expect(descriptor.options).toMatchObject({ prerendered: true });
+  });
+
+  test('a server-mode build still renders on request, so it is not pre-rendered', async () => {
+    const [descriptor] = await experimental_docgenProvider(
+      [],
+      storybookOptions({
+        features: flagOn,
+        configType: 'PRODUCTION',
+        frameworkOptions: { renderMode: 'server' }
+      })
+    );
+
+    expect(descriptor.options).toMatchObject({ prerendered: false });
   });
 });
 

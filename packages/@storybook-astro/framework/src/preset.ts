@@ -389,7 +389,13 @@ export const experimental_docgenProvider = async (
       ),
       options: {
         projectRoot: frameworkOptions.resolveFrom ?? dirname(storybookOptions.configDir),
-        tsconfigPath: frameworkOptions.docgen?.tsconfigPath
+        tsconfigPath: frameworkOptions.docgen?.tsconfigPath,
+        // A static build writes the payloads into the output, and the stories
+        // in it are pre-rendered, so their controls can't change anything
+        // (issue #375). Matches the `isStaticMode` the preview gets.
+        prerendered:
+          storybookOptions.configType !== 'DEVELOPMENT' &&
+          (frameworkOptions.renderMode ?? 'static') === 'static'
       }
     }
   ];
