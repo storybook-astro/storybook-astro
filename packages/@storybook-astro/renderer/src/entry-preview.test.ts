@@ -55,4 +55,16 @@ describe('a pre-rendered Astro story in a static build', () => {
     expect(argTypes[slotArgName('aside')]).toBeUndefined();
     expect(argTypes.title.control).toBe(false);
   });
+
+  test('turns off the controls Storybook would infer from args that have no row (issue #375)', () => {
+    const argTypes = disablePrerenderedControls({
+      component: Card,
+      argTypes: { title: { name: 'title', control: { type: 'text' } } },
+      initialArgs: { title: 'Hi', class: 'wide', slots: { default: Card } }
+    } as never);
+
+    expect(argTypes.class).toEqual({ control: false });
+    expect(argTypes.slots).toEqual({ control: false });
+    expect(argTypes.title).toEqual({ name: 'title', control: false });
+  });
 });

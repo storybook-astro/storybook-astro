@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A prop whose JSDoc has `@ignore` no longer gets a props-table row, a control or a line in the props AI agents read (#356).
 - AI agents get a prop's whole type, where TypeScript used to shorten a long object type to `{ ...; }` or a long union to `... 12 more ...` (#357). The props table still shows the shortened type.
 - With the Docgen Server on, each slot row in the Controls panel has its text control again, starting at the story's content (#267). A slot whose story content is a component, such as `slots: { default: Badge }`, has no control, and a stray `slot-<name>` value, from an old URL say, no longer replaces that component with text. As on the builder path, the `slots` JSON editor is locked when every slot the story fills has a text control.
-- In a static build with the Docgen Server on, every Controls row of an Astro story is disabled again (#375). Prop rows, and the rows of slots a story leaves empty, used to keep a working control that changed args but not the pre-rendered story.
+- In a static build, every Controls row of an Astro story is disabled (#375). With the Docgen Server on, prop rows and the rows of slots a story leaves empty kept a working control that changed args but not the pre-rendered story. With or without it, so did an arg the story sets that has no row of its own, such as `slots` holding a component or a `class` the component doesn't declare.
 
 ## [1.16.0] - 2026-11-11
 

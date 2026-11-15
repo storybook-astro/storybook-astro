@@ -168,6 +168,19 @@ describe('contributing the Docgen Server descriptor', () => {
     expect(descriptor.options).toMatchObject({ prerendered: true });
   });
 
+  test('an explicit static render mode is pre-rendered too', async () => {
+    const [descriptor] = await experimental_docgenProvider(
+      [],
+      storybookOptions({
+        features: flagOn,
+        configType: 'PRODUCTION',
+        frameworkOptions: { renderMode: 'static' }
+      })
+    );
+
+    expect(descriptor.options).toMatchObject({ prerendered: true });
+  });
+
   test('a server-mode build still renders on request, so it is not pre-rendered', async () => {
     const [descriptor] = await experimental_docgenProvider(
       [],

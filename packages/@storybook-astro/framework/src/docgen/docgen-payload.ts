@@ -122,6 +122,8 @@ export async function buildDocgenPayload(
   );
 
   const argTypes = extractArgTypes({ __docgenInfo: info });
+  const tableArgTypes =
+    argTypes && context.prerendered ? withoutControls(argTypes) : argTypes;
 
   return {
     ...base,
@@ -129,7 +131,7 @@ export async function buildDocgenPayload(
     description,
     summary,
     jsDocTags,
-    argTypes: (argTypes && context.prerendered ? withoutControls(argTypes) : argTypes) ?? undefined,
+    argTypes: tableArgTypes ?? undefined,
     // Core strips argTypes before an agent sees the component (issue #353).
     apiDescription: formatApiDescription(argTypes, info),
     renderer: 'astro'
