@@ -28,11 +28,15 @@ export function slotArgName(slot: string): string {
  * per-slot arg still equal to its initial value is only the seeded copy of the
  * story's content, so `args.slots` wins instead, and a play function's
  * `updateArgs({ slots })`, a `slots.*` URL arg or the `slots` JSON editor still
- * show. Without `initialArgs`, every per-slot arg counts as an edit.
+ * show. A per-slot arg for a slot whose story content isn't text, such as a
+ * component, is ignored too: its control is locked, but a stray value (an old
+ * URL, say) must not replace the component with a string (#267). Without
+ * `initialArgs`, every per-slot arg counts as an edit.
  */
 export function splitStoryArgs(args: Args, initialArgs?: Args): { props: Args; slots: Args } {
   const props: Args = {};
   const slots: Args = isPlainObject(args.slots) ? { ...args.slots } : {};
+  const storySlots = isPlainObject(initialArgs?.slots) ? initialArgs.slots : {};
 
   for (const [key, value] of Object.entries(args)) {
     if (key === 'slots') {
@@ -40,10 +44,11 @@ export function splitStoryArgs(args: Args, initialArgs?: Args): { props: Args; s
     }
 
     if (key.startsWith(SLOT_ARG_PREFIX)) {
+      const slot = key.slice(SLOT_ARG_PREFIX.length);
       const wasEdited = !initialArgs || value !== initialArgs[key];
 
-      if (value !== undefined && wasEdited) {
-        slots[key.slice(SLOT_ARG_PREFIX.length)] = value;
+      if (value !== undefined && wasEdited && !holdsNonText(storySlots, slot)) {
+        slots[slot] = value;
       }
       continue;
     }
@@ -65,6 +70,13 @@ export function splitStoryArgs(args: Args, initialArgs?: Args): { props: Args; s
  * the JSON. A slot without a text control, or `slots: {}`, keeps the JSON
  * editor, since it's the only way to edit that content. The row stays in the
  * Docs table.
+ *
+ * With the Docgen Server on, the preview never sees the component's docgen, so
+ * an Astro story's slot rows aren't here yet. Each slot the story fills gets a
+ * row from the preview instead: a text control, or a locked one for content
+ * that isn't text (#267). The manager deep-merges these over the docgen
+ * payload's rows, so the payload's description and type stay and the lock
+ * wins. Without a payload row, this row is the slot's only control.
  */
 export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => {
   const initialSlots = context.initialArgs?.slots;
@@ -74,19 +86,26 @@ export const lockNonTextSlotControls: ArgTypesEnhancer<Renderer> = (context) => 
     return argTypes;
   }
 
-  for (const [slot, content] of Object.entries(initialSlots)) {
-    const key = slotArgName(slot);
+  const slotNames = Object.keys(initialSlots);
+  const addSlotRows = isDocgenServerOn() && isAstroStory(context);
 
-    if (argTypes[key] && content !== undefined && typeof content !== 'string') {
+  for (const slot of slotNames) {
+    const key = slotArgName(slot);
+    const isText = !holdsNonText(initialSlots, slot);
+
+    if (!argTypes[key] && addSlotRows) {
+      argTypes[key] = {
+        name: slot,
+        table: { category: 'slots' },
+        control: isText ? { type: 'text' } : { disable: true }
+      };
+    } else if (argTypes[key] && !isText) {
       argTypes[key] = { ...argTypes[key], control: { disable: true } };
     }
   }
 
-  const slotNames = Object.keys(initialSlots);
   const everySlotHasTextControl = slotNames.every(
-    (slot) =>
-      argTypes[slotArgName(slot)] &&
-      (initialSlots[slot] === undefined || typeof initialSlots[slot] === 'string')
+    (slot) => argTypes[slotArgName(slot)] && !holdsNonText(initialSlots, slot)
   );
 
   if (slotNames.length > 0 && everySlotHasTextControl) {
@@ -115,6 +134,37 @@ export const seedSlotArgs: ArgsEnhancer<Renderer> = (context) => {
   return seeded;
 };
 
-function isPlainObject(value: unknown): value is Args {
+/**
+ * With the Docgen Server on, the preview never sees the component's docgen: its
+ * `slot-<name>` rows reach the manager from the docgen payload, and the
+ * manager's `mergeServiceArgTypes` deep-merges the argTypes the preview
+ * prepared over them (#267). So `lockNonTextSlotControls` adds a row for every
+ * slot the story fills, and `seedSlotArgs` seeds from those rows.
+ * Storybook 10 reads `experimentalDocgenServer`; Storybook 11 renamed it to
+ * `docgenServer`.
+ */
+export function isDocgenServerOn(): boolean {
+  const features = (globalThis as { FEATURES?: Record<string, unknown> }).FEATURES;
+
+  return Boolean(features?.experimentalDocgenServer || features?.docgenServer);
+}
+
+function holdsNonText(slots: Args, slot: string): boolean {
+  return slots[slot] !== undefined && typeof slots[slot] !== 'string';
+}
+
+/**
+ * Only an Astro story folds per-slot args back into `slots`. A story delegated
+ * to a framework renderer would get the seeded arg as an unknown prop.
+ * `parameters.renderer` defaults to `'astro'`, so only another value delegates.
+ */
+function isAstroStory(context: { component?: unknown; parameters?: { renderer?: unknown } }): boolean {
+  const component = context.component as { isAstroComponentFactory?: boolean } | undefined;
+  const renderer = context.parameters?.renderer;
+
+  return Boolean(component?.isAstroComponentFactory) && (!renderer || renderer === 'astro');
+}
+
+export function isPlainObject(value: unknown): value is Args {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -347,8 +347,9 @@ function mergeEnvPrefixes(
  * `src/docgen/docgen-worker.ts`, which core's worker imports and composes into
  * its provider chain.
  *
- * Only when the user opted into the Docgen Server (`features.docgenServer`, or
- * `features.experimentalDocgenServer` before Storybook 11). Otherwise
+ * Only when the Docgen Server flag is on (`features.docgenServer`, or
+ * `features.experimentalDocgenServer` before Storybook 11): opt-in on 10.x, on
+ * by default on 11 through `isDocgenProviderEnabled`. Otherwise
  * extraction stays in the Vite plugin, which covers our whole `storybook`
  * peer range (docs/specs/docgen.md#design-decisions).
  */
@@ -388,7 +389,13 @@ export const experimental_docgenProvider = async (
       ),
       options: {
         projectRoot: frameworkOptions.resolveFrom ?? dirname(storybookOptions.configDir),
-        tsconfigPath: frameworkOptions.docgen?.tsconfigPath
+        tsconfigPath: frameworkOptions.docgen?.tsconfigPath,
+        // A static build writes the payloads into the output, and the stories
+        // in it are pre-rendered, so their controls can't change anything
+        // (issue #375). Matches the `isStaticMode` the preview gets.
+        prerendered:
+          storybookOptions.configType !== 'DEVELOPMENT' &&
+          (frameworkOptions.renderMode ?? 'static') === 'static'
       }
     }
   ];
@@ -455,10 +462,76 @@ export const experimental_manifests = async (
 };
 
 /**
+ * Storybook 11's default for `features.docgenServer`, as `@storybook/react` and
+ * `@storybook/vue3` provide it. Storybook 10 doesn't read this hook, so there
+ * the Docgen Server stays opt-in.
+ *
+ * Off when docgen is turned off, with a custom `docgen.propFilter` (a function
+ * can't cross the worker boundary, so the Vite plugin keeps extracting), or
+ * with no usable `typescript`. In that last case neither path extracts props:
+ * Storybook's `isTypeScriptReadyForDocgen` warns with the fix, and our
+ * extractor logs the same when a component loads. The check shipped
+ * in 11.0.0-alpha.9 and isn't in 10.x, so it's looked up rather than imported
+ * by name, which would fail to load on 10.x. A test build skips docgen anyway,
+ * so it doesn't check TypeScript or warn.
+ */
+export const isDocgenProviderEnabled = async (
+  _existing: unknown,
+  storybookOptions: Options
+): Promise<boolean> => {
+  if (storybookOptions.build?.test?.disableDocgen) {
+    return false;
+  }
+
+  const frameworkOptions =
+    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+
+  if (frameworkOptions.docgen === false || frameworkOptions.docgen?.propFilter) {
+    return false;
+  }
+
+  const { isTypeScriptReadyForDocgen } = (await import('storybook/internal/common')) as {
+    isTypeScriptReadyForDocgen?: (
+      resolve: (specifier: string) => string,
+      options: Options
+    ) => Promise<boolean>;
+  };
+
+  if (typeof isTypeScriptReadyForDocgen !== 'function') {
+    return false;
+  }
+
+  // Resolved from this package, which declares `typescript` as a peer, so a
+  // strict package manager finds the copy the docgen worker will import.
+  return isTypeScriptReadyForDocgen((specifier) => import.meta.resolve(specifier), storybookOptions);
+};
+
+/**
+ * Turns on the components manifest that `@storybook/addon-mcp` reads on
+ * Storybook 11, as `@storybook/react` and `@storybook/vue3` do. A
+ * `componentsManifest` set in the project's main config is merged after this,
+ * so it wins either way. Where the Docgen Server ends up off, core writes no
+ * Astro entries to the manifest, which is also what happens when
+ * `@storybook/addon-mcp` turns the manifest on itself. Storybook 10 keeps the
+ * manifest opt-in.
+ */
+export const features = async (
+  existing: Record<string, unknown> = {}
+): Promise<Record<string, unknown>> => {
+  const { flag } = await docgenServerFlags();
+
+  if (flag !== 'docgenServer') {
+    return existing;
+  }
+
+  return { ...existing, componentsManifest: true };
+};
+
+/**
  * Whether the Docgen Server owns extraction instead of the Vite plugin.
  *
- * Two things have to line up. The user has to opt into Storybook's docgen
- * service, and their Storybook has to actually ship the provider helpers the
+ * Two things have to line up. The Docgen Server flag has to be on (opt-in on
+ * 10.x, default on 11), and their Storybook has to actually ship the provider helpers the
  * worker is built on — those landed in 10.6, while our peer range goes back to
  * 10.0. On an older Storybook we say so and stay on the builder path, which
  * produces the same table.
@@ -469,16 +542,19 @@ export const experimental_manifests = async (
  */
 async function usesDocgenService(storybookOptions: Options): Promise<boolean> {
   // Typed against the Storybook we build with, which knows only one of the names.
-  const features = (await storybookOptions.presets.apply('features', {})) as Record<string, unknown>;
+  const resolvedFeatures = (await storybookOptions.presets.apply('features', {})) as Record<
+    string,
+    unknown
+  >;
   const { flag, ignoredFlag } = await docgenServerFlags();
 
-  if (features[ignoredFlag] === true && features[flag] !== true) {
+  if (resolvedFeatures[ignoredFlag] === true && resolvedFeatures[flag] !== true) {
     warnOnce(
       `\`features.${ignoredFlag}\` has no effect on this version of Storybook; it reads \`features.${flag}\`. Component documentation is still extracted in the builder.`
     );
   }
 
-  if (features[flag] !== true) {
+  if (resolvedFeatures[flag] !== true) {
     return false;
   }
 

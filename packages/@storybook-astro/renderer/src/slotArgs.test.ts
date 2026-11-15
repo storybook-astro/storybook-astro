@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { lockNonTextSlotControls, seedSlotArgs, slotArgName, splitStoryArgs } from './slotArgs.ts';
 
 const slotArgTypes = {
@@ -71,6 +71,14 @@ describe('splitStoryArgs', () => {
     expect(splitStoryArgs(args, initialArgs).slots).toEqual({ default: '<p>Edited</p>' });
   });
 
+  test('a text edit never replaces a component the story put in the slot', () => {
+    const Badge = () => {};
+    const initialArgs = { slots: { default: Badge } };
+    const args = { slots: { default: Badge }, [slotArgName('default')]: 'typed text' };
+
+    expect(splitStoryArgs(args, initialArgs).slots).toEqual({ default: Badge });
+  });
+
   test('ignores a slots arg that isn\'t an object', () => {
     expect(splitStoryArgs({ slots: 'nope' }).slots).toEqual({});
   });
@@ -141,5 +149,116 @@ describe('lockNonTextSlotControls', () => {
     } as never);
 
     expect(argTypes.slots).toBeUndefined();
+  });
+});
+
+describe('with the Docgen Server on', () => {
+  // The preview gets no docgen on this path, so no `slot-<name>` argTypes: the
+  // payload's rows reach the manager, which deep-merges the preview's rows over
+  // them (#267). So the preview adds a row for each slot the story fills.
+  const astroStory = {
+    component: { isAstroComponentFactory: true },
+    parameters: { renderer: 'astro' }
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test.each(['experimentalDocgenServer', 'docgenServer'])(
+    'gives a text slot a text control in the slots category and seeds it (%s)',
+    (flag) => {
+      vi.stubGlobal('FEATURES', { [flag]: true });
+
+      const initialArgs = { slots: { default: 'Hi' } };
+      const argTypes = lockNonTextSlotControls({ ...astroStory, argTypes: {}, initialArgs } as never);
+
+      expect(argTypes[slotArgName('default')]).toEqual({
+        name: 'default',
+        table: { category: 'slots' },
+        control: { type: 'text' }
+      });
+      expect(seedSlotArgs({ ...astroStory, argTypes, initialArgs } as never)).toEqual({
+        [slotArgName('default')]: 'Hi'
+      });
+    }
+  );
+
+  test('gives a slot holding a component a locked row, so the payload\'s text control stays off', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const Badge = () => {};
+    const initialArgs = { slots: { default: Badge } };
+    const argTypes = lockNonTextSlotControls({ ...astroStory, argTypes: {}, initialArgs } as never);
+
+    expect(argTypes[slotArgName('default')]).toEqual({
+      name: 'default',
+      table: { category: 'slots' },
+      control: { disable: true }
+    });
+    expect(seedSlotArgs({ ...astroStory, argTypes, initialArgs } as never)).toEqual({});
+  });
+
+  test('locks a preview row it already has for a slot holding a component', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const argTypes = lockNonTextSlotControls({
+      ...astroStory,
+      argTypes: { [slotArgName('default')]: { name: 'default', description: 'Body' } },
+      initialArgs: { slots: { default: () => {} } }
+    } as never);
+
+    expect(argTypes[slotArgName('default')]).toEqual({
+      name: 'default',
+      description: 'Body',
+      control: { disable: true }
+    });
+  });
+
+  test('locks the slots JSON editor when every filled slot holds text, so a JSON edit is never silently overridden', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const argTypes = lockNonTextSlotControls({
+      ...astroStory,
+      argTypes: {},
+      initialArgs: { slots: { default: '<p>A</p>', footer: '<b>OK</b>' } }
+    } as never);
+
+    expect(argTypes.slots).toEqual({ control: { disable: true } });
+  });
+
+  test('keeps the slots JSON editor for a slot holding a component', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const argTypes = lockNonTextSlotControls({
+      ...astroStory,
+      argTypes: {},
+      initialArgs: { slots: { default: '<p>A</p>', footer: () => {} } }
+    } as never);
+
+    expect(argTypes.slots).toBeUndefined();
+  });
+
+  test('leaves a story delegated to a framework renderer alone, since only Astro stories fold slot args back', () => {
+    vi.stubGlobal('FEATURES', { experimentalDocgenServer: true });
+
+    const context = {
+      component: () => {},
+      parameters: { renderer: 'vue' },
+      argTypes: {},
+      initialArgs: { slots: { default: 'Hi', footer: () => {} } }
+    } as never;
+
+    expect(seedSlotArgs(context)).toEqual({});
+    expect(lockNonTextSlotControls(context)).toEqual({});
+  });
+
+  test('without it, a slot the docgen didn\'t find gets no arg and no row', () => {
+    vi.stubGlobal('FEATURES', {});
+
+    expect(seedSlotArgs({ argTypes: {}, initialArgs: { slots: { default: '<p>Body</p>' } } } as never)).toEqual({});
+    expect(
+      lockNonTextSlotControls({ argTypes: {}, initialArgs: { slots: { default: () => {} } } } as never)
+    ).toEqual({});
   });
 });

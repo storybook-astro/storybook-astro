@@ -25,8 +25,9 @@ function isAstroComponent(component: unknown): boolean {
 function disablePrerenderedControls(context: {
   component: unknown;
   argTypes: Record<string, Record<string, unknown>>;
+  initialArgs?: Record<string, unknown>;
 }) {
-  const { component, argTypes } = context;
+  const { component, argTypes, initialArgs = {} } = context;
 
   if (!isAstroComponent(component)) {
     return argTypes;
@@ -36,6 +37,14 @@ function disablePrerenderedControls(context: {
 
   for (const [key, argType] of Object.entries(argTypes)) {
     disabledArgTypes[key] = { ...argType, control: false };
+  }
+
+  // An arg with no row yet, such as `slots` holding a component or a
+  // pass-through `class`, gets one from Storybook's inference after this runs,
+  // in the preview or (with the Docgen Server) in the manager. A row here keeps
+  // that inferred control off too (issue #375).
+  for (const key of Object.keys(initialArgs)) {
+    disabledArgTypes[key] ??= { control: false };
   }
 
   disabledArgTypes['_astroPrerendered'] = {
