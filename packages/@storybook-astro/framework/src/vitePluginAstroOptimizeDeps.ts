@@ -3,7 +3,8 @@ import { astroDepScanEsbuildPlugin, astroDepScanRolldownPlugin } from './vitePlu
 
 // Integration virtual modules have no real package behind them, so the
 // dependency bundler must leave them external rather than fail to resolve them.
-// esbuild needs this; Rolldown leaves an unresolved import external on its own.
+// esbuild fails without this. Rolldown left them external on its own when
+// tested, but they're listed for it too, as they were before #378.
 const integrationVirtualModules = [
   'virtual:@astrojs/vue/app',
   'virtual:astro:vue-app',

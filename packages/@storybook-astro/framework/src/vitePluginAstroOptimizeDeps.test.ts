@@ -39,6 +39,7 @@ describe('dependency optimizer options follow the Vite that runs the config (#37
 
     expect(optimizeDeps.esbuildOptions).toBeUndefined();
     expect(optimizeDeps.rolldownOptions).toBeUndefined();
+    expect(optimizeDeps.rollupOptions.external).toContain('astro:react:opts');
     expect(optimizeDeps.rollupOptions.plugins.map((plugin) => plugin.name)).toEqual(['storybook-astro:dep-scan']);
   });
 

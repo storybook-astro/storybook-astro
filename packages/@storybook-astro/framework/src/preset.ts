@@ -1,6 +1,5 @@
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Plugin, PluginOption } from 'vite';
 import type {
   ComponentsManifest,
   DocgenProviderDescriptor,
@@ -24,6 +23,7 @@ import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import { vitePluginAstroOptimizeDeps } from './vitePluginAstroOptimizeDeps.ts';
+import { vitePluginSkipNativeReactRefresh } from './vitePluginSkipNativeReactRefresh.ts';
 import {
   appendUserVitePlugins,
   loadUserAstroFonts,
@@ -236,7 +236,7 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
   finalConfig.plugins = [...(finalConfig.plugins ?? []), vitePluginAstroOptimizeDeps()];
 
   if (configType === 'DEVELOPMENT') {
-    finalConfig.plugins = skipNativeReactRefreshWrapper(finalConfig.plugins);
+    finalConfig.plugins.push(vitePluginSkipNativeReactRefresh());
 
     // Exclude the Storybook renderer entry-previews from dependency optimization.
     // Some ship non-JS source (e.g. `@storybook/svelte`'s `.svelte` files) that
@@ -256,65 +256,6 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
 
   return finalConfig;
 };
-
-/**
- * Vite 8 dev-server compatibility (Astro 7+). On Vite 8, @vitejs/plugin-react's
- * `vite:react:refresh-wrapper` plugin swaps itself for a Rolldown builtin
- * (`builtin:vite-react-refresh-wrapper`) that throws "Missing field
- * `moduleType`" while transforming Storybook's iframe.html inline bootstrap
- * script, which 500s every preview load. There is no config opt-out, so when
- * the plugin picks the builtin, it's left out of that environment instead.
- * React components still render; only Fast Refresh is lost (component edits
- * full-reload). On Vite 6 and 7 the plugin keeps its JavaScript transform and
- * Fast Refresh keeps working.
- *
- * This keys off the plugin's own choice rather than a Vite version, since that
- * choice is what installs the builtin.
- */
-export function skipNativeReactRefreshWrapper(plugins: PluginOption[]): PluginOption[] {
-  return plugins.map(skipNativeBuiltin);
-}
-
-function skipNativeBuiltin(plugin: PluginOption): PluginOption {
-  if (Array.isArray(plugin)) {
-    return plugin.map(skipNativeBuiltin);
-  }
-
-  // A plugin listed as a Promise, such as one loaded from astro.config's
-  // `vite.plugins`. Vite awaits these, so wrap the plugin once it arrives.
-  if (plugin instanceof Promise) {
-    return plugin.then(skipNativeBuiltin);
-  }
-
-  const isRefreshWrapper =
-    typeof plugin === 'object' &&
-    plugin !== null &&
-    (plugin as Plugin).name === 'vite:react:refresh-wrapper' &&
-    typeof (plugin as Plugin).applyToEnvironment === 'function';
-
-  if (!isRefreshWrapper) {
-    return plugin;
-  }
-
-  const refreshWrapper = plugin as Plugin;
-  const chooseEnvironments = refreshWrapper.applyToEnvironment!;
-
-  // Vite registers this copy. When plugin-react picks the builtin, it deletes
-  // `transform` from its original object, not the copy, which doesn't matter
-  // here because the copy is then left out of that environment.
-  return {
-    ...refreshWrapper,
-    async applyToEnvironment(environment) {
-      const applied = await chooseEnvironments.call(this, environment);
-      const isNativeBuiltin =
-        typeof applied === 'object' &&
-        applied !== null &&
-        (applied as { name?: string }).name === 'builtin:vite-react-refresh-wrapper';
-
-      return isNativeBuiltin ? false : applied;
-    }
-  } as Plugin;
-}
 
 function mergeEnvPrefixes(
   existing: string | string[] | undefined,
