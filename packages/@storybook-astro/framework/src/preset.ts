@@ -1,5 +1,6 @@
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Plugin, PluginOption } from 'vite';
 import type {
   ComponentsManifest,
   DocgenProviderDescriptor,
@@ -21,12 +22,8 @@ import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegra
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
-import { resolveProjectViteMajor } from './lib/projectViteMajor.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
-import {
-  astroDepScanEsbuildPlugin,
-  astroDepScanRolldownPlugin
-} from './vitePluginAstroDepScan.ts';
+import { vitePluginAstroOptimizeDeps } from './vitePluginAstroOptimizeDeps.ts';
 import {
   appendUserVitePlugins,
   loadUserAstroFonts,
@@ -234,82 +231,12 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     }
   }
 
-  // Mark integration virtual modules as external so the dep bundler doesn't
-  // try to resolve them (they are Vite virtual modules with no real package).
-  // Vite ≤7 reads these from esbuildOptions; Vite 8+ uses Rolldown and reads
-  // them from rolldownOptions. We populate whichever key the running Vite uses.
-  const integrationVirtualModules = [
-    'virtual:@astrojs/vue/app',
-    'virtual:astro:vue-app',
-    'astro:react:opts',
-    'astro:preact:opts',
-    'astro:toolbar:internal'
-  ];
+  // The optimizer options differ between Vite 6/7 (esbuild) and Vite 8
+  // (Rolldown), so a plugin sets them once it knows which Vite is running.
+  finalConfig.plugins = [...(finalConfig.plugins ?? []), vitePluginAstroOptimizeDeps()];
 
-  const viteMajor = resolveProjectViteMajor(resolveFrom);
-
-  // Vite ≤7 (esbuild-based optimizer). On Vite 8+ setting esbuildOptions logs a
-  // deprecation warning, so only touch it on older Vite.
-  if (viteMajor < 8) {
-    if (!finalConfig.optimizeDeps.esbuildOptions) {
-      finalConfig.optimizeDeps.esbuildOptions = {};
-    }
-    if (!finalConfig.optimizeDeps.esbuildOptions.external) {
-      finalConfig.optimizeDeps.esbuildOptions.external = [];
-    }
-    for (const mod of integrationVirtualModules) {
-      if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
-        finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
-      }
-    }
-
-    if (!finalConfig.optimizeDeps.esbuildOptions.plugins) {
-      finalConfig.optimizeDeps.esbuildOptions.plugins = [];
-    }
-    finalConfig.optimizeDeps.esbuildOptions.plugins.push(astroDepScanEsbuildPlugin());
-  }
-
-  // Vite 8+ uses Rolldown for dependency optimization.
-  const optimizeDepsMut = finalConfig.optimizeDeps as Record<string, unknown>;
-  const rolldownOpts = (optimizeDepsMut.rolldownOptions ?? {}) as {
-    external?: string[];
-    plugins?: unknown[];
-  };
-
-  rolldownOpts.external = Array.from(
-    new Set([...(rolldownOpts.external ?? []), ...integrationVirtualModules])
-  );
-
-  if (viteMajor >= 8) {
-    rolldownOpts.plugins = [...(rolldownOpts.plugins ?? []), astroDepScanRolldownPlugin()];
-  }
-  optimizeDepsMut.rolldownOptions = rolldownOpts;
-
-  // Vite 8 dev-server compatibility (Astro 7+). Vite ≤7 (Astro 5/6) is unaffected.
-  if (configType === 'DEVELOPMENT' && viteMajor >= 8) {
-    // Drop @vitejs/plugin-react's Vite 8 native Fast Refresh wrapper. Under
-    // Vite 8 the plugin delegates Fast Refresh to a Rolldown builtin
-    // (`builtin:vite-react-refresh-wrapper`) that throws
-    // "Missing field `moduleType`" while transforming Storybook's iframe.html
-    // inline bootstrap script — 500-ing every preview load. There is no
-    // config opt-out, so we remove the plugin. React components still render;
-    // only Fast Refresh is lost (component edits full-reload instead).
-    const stripReactRefreshWrapper = (plugins: unknown[]): unknown[] =>
-      plugins
-        .map((plugin) => (Array.isArray(plugin) ? stripReactRefreshWrapper(plugin) : plugin))
-        .filter(
-          (plugin) =>
-            !(
-              plugin &&
-              typeof plugin === 'object' &&
-              (plugin as { name?: string }).name === 'vite:react:refresh-wrapper'
-            )
-        );
-
-    finalConfig.plugins = stripReactRefreshWrapper(
-      finalConfig.plugins ?? []
-    ) as typeof finalConfig.plugins;
-
+  if (configType === 'DEVELOPMENT') {
+    finalConfig.plugins = skipNativeReactRefreshWrapper(finalConfig.plugins);
   }
 
   // Exclude the Storybook renderer entry-previews from dependency optimization.
@@ -331,6 +258,56 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
 
   return finalConfig;
 };
+
+/**
+ * Vite 8 dev-server compatibility (Astro 7+). On Vite 8, @vitejs/plugin-react's
+ * `vite:react:refresh-wrapper` plugin swaps itself for a Rolldown builtin
+ * (`builtin:vite-react-refresh-wrapper`) that throws "Missing field
+ * `moduleType`" while transforming Storybook's iframe.html inline bootstrap
+ * script, which 500s every preview load. There is no config opt-out, so when
+ * the plugin picks the builtin, it's left out of that environment instead.
+ * React components still render; only Fast Refresh is lost (component edits
+ * full-reload). On Vite 6 and 7 the plugin keeps its JavaScript transform and
+ * Fast Refresh keeps working.
+ *
+ * This keys off the plugin's own choice rather than a Vite version, because in
+ * a monorepo the running Vite can't be read reliably from the filesystem (#378).
+ */
+export function skipNativeReactRefreshWrapper(plugins: PluginOption[]): PluginOption[] {
+  return plugins.map((plugin) => {
+    if (Array.isArray(plugin)) {
+      return skipNativeReactRefreshWrapper(plugin);
+    }
+
+    if (!isRefreshWrapperPlugin(plugin)) {
+      return plugin;
+    }
+
+    const chooseEnvironments = plugin.applyToEnvironment;
+
+    return {
+      ...plugin,
+      async applyToEnvironment(environment) {
+        const applied = await chooseEnvironments.call(this, environment);
+
+        // `true` or `false` keeps the plugin's own choice; anything else is
+        // the native builtin it swaps itself for.
+        return typeof applied === 'boolean' ? applied : false;
+      }
+    };
+  });
+}
+
+function isRefreshWrapperPlugin(
+  plugin: PluginOption
+): plugin is Plugin & { applyToEnvironment: NonNullable<Plugin['applyToEnvironment']> } {
+  return (
+    Boolean(plugin) &&
+    typeof plugin === 'object' &&
+    (plugin as Plugin).name === 'vite:react:refresh-wrapper' &&
+    typeof (plugin as Plugin).applyToEnvironment === 'function'
+  );
+}
 
 function mergeEnvPrefixes(
   existing: string | string[] | undefined,

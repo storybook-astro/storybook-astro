@@ -6,7 +6,8 @@ import {
   experimental_manifests,
   experimental_storyDocsProvider,
   features as applyFeatures,
-  isDocgenProviderEnabled
+  isDocgenProviderEnabled,
+  skipNativeReactRefreshWrapper
 } from './preset.ts';
 /* eslint-enable camelcase */
 import type { FrameworkOptions } from './types.ts';
@@ -420,5 +421,44 @@ describe('providing story docs for AI agents (issue #354)', () => {
     const provider = await experimental_storyDocsProvider(next);
 
     expect(await provider({ entry: reactEntry })).toBe(theirs);
+  });
+});
+
+describe('the React Fast Refresh wrapper in dev (#378)', () => {
+  const nativeBuiltin = { name: 'builtin:vite-react-refresh-wrapper' };
+  const clientEnvironment = { name: 'client' } as never;
+
+  function refreshWrapper(choice: unknown) {
+    return { name: 'vite:react:refresh-wrapper', applyToEnvironment: async () => choice };
+  }
+
+  async function environmentsChosen(plugins: unknown[]) {
+    const [wrapper] = skipNativeReactRefreshWrapper(plugins as never).flat() as {
+      applyToEnvironment: (environment: never) => Promise<unknown>;
+    }[];
+
+    return wrapper.applyToEnvironment(clientEnvironment);
+  }
+
+  test("is left out where it would swap in Vite 8's native builtin, which breaks Storybook's iframe", async () => {
+    expect(await environmentsChosen([refreshWrapper(nativeBuiltin)])).toBe(false);
+  });
+
+  test('keeps its JavaScript transform on Vite 6 and 7, so Fast Refresh keeps working', async () => {
+    expect(await environmentsChosen([refreshWrapper(true)])).toBe(true);
+  });
+
+  test('keeps skipping environments it skips itself, such as SSR', async () => {
+    expect(await environmentsChosen([refreshWrapper(false)])).toBe(false);
+  });
+
+  test('is found inside the nested plugin arrays plugin-react returns', async () => {
+    expect(await environmentsChosen([[refreshWrapper(nativeBuiltin)]])).toBe(false);
+  });
+
+  test('leaves other plugins untouched', () => {
+    const other = { name: 'vite:react-babel' };
+
+    expect(skipNativeReactRefreshWrapper([other] as never)).toEqual([other]);
   });
 });
