@@ -66,6 +66,31 @@ describe("plugin-react's refresh wrapper in the Storybook dev server (#378)", ()
     expect(await wrapper.applyToEnvironment()).toBe(nativeBuiltin);
   });
 
+  test('is left out on plain Vite 7 when plugin-react sees a hoisted Vite 8, since Vite 7 cannot run it', async () => {
+    const plugin = vitePluginSkipNativeReactRefresh() as unknown as {
+      configResolved: (this: unknown, config: { plugins: unknown[] }) => void;
+    };
+    const wrapper = refreshWrapper(nativeBuiltin);
+
+    plugin.configResolved.call({ meta: { viteVersion: '7.3.1', rollupVersion: '4.0.0' } }, { plugins: [wrapper] });
+
+    expect(await wrapper.applyToEnvironment()).toBe(false);
+  });
+
+  test('is patched once when the same plugin-react object is resolved again, as on a server restart', async () => {
+    const wrapper = refreshWrapper(nativeBuiltin);
+    const plugin = vitePluginSkipNativeReactRefresh() as unknown as {
+      configResolved: (this: unknown, config: { plugins: unknown[] }) => void;
+    };
+
+    plugin.configResolved.call(undefined, { plugins: [wrapper] });
+    const patched = wrapper.applyToEnvironment;
+
+    plugin.configResolved.call(undefined, { plugins: [wrapper] });
+
+    expect(wrapper.applyToEnvironment).toBe(patched);
+  });
+
   test('is found when plugin-react is listed before this plugin, as a later viteFinal or a Vitest config may', async () => {
     const config = await resolveConfig(
       { root, configFile: false, logLevel: 'silent', plugins: [refreshWrapper(nativeBuiltin), vitePluginSkipNativeReactRefresh()] },

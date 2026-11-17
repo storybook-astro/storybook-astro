@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - On Storybook 11, the Docgen Server and the components manifest are on by default, so AI agents using `@storybook/addon-mcp` get Astro components' props, slots and story snippets without configuration (#214). Turn them off with `features: { docgenServer: false }` or `features: { componentsManifest: false }`. Storybook 10.6 is unchanged.
+- `viteFinal` no longer returns `optimizeDeps.esbuildOptions` or `rolldownOptions`; a plugin adds them for the Vite that runs (#378). A `viteFinal` in `.storybook/main.js` that pushes onto them must create them first. To drop the framework's optimizer options, filter the `storybook-astro:optimize-deps` plugin out of `config.plugins`.
 
 ### Fixed
 - The props table shows each default as the component writes it, drops props marked `@ignore`, and AI agents get a prop's whole type instead of TypeScript's shortened one (#355, #356, #357).
