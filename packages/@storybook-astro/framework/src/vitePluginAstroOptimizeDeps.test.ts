@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import * as vite from 'vite';
 import { resolveConfig, version as viteVersion } from 'vite';
 import { vitePluginAstroOptimizeDeps } from './vitePluginAstroOptimizeDeps.ts';
 
@@ -69,7 +70,8 @@ describe('dependency optimizer options follow the Vite that runs the config (#37
         'serve'
       );
       const optimizeDeps = config.optimizeDeps as unknown as Record<string, OptimizerOptions | undefined>;
-      const expectedKey = Number.parseInt(viteVersion, 10) >= 8 ? 'rolldownOptions' : 'esbuildOptions';
+      // Read the way the plugin reads it, so the test holds with rolldown-vite 7 installed too.
+      const expectedKey = 'rolldownVersion' in vite ? 'rolldownOptions' : 'esbuildOptions';
 
       expect(optimizeDeps[expectedKey]?.external).toContain('astro:react:opts');
       expect(optimizeDeps[expectedKey]?.plugins?.map((plugin) => plugin.name)).toContain('storybook-astro:dep-scan');

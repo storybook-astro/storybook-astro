@@ -34,12 +34,13 @@ export function vitePluginAstroOptimizeDeps(): Plugin {
     name: 'storybook-astro:optimize-deps',
     config(this: ConfigHookContext): UserConfig {
       const meta = this?.meta;
+      const usesRolldown = Boolean(meta?.rolldownVersion);
       let optionsKey = 'esbuildOptions';
 
-      if (meta?.rolldownVersion) {
+      if (usesRolldown) {
         // rolldown-vite 7.0 reads its optimizer's options from rollupOptions;
         // 7.1 and later, and Vite 8, from rolldownOptions.
-        optionsKey = meta.viteVersion?.startsWith('7.0.') ? 'rollupOptions' : 'rolldownOptions';
+        optionsKey = meta?.viteVersion?.startsWith('7.0.') ? 'rollupOptions' : 'rolldownOptions';
       }
 
       return {
@@ -48,7 +49,7 @@ export function vitePluginAstroOptimizeDeps(): Plugin {
             // A copy, since the resolved config keeps this array and later
             // plugins may push to it.
             external: [...integrationVirtualModules],
-            plugins: [meta?.rolldownVersion ? astroDepScanRolldownPlugin() : astroDepScanEsbuildPlugin()]
+            plugins: [usesRolldown ? astroDepScanRolldownPlugin() : astroDepScanEsbuildPlugin()]
           }
         }
       } as UserConfig;

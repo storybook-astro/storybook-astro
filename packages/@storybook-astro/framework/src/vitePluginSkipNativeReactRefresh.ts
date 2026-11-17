@@ -10,10 +10,9 @@ import type { Plugin } from 'vite';
  * React components still render; only Fast Refresh is lost (component edits
  * full-reload).
  *
- * This keys off plugin-react's own choice rather than a Vite version. That
- * choice reads Vite from plugin-react's install location, so in a monorepo
- * where that Vite is 8 and the running one is 6 or 7, Fast Refresh is off
- * there too (#379).
+ * It applies only when the running Vite is 8 and plugin-react hands back the
+ * builtin. Both are checked because plugin-react decides from the Vite next to
+ * it, which in a monorepo can differ from the running one (#379).
  *
  * The patch runs in `configResolved`, which Vite calls with every plugin,
  * flattened, before it asks each one which environments it applies to. That
@@ -21,10 +20,21 @@ import type { Plugin } from 'vite';
  * later `viteFinal`, or a Vitest config.
  */
 export function vitePluginSkipNativeReactRefresh(): Plugin {
+  let runsOnVite8 = false;
+
   return {
     name: 'storybook-astro:skip-native-react-refresh',
-    apply: 'serve',
+    // The 500 was only seen on Vite 8. rolldown-vite 7 also offers the
+    // builtin, so the running Vite's version is checked here too, to keep
+    // Fast Refresh there. Vite 6 calls this hook with no `this`.
+    config(this: { meta?: { viteVersion?: string } } | void) {
+      runsOnVite8 = Number.parseInt(this?.meta?.viteVersion ?? '0', 10) >= 8;
+    },
     configResolved(config) {
+      if (!runsOnVite8) {
+        return;
+      }
+
       for (const plugin of config.plugins) {
         const chooseEnvironments = plugin.applyToEnvironment;
 
