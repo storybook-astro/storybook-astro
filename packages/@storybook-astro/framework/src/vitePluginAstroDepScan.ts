@@ -115,8 +115,9 @@ export function astroScanModule(source: string): string {
 const ASTRO_FILE = /\.astro$/;
 
 /**
- * Scanner plugin for Vite 8+, whose optimizer runs on Rolldown. Registered via
- * `optimizeDeps.rolldownOptions.plugins`, which the scanner loads ahead of its
+ * Scanner plugin for Vite 8 and rolldown-vite 7, whose optimizer runs on
+ * Rolldown. Registered via `optimizeDeps.rolldownOptions.plugins`
+ * (`rollupOptions` on rolldown-vite 7.0), which the scanner loads ahead of its
  * own plugins — so this `load` wins over Vite's `<script>` extraction.
  */
 export function astroDepScanRolldownPlugin() {
@@ -137,7 +138,7 @@ export function astroDepScanRolldownPlugin() {
 }
 
 /**
- * Scanner plugin for Vite 6 and 7, whose optimizer runs on esbuild. Registered
+ * Scanner plugin for plain Vite 6 and 7, whose optimizer runs on esbuild. Registered
  * via `optimizeDeps.esbuildOptions.plugins`, which the scanner loads ahead of
  * its own plugin — so these `onLoad` callbacks win over Vite's `<script>`
  * extraction.

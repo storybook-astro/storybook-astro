@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { IndexEntry, Options, StoryDocsPayload } from 'storybook/internal/types';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 /* eslint-disable camelcase -- the preset keys Storybook core reads. */
@@ -6,7 +7,8 @@ import {
   experimental_manifests,
   experimental_storyDocsProvider,
   features as applyFeatures,
-  isDocgenProviderEnabled
+  isDocgenProviderEnabled,
+  viteFinal
 } from './preset.ts';
 /* eslint-enable camelcase */
 import type { FrameworkOptions } from './types.ts';
@@ -422,3 +424,36 @@ describe('providing story docs for AI agents (issue #354)', () => {
     expect(await provider({ entry: reactEntry })).toBe(theirs);
   });
 });
+
+describe('the Vite plugins viteFinal adds (#378)', () => {
+  async function storybookAstroPluginNames(configType: Options['configType']) {
+    const config = await viteFinal!(
+      {},
+      storybookOptions({
+        configType,
+        // This package has astro installed, which viteFinal loads.
+        frameworkOptions: { integrations: [], fonts: [], resolveFrom: fileURLToPath(new URL('..', import.meta.url)) }
+      })
+    );
+    const plugins = await Promise.all((config.plugins ?? []).flat(Infinity as 1));
+
+    return plugins
+      .flat(Infinity as 1)
+      .map((plugin) => (plugin && typeof plugin === 'object' && 'name' in plugin ? plugin.name : undefined))
+      .filter((name) => name?.startsWith('storybook-astro:'));
+  }
+
+  test('the dev server gets the optimizer options and the Fast Refresh workaround', async () => {
+    const names = await storybookAstroPluginNames('DEVELOPMENT');
+
+    expect(names).toContain('storybook-astro:optimize-deps');
+    expect(names).toContain('storybook-astro:skip-native-react-refresh');
+  });
+
+  test('a static build gets the optimizer options only', async () => {
+    const names = await storybookAstroPluginNames('PRODUCTION');
+
+    expect(names).toContain('storybook-astro:optimize-deps');
+    expect(names).not.toContain('storybook-astro:skip-native-react-refresh');
+  });
+}, 60_000);
