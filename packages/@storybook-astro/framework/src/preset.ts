@@ -270,8 +270,8 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
  * full-reload). On Vite 6 and 7 the plugin keeps its JavaScript transform and
  * Fast Refresh keeps working.
  *
- * This keys off the plugin's own choice rather than a Vite version, because in
- * a monorepo the running Vite can't be read reliably from the filesystem (#378).
+ * This keys off the plugin's own choice rather than a Vite version, since that
+ * choice is what installs the builtin.
  */
 export function skipNativeReactRefreshWrapper(plugins: PluginOption[]): PluginOption[] {
   return plugins.map((plugin) => {
@@ -279,14 +279,24 @@ export function skipNativeReactRefreshWrapper(plugins: PluginOption[]): PluginOp
       return skipNativeReactRefreshWrapper(plugin);
     }
 
-    if (!isRefreshWrapperPlugin(plugin)) {
+    const isRefreshWrapper =
+      typeof plugin === 'object' &&
+      plugin !== null &&
+      (plugin as Plugin).name === 'vite:react:refresh-wrapper' &&
+      typeof (plugin as Plugin).applyToEnvironment === 'function';
+
+    if (!isRefreshWrapper) {
       return plugin;
     }
 
-    const chooseEnvironments = plugin.applyToEnvironment;
+    const refreshWrapper = plugin as Plugin;
+    const chooseEnvironments = refreshWrapper.applyToEnvironment!;
 
+    // Vite registers this copy. When plugin-react picks the builtin, it deletes
+    // `transform` from its original object, not the copy, which doesn't matter
+    // here because the copy is then left out of that environment.
     return {
-      ...plugin,
+      ...refreshWrapper,
       async applyToEnvironment(environment) {
         const applied = await chooseEnvironments.call(this, environment);
 
@@ -296,17 +306,6 @@ export function skipNativeReactRefreshWrapper(plugins: PluginOption[]): PluginOp
       }
     };
   });
-}
-
-function isRefreshWrapperPlugin(
-  plugin: PluginOption
-): plugin is Plugin & { applyToEnvironment: NonNullable<Plugin['applyToEnvironment']> } {
-  return (
-    Boolean(plugin) &&
-    typeof plugin === 'object' &&
-    (plugin as Plugin).name === 'vite:react:refresh-wrapper' &&
-    typeof (plugin as Plugin).applyToEnvironment === 'function'
-  );
 }
 
 function mergeEnvPrefixes(
