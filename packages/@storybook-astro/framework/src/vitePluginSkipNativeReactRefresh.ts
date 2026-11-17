@@ -1,5 +1,9 @@
 import type { Plugin } from 'vite';
 
+// plugin-react's plugin objects outlive one config: addon-vitest's servers and
+// a server restart resolve the same objects again, so each is patched once.
+const patchedPlugins = new WeakSet<Plugin>();
+
 /**
  * Vite 8 dev-server compatibility (Astro 7+). On Vite 8, @vitejs/plugin-react's
  * `vite:react:refresh-wrapper` plugin swaps itself for a Rolldown builtin
@@ -20,10 +24,6 @@ import type { Plugin } from 'vite';
  * covers plugin-react however it was added: by Astro's React integration, a
  * later `viteFinal`, or a Vitest config.
  */
-// plugin-react's plugin objects outlive one config: addon-vitest's servers and
-// a server restart resolve the same objects again, so each is patched once.
-const patchedPlugins = new WeakSet<Plugin>();
-
 export function vitePluginSkipNativeReactRefresh(): Plugin {
   return {
     name: 'storybook-astro:skip-native-react-refresh',

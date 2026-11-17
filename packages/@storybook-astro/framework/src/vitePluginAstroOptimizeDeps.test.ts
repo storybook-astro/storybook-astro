@@ -69,10 +69,33 @@ describe('dependency optimizer options follow the Vite that runs the config (#37
         'serve'
       );
       const optimizeDeps = config.optimizeDeps as unknown as Record<string, OptimizerOptions | undefined>;
-      // The framework's dev dependency pins Vite 8, which reads rolldownOptions.
+      // This repo installs Vite 8, which reads rolldownOptions.
 
       expect(optimizeDeps.rolldownOptions?.external).toContain('astro:react:opts');
       expect(optimizeDeps.rolldownOptions?.plugins?.map((plugin) => plugin.name)).toContain('storybook-astro:dep-scan');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the dep-scan plugin comes ahead of another plugin's optimizer plugins, so its .astro loader wins", async () => {
+    const root = mkdtempSync(join(tmpdir(), 'optimize-deps-'));
+    const otherPlugin = {
+      name: 'other',
+      config: () => ({ optimizeDeps: { rolldownOptions: { plugins: [{ name: 'other-astro-loader' }] } } })
+    };
+
+    try {
+      const config = await resolveConfig(
+        { root, configFile: false, logLevel: 'silent', plugins: [otherPlugin, vitePluginAstroOptimizeDeps()] },
+        'serve'
+      );
+      const optimizeDeps = config.optimizeDeps as unknown as Record<string, OptimizerOptions>;
+
+      expect(optimizeDeps.rolldownOptions.plugins.map((plugin) => plugin.name)).toEqual([
+        'storybook-astro:dep-scan',
+        'other-astro-loader'
+      ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

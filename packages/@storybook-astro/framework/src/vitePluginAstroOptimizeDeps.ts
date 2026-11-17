@@ -32,6 +32,9 @@ type ConfigHookContext = { meta?: { viteVersion?: string; rolldownVersion?: stri
 export function vitePluginAstroOptimizeDeps(): Plugin {
   return {
     name: 'storybook-astro:optimize-deps',
+    // Runs this config hook first, so the dep-scan plugin comes ahead of
+    // optimizer plugins other plugins add, as it did when viteFinal set it.
+    enforce: 'pre',
     config(this: ConfigHookContext): UserConfig {
       const meta = this?.meta;
       const usesRolldown = Boolean(meta?.rolldownVersion);
