@@ -18,21 +18,32 @@ function bindingFor(frontmatter: string) {
 
 describe('defaults are read from the destructuring pattern', () => {
   test.each([
+    ["const { a = 'x' } = Astro.props;", "'x'"],
+    ['const { a = "x" } = Astro.props;', '"x"'],
+    ['const { a = 42 } = Astro.props;', '42'],
+    ['const { a = -1 } = Astro.props;', '-1'],
+    ['const { a = true } = Astro.props;', 'true'],
+    ['const { a = null } = Astro.props;', 'null'],
+    ['const { a = undefined } = Astro.props;', 'undefined'],
+    ['const { a = `x` } = Astro.props;', '`x`'],
+    ['const { a = defaultNavItems } = Astro.props;', 'defaultNavItems'],
+    ["const { a = ['a', 'b'] } = Astro.props;", "['a', 'b']"],
+    ['const { a = -offset } = Astro.props;', '-offset'],
+    ['const { a = `${base}/home` } = Astro.props;', '`${base}/home`']
+  ])('a default keeps its source text: %s', (frontmatter, expected) => {
+    expect(bindingFor(frontmatter).defaults.get('a')?.source).toBe(expected);
+  });
+
+  test.each([
     ["const { a = 'x' } = Astro.props;", 'x'],
+    ['const { a = `x` } = Astro.props;', 'x'],
     ['const { a = 42 } = Astro.props;', 42],
     ['const { a = -1 } = Astro.props;', -1],
     ['const { a = true } = Astro.props;', true],
-    ['const { a = false } = Astro.props;', false],
     ['const { a = null } = Astro.props;', null],
-    ['const { a = `x` } = Astro.props;', 'x']
-  ])('%s', (frontmatter, expected) => {
-    expect(bindingFor(frontmatter).defaults.get('a')).toBe(expected);
-  });
-
-  test('a non-literal default keeps its source text, which is what readers want to see', () => {
-    const binding = bindingFor('const { navItems = defaultNavItems } = Astro.props;');
-
-    expect(binding.defaults.get('navItems')).toBe('defaultNavItems');
+    ['const { a = defaultNavItems } = Astro.props;', 'defaultNavItems']
+  ])('a prop filter still reads a literal default as its value: %s', (frontmatter, expected) => {
+    expect(bindingFor(frontmatter).defaults.get('a')?.value).toBe(expected);
   });
 
   test('a prop destructured without a default has none', () => {
@@ -50,7 +61,7 @@ describe('the annotated forms of Astro.props are all recognised', () => {
     'const { a = 1 } = Astro.props satisfies Props;',
     'const { a = 1 } = (Astro.props as Props);'
   ])('%s', (frontmatter) => {
-    expect(bindingFor(frontmatter).defaults.get('a')).toBe(1);
+    expect(bindingFor(frontmatter).defaults.get('a')?.source).toBe('1');
   });
 });
 
@@ -60,7 +71,7 @@ describe('the destructured set is the component author’s public surface', () =
 
     expect(binding.destructured.has('class')).toBe(true);
     expect(binding.destructured.has('className')).toBe(false);
-    expect(binding.defaults.get('class')).toBe('card');
+    expect(binding.defaults.get('class')?.source).toBe("'card'");
   });
 
   test('a rest element is not a prop', () => {

@@ -96,7 +96,7 @@ Support for Astro's built-in i18n routing and helpers, enabling documentation of
 
 **Shipped in**: 1.15.0
 
-The Docs props table lists the slots an Astro component accepts in a **Slots** section, with descriptions from `{/* @slot … */}` comments, even when no story fills them. Each slot also gets a text control in the Controls panel, so slot HTML can be edited without the `args.slots` JSON editor (not yet with the Docgen Server, [#267](https://github.com/storybook-astro/storybook-astro/issues/267)).
+The Docs props table lists the slots an Astro component accepts in a **Slots** section, with descriptions from `{/* @slot … */}` comments, even when no story fills them. Each slot also gets a text control in the Controls panel, so slot HTML can be edited without the `args.slots` JSON editor.
 
 **Tracking**: [Issue #188](https://github.com/storybook-astro/storybook-astro/issues/188), [Issue #203](https://github.com/storybook-astro/storybook-astro/issues/203)
 
@@ -130,7 +130,7 @@ Since 1.15.0, `parameters.docs.source.objectProps: 'inline'` writes object and a
 
 Component descriptions and prop documentation are extracted from JSDoc in a component's `.astro` frontmatter, so autodocs pages populate without any `argTypes` boilerplate in story files. Covers per-prop descriptions, types and defaults, select controls for literal union props, and types imported from other files (including through tsconfig `paths` aliases). Inherited DOM attributes are filtered out, while props you destructure are kept.
 
-Since 1.12.0, on Storybook 10.6+ you can move extraction off the dev server into Storybook's Docgen Server with `features: { experimentalDocgenServer: true }` (`docgenServer` on Storybook 11). The output is the same; the TypeScript work runs in a worker thread core owns, and static builds get per-component JSON snapshots instead of docgen inlined in the preview bundle. Storybook still marks the service experimental, so it is opt-in.
+Since 1.12.0, on Storybook 10.6+ you can move extraction off the dev server into Storybook's Docgen Server with `features: { experimentalDocgenServer: true }` (`docgenServer` on Storybook 11). The output is the same; the TypeScript work runs in a worker thread core owns, and static builds get per-component JSON snapshots instead of docgen inlined in the preview bundle. It is opt-in on Storybook 10. Since 1.17.0 it is on by default on Storybook 11, together with the components manifest, unless the project sets a custom `docgen.propFilter`, turns docgen off or has no TypeScript.
 
 **Tracking**: [Issue #163](https://github.com/storybook-astro/storybook-astro/issues/163), [Issue #110](https://github.com/storybook-astro/storybook-astro/issues/110), [Issue #173](https://github.com/storybook-astro/storybook-astro/issues/173)
 
@@ -288,7 +288,7 @@ This table tracks compatibility of Storybook's built-in features when used with 
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Stories (CSF) | ✅ Supported | Component Story Format for defining stories |
-| Args & Controls | ✅ Supported | Interactive controls for component props, and a text control for each slot except with the Docgen Server (dev only for Astro components; pre-rendered in static builds) |
+| Args & Controls | ✅ Supported | Interactive controls for component props, and a text control for each slot (dev only for Astro components; pre-rendered in static builds) |
 | Actions | ✅ Supported | Log user interactions and events |
 | Docs (Autodocs) | ✅ Supported | Automatic documentation pages, with props tables generated from frontmatter JSDoc and a Slots section listing each slot |
 | Docs (MDX) | ✅ Supported | Custom documentation pages with MDX |

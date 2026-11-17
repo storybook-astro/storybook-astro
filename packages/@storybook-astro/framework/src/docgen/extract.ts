@@ -75,6 +75,12 @@ export function extractAstroDocgen(
   for (const { symbol, checker } of properties) {
     const prop = buildProp(typescript, checker, symbol, binding);
 
+    // docs-tools looks for `@ignore` in the description, which holds no tags
+    // here, so the extractor drops these itself (issue #356).
+    if (prop.tags && 'ignore' in prop.tags) {
+      continue;
+    }
+
     if (propFilter(prop, { name: displayName })) {
       props[prop.name] = prop;
     }
@@ -204,7 +210,7 @@ function buildProp(
   typescript: typeof ts,
   checker: ts.TypeChecker,
   symbol: ts.Symbol,
-  { defaults, defaultSources }: AstroPropsBinding
+  { defaults }: AstroPropsBinding
 ): AstroDocgenProp {
   const name = symbol.getName();
   const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
@@ -212,18 +218,16 @@ function buildProp(
     ? checker.getTypeOfSymbolAtLocation(symbol, declaration)
     : checker.getDeclaredTypeOfSymbol(symbol);
 
-  const hasDefault = defaults.has(name);
+  const defaultValue = defaults.get(name) ?? null;
   const optional = (symbol.flags & typescript.SymbolFlags.Optional) !== 0;
-  const required = !optional && !hasDefault;
+  const required = !optional && !defaultValue;
 
   return {
     name,
     required,
-    type: describeType(checker, type, required),
+    type: describeType(typescript, checker, type, required),
     description: typescript.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
-    defaultValue: hasDefault
-      ? { value: defaults.get(name) ?? null, source: defaultSources.get(name) }
-      : null,
+    defaultValue,
     parent: declarationRefOf(typescript, declaration),
     declarations: (symbol.declarations ?? [])
       .map((each) => declarationRefOf(typescript, each))
@@ -233,16 +237,37 @@ function buildProp(
 }
 
 function describeType(
+  typescript: typeof ts,
   checker: ts.TypeChecker,
   type: ts.Type,
   required: boolean
 ): AstroDocgenPropType {
   const raw = checker.typeToString(type);
   // Optional props read as `string | undefined`; the `?` already says that.
-  const name = required ? raw : raw.replace(/\s*\|\s*undefined$/, '');
+  const withoutUndefined = (text: string) =>
+    required ? text : text.replace(/\s*\|\s*undefined$/, '');
+  const name = withoutUndefined(raw);
+  // TypeScript shortens a long type to `{ ...; }` or `... 12 more ...`. That
+  // suits the props table, but AI agents read the type to pick a valid value,
+  // so the API description gets the whole text (issue #357). These are
+  // typeToString's default flags plus NoTruncation.
+  const fullText = withoutUndefined(
+    checker.typeToString(
+      type,
+      undefined,
+      typescript.TypeFormatFlags.NoTruncation |
+        typescript.TypeFormatFlags.AllowUniqueESSymbolType |
+        typescript.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope
+    )
+  );
+  const result: AstroDocgenPropType = { name };
+
+  if (fullText !== name) {
+    result.untruncated = fullText;
+  }
 
   if (!type.isUnion()) {
-    return { name };
+    return result;
   }
 
   // An optional prop's type includes `undefined` under `strict`, which would
@@ -252,9 +277,11 @@ function describeType(
   const literals = meaningful.filter((constituent) => constituent.isLiteral());
 
   if (literals.length === 0 || literals.length !== meaningful.length) {
-    return { name, raw };
+    return { ...result, raw };
   }
 
+  // apiDescription prints a literal union from `value`, so it needs no
+  // `untruncated`.
   return {
     name: 'enum',
     raw: name,

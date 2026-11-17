@@ -13,7 +13,6 @@ import {
 } from 'storybook/internal/csf-tools';
 import type { DocgenPayload, DocgenProviderInput, StrictArgTypes } from 'storybook/internal/types';
 import { extractArgTypes } from '@storybook-astro/renderer/extractArgTypes';
-import { slotArgName } from '@storybook-astro/renderer/slotArgs';
 import { formatApiDescription } from './apiDescription.ts';
 import type { AstroDocgenInfo } from './types.ts';
 
@@ -33,6 +32,12 @@ export interface DocgenPayloadContext {
    * against; tests pass a fixture directory instead.
    */
   workingDir?: string;
+  /**
+   * The payload is for a static build, whose stories are pre-rendered. The
+   * preview turns off the controls of the rows it knows about, but the manager
+   * merges ours under those, so ours have to be off too (issue #375).
+   */
+  prerendered?: boolean;
 }
 
 /**
@@ -117,6 +122,8 @@ export async function buildDocgenPayload(
   );
 
   const argTypes = extractArgTypes({ __docgenInfo: info });
+  const tableArgTypes =
+    argTypes && context.prerendered ? withoutControls(argTypes) : argTypes;
 
   return {
     ...base,
@@ -124,37 +131,17 @@ export async function buildDocgenPayload(
     description,
     summary,
     jsDocTags,
-    argTypes: withoutSlotControls(argTypes, info),
+    argTypes: tableArgTypes ?? undefined,
     // Core strips argTypes before an agent sees the component (issue #353).
     apiDescription: formatApiDescription(argTypes, info),
     renderer: 'astro'
   };
 }
 
-/**
- * Keeps each `slot-<name>` row but drops its text control. On this path the
- * preview never sees `__docgenInfo`, so `seedSlotArgs` can't start the control
- * at the story's content and `lockNonTextSlotControls` can't lock a slot that
- * holds a component. A blank control that replaces the component on the first
- * keystroke is worse than none.
- */
-function withoutSlotControls(
-  argTypes: StrictArgTypes | null,
-  info: AstroDocgenInfo
-): StrictArgTypes | undefined {
-  if (!argTypes) {
-    return undefined;
-  }
-
-  for (const { name } of info.slots ?? []) {
-    const key = slotArgName(name);
-
-    if (argTypes[key]) {
-      argTypes[key] = { ...argTypes[key], control: { disable: true } };
-    }
-  }
-
-  return argTypes;
+function withoutControls(argTypes: StrictArgTypes): StrictArgTypes {
+  return Object.fromEntries(
+    Object.entries(argTypes).map(([key, argType]) => [key, { ...argType, control: false }])
+  );
 }
 
 /** The last segment of a story title, for when the component has no name of its own. */

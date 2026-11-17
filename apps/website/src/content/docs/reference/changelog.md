@@ -8,6 +8,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-11-17
+
+### Changed
+- On Storybook 11, the Docgen Server and the components manifest are on by default, so AI agents using `@storybook/addon-mcp` get Astro components' props, slots and story snippets without configuration (#214). Turn them off with `features: { docgenServer: false }` or `features: { componentsManifest: false }`. Storybook 10.6 is unchanged.
+- `viteFinal` no longer returns `optimizeDeps.esbuildOptions` or `rolldownOptions`; a plugin adds them for the Vite that runs (#378). A `viteFinal` in `.storybook/main.js` that pushes onto them must create them first. To drop the framework's optimizer options, filter the `storybook-astro:optimize-deps` plugin out of `config.plugins`.
+
+### Fixed
+- The props table shows each default as the component writes it, drops props marked `@ignore`, and AI agents get a prop's whole type instead of TypeScript's shortened one (#355, #356, #357).
+- With the Docgen Server on, slot rows in the Controls panel have their text controls again (#267).
+- In a static build, every control of an Astro story is disabled, including rows from the Docgen Server and rows Storybook infers from args (#375).
+- In a monorepo, the framework now sets Vite's dependency optimizer options for the Vite that actually runs Storybook (#378). A pnpm app on Vite 8 without a direct `vite` dependency no longer gets the Vite 6/7 options and their deprecation warning because an older Vite was hoisted to the workspace root.
+
 ## [1.16.0] - 2026-11-11
 
 ### Added
