@@ -1,7 +1,5 @@
 import { dirname } from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { version as viteVersion } from 'vite';
 import type {
   ComponentsManifest,
   DocgenProviderDescriptor,
@@ -23,6 +21,7 @@ import { vitePluginAstroIntegrationOptsFallback } from './vitePluginAstroIntegra
 import { vitePluginAstroVueFallback } from './vitePluginAstroVueFallback.ts';
 import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback.ts';
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
+import { resolveProjectViteMajor } from './lib/projectViteMajor.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
 import {
   astroDepScanEsbuildPlugin,
@@ -630,22 +629,4 @@ async function createDocgenIfEnabled(
   const { createAstroDocgen } = await import('./docgen/index.ts');
 
   return createAstroDocgen({ projectRoot, ...options.docgen });
-}
-
-/**
- * The Vite major the *project* runs on — not the copy hoisted next to this
- * package. In a monorepo those diverge (an Astro 6 app on Vite 7 alongside a
- * hoisted Vite 8), and every version gate above is about the app's Vite: which
- * optimizer it uses, and which dev-server workarounds it needs.
- */
-function resolveProjectViteMajor(resolveFrom: string): number {
-  const require = createRequire(import.meta.url);
-
-  try {
-    const pkgPath = require.resolve('vite/package.json', { paths: [resolveFrom] });
-
-    return Number.parseInt(require(pkgPath).version, 10);
-  } catch {
-    return Number.parseInt(viteVersion, 10);
-  }
 }
