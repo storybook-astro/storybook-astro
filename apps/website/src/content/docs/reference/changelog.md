@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.17.0] - 2026-11-14
+## [1.17.0] - 2026-11-17
 
 ### Changed
 - On Storybook 11, the Docgen Server and the components manifest are on by default, so AI agents using `@storybook/addon-mcp` get Astro components' props, slots and story snippets without configuration (#214). Turn them off with `features: { docgenServer: false }` or `features: { componentsManifest: false }`. Storybook 10.6 is unchanged.
