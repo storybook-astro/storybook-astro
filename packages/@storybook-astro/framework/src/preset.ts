@@ -1,7 +1,5 @@
 import { dirname } from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { version as viteVersion } from 'vite';
 import type {
   ComponentsManifest,
   DocgenProviderDescriptor,
@@ -26,10 +24,8 @@ import { vitePluginAstroToolbarFallback } from './vitePluginAstroToolbarFallback
 import { resolveSanitizationOptions } from './lib/sanitization.ts';
 import { FRAMEWORK_RUNTIME_PACKAGES } from './lib/hydratedComponentBuild.ts';
 import { mergeWithAstroConfig } from './vitePluginAstro.ts';
-import {
-  astroDepScanEsbuildPlugin,
-  astroDepScanRolldownPlugin
-} from './vitePluginAstroDepScan.ts';
+import { vitePluginAstroOptimizeDeps } from './vitePluginAstroOptimizeDeps.ts';
+import { vitePluginSkipNativeReactRefresh } from './vitePluginSkipNativeReactRefresh.ts';
 import {
   appendUserVitePlugins,
   loadUserAstroFonts,
@@ -247,90 +243,18 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     }
   }
 
-  // Mark integration virtual modules as external so the dep bundler doesn't
-  // try to resolve them (they are Vite virtual modules with no real package).
-  // Vite ≤7 reads these from esbuildOptions; Vite 8+ uses Rolldown and reads
-  // them from rolldownOptions. We populate whichever key the running Vite uses.
-  const integrationVirtualModules = [
-    'virtual:@astrojs/vue/app',
-    'virtual:astro:vue-app',
-    'astro:react:opts',
-    'astro:preact:opts',
-    'astro:toolbar:internal'
-  ];
+  // The optimizer options differ between esbuild (Vite 6/7) and Rolldown
+  // (Vite 8), so a plugin sets them once it knows which Vite is running.
+  finalConfig.plugins = [...(finalConfig.plugins ?? []), vitePluginAstroOptimizeDeps()];
 
-  const viteMajor = resolveProjectViteMajor(resolveFrom);
-
-  // Vite ≤7 (esbuild-based optimizer). On Vite 8+ setting esbuildOptions logs a
-  // deprecation warning, so only touch it on older Vite.
-  if (viteMajor < 8) {
-    if (!finalConfig.optimizeDeps.esbuildOptions) {
-      finalConfig.optimizeDeps.esbuildOptions = {};
-    }
-    if (!finalConfig.optimizeDeps.esbuildOptions.external) {
-      finalConfig.optimizeDeps.esbuildOptions.external = [];
-    }
-    for (const mod of integrationVirtualModules) {
-      if (!finalConfig.optimizeDeps.esbuildOptions.external.includes(mod)) {
-        finalConfig.optimizeDeps.esbuildOptions.external.push(mod);
-      }
-    }
-
-    if (!finalConfig.optimizeDeps.esbuildOptions.plugins) {
-      finalConfig.optimizeDeps.esbuildOptions.plugins = [];
-    }
-    finalConfig.optimizeDeps.esbuildOptions.plugins.push(astroDepScanEsbuildPlugin());
-  }
-
-  // Vite 8+ uses Rolldown for dependency optimization.
-  const optimizeDepsMut = finalConfig.optimizeDeps as Record<string, unknown>;
-  const rolldownOpts = (optimizeDepsMut.rolldownOptions ?? {}) as {
-    external?: string[];
-    plugins?: unknown[];
-  };
-
-  rolldownOpts.external = Array.from(
-    new Set([...(rolldownOpts.external ?? []), ...integrationVirtualModules])
-  );
-
-  if (viteMajor >= 8) {
-    rolldownOpts.plugins = [...(rolldownOpts.plugins ?? []), astroDepScanRolldownPlugin()];
-  }
-  optimizeDepsMut.rolldownOptions = rolldownOpts;
-
-  // Vite 8 dev-server compatibility (Astro 7+). Vite ≤7 (Astro 5/6) is unaffected.
-  if (configType === 'DEVELOPMENT' && viteMajor >= 8) {
-    // Drop @vitejs/plugin-react's Vite 8 native Fast Refresh wrapper. Under
-    // Vite 8 the plugin delegates Fast Refresh to a Rolldown builtin
-    // (`builtin:vite-react-refresh-wrapper`) that throws
-    // "Missing field `moduleType`" while transforming Storybook's iframe.html
-    // inline bootstrap script — 500-ing every preview load. There is no
-    // config opt-out, so we remove the plugin. React components still render;
-    // only Fast Refresh is lost (component edits full-reload instead).
-    const stripReactRefreshWrapper = (plugins: unknown[]): unknown[] =>
-      plugins
-        .map((plugin) => (Array.isArray(plugin) ? stripReactRefreshWrapper(plugin) : plugin))
-        .filter(
-          (plugin) =>
-            !(
-              plugin &&
-              typeof plugin === 'object' &&
-              (plugin as { name?: string }).name === 'vite:react:refresh-wrapper'
-            )
-        );
-
-    finalConfig.plugins = stripReactRefreshWrapper(
-      finalConfig.plugins ?? []
-    ) as typeof finalConfig.plugins;
-
-  }
-
-  // Exclude the Storybook renderer entry-previews from dependency optimization.
-  // Some ship non-JS source (e.g. `@storybook/svelte`'s `.svelte` files) that
-  // the dep scanner cannot load ("No loader is configured for .svelte"), which
-  // fails optimization and 504s every renderer entry. Serving them as source
-  // lets the framework's own Vite plugins transform them.
   if (configType === 'DEVELOPMENT') {
+    finalConfig.plugins.push(vitePluginSkipNativeReactRefresh());
+
+    // Exclude the Storybook renderer entry-previews from dependency optimization.
+    // Some ship non-JS source (e.g. `@storybook/svelte`'s `.svelte` files) that
+    // the dep scanner cannot load ("No loader is configured for .svelte"), which
+    // fails optimization and 504s every renderer entry. Serving them as source
+    // lets the framework's own Vite plugins transform them.
     const entryPreviews = integrations
       .map((integration) => integration.storybookEntryPreview)
       .filter((specifier): specifier is string => Boolean(specifier));
@@ -642,22 +566,4 @@ async function createDocgenIfEnabled(
   const { createAstroDocgen } = await import('./docgen/index.ts');
 
   return createAstroDocgen({ projectRoot, ...options.docgen });
-}
-
-/**
- * The Vite major the *project* runs on — not the copy hoisted next to this
- * package. In a monorepo those diverge (an Astro 6 app on Vite 7 alongside a
- * hoisted Vite 8), and every version gate above is about the app's Vite: which
- * optimizer it uses, and which dev-server workarounds it needs.
- */
-function resolveProjectViteMajor(resolveFrom: string): number {
-  const require = createRequire(import.meta.url);
-
-  try {
-    const pkgPath = require.resolve('vite/package.json', { paths: [resolveFrom] });
-
-    return Number.parseInt(require(pkgPath).version, 10);
-  } catch {
-    return Number.parseInt(viteVersion, 10);
-  }
 }
