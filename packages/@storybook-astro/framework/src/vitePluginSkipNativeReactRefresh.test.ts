@@ -57,13 +57,11 @@ describe("plugin-react's refresh wrapper in the Storybook dev server (#378)", ()
 
   test("is kept on rolldown-vite 7, which also offers the builtin but never showed the 500, so Fast Refresh keeps working", async () => {
     const plugin = vitePluginSkipNativeReactRefresh() as unknown as {
-      config: (this: unknown) => void;
-      configResolved: (config: { plugins: unknown[] }) => void;
+      configResolved: (this: unknown, config: { plugins: unknown[] }) => void;
     };
     const wrapper = refreshWrapper(nativeBuiltin);
 
-    plugin.config.call({ meta: { viteVersion: '7.3.1', rolldownVersion: '1.0.0-beta.50' } });
-    plugin.configResolved({ plugins: [wrapper] });
+    plugin.configResolved.call({ meta: { viteVersion: '7.3.1', rolldownVersion: '1.0.0-beta.50' } }, { plugins: [wrapper] });
 
     expect(await wrapper.applyToEnvironment()).toBe(nativeBuiltin);
   });

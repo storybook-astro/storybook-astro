@@ -70,8 +70,12 @@ describe('dependency optimizer options follow the Vite that runs the config (#37
         'serve'
       );
       const optimizeDeps = config.optimizeDeps as unknown as Record<string, OptimizerOptions | undefined>;
-      // Read the way the plugin reads it, so the test holds with rolldown-vite 7 installed too.
-      const expectedKey = 'rolldownVersion' in vite ? 'rolldownOptions' : 'esbuildOptions';
+      // Chosen the way the plugin chooses, so the test holds with rolldown-vite 7 installed too.
+      let expectedKey = 'esbuildOptions';
+
+      if ('rolldownVersion' in vite) {
+        expectedKey = viteVersion.startsWith('7.0.') ? 'rollupOptions' : 'rolldownOptions';
+      }
 
       expect(optimizeDeps[expectedKey]?.external).toContain('astro:react:opts');
       expect(optimizeDeps[expectedKey]?.plugins?.map((plugin) => plugin.name)).toContain('storybook-astro:dep-scan');

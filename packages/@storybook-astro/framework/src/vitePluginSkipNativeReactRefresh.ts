@@ -20,18 +20,16 @@ import type { Plugin } from 'vite';
  * later `viteFinal`, or a Vitest config.
  */
 export function vitePluginSkipNativeReactRefresh(): Plugin {
-  let runsOnVite8 = false;
-
   return {
     name: 'storybook-astro:skip-native-react-refresh',
-    // The 500 was only seen on Vite 8. rolldown-vite 7 also offers the
-    // builtin, so the running Vite's version is checked here too, to keep
-    // Fast Refresh there. Vite 6 calls this hook with no `this`.
-    config(this: { meta?: { viteVersion?: string } } | void) {
-      runsOnVite8 = Number.parseInt(this?.meta?.viteVersion ?? '0', 10) >= 8;
-    },
-    configResolved(config) {
-      if (!runsOnVite8) {
+    configResolved(this: { meta?: { viteVersion?: string } } | void, config) {
+      // The 500 was only seen on Vite 8. rolldown-vite 7 also offers the
+      // builtin, so it's kept there, with Fast Refresh. When the version
+      // can't be read (Vite 6 calls this hook with no `this`), the patch goes
+      // ahead: losing Fast Refresh is better than a 500 on every preview.
+      const viteVersion = this?.meta?.viteVersion;
+
+      if (viteVersion && Number.parseInt(viteVersion, 10) < 8) {
         return;
       }
 
