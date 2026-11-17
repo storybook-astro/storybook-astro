@@ -456,6 +456,18 @@ describe('the React Fast Refresh wrapper in dev (#378)', () => {
     expect(await environmentsChosen([[refreshWrapper(nativeBuiltin)]])).toBe(false);
   });
 
+  test('keeps any other plugin it hands back', async () => {
+    const otherPlugin = { name: 'some-other-plugin' };
+
+    expect(await environmentsChosen([refreshWrapper(otherPlugin)])).toBe(otherPlugin);
+  });
+
+  test('is found inside a plugin list given as a Promise', async () => {
+    const [listed] = skipNativeReactRefreshWrapper([Promise.resolve([refreshWrapper(nativeBuiltin)])] as never);
+
+    expect(await environmentsChosen([await listed])).toBe(false);
+  });
+
   test('leaves other plugins untouched', () => {
     const other = { name: 'vite:react-babel' };
 

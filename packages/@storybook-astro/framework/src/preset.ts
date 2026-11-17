@@ -231,20 +231,18 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
     }
   }
 
-  // The optimizer options differ between Vite 6/7 (esbuild) and Vite 8
-  // (Rolldown), so a plugin sets them once it knows which Vite is running.
+  // The optimizer options differ between esbuild (Vite 6/7) and Rolldown
+  // (Vite 8), so a plugin sets them once it knows which Vite is running.
   finalConfig.plugins = [...(finalConfig.plugins ?? []), vitePluginAstroOptimizeDeps()];
 
   if (configType === 'DEVELOPMENT') {
     finalConfig.plugins = skipNativeReactRefreshWrapper(finalConfig.plugins);
-  }
 
-  // Exclude the Storybook renderer entry-previews from dependency optimization.
-  // Some ship non-JS source (e.g. `@storybook/svelte`'s `.svelte` files) that
-  // the dep scanner cannot load ("No loader is configured for .svelte"), which
-  // fails optimization and 504s every renderer entry. Serving them as source
-  // lets the framework's own Vite plugins transform them.
-  if (configType === 'DEVELOPMENT') {
+    // Exclude the Storybook renderer entry-previews from dependency optimization.
+    // Some ship non-JS source (e.g. `@storybook/svelte`'s `.svelte` files) that
+    // the dep scanner cannot load ("No loader is configured for .svelte"), which
+    // fails optimization and 504s every renderer entry. Serving them as source
+    // lets the framework's own Vite plugins transform them.
     const entryPreviews = integrations
       .map((integration) => integration.storybookEntryPreview)
       .filter((specifier): specifier is string => Boolean(specifier));
@@ -274,38 +272,48 @@ export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storyb
  * choice is what installs the builtin.
  */
 export function skipNativeReactRefreshWrapper(plugins: PluginOption[]): PluginOption[] {
-  return plugins.map((plugin) => {
-    if (Array.isArray(plugin)) {
-      return skipNativeReactRefreshWrapper(plugin);
+  return plugins.map(skipNativeBuiltin);
+}
+
+function skipNativeBuiltin(plugin: PluginOption): PluginOption {
+  if (Array.isArray(plugin)) {
+    return plugin.map(skipNativeBuiltin);
+  }
+
+  // A plugin listed as a Promise, such as one loaded from astro.config's
+  // `vite.plugins`. Vite awaits these, so wrap the plugin once it arrives.
+  if (plugin instanceof Promise) {
+    return plugin.then(skipNativeBuiltin);
+  }
+
+  const isRefreshWrapper =
+    typeof plugin === 'object' &&
+    plugin !== null &&
+    (plugin as Plugin).name === 'vite:react:refresh-wrapper' &&
+    typeof (plugin as Plugin).applyToEnvironment === 'function';
+
+  if (!isRefreshWrapper) {
+    return plugin;
+  }
+
+  const refreshWrapper = plugin as Plugin;
+  const chooseEnvironments = refreshWrapper.applyToEnvironment!;
+
+  // Vite registers this copy. When plugin-react picks the builtin, it deletes
+  // `transform` from its original object, not the copy, which doesn't matter
+  // here because the copy is then left out of that environment.
+  return {
+    ...refreshWrapper,
+    async applyToEnvironment(environment) {
+      const applied = await chooseEnvironments.call(this, environment);
+      const isNativeBuiltin =
+        typeof applied === 'object' &&
+        applied !== null &&
+        (applied as { name?: string }).name === 'builtin:vite-react-refresh-wrapper';
+
+      return isNativeBuiltin ? false : applied;
     }
-
-    const isRefreshWrapper =
-      typeof plugin === 'object' &&
-      plugin !== null &&
-      (plugin as Plugin).name === 'vite:react:refresh-wrapper' &&
-      typeof (plugin as Plugin).applyToEnvironment === 'function';
-
-    if (!isRefreshWrapper) {
-      return plugin;
-    }
-
-    const refreshWrapper = plugin as Plugin;
-    const chooseEnvironments = refreshWrapper.applyToEnvironment!;
-
-    // Vite registers this copy. When plugin-react picks the builtin, it deletes
-    // `transform` from its original object, not the copy, which doesn't matter
-    // here because the copy is then left out of that environment.
-    return {
-      ...refreshWrapper,
-      async applyToEnvironment(environment) {
-        const applied = await chooseEnvironments.call(this, environment);
-
-        // `true` or `false` keeps the plugin's own choice; anything else is
-        // the native builtin it swaps itself for.
-        return typeof applied === 'boolean' ? applied : false;
-      }
-    };
-  });
+  } as Plugin;
 }
 
 function mergeEnvPrefixes(

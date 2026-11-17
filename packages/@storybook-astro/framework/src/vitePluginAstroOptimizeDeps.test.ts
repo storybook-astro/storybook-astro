@@ -7,9 +7,10 @@ import { vitePluginAstroOptimizeDeps } from './vitePluginAstroOptimizeDeps.ts';
 
 type OptimizerOptions = { external: string[]; plugins: { name: string }[] };
 
-// How each Vite calls a plugin's `config` hook.
-const vite8 = { meta: { viteVersion: '8.0.16', rollupVersion: '4.0.0', rolldownVersion: '1.0.0' } };
-const rolldownVite7 = { meta: { viteVersion: '7.1.12', rollupVersion: '4.0.0', rolldownVersion: '1.0.0-beta.40' } };
+// How each Vite calls a plugin's `config` hook, as read from the published packages.
+const vite8 = { meta: { viteVersion: '8.0.16', rollupVersion: '4.0.0', rolldownVersion: '1.0.3' } };
+const rolldownVite71 = { meta: { viteVersion: '7.1.20', rollupVersion: '4.23.0', rolldownVersion: '1.0.0-beta.45' } };
+const rolldownVite70 = { meta: { viteVersion: '7.0.12', rollupVersion: '4.23.0', rolldownVersion: '1.0.0-beta.30' } };
 const vite7 = { meta: { viteVersion: '7.3.1', rollupVersion: '4.0.0' } };
 const vite6 = undefined;
 
@@ -22,19 +23,28 @@ function optimizeDepsFor(context: unknown) {
 }
 
 describe('dependency optimizer options follow the Vite that runs the config (#378)', () => {
-  test('Vite 8 gets Rolldown options and no esbuildOptions, which it would warn about', () => {
-    const optimizeDeps = optimizeDepsFor(vite8);
+  test.each([
+    ['Vite 8', vite8],
+    ['rolldown-vite 7.1 and later', rolldownVite71]
+  ])('%s gets Rolldown options and no esbuildOptions, which it would warn about', (_, context) => {
+    const optimizeDeps = optimizeDepsFor(context);
 
     expect(optimizeDeps.esbuildOptions).toBeUndefined();
     expect(optimizeDeps.rolldownOptions.external).toContain('astro:react:opts');
     expect(optimizeDeps.rolldownOptions.plugins.map((plugin) => plugin.name)).toEqual(['storybook-astro:dep-scan']);
   });
 
+  test('rolldown-vite 7.0 gets its Rolldown options under rollupOptions, the only key it reads', () => {
+    const optimizeDeps = optimizeDepsFor(rolldownVite70);
+
+    expect(optimizeDeps.esbuildOptions).toBeUndefined();
+    expect(optimizeDeps.rolldownOptions).toBeUndefined();
+    expect(optimizeDeps.rollupOptions.plugins.map((plugin) => plugin.name)).toEqual(['storybook-astro:dep-scan']);
+  });
+
   test.each([
     ['Vite 7', vite7],
-    ['Vite 6', vite6],
-    // Passes rolldownVersion, but its optimizer reads rollupOptions, not rolldownOptions.
-    ['rolldown-vite 7.1', rolldownVite7]
+    ['Vite 6', vite6]
   ])('%s gets esbuild options', (_, context) => {
     const optimizeDeps = optimizeDepsFor(context);
 
