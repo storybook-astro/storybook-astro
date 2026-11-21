@@ -274,7 +274,7 @@ export function vitePluginMyModule() {
 
 ## Astro Version Compatibility
 
-Astro 5, 6, and 7 share one Container API (`experimental_AstroContainer` from `astro/container`, `middleware.ts`). What differs between versions is handled by the layers listed in AGENTS.md's [Astro Version Compatibility Layers](../../../AGENTS.md#astro-version-compatibility-layers): the component marker plugin, `patchCreateAstroCompat()`, `vitePluginAstroFonts`, framework delegation order in `render.tsx`, the Vite 8 optimizer options in `vitePluginAstroOptimizeDeps.ts` and the Fast Refresh workaround in `vitePluginSkipNativeReactRefresh.ts`, and `lib/componentStyles.ts` with `lib/compiledStylesheets.ts`. Check a change that touches any of them against that list.
+Astro 5, 6, and 7 share one Container API (`experimental_AstroContainer` from `astro/container`, `middleware.ts`). What differs between versions is handled by the layers listed in AGENTS.md's [Astro Version Compatibility Layers](../../../AGENTS.md#astro-version-compatibility-layers): the component marker plugin, `patchCreateAstroCompat()`, `vitePluginAstroFonts`, framework delegation order in `render.tsx`, the Vite 8 optimizer options in `vitePluginAstroOptimizeDeps.ts` and the React refresh-wrapper guard in `vitePluginSkipNativeReactRefresh.ts`, and `lib/componentStyles.ts` with `lib/compiledStylesheets.ts`. Check a change that touches any of them against that list.
 
 ## References
 

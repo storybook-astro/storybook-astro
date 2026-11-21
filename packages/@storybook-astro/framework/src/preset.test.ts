@@ -443,7 +443,7 @@ describe('the Vite plugins viteFinal adds (#378)', () => {
       .filter((name) => name?.startsWith('storybook-astro:'));
   }
 
-  test('the dev server gets the optimizer options and the Fast Refresh workaround', async () => {
+  test('the dev server gets the optimizer options and the React refresh-wrapper guard', async () => {
     const names = await storybookAstroPluginNames('DEVELOPMENT');
 
     expect(names).toContain('storybook-astro:optimize-deps');
@@ -457,3 +457,55 @@ describe('the Vite plugins viteFinal adds (#378)', () => {
     expect(names).not.toContain('storybook-astro:skip-native-react-refresh');
   });
 }, 60_000);
+
+describe('a framework configured without options (issue #370)', () => {
+  // Core returns the framework's `options`: undefined for
+  // `framework: { name: '@storybook-astro/framework' }`, null with no framework config.
+  function withoutFrameworkOptions(
+    frameworkOptions: undefined | null,
+    scenario: Scenario = {}
+  ): Options {
+    const options = storybookOptions(scenario);
+
+    return {
+      ...options,
+      presets: {
+        apply: async (key: string) =>
+          key === 'features' ? (scenario.features ?? {}) : frameworkOptions
+      }
+    } as unknown as Options;
+  }
+
+  describe.each([undefined, null])('when core returns %s', (frameworkOptions) => {
+    test('viteFinal configures Vite', async () => {
+      const config = await viteFinal!(
+        {},
+        withoutFrameworkOptions(frameworkOptions, {
+          // resolveFrom falls back to the config dir's parent: this package, which
+          // has astro installed and no astro.config to load fonts from.
+          configDir: fileURLToPath(new URL('../.storybook', import.meta.url))
+        })
+      );
+
+      expect(config.plugins?.length).toBeGreaterThan(0);
+    }, 60_000);
+
+    test('the Docgen Server descriptor is contributed', async () => {
+      const descriptors = await experimental_docgenProvider(
+        [],
+        withoutFrameworkOptions(frameworkOptions, { features: flagOn })
+      );
+
+      expect(descriptors).toHaveLength(1);
+      expect(descriptors[0].options).toMatchObject({ projectRoot: '/project' });
+    });
+
+    test('the Docgen Server is on by default on Storybook 11', async () => {
+      installed.storybook = '11.0.0';
+
+      expect(await isDocgenProviderEnabled(false, withoutFrameworkOptions(frameworkOptions))).toBe(
+        true
+      );
+    });
+  });
+});
