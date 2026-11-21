@@ -10,9 +10,11 @@ const patchedPlugins = new WeakSet<Plugin>();
  * itself for a Rolldown builtin (`builtin:vite-react-refresh-wrapper`), but
  * plugin-react decides from the Vite next to it, which in a monorepo can
  * differ from the running one (#379). On Vite 6 or plain Vite 7 it can hand
- * back a hoisted Vite 8's builtin, which fails every JSX transform there, so
- * the builtin is left out of that environment. React components still render;
- * only Fast Refresh is lost (component edits full-reload).
+ * back a hoisted Vite 8's builtin, which fails every client module transform
+ * there ("Missing field `moduleType`"), so iframe.html and every story return
+ * a 500. The builtin is left out of that environment, which costs Fast Refresh
+ * there. Other plugin-react settings chosen for the hoisted Vite 8 (such as its
+ * `oxc.jsx` config) may not apply either.
  *
  * On a Rolldown Vite (Vite 8, or rolldown-vite 7) the builtin is native and
  * kept, so Fast Refresh works. It used to be dropped there too, for a "Missing
