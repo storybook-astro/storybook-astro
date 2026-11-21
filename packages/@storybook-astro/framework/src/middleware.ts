@@ -69,6 +69,14 @@ export async function handlerFactory(
         return `/@fs/${aliasedIsland}`;
       }
 
+      // An island's absolute file path ends up as its component-url. On
+      // Windows it starts with a drive letter, which the browser reads as a
+      // URL scheme (`C:`), so serve it through Vite's `/@fs/` route the way
+      // renderer-url already is (#382).
+      if (/^[a-zA-Z]:[/\\]/.test(specifier)) {
+        return `/@fs/${specifier.replace(/\\/g, '/')}`;
+      }
+
       return specifier;
     }
   });

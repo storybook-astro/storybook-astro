@@ -1,4 +1,29 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+
+type ContainerOptions = { resolve: (specifier: string) => Promise<string> };
+
+const createContainer = vi.hoisted(() => vi.fn(async (_options: ContainerOptions) => ({})));
+
+vi.mock('astro/container', () => ({
+  // eslint-disable-next-line camelcase -- Astro's export name
+  experimental_AstroContainer: { create: createContainer }
+}));
+
+vi.mock('virtual:astro-container-renderers', () => ({
+  addRenderers: () => {},
+  resolveClientModules: () => undefined
+}));
+
+const { handlerFactory } = await import('./middleware.ts');
+
+async function resolveIslandUrl(specifier: string) {
+  createContainer.mockClear();
+  await handlerFactory([]);
+
+  const [options] = createContainer.mock.calls[0];
+
+  return options.resolve(specifier);
+}
 
 describe('middleware', () => {
   describe('Windows absolute path normalization', () => {
@@ -43,6 +68,26 @@ describe('middleware', () => {
       const fileUrl = 'file:///C:/Users/project/Component.astro';
 
       expect(windowsPathRegex.test(fileUrl)).toBe(false);
+    });
+  });
+
+  describe('island component-url', () => {
+    test('serves a Windows path with forward slashes through /@fs/ so the island hydrates', async () => {
+      await expect(resolveIslandUrl('C:/project/src/ContactForm.tsx')).resolves.toBe(
+        '/@fs/C:/project/src/ContactForm.tsx'
+      );
+    });
+
+    test('serves a Windows path with backslashes through /@fs/ with forward slashes', async () => {
+      await expect(resolveIslandUrl('C:\\project\\src\\ContactForm.tsx')).resolves.toBe(
+        '/@fs/C:/project/src/ContactForm.tsx'
+      );
+    });
+
+    test('leaves a Unix path as it is', async () => {
+      await expect(resolveIslandUrl('/project/src/ContactForm.tsx')).resolves.toBe(
+        '/project/src/ContactForm.tsx'
+      );
     });
   });
 });
