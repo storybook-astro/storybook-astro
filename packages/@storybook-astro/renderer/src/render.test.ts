@@ -5,18 +5,126 @@ import type { AstroRenderer } from './types.ts';
 
 const server = vi.hoisted(() => ({ render: vi.fn() }));
 
+type FrameworkRenderContext = {
+  forceRemount: boolean;
+  storyContext: {
+    id: string;
+    parameters: {
+      story?: string;
+      fail?: boolean;
+      cleanupThrows?: boolean;
+      waitFor?: Promise<void>;
+      teardownWaitsFor?: Promise<void>;
+    };
+  };
+};
+
+// Stand-ins for the Storybook framework renderers a story delegates to, each
+// unmounting the way the real one does. `unmounted` lists the stories whose
+// effects cleaned up.
+const frameworks = vi.hoisted(() => {
+  const unmounted: string[] = [];
+
+  // Like React: one root per canvas, replaced on a forced remount. Its
+  // teardown unmounts whatever root the canvas has, and removing the root's
+  // DOM throws once something else has cleared the canvas.
+  const reactRoots = new Map<HTMLElement, { node: HTMLElement; story: string }>();
+
+  function unmountReact(canvas: HTMLElement) {
+    const root = reactRoots.get(canvas);
+
+    if (!root) {
+      return;
+    }
+
+    canvas.removeChild(root.node);
+    reactRoots.delete(canvas);
+    unmounted.push(root.story);
+  }
+
+  async function renderReact(ctx: FrameworkRenderContext, canvas: HTMLElement) {
+    const { story = 'react', fail, cleanupThrows, waitFor, teardownWaitsFor } = ctx.storyContext.parameters;
+
+    if (ctx.forceRemount) {
+      unmountReact(canvas);
+    }
+
+    await waitFor;
+
+    if (fail) {
+      throw new Error('React render failed');
+    }
+
+    let root = reactRoots.get(canvas);
+
+    if (!root) {
+      root = { node: canvas.ownerDocument.createElement('div'), story };
+      canvas.appendChild(root.node);
+      reactRoots.set(canvas, root);
+    }
+
+    root.story = story;
+    root.node.textContent = story;
+
+    return async () => {
+      // As when an effect cleanup throws: React rethrows from the unmount.
+      if (cleanupThrows) {
+        throw new Error('Effect cleanup failed');
+      }
+
+      unmountReact(canvas);
+      // As @storybook/react's `act()` does, the teardown settles after the
+      // root has unmounted.
+      await teardownWaitsFor;
+    };
+  }
+
+  // Like Solid: one root per story id, which is the canvas id on a Docs page.
+  // It mounts a story id once and only disposes it in a teardown, or in a
+  // forced remount through its own `mount`, which a delegated story never calls.
+  const solidRoots = new Map<string, { node: HTMLElement; story: string }>();
+
+  function renderSolid(ctx: FrameworkRenderContext, canvas: HTMLElement) {
+    const { story = 'solid' } = ctx.storyContext.parameters;
+    const storyId = canvas.id && canvas.id !== 'storybook-root' ? canvas.id : ctx.storyContext.id;
+
+    if (!solidRoots.has(storyId)) {
+      const node = canvas.ownerDocument.createElement('div');
+
+      node.textContent = story;
+      canvas.appendChild(node);
+      solidRoots.set(storyId, { node, story });
+    }
+
+    return () => {
+      const root = solidRoots.get(storyId);
+
+      root?.node.remove();
+      solidRoots.delete(storyId);
+
+      if (root) {
+        unmounted.push(root.story);
+      }
+    };
+  }
+
+  return {
+    unmounted,
+    react: { renderToCanvas: renderReact },
+    solid: { renderToCanvas: renderSolid },
+    reset() {
+      unmounted.length = 0;
+      reactRoots.clear();
+      solidRoots.clear();
+    }
+  };
+});
+
 vi.mock('astro:scripts/page.js', () => ({}));
 vi.mock('virtual:storybook-astro-renderer', () => ({ init: undefined, applyStyles: undefined, render: server.render }));
 vi.mock('virtual:storybook-renderer-fallback', () => ({
-  react: {
-    renderToCanvas: (_ctx: unknown, canvas: HTMLElement) => {
-      canvas.innerHTML = '<div>react</div>';
-
-      return () => {
-        canvas.innerHTML = '';
-      };
-    }
-  }
+  react: frameworks.react,
+  solid: frameworks.solid
 }));
 
 const { renderToCanvas } = await import('./render.tsx');
@@ -47,6 +155,34 @@ const renderAstro = (canvas: HTMLElement) => {
 
   return renderToCanvas(storyContext(() => component), canvas);
 };
+
+/**
+ * Renders a story that delegates to a framework. `forceRemount` is what
+ * Storybook passes the first render of a story, as when a Docs story block
+ * renders a story again, and a remount.
+ */
+function renderFrameworkStory(
+  canvas: HTMLElement,
+  renderer: 'react' | 'solid',
+  story: string,
+  {
+    forceRemount = false,
+    fail = false,
+    cleanupThrows = false,
+    waitFor,
+    teardownWaitsFor
+  }: {
+    forceRemount?: boolean;
+    fail?: boolean;
+    cleanupThrows?: boolean;
+    waitFor?: Promise<void>;
+    teardownWaitsFor?: Promise<void>;
+  } = {}
+) {
+  const context = storyContext(() => null, { renderer, story, fail, cleanupThrows, waitFor, teardownWaitsFor });
+
+  return renderToCanvas({ ...context, forceRemount }, canvas);
+}
 
 /** A story's response: one CSS block per class name, then markup naming the last one. */
 function storyHtml(classNames: string | string[]) {
@@ -85,6 +221,7 @@ let canvas: HTMLElement;
 
 beforeEach(() => {
   server.render.mockReset();
+  frameworks.reset();
   document.head.innerHTML = '';
   document.body.innerHTML = '<div id="storybook-root"></div>';
   canvas = document.getElementById('storybook-root')!;
@@ -319,6 +456,162 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
 
     expect(canvas.innerHTML).toBe('<div>react</div>');
     expect(headCss()).toEqual([]);
+  });
+});
+
+describe('the teardown renderToCanvas returns for a framework story (issue #238)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('unmounts the story, so its effects clean up when Storybook removes it', async () => {
+    const teardown = await renderFrameworkStory(canvas, 'react', 'first', { forceRemount: true });
+
+    await teardown?.();
+
+    expect(canvas.innerHTML).toBe('');
+    expect(frameworks.unmounted).toEqual(['first']);
+  });
+
+  test('leaves a newer story alone when it runs late, as a Docs story block runs it', async () => {
+    const lateTeardown = await renderFrameworkStory(canvas, 'react', 'first', { forceRemount: true });
+    const teardown = await renderFrameworkStory(canvas, 'react', 'second', { forceRemount: true });
+
+    await lateTeardown?.();
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(frameworks.unmounted).toEqual(['first']);
+
+    await teardown?.();
+
+    expect(canvas.innerHTML).toBe('');
+    expect(frameworks.unmounted).toEqual(['first', 'second']);
+  });
+
+  test('still unmounts the last story when a rerender throws', async () => {
+    const teardown = await renderFrameworkStory(canvas, 'react', 'first', { forceRemount: true });
+
+    await expect(renderFrameworkStory(canvas, 'react', 'second', { fail: true })).rejects.toThrow(
+      'React render failed'
+    );
+    await teardown?.();
+
+    expect(canvas.innerHTML).toBe('');
+    expect(frameworks.unmounted).toEqual(['first']);
+  });
+
+  test('a render that finishes after a newer one leaves the unmounting to the newer render\'s teardown', async () => {
+    let finishSlowRender!: () => void;
+    const slowRendering = renderFrameworkStory(canvas, 'react', 'first', {
+      forceRemount: true,
+      waitFor: new Promise((resolve) => (finishSlowRender = resolve))
+    });
+    const teardown = await renderFrameworkStory(canvas, 'react', 'second', { forceRemount: true });
+
+    finishSlowRender();
+    const slowTeardown = await slowRendering;
+
+    // The framework may still write into its root late, which the renderer
+    // can't stop, but the stale render gets no teardown that could unmount
+    // the newer story.
+    expect(slowTeardown).toBeUndefined();
+    expect(frameworks.unmounted).toEqual([]);
+    expect(canvas.childElementCount).toBe(1);
+
+    await teardown?.();
+
+    expect(frameworks.unmounted).toHaveLength(1);
+    expect(canvas.innerHTML).toBe('');
+  });
+
+  test('unmounts the story before an Astro story replaces it in a Docs block, so its late teardown doesn\'t throw', async () => {
+    const lateTeardown = await renderFrameworkStory(canvas, 'react', 'first', { forceRemount: true });
+
+    serverRespondsWith('second');
+    await renderAstro(canvas);
+    await lateTeardown?.();
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(frameworks.unmounted).toEqual(['first']);
+  });
+
+  test('unmounts the story before another framework\'s story replaces it', async () => {
+    const lateTeardown = await renderFrameworkStory(canvas, 'react', 'first', { forceRemount: true });
+
+    await renderFrameworkStory(canvas, 'solid', 'second', { forceRemount: true });
+    await lateTeardown?.();
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(frameworks.unmounted).toEqual(['first']);
+  });
+
+  test('renders the next story when the previous story\'s cleanup throws', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await renderFrameworkStory(canvas, 'react', 'first', { forceRemount: true, cleanupThrows: true });
+
+    serverRespondsWith('second');
+    await renderAstro(canvas);
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Effect cleanup failed' }));
+  });
+
+  test('logs a cleanup that throws when Storybook runs the teardown, so the next story still renders', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const teardown = await renderFrameworkStory(canvas, 'react', 'first', {
+      forceRemount: true,
+      cleanupThrows: true
+    });
+
+    // Storybook awaits this without a catch before it renders the next story.
+    await expect(teardown?.()).resolves.toBeUndefined();
+
+    serverRespondsWith('second');
+    await renderAstro(canvas);
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Effect cleanup failed' }));
+  });
+
+  test('a render waiting on the old story\'s unmount stands down when a newer render takes the canvas', async () => {
+    let finishUnmount!: () => void;
+
+    await renderFrameworkStory(canvas, 'react', 'first', {
+      forceRemount: true,
+      teardownWaitsFor: new Promise((resolve) => (finishUnmount = resolve))
+    });
+
+    const solidRendering = renderFrameworkStory(canvas, 'solid', 'second', { forceRemount: true });
+
+    serverRespondsWith('third');
+    await renderAstro(canvas);
+
+    finishUnmount();
+
+    expect(await solidRendering).toBeUndefined();
+    expect(canvas.innerHTML).toBe('<div>third</div>');
+    expect(frameworks.unmounted).toEqual(['first']);
+  });
+
+  test('disposes a Solid story before a Docs story block renders its canvas again, so the new story shows', async () => {
+    const docsCanvas = document.createElement('div');
+
+    docsCanvas.id = 'story--counter--default-inner';
+    document.body.append(docsCanvas);
+
+    const lateTeardown = await renderFrameworkStory(docsCanvas, 'solid', 'first', { forceRemount: true });
+    const teardown = await renderFrameworkStory(docsCanvas, 'solid', 'second', { forceRemount: true });
+
+    await lateTeardown?.();
+
+    expect(docsCanvas.innerHTML).toBe('<div>second</div>');
+    expect(frameworks.unmounted).toEqual(['first']);
+
+    await teardown?.();
+
+    expect(docsCanvas.innerHTML).toBe('');
+    expect(frameworks.unmounted).toEqual(['first', 'second']);
   });
 });
 
