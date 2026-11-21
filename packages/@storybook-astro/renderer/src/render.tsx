@@ -219,7 +219,11 @@ export async function renderToCanvas(
   if (heldFrameworkStory && (forceRemount || renderer !== lastRendererByCanvas.get(canvasElement))) {
     // This render claims the canvas before it waits, so a render that starts
     // during the unmount takes the canvas over and this one stands down,
-    // rather than resuming to clear and overwrite the newer story.
+    // rather than resuming to clear and overwrite the newer story. That claims
+    // it before the story function runs, an exception to the rule below that
+    // only a story function that succeeds claims the canvas. It's harmless:
+    // a canvas holding a framework story has no Astro render in flight that
+    // this could make look out of date.
     latestRenderByCanvas.set(canvasElement, thisRender);
     await unmountFrameworkStory(canvasElement, heldFrameworkStory);
 
@@ -282,8 +286,9 @@ export async function renderToCanvas(
     throw error;
   }
 
-  // Only once the story function succeeds, so a story that throws doesn't
-  // make an earlier render's response look out of date.
+  // Only once the story function succeeds (except after unmounting a held
+  // framework story, above), so a story that throws doesn't make an earlier
+  // render's response look out of date.
   latestRenderByCanvas.set(canvasElement, thisRender);
   showMain();
 

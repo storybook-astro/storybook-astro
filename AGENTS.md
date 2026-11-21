@@ -87,7 +87,7 @@ Story File (.stories.jsx)
     ↓ [checks parameters.renderer]
     ↓ [delegates to framework renderToCanvas BEFORE calling storyFn()]
 Framework Renderer (e.g. @storybook/react-vite)
-    ↓ [manages its own reactive root, and returns the teardown that unmounts it]
+    ↓ [manages its own reactive root, and returns the teardown that unmounts it (Preact returns none)]
 Storybook Canvas (rendered component)
 ```
 

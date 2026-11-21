@@ -28,7 +28,7 @@ test.describe('leaving a framework story', () => {
 
     await page.goto('/?path=/story/react-counter--default');
     await expect(preview.getByTestId('react-counter')).toBeVisible({ timeout: 30_000 });
-    expect(await storyCanvasHoldsReactRoot(preview)).toBe(true);
+    await expect.poll(() => storyCanvasHoldsReactRoot(preview)).toBe(true);
 
     await tagPreview(page);
     await navigateTo(page, '/story/astro-counter--default');
@@ -72,7 +72,9 @@ test.describe('leaving a framework story', () => {
 
     expect(docsCanvases.length).toBeGreaterThan(0);
     for (const canvas of docsCanvases) {
-      expect(await canvas.evaluate(holdsReactRoot)).toBe(true);
+      // React mounts each Docs block through a serial queue, so a later
+      // block's root may not exist yet when the first block is visible.
+      await expect.poll(() => canvas.evaluate(holdsReactRoot)).toBe(true);
     }
 
     await tagPreview(page);
