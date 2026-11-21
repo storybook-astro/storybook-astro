@@ -397,7 +397,7 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     installed.storybook = '11.0.0';
     storybook11.typescriptReady = false;
     storybook11.typescriptError = Object.assign(new Error('no compiler API'), {
-      name: 'TypeScriptWithoutCompilerApiError',
+      name: 'SB_CORE-COMMON_0034 (TypeScriptWithoutCompilerApiError)',
       data: { version: '7.0.0' }
     });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

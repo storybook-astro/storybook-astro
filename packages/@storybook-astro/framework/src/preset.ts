@@ -445,10 +445,13 @@ export const isDocgenProviderEnabled = async (
   // The extractor's own sentences (`docgen/index.ts`), so the project reads the
   // same message whichever of the two reports it. Core reports only a missing
   // package or a TypeScript 7 or later; an older TypeScript passes this check,
-  // and the extractor warns that it's too old.
-  if (typescriptError.name === 'TypeScriptWithoutCompilerApiError') {
-    const version = (typescriptError as { data?: { version?: string } }).data?.version;
+  // and the extractor warns that it's too old. Only core's TypeScript 7 error
+  // carries the installed version in `data`. Its `name` can't tell them apart,
+  // since a Storybook error's name is its code with the class name in
+  // parentheses (`SB_CORE-COMMON_0034 (TypeScriptWithoutCompilerApiError)`).
+  const version = (typescriptError as { data?: { version?: unknown } }).data?.version;
 
+  if (typeof version === 'string') {
     warnOnce(
       `TypeScript ${version} does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.`
     );
