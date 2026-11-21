@@ -17,6 +17,8 @@ import type * as StoryDocsPayloadModule from './docgen/story-docs-payload.ts';
 interface Scenario {
   configDir?: string;
   features?: Record<string, unknown>;
+  /** The `docs` preset; addon-docs makes it non-empty. */
+  docs?: Record<string, unknown>;
   frameworkOptions?: Partial<FrameworkOptions>;
   build?: Options['build'];
   configType?: Options['configType'];
@@ -26,6 +28,7 @@ interface Scenario {
 function storybookOptions({
   configDir = '/project/.storybook',
   features,
+  docs,
   frameworkOptions,
   build,
   configType = 'DEVELOPMENT'
@@ -35,8 +38,17 @@ function storybookOptions({
     configType,
     build,
     presets: {
-      apply: async (key: string) =>
-        key === 'features' ? (features ?? {}) : (frameworkOptions ?? {})
+      apply: async (key: string) => {
+        if (key === 'features') {
+          return features ?? {};
+        }
+
+        if (key === 'docs') {
+          return docs ?? {};
+        }
+
+        return frameworkOptions ?? {};
+      }
     }
   } as unknown as Options;
 }
@@ -130,6 +142,8 @@ vi.mock('./docgen/story-docs-payload.ts', async (importOriginal) => {
 });
 
 const flagOn = { experimentalDocgenServer: true };
+
+const withAddonDocs = { defaultName: 'Docs' };
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -333,18 +347,40 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     installed.storybook = '11.0.0';
     storybook11.typescriptReady = false;
 
-    expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+    expect(await isDocgenProviderEnabled(false, storybookOptions({ docs: withAddonDocs }))).toBe(
+      false
+    );
   });
 
-  test('and says nothing about the missing TypeScript, which the extractor reports once (issue #367)', async () => {
+  test('and with addon-docs says nothing about the missing TypeScript, which the extractor reports once (issue #367)', async () => {
     installed.storybook = '11.0.0';
     storybook11.typescriptReady = false;
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await isDocgenProviderEnabled(false, storybookOptions());
+    await isDocgenProviderEnabled(false, storybookOptions({ docs: withAddonDocs }));
 
     expect(storybook11.typescriptChecks).toBe(1);
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('and without addon-docs, where the extractor never runs, reports the missing TypeScript itself, once', async () => {
+    installed.storybook = '11.0.0';
+    storybook11.typescriptReady = false;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // A fresh preset module, so no earlier test has used up the one warning.
+    vi.resetModules();
+    const preset = await import('./preset.ts');
+
+    // Core applies `features`, and so this hook, about eight times at startup.
+    for (let run = 0; run < 8; run += 1) {
+      expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+    }
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      '[storybook-astro] TypeScript is not installed, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
+    );
   });
 
   test('but not when the project sets a prop filter, which the worker cannot run', async () => {

@@ -295,6 +295,9 @@ export const experimental_docgenProvider = async (
   const frameworkOptions =
     await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
 
+  // `isDocgenProviderEnabled` keeps the default off for a prop filter, so
+  // getting here means the project forced the Docgen Server flag on. The flag
+  // wins: the worker is registered and the filter is ignored, with a warning.
   if (whereDocgenRuns === 'builder only') {
     console.warn(
       '[storybook-astro] The `docgen.propFilter` option is ignored when the Docgen Server is enabled: a filter is a function, and the Docgen Server hands its provider plain data across a worker boundary. Turn the feature off to keep your filter.'
@@ -389,10 +392,13 @@ export const experimental_manifests = async (
  *
  * Off where only the builder path can extract (see `whereDocgenCanRun`), and
  * with no usable `typescript`. In that last case neither path extracts props.
- * The check doesn't warn: the extractor does, on whichever path ends up
- * running, so the project sees one message rather than Storybook's and then
- * ours (issue #367). Core's `isTypeScriptReadyForDocgen` would warn, so this
- * uses the check behind it. That shipped in 11.0.0-alpha.9 and isn't in 10.x,
+ * The extractor warns about it on whichever path ends up running, so the
+ * project sees one message rather than Storybook's and then ours (issue #367).
+ * Without addon-docs the builder path doesn't run the extractor, so the hook
+ * gives the same warning itself; `@storybook/addon-mcp` still turns the
+ * components manifest on there, and would otherwise get no props with no
+ * reason given. Core's `isTypeScriptReadyForDocgen` would warn, so this uses
+ * the check behind it. That shipped in 11.0.0-alpha.9 and isn't in 10.x,
  * so it's looked up rather than imported by name, which would fail to load on
  * 10.x.
  */
@@ -414,7 +420,25 @@ export const isDocgenProviderEnabled = async (
 
   // Resolved from this package, which declares `typescript` as a peer, so a
   // strict package manager finds the copy the docgen worker will import.
-  return getTypeScriptForDocgenError((specifier) => import.meta.resolve(specifier)) === undefined;
+  const typescriptError = getTypeScriptForDocgenError((specifier) =>
+    import.meta.resolve(specifier)
+  );
+
+  if (typescriptError === undefined) {
+    return true;
+  }
+
+  const docsConfig = await storybookOptions.presets.apply('docs', {}, storybookOptions);
+
+  // The extractor's own sentence (`docgen/index.ts`), so the project reads the
+  // same message whichever of the two reports it.
+  if (Object.keys(docsConfig ?? {}).length === 0) {
+    warnOnce(
+      'TypeScript is not installed, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
+    );
+  }
+
+  return false;
 };
 
 /**
