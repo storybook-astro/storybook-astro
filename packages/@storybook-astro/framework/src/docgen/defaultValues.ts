@@ -116,7 +116,7 @@ function isAstroProps(typescript: typeof ts, node: ts.Expression): boolean {
  * Anything that isn't a plain literal keeps its source text, which is what
  * readers want to see for `navItems = defaultNavItems`.
  */
-function literalValueOf(
+export function literalValueOf(
   typescript: typeof ts,
   node: ts.Expression,
   sourceFile: ts.SourceFile

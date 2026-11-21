@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import type ts from 'typescript';
-import { readAstroPropsBinding, type AstroPropsBinding } from './defaultValues.ts';
+import { literalValueOf, readAstroPropsBinding, type AstroPropsBinding } from './defaultValues.ts';
 import { readComponentDescription } from './description.ts';
 import { createDefaultPropFilter } from './propFilter.ts';
 import { readSlots } from './slots.ts';
@@ -228,12 +228,15 @@ function buildProp(
   const tags = jsDocTagsOf(typescript, symbol, checker);
   const destructuringDefault = defaults.get(name);
   // A `@default` tag documents a default the destructuring doesn't show, such
-  // as one applied further down the frontmatter (issue #371). It's kept as
-  // written, like a destructuring default's source text. It's read from the
-  // component's own declarations, as `@ignore` is, so a base's tag doesn't
-  // override the component's or show on a prop the component redeclares.
+  // as one applied further down the frontmatter (issue #371). Its text is the
+  // source, and its value is parsed the way a destructuring default's is. It's
+  // read from the component's own declarations, as `@ignore` is, so a base's
+  // tag doesn't override the component's or show on a prop the component
+  // redeclares.
   const defaultTag = ownTagText(typescript, ownDeclarations, 'default');
-  const tagDefault = defaultTag ? { value: defaultTag, source: defaultTag } : undefined;
+  const tagDefault = defaultTag
+    ? { value: defaultTagValue(typescript, defaultTag), source: defaultTag }
+    : undefined;
   const optional = (symbol.flags & typescript.SymbolFlags.Optional) !== 0;
   // Only a destructuring default lets a caller leave the prop out; the tag is
   // documentation.
@@ -409,6 +412,35 @@ function ownTagText(
   }
 
   return undefined;
+}
+
+/**
+ * Reads a `@default` tag's text as an expression, so `@default true` gives
+ * `true` and `@default 'md'` gives `'md'`, as the same defaults written in the
+ * destructuring do (issue #355). Text that isn't a single expression is kept
+ * as written.
+ */
+function defaultTagValue(typescript: typeof ts, text: string): string | number | boolean | null {
+  const sourceFile = typescript.createSourceFile(
+    'default.ts',
+    `(${text})`,
+    typescript.ScriptTarget.Latest,
+    true
+  );
+  const [statement] = sourceFile.statements;
+
+  // Text that doesn't parse leaves more than one statement, or an expression
+  // that doesn't span the whole text.
+  if (
+    sourceFile.statements.length !== 1 ||
+    !typescript.isExpressionStatement(statement) ||
+    !typescript.isParenthesizedExpression(statement.expression) ||
+    statement.expression.expression.getText(sourceFile) !== text
+  ) {
+    return text;
+  }
+
+  return literalValueOf(typescript, statement.expression.expression, sourceFile);
 }
 
 /** Whether a declaration sits inside the component's top-level `Props`. */

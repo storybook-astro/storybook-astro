@@ -38,7 +38,7 @@ export interface AstroDocgenProp {
 
 /**
  * A destructuring default, or else the prop's `@default` tag, whose text is
- * then both `value` and `source` (issue #371).
+ * then `source` and is parsed for `value` the same way (issue #371).
  *
  * `source` is the initializer exactly as written (`'/home'`, `defaultTitle`,
  * `null`). It keeps the difference between a string literal and an

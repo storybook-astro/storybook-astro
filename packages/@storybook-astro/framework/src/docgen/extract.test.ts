@@ -294,8 +294,8 @@ describe('a @default tag fills in a default the destructuring lacks (issue #371)
       )
     );
 
-  test('as the tag writes it', () => {
-    expect(docgen()!.props.size.defaultValue).toEqual({ value: "'md'", source: "'md'" });
+  test('as the tag writes it, with the value parsed as a destructuring default is', () => {
+    expect(docgen()!.props.size.defaultValue).toEqual({ value: 'md', source: "'md'" });
   });
 
   test('without taking the place of a destructuring default', () => {
@@ -305,12 +305,55 @@ describe('a @default tag fills in a default the destructuring lacks (issue #371)
   test('without making a required prop optional', () => {
     const { width } = docgen()!.props;
 
-    expect(width.defaultValue).toEqual({ value: '100', source: '100' });
+    expect(width.defaultValue).toEqual({ value: 100, source: '100' });
     expect(width.required).toBe(true);
   });
 
   test('and leaves the description as the free text', () => {
     expect(docgen()!.props.size.description).toBe('Size.');
+  });
+});
+
+describe('a @default tag\'s value matches a destructuring default\'s (issues #355, #371)', () => {
+  const docgen = () =>
+    docgenFor(
+      astro(
+        [
+          'interface Props {',
+          '  /** @default true */',
+          '  open?: boolean;',
+          "  /** @default 'md' */",
+          '  size?: string;',
+          '  /** @default defaultLinks */',
+          '  links?: string[];',
+          '  /** @default the page title */',
+          '  title?: string;',
+          '}',
+          'const { open, size, links, title } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+  test('a boolean is a boolean', () => {
+    expect(docgen()!.props.open.defaultValue).toEqual({ value: true, source: 'true' });
+  });
+
+  test('a string literal is the string', () => {
+    expect(docgen()!.props.size.defaultValue).toEqual({ value: 'md', source: "'md'" });
+  });
+
+  test('an identifier keeps its text', () => {
+    expect(docgen()!.props.links.defaultValue).toEqual({
+      value: 'defaultLinks',
+      source: 'defaultLinks'
+    });
+  });
+
+  test('text that is not an expression is kept as written', () => {
+    expect(docgen()!.props.title.defaultValue).toEqual({
+      value: 'the page title',
+      source: 'the page title'
+    });
   });
 });
 
@@ -336,7 +379,7 @@ describe('a @default tag is read from the component\'s own declarations (issue #
       )
     );
 
-    expect(docgen!.props.size.defaultValue).toEqual({ value: "'lg'", source: "'lg'" });
+    expect(docgen!.props.size.defaultValue).toEqual({ value: 'lg', source: "'lg'" });
   });
 
   test('so a base\'s @default does not show on a prop the component redeclares', () => {
@@ -368,7 +411,7 @@ describe('a @default tag is read from the component\'s own declarations (issue #
       )
     );
 
-    expect(docgen!.props.size.defaultValue).toEqual({ value: "'md'", source: "'md'" });
+    expect(docgen!.props.size.defaultValue).toEqual({ value: 'md', source: "'md'" });
   });
 });
 
