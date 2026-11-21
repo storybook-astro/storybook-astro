@@ -44,7 +44,10 @@ export const core = {
 
 export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storybookOptions) => {
   const { configType, presets, configDir } = storybookOptions;
-  const frameworkOptions = await presets.apply<FrameworkOptions>('frameworkOptions');
+  // Core hands back the framework's `options`: undefined for `framework: { name }`
+  // without them, and null with no framework config (#370).
+  const frameworkOptions =
+    (await presets.apply<FrameworkOptions | null | undefined>('frameworkOptions')) ?? {};
   const resolveFrom = frameworkOptions.resolveFrom ?? dirname(configDir);
 
   // Auto-load fonts from the user's astro.config.* when the framework option
@@ -293,7 +296,9 @@ export const experimental_docgenProvider = async (
   }
 
   const frameworkOptions =
-    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+    (await storybookOptions.presets.apply<FrameworkOptions | null | undefined>(
+      'frameworkOptions'
+    )) ?? {};
 
   // `isDocgenProviderEnabled` keeps the default off for a prop filter, so
   // getting here means the project forced the Docgen Server flag on. The flag
@@ -482,7 +487,10 @@ async function whereDocgenCanRun(
     return 'nowhere';
   }
 
-  const { docgen } = await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+  const { docgen } =
+    (await storybookOptions.presets.apply<FrameworkOptions | null | undefined>(
+      'frameworkOptions'
+    )) ?? {};
 
   if (docgen === false) {
     return 'nowhere';
