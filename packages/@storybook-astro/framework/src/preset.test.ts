@@ -408,7 +408,7 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      '[storybook-astro] TypeScript 7.0.0 does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. To get them, keep TypeScript 7 and install TypeScript 6 alongside it as `typescript`: https://storybook.js.org/docs/configure/integration/typescript#typescript-7'
+      '[storybook-astro] TypeScript 7.0.0 does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. To get them, install TypeScript 6 as `typescript`, keeping TypeScript 7.0.0 under an alias if you use it: https://storybook.js.org/docs/configure/integration/typescript#typescript-7'
     );
   });
 

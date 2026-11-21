@@ -20,9 +20,11 @@ describe('with TypeScript 7 installed', () => {
     expect(warnings).toEqual([
       expect.stringContaining('TypeScript 7.0.2 does not include the compiler API')
     ]);
-    // Downgrading would cost the project its tsc; TypeScript 6 installed as
-    // `typescript` beside it is what the extractor imports.
-    expect(warnings[0]).toContain('keep TypeScript 7 and install TypeScript 6 alongside it as `typescript`');
+    // TypeScript 7 already holds the `typescript` name, so the advice can't be
+    // to install 6 beside it: 6 takes the name, and 7 can stay under an alias.
+    expect(warnings[0]).toContain(
+      'install TypeScript 6 as `typescript`, keeping TypeScript 7.0.2 under an alias if you use it'
+    );
     expect(warnings[0]).toContain('https://storybook.js.org/docs/configure/integration/typescript#typescript-7');
   });
 });

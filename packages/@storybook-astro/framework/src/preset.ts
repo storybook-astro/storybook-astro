@@ -459,7 +459,7 @@ export const isDocgenProviderEnabled = async (
 
   if (typeof version === 'string') {
     warnOnce(
-      `TypeScript ${version} does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. To get them, keep TypeScript 7 and install TypeScript 6 alongside it as \`typescript\`: https://storybook.js.org/docs/configure/integration/typescript#typescript-7`
+      `TypeScript ${version} does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. To get them, install TypeScript 6 as \`typescript\`, keeping TypeScript ${version} under an alias if you use it: https://storybook.js.org/docs/configure/integration/typescript#typescript-7`
     );
   } else {
     warnOnce(
