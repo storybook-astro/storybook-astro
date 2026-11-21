@@ -37,6 +37,7 @@ When a story sets `parameters.renderer`, the render pipeline changes:
 2. Instead of routing through the Astro Container API, it delegates to the specified framework's `renderToCanvas` function
 3. The framework renderer manages its own reactive root and lifecycle
 4. `storyFn()` is called *after* delegation — this ordering is critical for frameworks like Solid that manage their own reactive roots
+5. The teardown the framework returns goes back to Storybook, so the story is unmounted, and its effects clean up, when Storybook removes it: on navigation, on a remount, and when a Docs page closes. A teardown only unmounts while the canvas still holds that story, so a Docs story block's late teardown leaves a newer story alone. A framework story is also unmounted before a story of another framework or an Astro story renders into its canvas, and before a remount. If its cleanup throws, the error is logged to the console and the next story still renders. Preact's renderer returns no teardown, so a Preact story stays mounted until another Preact story renders into its canvas. A story of another framework or an Astro story clears its DOM but doesn't unmount it
 
 ## Virtual modules
 

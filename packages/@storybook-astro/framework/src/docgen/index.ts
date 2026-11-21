@@ -176,7 +176,9 @@ async function startSession(
   try {
     typescript = (await import('typescript')).default;
   } catch {
-    warn('TypeScript is not installed, so component documentation cannot be extracted.');
+    warn(
+      'TypeScript is not installed, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
+    );
 
     return undefined;
   }
@@ -186,7 +188,7 @@ async function startSession(
   // check below passes and the first `ScriptTarget` read throws (issue #197).
   if (typeof typescript.createLanguageService !== 'function') {
     warn(
-      `TypeScript ${typescript.version} does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.`
+      `TypeScript ${typescript.version} does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. To get them, install TypeScript 6 as \`typescript\`, keeping TypeScript ${typescript.version} under an alias if you use it: https://storybook.js.org/docs/configure/integration/typescript#typescript-7`
     );
 
     return undefined;

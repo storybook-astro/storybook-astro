@@ -143,6 +143,362 @@ describe('props marked @ignore (issue #356)', () => {
   });
 });
 
+describe('@ignore counts only where the component declares the prop (issue #373)', () => {
+  const baseWithIgnoredLabel = [
+    'interface BaseProps {',
+    '  /** @ignore */',
+    '  label?: string;',
+    '}'
+  ];
+
+  test('a prop the component redeclares over an ignored base prop keeps its row', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithIgnoredLabel,
+          'interface Props extends BaseProps {',
+          '  label: string;',
+          '}',
+          'const { label } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['label']);
+  });
+
+  test('a prop the component adds to an intersection keeps its row', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithIgnoredLabel,
+          'type Props = BaseProps & { label: string };',
+          'const { label } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['label']);
+  });
+
+  test('@ignore on the component\'s own declaration still hides a merged prop', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface BaseProps {',
+          '  /** Shown in the base. */',
+          '  label?: string;',
+          '}',
+          'type Props = BaseProps & {',
+          '  /** @ignore */',
+          '  label?: string;',
+          '  title?: string;',
+          '};',
+          'const { label, title } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['title']);
+  });
+
+  test('a prop the component only inherits from an ignored base stays hidden', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithIgnoredLabel,
+          'interface Props extends BaseProps {',
+          '  title?: string;',
+          '}',
+          'const { label, title } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['title']);
+  });
+
+  test('a prop the component only inherits takes a grandparent\'s tags past a base that redeclares it', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface Grand {',
+          '  /** @ignore */',
+          '  foo?: number;',
+          '  /** @default 7 */',
+          '  baz?: number;',
+          '}',
+          'interface Base extends Grand {',
+          '  foo?: number;',
+          '  baz?: number;',
+          '}',
+          'interface Props extends Base {}',
+          'const { foo, baz } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['baz']);
+    expect(docgen!.props.baz.defaultValue).toEqual({ value: 7, source: '7' });
+  });
+
+  test('@ignore on one constituent of a union Props hides the shared prop', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'type Props =',
+          '  | {',
+          '      /** @ignore */',
+          '      a?: string;',
+          "      kind: 'x';",
+          '    }',
+          "  | { a?: string; kind: 'y' };",
+          'const { a, kind } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['kind']);
+  });
+
+  test('@ignore on a named interface in a union Props hides the prop an inline constituent shares', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface A {',
+          '  /** @ignore */',
+          '  x?: string;',
+          "  kind: 'a';",
+          '}',
+          "type Props = A | { kind: 'b'; x?: string };",
+          'const { x, kind } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['kind']);
+  });
+
+  test('an intersection with a discriminated union is not a union Props', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface Base {',
+          '  /** @ignore */',
+          '  label?: string;',
+          "  /** @default 'md' */",
+          '  size?: string;',
+          '}',
+          'type Props = Base & {',
+          '  label: string;',
+          "  size?: 'sm' | 'lg';",
+          "} & ({ kind: 'a' } | { kind: 'b' });",
+          'const { label, size, kind } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props).sort()).toEqual(['kind', 'label', 'size']);
+    expect(docgen!.props.size.defaultValue).toBeNull();
+  });
+
+  test('a union Props in parentheses is still a union Props', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface A {',
+          '  /** @ignore */',
+          '  x?: string;',
+          "  kind: 'a';",
+          '}',
+          "type Props = (A | { kind: 'b'; x?: string });",
+          'const { x, kind } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['kind']);
+  });
+
+  test('@ignore on a helper interface hides a prop also declared in DOM types', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          "import type { HTMLAttributes } from 'astro/types';",
+          'interface Own {',
+          '  /** @ignore */',
+          '  type?: string;',
+          '  label?: string;',
+          '}',
+          "type Props = Own & HTMLAttributes<'button'>;",
+          'const { type, label } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(docgen!.props.label).toBeDefined();
+    expect(docgen!.props.type).toBeUndefined();
+  });
+});
+
+describe('a quoted key in the destructuring (issue #373)', () => {
+  test('gives the prop its default, so it is not required', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface Props {',
+          "  'aria-label': string;",
+          '}',
+          "const { 'aria-label': ariaLabel = 'Close' } = Astro.props;"
+        ].join('\n')
+      )
+    );
+    const prop = docgen!.props['aria-label'];
+
+    expect(prop.defaultValue).toEqual({ value: 'Close', source: "'Close'" });
+    expect(prop.required).toBe(false);
+  });
+});
+
+describe('a @default tag fills in a default the destructuring lacks (issue #371)', () => {
+  const docgen = () =>
+    docgenFor(
+      astro(
+        [
+          'interface Props {',
+          "  /** Size. @default 'md' */",
+          '  size?: string;',
+          "  /** Tone. @default 'quiet' */",
+          '  tone?: string;',
+          '  /** Width. @default 100 */',
+          '  width: number;',
+          '}',
+          "const { size, tone = 'loud', width } = Astro.props;"
+        ].join('\n')
+      )
+    );
+
+  test('as the tag writes it, with the value parsed as a destructuring default is', () => {
+    expect(docgen()!.props.size.defaultValue).toEqual({ value: 'md', source: "'md'" });
+  });
+
+  test('without taking the place of a destructuring default', () => {
+    expect(docgen()!.props.tone.defaultValue).toEqual({ value: 'loud', source: "'loud'" });
+  });
+
+  test('without making a required prop optional', () => {
+    const { width } = docgen()!.props;
+
+    expect(width.defaultValue).toEqual({ value: 100, source: '100' });
+    expect(width.required).toBe(true);
+  });
+
+  test('and leaves the description as the free text', () => {
+    expect(docgen()!.props.size.description).toBe('Size.');
+  });
+});
+
+describe('a @default tag\'s value matches a destructuring default\'s (issues #355, #371)', () => {
+  const docgen = () =>
+    docgenFor(
+      astro(
+        [
+          'interface Props {',
+          '  /** @default true */',
+          '  open?: boolean;',
+          "  /** @default 'md' */",
+          '  size?: string;',
+          '  /** @default defaultLinks */',
+          '  links?: string[];',
+          '  /** @default the page title */',
+          '  title?: string;',
+          '}',
+          'const { open, size, links, title } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+  test('a boolean is a boolean', () => {
+    expect(docgen()!.props.open.defaultValue).toEqual({ value: true, source: 'true' });
+  });
+
+  test('a string literal is the string', () => {
+    expect(docgen()!.props.size.defaultValue).toEqual({ value: 'md', source: "'md'" });
+  });
+
+  test('an identifier keeps its text', () => {
+    expect(docgen()!.props.links.defaultValue).toEqual({
+      value: 'defaultLinks',
+      source: 'defaultLinks'
+    });
+  });
+
+  test('text that is not an expression is kept as written', () => {
+    expect(docgen()!.props.title.defaultValue).toEqual({
+      value: 'the page title',
+      source: 'the page title'
+    });
+  });
+});
+
+describe('a @default tag is read from the component\'s own declarations (issue #371)', () => {
+  const baseWithDefaultSize = [
+    'interface Base {',
+    "  /** @default 'md' */",
+    '  size?: string;',
+    '}'
+  ];
+
+  test('over a base\'s @default in an intersection', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithDefaultSize,
+          'type Props = {',
+          "  /** @default 'lg' */",
+          '  size?: string;',
+          '} & Base;',
+          'const { size } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(docgen!.props.size.defaultValue).toEqual({ value: 'lg', source: "'lg'" });
+  });
+
+  test('so a base\'s @default does not show on a prop the component redeclares', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithDefaultSize,
+          'interface Props extends Base {',
+          "  size?: 'sm' | 'lg';",
+          '}',
+          'const { size } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(docgen!.props.size.defaultValue).toBeNull();
+  });
+
+  test('or from the base when the component only inherits the prop', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithDefaultSize,
+          'interface Props extends Base {',
+          '  title?: string;',
+          '}',
+          'const { size, title } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(docgen!.props.size.defaultValue).toEqual({ value: 'md', source: "'md'" });
+  });
+});
+
 describe('long types (issue #357)', () => {
   // Template literal types aren't literals, so this union isn't an enum.
   const widthType = Array.from({ length: 30 }, (_, index) => `\`\${number}unit${index}\``).join(' | ');

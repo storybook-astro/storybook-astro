@@ -17,6 +17,8 @@ import type * as StoryDocsPayloadModule from './docgen/story-docs-payload.ts';
 interface Scenario {
   configDir?: string;
   features?: Record<string, unknown>;
+  /** The `docs` preset; addon-docs makes it non-empty. */
+  docs?: Record<string, unknown>;
   frameworkOptions?: Partial<FrameworkOptions>;
   build?: Options['build'];
   configType?: Options['configType'];
@@ -26,6 +28,7 @@ interface Scenario {
 function storybookOptions({
   configDir = '/project/.storybook',
   features,
+  docs,
   frameworkOptions,
   build,
   configType = 'DEVELOPMENT'
@@ -35,8 +38,17 @@ function storybookOptions({
     configType,
     build,
     presets: {
-      apply: async (key: string) =>
-        key === 'features' ? (features ?? {}) : (frameworkOptions ?? {})
+      apply: async (key: string) => {
+        if (key === 'features') {
+          return features ?? {};
+        }
+
+        if (key === 'docs') {
+          return docs ?? {};
+        }
+
+        return frameworkOptions ?? {};
+      }
     }
   } as unknown as Options;
 }
@@ -49,9 +61,18 @@ const installed = vi.hoisted(() => ({ storybook: '10.6.0' }));
 // they're only exported while the version above is 11 or newer.
 const storybook11 = vi.hoisted(() => ({
   typescriptReady: true,
+  /** The error core reports when `typescriptReady` is false; a missing package by default. */
+  typescriptError: undefined as Error | undefined,
   typescriptChecks: 0,
   typescriptResolvedTo: undefined as string | undefined
 }));
+
+// The project's main config, as core's `loadMainConfig` returns it.
+const mainConfig = vi.hoisted(() => ({ features: undefined as Record<string, unknown> | undefined }));
+
+const typescriptMissing = vi.hoisted(
+  () => 'Storybook could not find the `typescript` package to run docgen.'
+);
 
 const isStorybook11 = () => Number.parseInt(installed.storybook, 10) >= 11;
 
@@ -66,11 +87,31 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
         return installed.storybook;
       }
     },
+    // Core's check without a warning, which the framework uses.
+    get getTypeScriptForDocgenError() {
+      return isStorybook11()
+        ? (resolve: (specifier: string) => string) => {
+            storybook11.typescriptChecks += 1;
+            storybook11.typescriptResolvedTo = resolve('typescript/package.json');
+
+            return storybook11.typescriptReady
+              ? undefined
+              : (storybook11.typescriptError ?? new Error(typescriptMissing));
+          }
+        : undefined;
+    },
+    loadMainConfig: async () => ({ features: mainConfig.features }),
+    // Core's check that warns, as `@storybook/react` calls it. The framework
+    // doesn't, since its extractor warns too (issue #367).
     get isTypeScriptReadyForDocgen() {
       return isStorybook11()
         ? async (resolve: (specifier: string) => string) => {
             storybook11.typescriptChecks += 1;
             storybook11.typescriptResolvedTo = resolve('typescript/package.json');
+
+            if (!storybook11.typescriptReady) {
+              console.warn(typescriptMissing);
+            }
 
             return storybook11.typescriptReady;
           }
@@ -110,11 +151,15 @@ vi.mock('./docgen/story-docs-payload.ts', async (importOriginal) => {
 
 const flagOn = { experimentalDocgenServer: true };
 
+const withAddonDocs = { defaultName: 'Docs' };
+
 afterEach(() => {
   vi.restoreAllMocks();
   installed.storybook = '10.6.0';
   storybook11.typescriptReady = true;
+  storybook11.typescriptError = undefined;
   storybook11.typescriptChecks = 0;
+  mainConfig.features = undefined;
   storybook11.typescriptResolvedTo = undefined;
   storyDocsBuilder.error = undefined;
   storyDocsBuilder.loadError = undefined;
@@ -312,8 +357,79 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     installed.storybook = '11.0.0';
     storybook11.typescriptReady = false;
 
-    expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+    expect(await isDocgenProviderEnabled(false, storybookOptions({ docs: withAddonDocs }))).toBe(
+      false
+    );
   });
+
+  test('and with addon-docs says nothing about the missing TypeScript, which the extractor reports once (issue #367)', async () => {
+    installed.storybook = '11.0.0';
+    storybook11.typescriptReady = false;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await isDocgenProviderEnabled(false, storybookOptions({ docs: withAddonDocs }));
+
+    expect(storybook11.typescriptChecks).toBe(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('and without addon-docs, where the extractor never runs, reports the missing TypeScript itself, once', async () => {
+    installed.storybook = '11.0.0';
+    storybook11.typescriptReady = false;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // A fresh preset module, so no earlier test has used up the one warning.
+    vi.resetModules();
+    const preset = await import('./preset.ts');
+
+    // Core applies `features`, and so this hook, more than ten times at startup.
+    for (let run = 0; run < 12; run += 1) {
+      expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+    }
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      '[storybook-astro] TypeScript is not installed, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
+    );
+  });
+
+  test('and without addon-docs names a TypeScript 7, which is installed but has no compiler API', async () => {
+    installed.storybook = '11.0.0';
+    storybook11.typescriptReady = false;
+    storybook11.typescriptError = Object.assign(new Error('no compiler API'), {
+      name: 'SB_CORE-COMMON_0034 (TypeScriptWithoutCompilerApiError)',
+      data: { version: '7.0.0' }
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    vi.resetModules();
+    const preset = await import('./preset.ts');
+
+    expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      '[storybook-astro] TypeScript 7.0.0 does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. To get them, install TypeScript 6 as `typescript`, keeping TypeScript 7.0.0 under an alias if you use it: https://storybook.js.org/docs/configure/integration/typescript#typescript-7'
+    );
+  });
+
+  test.each([
+    ['false, so nothing extracts', false],
+    ['true, so the worker\'s extractor reports it', true]
+  ])(
+    'and without addon-docs leaves the warning out when the main config sets docgenServer to %s',
+    async (_, docgenServer) => {
+      installed.storybook = '11.0.0';
+      storybook11.typescriptReady = false;
+      mainConfig.features = { docgenServer };
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      vi.resetModules();
+      const preset = await import('./preset.ts');
+
+      expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+      expect(warn).not.toHaveBeenCalled();
+    }
+  );
 
   test('but not when the project sets a prop filter, which the worker cannot run', async () => {
     installed.storybook = '11.0.0';
@@ -351,6 +467,41 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
 
   test('and stays off on a Storybook without the TypeScript check', async () => {
     expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+  });
+});
+
+describe('the default and an explicit docgenServer agree on where docgen runs (issue #367)', () => {
+  test.each([
+    ['a test build', { build: { test: { disableDocgen: true } } }],
+    ['docgen turned off', { frameworkOptions: { docgen: false as const } }]
+  ])('%s gets no Docgen Server by default, and none when the flag is set', async (_, scenario) => {
+    installed.storybook = '11.0.0';
+
+    expect(await isDocgenProviderEnabled(false, storybookOptions(scenario))).toBe(false);
+
+    const descriptors = await experimental_docgenProvider(
+      [],
+      storybookOptions({ ...scenario, features: { docgenServer: true } })
+    );
+
+    expect(descriptors).toEqual([]);
+  });
+
+  test('a prop filter keeps the builder path by default, and is reported when the flag forces the worker', async () => {
+    installed.storybook = '11.0.0';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const scenario = { frameworkOptions: { docgen: { propFilter: () => true } } };
+
+    expect(await isDocgenProviderEnabled(false, storybookOptions(scenario))).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
+
+    const descriptors = await experimental_docgenProvider(
+      [],
+      storybookOptions({ ...scenario, features: { docgenServer: true } })
+    );
+
+    expect(descriptors).toHaveLength(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('propFilter'));
   });
 });
 
@@ -443,7 +594,7 @@ describe('the Vite plugins viteFinal adds (#378)', () => {
       .filter((name) => name?.startsWith('storybook-astro:'));
   }
 
-  test('the dev server gets the optimizer options and the Fast Refresh workaround', async () => {
+  test('the dev server gets the optimizer options and the React refresh-wrapper guard', async () => {
     const names = await storybookAstroPluginNames('DEVELOPMENT');
 
     expect(names).toContain('storybook-astro:optimize-deps');
@@ -457,3 +608,55 @@ describe('the Vite plugins viteFinal adds (#378)', () => {
     expect(names).not.toContain('storybook-astro:skip-native-react-refresh');
   });
 }, 60_000);
+
+describe('a framework configured without options (issue #370)', () => {
+  // Core returns the framework's `options`: undefined for
+  // `framework: { name: '@storybook-astro/framework' }`, null with no framework config.
+  function withoutFrameworkOptions(
+    frameworkOptions: undefined | null,
+    scenario: Scenario = {}
+  ): Options {
+    const options = storybookOptions(scenario);
+
+    return {
+      ...options,
+      presets: {
+        apply: async (key: string) =>
+          key === 'features' ? (scenario.features ?? {}) : frameworkOptions
+      }
+    } as unknown as Options;
+  }
+
+  describe.each([undefined, null])('when core returns %s', (frameworkOptions) => {
+    test('viteFinal configures Vite', async () => {
+      const config = await viteFinal!(
+        {},
+        withoutFrameworkOptions(frameworkOptions, {
+          // resolveFrom falls back to the config dir's parent: this package, which
+          // has astro installed and no astro.config to load fonts from.
+          configDir: fileURLToPath(new URL('../.storybook', import.meta.url))
+        })
+      );
+
+      expect(config.plugins?.length).toBeGreaterThan(0);
+    }, 60_000);
+
+    test('the Docgen Server descriptor is contributed', async () => {
+      const descriptors = await experimental_docgenProvider(
+        [],
+        withoutFrameworkOptions(frameworkOptions, { features: flagOn })
+      );
+
+      expect(descriptors).toHaveLength(1);
+      expect(descriptors[0].options).toMatchObject({ projectRoot: '/project' });
+    });
+
+    test('the Docgen Server is on by default on Storybook 11', async () => {
+      installed.storybook = '11.0.0';
+
+      expect(await isDocgenProviderEnabled(false, withoutFrameworkOptions(frameworkOptions))).toBe(
+        true
+      );
+    });
+  });
+});
