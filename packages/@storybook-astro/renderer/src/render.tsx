@@ -142,21 +142,33 @@ function teardownAstroRender(canvasElement: HTMLElement, renderToken: object): T
 // The framework story a canvas holds: the render that mounted it and the
 // teardown its framework returned. Like an Astro teardown, a framework
 // teardown only unmounts while the canvas still holds its render's root
-// (#238). React, Vue and Svelte unmount whatever root the canvas has, and
-// Solid disposes by story id, so a late Docs teardown would otherwise unmount
-// the newer story that took the canvas over.
+// (#238). React and Svelte unmount whatever root the canvas has, Vue drops
+// whatever app the canvas has registered, and Solid disposes by story id, so a
+// late Docs teardown would otherwise unmount or orphan the newer story that
+// took the canvas over.
 const frameworkStoryByCanvas = new WeakMap<
   HTMLElement,
   { render: object; teardown: TeardownRenderToCanvas }
 >();
 
-/** Unmounts the framework story the canvas holds, while its DOM is still in the canvas. */
+/**
+ * Unmounts the framework story the canvas holds, while its DOM is still in the
+ * canvas. An error from the story's cleanup is logged rather than thrown, so
+ * the next story still renders, as it did before #238 when the old story's
+ * teardown never ran: Storybook awaits the teardown it holds without a catch
+ * before it renders the next story.
+ */
 async function unmountFrameworkStory(
   canvasElement: HTMLElement,
   frameworkStory: { teardown: TeardownRenderToCanvas }
 ) {
   frameworkStoryByCanvas.delete(canvasElement);
-  await frameworkStory.teardown();
+
+  try {
+    await frameworkStory.teardown();
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 /** Unmounts a framework story, unless the canvas has moved on to another render. */
@@ -192,27 +204,31 @@ export async function renderToCanvas(
   // canvas container with it in docs view to preserve each component's own look.
   canvasElement.classList.toggle('sb-unstyled', storyContext?.viewMode === 'docs');
 
+  const thisRender = {};
+
   // A framework story the canvas still holds is unmounted before anything
   // else touches the canvas: its teardown removes its own DOM, which fails
   // once that DOM has been cleared, and a Docs story block runs the teardown
   // Storybook holds late, after this render has started (#238). That covers
   // a switch to another framework or to Astro, and a remount, which Solid
   // only honors in its own `mount`, never called for a delegated story.
-  const rendererChanged = renderer !== lastRendererByCanvas.get(canvasElement);
-
+  // Checked first, so a canvas without a framework story renders without
+  // waiting a tick.
   const heldFrameworkStory = frameworkStoryByCanvas.get(canvasElement);
 
-  // Checked first, so a canvas without a framework story renders without
-  // waiting a tick. A teardown that throws is logged rather than failing
-  // this render, so the next story still renders, as it did before #238
-  // when the old story's teardown never ran.
-  if ((rendererChanged || forceRemount) && heldFrameworkStory) {
-    try {
-      await unmountFrameworkStory(canvasElement, heldFrameworkStory);
-    } catch (error) {
-      console.error(error);
+  if (heldFrameworkStory && (forceRemount || renderer !== lastRendererByCanvas.get(canvasElement))) {
+    // This render claims the canvas before it waits, so a render that starts
+    // during the unmount takes the canvas over and this one stands down,
+    // rather than resuming to clear and overwrite the newer story.
+    latestRenderByCanvas.set(canvasElement, thisRender);
+    await unmountFrameworkStory(canvasElement, heldFrameworkStory);
+
+    if (latestRenderByCanvas.get(canvasElement) !== thisRender) {
+      return;
     }
   }
+
+  const rendererChanged = renderer !== lastRendererByCanvas.get(canvasElement);
 
   // When this canvas's framework changes, clear it so the previous framework's
   // DOM doesn't stack alongside the new one. Same-framework rerenders are
@@ -221,8 +237,6 @@ export async function renderToCanvas(
     canvasElement.innerHTML = '';
   }
   lastRendererByCanvas.set(canvasElement, renderer);
-
-  const thisRender = {};
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     latestRenderByCanvas.set(canvasElement, thisRender);

@@ -9,7 +9,13 @@ type FrameworkRenderContext = {
   forceRemount: boolean;
   storyContext: {
     id: string;
-    parameters: { story?: string; fail?: boolean; cleanupThrows?: boolean; waitFor?: Promise<void> };
+    parameters: {
+      story?: string;
+      fail?: boolean;
+      cleanupThrows?: boolean;
+      waitFor?: Promise<void>;
+      teardownWaitsFor?: Promise<void>;
+    };
   };
 };
 
@@ -37,7 +43,7 @@ const frameworks = vi.hoisted(() => {
   }
 
   async function renderReact(ctx: FrameworkRenderContext, canvas: HTMLElement) {
-    const { story = 'react', fail, cleanupThrows, waitFor } = ctx.storyContext.parameters;
+    const { story = 'react', fail, cleanupThrows, waitFor, teardownWaitsFor } = ctx.storyContext.parameters;
 
     if (ctx.forceRemount) {
       unmountReact(canvas);
@@ -67,6 +73,9 @@ const frameworks = vi.hoisted(() => {
       }
 
       unmountReact(canvas);
+      // As @storybook/react's `act()` does, the teardown settles after the
+      // root has unmounted.
+      await teardownWaitsFor;
     };
   }
 
@@ -160,10 +169,17 @@ function renderFrameworkStory(
     forceRemount = false,
     fail = false,
     cleanupThrows = false,
-    waitFor
-  }: { forceRemount?: boolean; fail?: boolean; cleanupThrows?: boolean; waitFor?: Promise<void> } = {}
+    waitFor,
+    teardownWaitsFor
+  }: {
+    forceRemount?: boolean;
+    fail?: boolean;
+    cleanupThrows?: boolean;
+    waitFor?: Promise<void>;
+    teardownWaitsFor?: Promise<void>;
+  } = {}
 ) {
-  const context = storyContext(() => null, { renderer, story, fail, cleanupThrows, waitFor });
+  const context = storyContext(() => null, { renderer, story, fail, cleanupThrows, waitFor, teardownWaitsFor });
 
   return renderToCanvas({ ...context, forceRemount }, canvas);
 }
@@ -444,6 +460,10 @@ describe('the teardown renderToCanvas returns for an Astro story', () => {
 });
 
 describe('the teardown renderToCanvas returns for a framework story (issue #238)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   test('unmounts the story, so its effects clean up when Storybook removes it', async () => {
     const teardown = await renderFrameworkStory(canvas, 'react', 'first', { forceRemount: true });
 
@@ -535,7 +555,43 @@ describe('the teardown renderToCanvas returns for a framework story (issue #238)
 
     expect(canvas.innerHTML).toBe('<div>second</div>');
     expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Effect cleanup failed' }));
-    consoleError.mockRestore();
+  });
+
+  test('logs a cleanup that throws when Storybook runs the teardown, so the next story still renders', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const teardown = await renderFrameworkStory(canvas, 'react', 'first', {
+      forceRemount: true,
+      cleanupThrows: true
+    });
+
+    // Storybook awaits this without a catch before it renders the next story.
+    await expect(teardown?.()).resolves.toBeUndefined();
+
+    serverRespondsWith('second');
+    await renderAstro(canvas);
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Effect cleanup failed' }));
+  });
+
+  test('a render waiting on the old story\'s unmount stands down when a newer render takes the canvas', async () => {
+    let finishUnmount!: () => void;
+
+    await renderFrameworkStory(canvas, 'react', 'first', {
+      forceRemount: true,
+      teardownWaitsFor: new Promise((resolve) => (finishUnmount = resolve))
+    });
+
+    const solidRendering = renderFrameworkStory(canvas, 'solid', 'second', { forceRemount: true });
+
+    serverRespondsWith('third');
+    await renderAstro(canvas);
+
+    finishUnmount();
+
+    expect(await solidRendering).toBeUndefined();
+    expect(canvas.innerHTML).toBe('<div>third</div>');
+    expect(frameworks.unmounted).toEqual(['first']);
   });
 
   test('disposes a Solid story before a Docs story block renders its canvas again, so the new story shows', async () => {

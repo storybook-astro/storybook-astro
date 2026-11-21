@@ -36,12 +36,17 @@ test.describe('leaving a framework story', () => {
     const errors: string[] = [];
     const preview = page.frameLocator('#storybook-preview-iframe');
 
-    // Only the preview's own errors, such as a removeChild DOMException from
-    // a late teardown. The manager's addons log errors of their own.
+    // The preview's errors, such as a removeChild DOMException from a late
+    // teardown. A message's location is the script that logged it, such as
+    // react-dom or the renderer chunk, so only the manager's own scripts are
+    // left out: its addons log errors of their own.
     page.on('console', (message) => {
+      const loggedBy = message.location().url;
+
       if (
         message.type() === 'error' &&
-        message.location().url.includes('iframe.html') &&
+        !loggedBy.includes('/sb-manager/') &&
+        !loggedBy.includes('/sb-addons/') &&
         !message.text().startsWith('Failed to load resource')
       ) {
         errors.push(message.text());
