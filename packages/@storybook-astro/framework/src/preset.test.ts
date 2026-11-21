@@ -382,8 +382,8 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     vi.resetModules();
     const preset = await import('./preset.ts');
 
-    // Core applies `features`, and so this hook, about eight times at startup.
-    for (let run = 0; run < 8; run += 1) {
+    // Core applies `features`, and so this hook, more than ten times at startup.
+    for (let run = 0; run < 12; run += 1) {
       expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
     }
 
@@ -408,7 +408,7 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      '[storybook-astro] TypeScript 7.0.0 does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
+      '[storybook-astro] TypeScript 7.0.0 does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. To get them, keep TypeScript 7 and install TypeScript 6 alongside it as `typescript`: https://storybook.js.org/docs/configure/integration/typescript#typescript-7'
     );
   });
 
