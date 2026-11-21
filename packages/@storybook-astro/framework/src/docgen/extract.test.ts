@@ -217,6 +217,31 @@ describe('@ignore counts only where the component declares the prop (issue #373)
 
     expect(Object.keys(docgen!.props)).toEqual(['title']);
   });
+
+  test('a prop the component only inherits takes a grandparent\'s tags past a base that redeclares it', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface Grand {',
+          '  /** @ignore */',
+          '  foo?: number;',
+          '  /** @default 7 */',
+          '  baz?: number;',
+          '}',
+          'interface Base extends Grand {',
+          '  foo?: number;',
+          '  baz?: number;',
+          '}',
+          'interface Props extends Base {}',
+          'const { foo, baz } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['baz']);
+    expect(docgen!.props.baz.defaultValue).toEqual({ value: 7, source: '7' });
+  });
+
   test('@ignore on one constituent of a union Props hides the shared prop', () => {
     const docgen = docgenFor(
       astro(
@@ -229,6 +254,24 @@ describe('@ignore counts only where the component declares the prop (issue #373)
           '    }',
           "  | { a?: string; kind: 'y' };",
           'const { a, kind } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['kind']);
+  });
+
+  test('@ignore on a named interface in a union Props hides the prop an inline constituent shares', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface A {',
+          '  /** @ignore */',
+          '  x?: string;',
+          "  kind: 'a';",
+          '}',
+          "type Props = A | { kind: 'b'; x?: string };",
+          'const { x, kind } = Astro.props;'
         ].join('\n')
       )
     );

@@ -60,7 +60,9 @@ A prop counts as redeclared only when the member is written in the `Props`
 declaration itself: inside `interface Props { … }`, or in an object literal in
 `type Props = …`. A redeclaration in a separate named interface that `Props`
 extends or intersects, such as `Own` in `type Props = BaseProps & Own`, counts
-as inherited, so a `@default` or `@ignore` on `BaseProps` still applies to it.
+as inherited, so a `@default` or `@ignore` on `BaseProps` still applies to it. In a
+union `Props`, such as `type Props = LinkProps | ButtonProps`, a `@default` or
+`@ignore` on any of the alternatives applies to the prop.
 
 Types imported from another file work too, including via tsconfig `paths`
 aliases — the extractor uses your project's `tsconfig.json`.
