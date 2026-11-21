@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - On Windows, islands in Astro stories hydrate in `storybook dev` (#382). An island's `component-url` was its bare file path, such as `C:/project/src/ContactForm.tsx`, which the browser read as a URL with a `C:` scheme, so the island's import failed with "Not allowed to load local resource" and it stayed server-rendered HTML. It's now served through Vite's `/@fs/` route, as the island's `renderer-url` already was, and so is a mocked island's `component-url` and a component `<script>`'s `src`. Thanks to @Dan503 for the report and the fix.
-- Component tests that render stories with `renderStory` work on Astro 7.4.9 and later (#329). Every story with a framework component (React, Vue, Svelte and the others) failed with `NoMatchingRenderer`, because Astro 7.4.9's `astro/config` calls `import.meta.resolve` as it loads, which Vitest's module runner doesn't support, so the test renderer started without the framework renderers. The framework now loads `astro/config` with Node's `require`, outside the runner. Storybook itself was not affected.
+- Component tests that render stories with `renderStory` work on Astro 7.4.9 and later (#329). Every story with a framework component (React, Vue, Svelte and the others) failed with `NoMatchingRenderer`, because from Astro 7.4.9 the markdown plugin that `astro/config`'s `getViteConfig` loads calls `import.meta.resolve`, which Vitest's module runner doesn't support, so the test renderer started without the framework renderers. The framework now loads `astro/config` with Node's `require`, outside the runner. Storybook itself was not affected.
 
 ## [1.17.0] - 2026-11-17
 
