@@ -1,48 +1,92 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
-describe('middleware', () => {
-  describe('Windows absolute path normalization', () => {
-    /**
-     * Regex pattern used in middleware.ts to detect Windows absolute paths.
-     * This pattern matches paths starting with a drive letter (e.g., C:) followed by
-     * a forward slash or backslash, indicating a Windows absolute path.
-     */
-    const windowsPathRegex = /^[a-zA-Z]:[/\\]/;
+type ContainerOptions = { resolve: (specifier: string) => Promise<string> };
 
-    test('detects Windows absolute paths with forward slashes', () => {
-      const pathToTest = 'C:/Users/project/Component.astro';
+const createContainer = vi.hoisted(() => vi.fn(async (_options: ContainerOptions) => ({})));
 
-      expect(windowsPathRegex.test(pathToTest)).toBe(true);
+vi.mock('astro/container', () => ({
+  // eslint-disable-next-line camelcase -- Astro's export name
+  experimental_AstroContainer: { create: createContainer }
+}));
+
+const resolveStoryModuleMock = vi.hoisted(() => vi.fn((_specifier: string): string | undefined => undefined));
+
+vi.mock('./module-mocks.ts', () => ({ resolveStoryModuleMock }));
+
+// Mocked so the tests don't read the host's tsconfig or disk, and behave the
+// same on POSIX and Windows.
+const resolveAliasedIsland = vi.hoisted(() =>
+  vi.fn(async (_specifier: string, _from: string): Promise<string | undefined> => undefined)
+);
+
+vi.mock('./lib/resolve-aliased-island.ts', () => ({ resolveAliasedIsland }));
+
+vi.mock('virtual:astro-container-renderers', () => ({
+  addRenderers: () => {},
+  resolveClientModules: () => undefined
+}));
+
+const { handlerFactory } = await import('./middleware.ts');
+
+async function resolveBrowserUrl(specifier: string) {
+  createContainer.mockClear();
+  await handlerFactory([]);
+
+  const [options] = createContainer.mock.calls[0];
+
+  return options.resolve(specifier);
+}
+
+describe('browser URLs the container resolves', () => {
+  describe('island component-url', () => {
+    test('serves a Windows path with forward slashes through /@fs/ so the island hydrates', async () => {
+      await expect(resolveBrowserUrl('C:/project/src/ContactForm.tsx')).resolves.toBe(
+        '/@fs/C:/project/src/ContactForm.tsx'
+      );
     });
 
-    test('detects Windows absolute paths with backslashes', () => {
-      const pathToTest = 'C:\\Users\\project\\Component.astro';
-
-      expect(windowsPathRegex.test(pathToTest)).toBe(true);
+    test('serves a Windows path with backslashes through /@fs/ with forward slashes', async () => {
+      await expect(resolveBrowserUrl('C:\\project\\src\\ContactForm.tsx')).resolves.toBe(
+        '/@fs/C:/project/src/ContactForm.tsx'
+      );
     });
 
-    test('ignores Unix absolute paths', () => {
-      const unixPath = '/Users/project/Component.astro';
+    test('serves a mocked island on Windows through /@fs/ so it hydrates', async () => {
+      resolveStoryModuleMock.mockReturnValueOnce('C:/project/.storybook/mocks/Counter.tsx');
 
-      expect(windowsPathRegex.test(unixPath)).toBe(false);
+      await expect(resolveBrowserUrl('C:/project/src/Counter.tsx')).resolves.toBe(
+        '/@fs/C:/project/.storybook/mocks/Counter.tsx'
+      );
     });
 
-    test('ignores relative paths', () => {
-      const relativePath = './Component.astro';
+    test('serves an island imported through a path alias on Windows through /@fs/ with forward slashes', async () => {
+      resolveAliasedIsland.mockResolvedValueOnce('C:\\project\\src\\Counter.tsx');
 
-      expect(windowsPathRegex.test(relativePath)).toBe(false);
+      await expect(resolveBrowserUrl('@/components/Counter')).resolves.toBe(
+        '/@fs/C:/project/src/Counter.tsx'
+      );
     });
 
-    test('ignores module specifiers', () => {
-      const specifier = '@storybook-astro/renderer';
+    test('serves an island imported through a path alias on Unix through /@fs/', async () => {
+      resolveAliasedIsland.mockResolvedValueOnce('/project/src/Counter.tsx');
 
-      expect(windowsPathRegex.test(specifier)).toBe(false);
+      await expect(resolveBrowserUrl('@/components/Counter')).resolves.toBe(
+        '/@fs/project/src/Counter.tsx'
+      );
     });
 
-    test('ignores file URLs', () => {
-      const fileUrl = 'file:///C:/Users/project/Component.astro';
+    test('leaves a Unix path as it is', async () => {
+      await expect(resolveBrowserUrl('/project/src/ContactForm.tsx')).resolves.toBe(
+        '/project/src/ContactForm.tsx'
+      );
+    });
+  });
 
-      expect(windowsPathRegex.test(fileUrl)).toBe(false);
+  describe('component script src', () => {
+    test('serves a component script on Windows through /@fs/ with its query', async () => {
+      await expect(
+        resolveBrowserUrl('C:/project/src/Card.astro?astro&type=script&index=0&lang.ts')
+      ).resolves.toBe('/@fs/C:/project/src/Card.astro?astro&type=script&index=0&lang.ts');
     });
   });
 });

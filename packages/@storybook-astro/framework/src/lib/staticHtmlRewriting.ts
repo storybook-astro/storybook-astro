@@ -9,6 +9,10 @@
  * rewritten before the HTML is served. Hydrated framework component chunks
  * also have their CSS extracted at build time — without an explicit `<link>`
  * tag, those styles never reach the page.
+ *
+ * `toFsPath` is also used outside those pipelines: the dev container's
+ * `resolve` in `middleware.ts` builds island and component script URLs with
+ * it, so changing its output changes the URLs `storybook dev` serves too.
  */
 
 export type StaticModuleMap = Record<string, string>;
