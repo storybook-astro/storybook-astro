@@ -280,6 +280,12 @@ describe('a prop filter cannot cross the worker boundary', () => {
   });
 });
 
+test('server mode without an adapter fails with a clear message', async () => {
+  const options = storybookOptions({ frameworkOptions: { renderMode: 'server' } });
+
+  await expect(viteFinal!({}, options)).rejects.toThrow('Server mode requires server.adapter');
+});
+
 describe('the flag name follows the installed Storybook', () => {
   test('Storybook 11 reads features.docgenServer', async () => {
     installed.storybook = '11.0.0-alpha.8';

@@ -1,0 +1,5 @@
+# `netlify deploy --build` runs the build, then deploys storybook-server/
+# (the Storybook UI) with the render function @astrojs/netlify wrote to .netlify/v1.
+[build]
+  command = "cd ../.. && yarn build:packages && cd - && yarn build"
+  publish = "storybook-server"

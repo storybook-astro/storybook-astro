@@ -81,33 +81,6 @@ describe('vitePluginAstroComponentMarker transform', () => {
     expect(result?.code).toContain(JSON.stringify(filePath));
   });
 
-  // Server-mode snapshots need every client-imported .astro id, not just story
-  // components (docs/specs/decorators.md#static-prerender, Gap B) — vitePluginAstroBuildServer
-  // collects them through this callback.
-  test('reports every marked module id via onClientAstroModuleId', async () => {
-    const filePath = writeAstroFile('Wrapper.astro', '<div><slot /></div>');
-    const seenModuleIds: string[] = [];
-    const plugin = await createPlugin('serve', {
-      onClientAstroModuleId: (moduleId) => seenModuleIds.push(moduleId)
-    });
-
-    await plugin.transform(ASTRO6_CLIENT_STUB, filePath);
-
-    expect(seenModuleIds).toEqual([filePath]);
-  });
-
-  test('does not report modules that are not the Astro browser stub', async () => {
-    const filePath = writeAstroFile('Untouched.astro', '<div>Hello</div>');
-    const seenModuleIds: string[] = [];
-    const plugin = await createPlugin('serve', {
-      onClientAstroModuleId: (moduleId) => seenModuleIds.push(moduleId)
-    });
-
-    await plugin.transform('export default {};', filePath);
-
-    expect(seenModuleIds).toEqual([]);
-  });
-
   test.each(['serve', 'build'] as const)(
     'leaves raw <style> source out of the stub (%s)',
     async (command) => {

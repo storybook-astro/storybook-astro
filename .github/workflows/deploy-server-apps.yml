@@ -1,0 +1,207 @@
+# Deploys the server-mode host apps (integration/astro{5,6,7}-server-*) to
+# Vercel, Cloudflare Workers and Netlify.
+#
+# - push to main: production
+# - every push to a pull request, or a manual run on any other branch: a
+#   preview next to production (Vercel preview deployment, Worker preview
+#   alias, Netlify draft deploy)
+#
+# Secrets: VERCEL_TOKEN and VERCEL_ORG_ID for Vercel, CLOUDFLARE_API_TOKEN and
+# CLOUDFLARE_ACCOUNT_ID for Cloudflare, NETLIFY_AUTH_TOKEN for Netlify. A platform without its secrets is skipped,
+# as are pull requests from forks, which don't get the secrets.
+name: Deploy server-mode apps
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server-apps-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Astro ${{ matrix.astro }} on ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        astro: [5, 6, 7]
+        platform: [vercel, cloudflare, netlify]
+
+    env:
+      APP: astro${{ matrix.astro }}-server-${{ matrix.platform }}
+      PRODUCTION: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+      HAS_SECRETS: ${{ (matrix.platform == 'vercel' && secrets.VERCEL_TOKEN != '') || (matrix.platform == 'cloudflare' && secrets.CLOUDFLARE_API_TOKEN != '') || (matrix.platform == 'netlify' && secrets.NETLIFY_AUTH_TOKEN != '') }}
+      STORYBOOK_DISABLE_TELEMETRY: 1
+
+    steps:
+      - name: Skip without the platform's secrets
+        if: env.HAS_SECRETS != 'true'
+        run: echo "::notice::No ${{ matrix.platform }} secrets in this repository; skipping $APP."
+
+      - name: Checkout code
+        if: env.HAS_SECRETS == 'true'
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        if: env.HAS_SECRETS == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        if: env.HAS_SECRETS == 'true'
+        run: corepack enable
+
+      - name: Install dependencies
+        if: env.HAS_SECRETS == 'true'
+        run: yarn install --immutable
+
+      - name: Build packages
+        if: env.HAS_SECRETS == 'true'
+        run: yarn build:packages
+
+      # A preview's name in its URL: pr-<number>, or the branch for a manual run.
+      # Workers allow 63 characters for alias and Worker name together.
+      - name: Name the preview
+        if: env.HAS_SECRETS == 'true' && env.PRODUCTION != 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -n "$PR_NUMBER" ]; then
+            alias="pr-$PR_NUMBER"
+          else
+            alias=$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//' | cut -c1-24 | sed -E 's/-+$//')
+          fi
+          echo "PREVIEW_ALIAS=$alias" >> "$GITHUB_ENV"
+
+      - name: Deploy to Vercel
+        if: env.HAS_SECRETS == 'true' && matrix.platform == 'vercel'
+        working-directory: integration/${{ env.APP }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          # Each project is named after its app, in the team VERCEL_ORG_ID names.
+          export VERCEL_PROJECT_ID=$(curl -fsS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/storybook-$APP?teamId=$VERCEL_ORG_ID" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).id")
+          yarn build
+          # --no-wait: on a runner the CLI can miss the end of a build and hang,
+          # so wait for the deployment through the API instead.
+          if [ "$PRODUCTION" = true ]; then
+            npx -y vercel@65 deploy --prebuilt --prod --no-wait --yes --token "$VERCEL_TOKEN" > deploy.out
+          else
+            npx -y vercel@65 deploy --prebuilt --no-wait --yes --token "$VERCEL_TOKEN" > deploy.out
+          fi
+          # The CLI prints the deployment's URL, as JSON in some environments.
+          url=$(node -e "
+            const out = require('fs').readFileSync('deploy.out', 'utf8').trim();
+            let url;
+            try { url = JSON.parse(out).deployment.url; } catch { url = out.split('\\n').pop(); }
+            process.stdout.write(url);
+          ")
+          for attempt in $(seq 60); do
+            state=$(curl -fsS -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v13/deployments/${url#https://}?teamId=$VERCEL_ORG_ID" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).readyState")
+            echo "$url: $state"
+            [ "$state" = READY ] && break
+            if [ "$state" = ERROR ] || [ "$state" = CANCELED ]; then exit 1; fi
+            sleep 10
+          done
+          [ "$state" = READY ] || { echo "::error::$url wasn't ready after 10 minutes"; exit 1; }
+          if [ "$PRODUCTION" = true ]; then
+            url="https://storybook-$APP.vercel.app"
+          fi
+          echo "[$APP]($url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "{\"app\": \"$APP\", \"url\": \"$url\"}" > "$RUNNER_TEMP/$APP.json"
+
+      - name: Deploy to Cloudflare Workers
+        if: env.HAS_SECRETS == 'true' && matrix.platform == 'cloudflare'
+        working-directory: integration/${{ env.APP }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # A failed wrangler run must fail the step, not just tee's.
+          set -o pipefail
+          yarn build
+          # Astro 5's app keeps its Wrangler config in the app; Astro 6+ write it to the build.
+          config=$([ -f wrangler.jsonc ] && echo wrangler.jsonc || echo storybook-server/server/wrangler.json)
+          if [ "$PRODUCTION" = true ]; then
+            yarn wrangler deploy -c "$config" | tee deploy.log
+            url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          else
+            yarn wrangler versions upload -c "$config" --preview-alias "$PREVIEW_ALIAS" | tee deploy.log
+            url=$(grep -oE 'Version Preview Alias URL: https://[^ ]+' deploy.log | sed 's/.*: //')
+          fi
+          echo "[$APP]($url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "{\"app\": \"$APP\", \"url\": \"$url\"}" > "$RUNNER_TEMP/$APP.json"
+
+      - name: Deploy to Netlify
+        if: env.HAS_SECRETS == 'true' && matrix.platform == 'netlify'
+        working-directory: integration/${{ env.APP }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          # Each site is named after its app, in whichever team the token reaches.
+          export NETLIFY_SITE_ID=$(curl -fsS -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+            "https://api.netlify.com/api/v1/sites?name=storybook-$APP&filter=all" \
+            | node -e "const sites = JSON.parse(require('fs').readFileSync(0, 'utf8')); process.stdout.write(sites.find((site) => site.name === 'storybook-$APP')?.id ?? '')")
+          [ -n "$NETLIFY_SITE_ID" ] || { echo "::error::No Netlify site named storybook-$APP"; exit 1; }
+          # netlify.toml's build command builds the app; --build runs it.
+          if [ "$PRODUCTION" = true ]; then
+            npx -y netlify-cli@27 deploy --build --prod --json > deploy.json
+          else
+            npx -y netlify-cli@27 deploy --build --alias "$PREVIEW_ALIAS" --json > deploy.json
+          fi
+          url=$(node -p "const deploy = require('./deploy.json'); deploy.url ?? deploy.deploy_url")
+          echo "[$APP]($url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "{\"app\": \"$APP\", \"url\": \"$url\"}" > "$RUNNER_TEMP/$APP.json"
+
+      # The comment job reads every deploy's URL from these.
+      - name: Record the deployment
+        if: env.HAS_SECRETS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-${{ env.APP }}
+          path: ${{ runner.temp }}/${{ env.APP }}.json
+          retention-days: 1
+
+  # One comment on the PR with every Storybook deployed for its head commit:
+  # Chromatic's static builds and the deploys above.
+  comment:
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      statuses: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Collect the deploy jobs' URLs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deployment-*
+          path: ${{ runner.temp }}/deployments
+          merge-multiple: true
+
+      - name: Comment the deployments
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DEPLOYMENTS_DIR: ${{ runner.temp }}/deployments
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/comment-deployments.mjs

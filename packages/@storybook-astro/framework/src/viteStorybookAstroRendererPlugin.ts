@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import type { RenderMode, ServerBuildOptions } from './types.ts';
+import type { ServerBuildOptions } from './types.ts';
 import { createVirtualModule } from './vite/virtualModulePlugin.ts';
 
 const rendererDevModulePath = fileURLToPath(new URL('./renderer/renderer-dev.js', import.meta.url));
@@ -8,7 +8,7 @@ const rendererServerModulePath = fileURLToPath(new URL('./renderer/renderer-serv
 
 export function viteStorybookAstroRendererPlugin(options: {
   mode: 'development' | 'production';
-  renderMode?: RenderMode;
+  renderMode?: 'static' | 'server';
   server?: ServerBuildOptions;
 }) {
   const pluginName = 'storybook-astro:renderer-module';
@@ -32,7 +32,6 @@ export function viteStorybookAstroRendererPlugin(options: {
         `import { createServerRenderer } from ${JSON.stringify(normalizePath(rendererServerModulePath))};`,
         `const renderer = createServerRenderer(${JSON.stringify(
           {
-            serverUrl: options.server?.serverUrl,
             authToken: options.server?.authToken,
             authHeader: options.server?.authHeader
           },

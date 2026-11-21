@@ -1,0 +1,34 @@
+{
+  "name": "@storybook-astro/integration-astro5-server-cloudflare",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "storybook dev -p 6152",
+    "build": "storybook-astro build && printf '_worker.js\\n_routes.json\\n' > storybook-server/.assetsignore",
+    "lint": "eslint .",
+    "test:browser": "playwright test",
+    "serve": "wrangler dev --ip 127.0.0.1 --port 6153",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "12.6.13",
+    "@astrojs/preact": "^4.0.8",
+    "@storybook-astro/components": "workspace:*",
+    "astro": "5.17.2",
+    "preact": "^10.28.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0",
+    "@storybook-astro/adapter-cloudflare": "workspace:*",
+    "@storybook-astro/framework": "workspace:*",
+    "@storybook-astro/integration-server-shared": "workspace:*",
+    "eslint": "^9.39.2",
+    "storybook": "10.6.0",
+    "vite": "^6.2.5",
+    "wrangler": "^4.125.0"
+  },
+  "installConfig": {
+    "hoistingLimits": "workspaces"
+  }
+}

@@ -1,14 +1,18 @@
-import { withStoryModuleMocks } from './module-mocks.ts';
+import { withStoryModuleMocks, type StoryModuleMocks } from './module-mocks.ts';
 import { selectStoryRules, withStoryRuleCleanups, type StoryRuleSelection } from './rules.ts';
 import type { RenderStoryInput } from './types.ts';
 
 export type ResolveRulesConfigModule = () => unknown | Promise<unknown>;
+
+/** Activates a story's module mocks for one render and returns how to undo it. */
+export type ApplyModuleMocks = (moduleMocks: StoryModuleMocks) => () => void;
 
 type RunWithStoryRulesOptions = {
   story?: RenderStoryInput;
   rulesConfigFilePath?: string;
   resolveRulesConfigModule?: ResolveRulesConfigModule;
   invalidateModuleGraph?: () => void;
+  applyModuleMocks?: ApplyModuleMocks;
 };
 
 export async function runWithStoryRules<T>(
@@ -26,7 +30,15 @@ export async function runWithStoryRules<T>(
 
   const render = () =>
     withStoryRuleCleanups(selectedRules.cleanups, async () => {
-      return withStoryModuleMocks(selectedRules.moduleMocks, async () => callback(selectedRules));
+      return withStoryModuleMocks(selectedRules.moduleMocks, async () => {
+        const restoreModuleMocks = options.applyModuleMocks?.(selectedRules.moduleMocks);
+
+        try {
+          return await callback(selectedRules);
+        } finally {
+          restoreModuleMocks?.();
+        }
+      });
     });
 
   if (selectedRules.moduleMocks.size === 0) {
