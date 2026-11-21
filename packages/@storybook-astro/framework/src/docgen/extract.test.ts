@@ -143,6 +143,139 @@ describe('props marked @ignore (issue #356)', () => {
   });
 });
 
+describe('@ignore counts only where the component declares the prop (issue #373)', () => {
+  const baseWithIgnoredLabel = [
+    'interface BaseProps {',
+    '  /** @ignore */',
+    '  label?: string;',
+    '}'
+  ];
+
+  test('a prop the component redeclares over an ignored base prop keeps its row', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithIgnoredLabel,
+          'interface Props extends BaseProps {',
+          '  label: string;',
+          '}',
+          'const { label } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['label']);
+  });
+
+  test('a prop the component adds to an intersection keeps its row', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithIgnoredLabel,
+          'type Props = BaseProps & { label: string };',
+          'const { label } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['label']);
+  });
+
+  test('@ignore on the component\'s own declaration still hides a merged prop', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface BaseProps {',
+          '  /** Shown in the base. */',
+          '  label?: string;',
+          '}',
+          'type Props = BaseProps & {',
+          '  /** @ignore */',
+          '  label?: string;',
+          '  title?: string;',
+          '};',
+          'const { label, title } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['title']);
+  });
+
+  test('a prop the component only inherits from an ignored base stays hidden', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          ...baseWithIgnoredLabel,
+          'interface Props extends BaseProps {',
+          '  title?: string;',
+          '}',
+          'const { label, title } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['title']);
+  });
+});
+
+describe('a quoted key in the destructuring (issue #373)', () => {
+  test('gives the prop its default, so it is not required', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface Props {',
+          "  'aria-label': string;",
+          '}',
+          "const { 'aria-label': ariaLabel = 'Close' } = Astro.props;"
+        ].join('\n')
+      )
+    );
+    const prop = docgen!.props['aria-label'];
+
+    expect(prop.defaultValue).toEqual({ value: 'Close', source: "'Close'" });
+    expect(prop.required).toBe(false);
+  });
+});
+
+describe('a @default tag fills in a default the destructuring lacks (issue #371)', () => {
+  const docgen = () =>
+    docgenFor(
+      astro(
+        [
+          'interface Props {',
+          "  /** Size. @default 'md' */",
+          '  size?: string;',
+          "  /** Tone. @default 'quiet' */",
+          '  tone?: string;',
+          '  /** Width. @default 100 */',
+          '  width: number;',
+          '}',
+          "const { size, tone = 'loud', width } = Astro.props;"
+        ].join('\n')
+      )
+    );
+
+  test('as the tag writes it', () => {
+    expect(docgen()!.props.size.defaultValue).toEqual({ value: "'md'", source: "'md'" });
+  });
+
+  test('without taking the place of a destructuring default', () => {
+    expect(docgen()!.props.tone.defaultValue).toEqual({ value: 'loud', source: "'loud'" });
+  });
+
+  test('without making a required prop optional', () => {
+    const { width } = docgen()!.props;
+
+    expect(width.defaultValue).toEqual({ value: '100', source: '100' });
+    expect(width.required).toBe(true);
+  });
+
+  test('and leaves the description as the free text', () => {
+    expect(docgen()!.props.size.description).toBe('Size.');
+  });
+});
+
 describe('long types (issue #357)', () => {
   // Template literal types aren't literals, so this union isn't an enum.
   const widthType = Array.from({ length: 30 }, (_, index) => `\`\${number}unit${index}\``).join(' | ');

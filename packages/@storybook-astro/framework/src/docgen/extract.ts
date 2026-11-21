@@ -72,14 +72,14 @@ export function extractAstroDocgen(
   const propFilter = options.propFilter ?? createDefaultPropFilter(binding.destructured);
   const props: Record<string, AstroDocgenProp> = {};
 
-  for (const { symbol, checker } of properties) {
-    const prop = buildProp(typescript, checker, symbol, binding);
-
+  for (const { symbol, checker, componentFile } of properties) {
     // docs-tools looks for `@ignore` in the description, which holds no tags
     // here, so the extractor drops these itself (issue #356).
-    if (prop.tags && 'ignore' in prop.tags) {
+    if (isIgnored(typescript, symbol, componentFile)) {
       continue;
     }
+
+    const prop = buildProp(typescript, checker, symbol, binding);
 
     if (propFilter(prop, { name: displayName })) {
       props[prop.name] = prop;
@@ -100,7 +100,7 @@ function resolveProps(
   astroFilePath: string,
   virtualSource: string,
   parsed: ts.SourceFile
-): Array<{ symbol: ts.Symbol; checker: ts.TypeChecker }> {
+): Array<{ symbol: ts.Symbol; checker: ts.TypeChecker; componentFile: ts.SourceFile }> {
   const virtualPath = virtualFilePathFor(astroFilePath);
   const constituents = unionConstituentsOfFirstDefault(typescript, parsed, MAX_UNION_CONSTITUENTS);
   // The default instantiation goes first so props common to every constituent
@@ -135,7 +135,11 @@ function resolveProps(
     }
 
     return {
-      properties: [...seen.values()].map((symbol) => ({ symbol, checker })),
+      properties: [...seen.values()].map((symbol) => ({
+        symbol,
+        checker,
+        componentFile: sourceFile
+      })),
       sourceFile,
       program,
       probes
@@ -218,21 +222,28 @@ function buildProp(
     ? checker.getTypeOfSymbolAtLocation(symbol, declaration)
     : checker.getDeclaredTypeOfSymbol(symbol);
 
-  const defaultValue = defaults.get(name) ?? null;
+  const tags = jsDocTagsOf(typescript, symbol, checker);
+  const destructuringDefault = defaults.get(name);
+  // A `@default` tag documents a default the destructuring doesn't show, such
+  // as one applied further down the frontmatter (issue #371). It's kept as
+  // written, like a destructuring default's source text.
+  const tagDefault = tags?.default ? { value: tags.default, source: tags.default } : undefined;
   const optional = (symbol.flags & typescript.SymbolFlags.Optional) !== 0;
-  const required = !optional && !defaultValue;
+  // Only a destructuring default lets a caller leave the prop out; the tag is
+  // documentation.
+  const required = !optional && !destructuringDefault;
 
   return {
     name,
     required,
     type: describeType(typescript, checker, type, required),
     description: typescript.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
-    defaultValue,
+    defaultValue: destructuringDefault ?? tagDefault ?? null,
     parent: declarationRefOf(typescript, declaration),
     declarations: (symbol.declarations ?? [])
       .map((each) => declarationRefOf(typescript, each))
       .filter((each): each is DeclarationRef => each !== undefined),
-    tags: jsDocTagsOf(typescript, symbol, checker)
+    tags
   };
 }
 
@@ -340,6 +351,59 @@ function nearestNamedAncestor(typescript: typeof ts, declaration: ts.Declaration
   }
 
   return '';
+}
+
+/**
+ * Whether the component hides a prop with `@ignore` (issue #356).
+ *
+ * The tag counts only where the component's own `Props` declares the prop
+ * (issue #373). `symbol.getJsDocTags` can't tell: it falls back to a base
+ * interface's tags when an override has none, and merges the tags of every
+ * declaration of an intersection's property, so `@ignore` on a base would
+ * hide a prop the component redeclares. A prop `Props` only inherits, with no
+ * declaration of its own there, is hidden when every declaration it comes
+ * from says `@ignore`.
+ */
+function isIgnored(
+  typescript: typeof ts,
+  symbol: ts.Symbol,
+  componentFile: ts.SourceFile
+): boolean {
+  const declarations = symbol.declarations ?? [];
+  const inProps = declarations.filter((declaration) =>
+    isInComponentProps(typescript, declaration, componentFile)
+  );
+  const own = inProps.length > 0 ? inProps : declarations;
+
+  return (
+    own.length > 0 &&
+    own.every((declaration) =>
+      typescript.getJSDocTags(declaration).some((tag) => tag.tagName.text === 'ignore')
+    )
+  );
+}
+
+/** Whether a declaration sits inside the component's top-level `Props`. */
+function isInComponentProps(
+  typescript: typeof ts,
+  declaration: ts.Declaration,
+  componentFile: ts.SourceFile
+): boolean {
+  if (declaration.getSourceFile() !== componentFile) {
+    return false;
+  }
+
+  let statement: ts.Node = declaration;
+
+  while (statement.parent && !typescript.isSourceFile(statement.parent)) {
+    statement = statement.parent;
+  }
+
+  return (
+    (typescript.isInterfaceDeclaration(statement) ||
+      typescript.isTypeAliasDeclaration(statement)) &&
+    statement.name.text === 'Props'
+  );
 }
 
 function jsDocTagsOf(

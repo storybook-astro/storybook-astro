@@ -142,7 +142,7 @@ Rule 3 deliberately does not exclude blocks attached to an import. Astro frontma
 
 The prior art takes the first `/** */` in the file by regex, which happily picks up a license header or a JSDoc on an import.
 
-Separately, `description` carries only the free text before the first tag; everything else goes to `__docgenInfo.tags` / `DocgenPayload.jsDocTags`. Storybook's `parseJsDoc` understands `@param`, `@returns`, `@deprecated` and `@ignore` only, and the #110 component's `@preview`, `@usage` and `@examples` blocks contain markdown and JSX that would otherwise render as noise. Because `@ignore` then never reaches docs-tools' `parseJsDoc`, the extractor drops a prop whose tags include it, so it has no row in the table and no line in `apiDescription`.
+Separately, `description` carries only the free text before the first tag; everything else goes to `__docgenInfo.tags` / `DocgenPayload.jsDocTags`. Storybook's `parseJsDoc` understands `@param`, `@returns`, `@deprecated` and `@ignore` only, and the #110 component's `@preview`, `@usage` and `@examples` blocks contain markdown and JSX that would otherwise render as noise. Because `@ignore` then never reaches docs-tools' `parseJsDoc`, the extractor drops a prop marked with it, so it has no row in the table and no line in `apiDescription`. It reads the tag from the prop's declarations inside the component's own `Props`, not from `symbol.getJsDocTags`, which falls back to a base interface's tags when an override has none and merges the tags of every declaration of an intersection's property, so `@ignore` on a base prop doesn't hide one `Props` redeclares ([Issue #373](https://github.com/storybook-astro/storybook-astro/issues/373)). A prop `Props` only inherits, with no declaration of its own there, is dropped when every declaration it comes from has `@ignore`.
 
 ### Failure modes
 
@@ -173,7 +173,7 @@ Given a `.astro` file, the extractor produces:
 | `props[name].defaultValue` | destructuring default, else the `@default` tag, else absent |
 | `props[name].parent` | declaring interface or type alias; falls back to the declaring source file and nearest named ancestor |
 
-Default values are read from the top-level `Astro.props` destructuring, including the `as Props` and `satisfies Props` forms. A default is `{ value, source }`: `source` is the initializer's source text, and `value` is the initializer as a plain literal where it is one (its source text otherwise), kept for `docgen.propFilter` functions that read it. The renderer's `extractArgTypes` and `apiDescription` use `source` as the table's summary instead of docs-tools' default formatting, which quotes a default by the prop's declared type, dropping the quotes from `href = '/home'` on `string | URL` and adding them to `title = defaultTitle` on `string`, and leaves out `null` and `undefined` ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)).
+Default values are read from the top-level `Astro.props` destructuring, including the `as Props` and `satisfies Props` forms. A default is `{ value, source }`: `source` is the initializer's source text, and `value` is the initializer as a plain literal where it is one (its source text otherwise), kept for `docgen.propFilter` functions that read it. The renderer's `extractArgTypes` and `apiDescription` use `source` as the table's summary instead of docs-tools' default formatting, which quotes a default by the prop's declared type, dropping the quotes from `href = '/home'` on `string | URL` and adding them to `title = defaultTitle` on `string`, and leaves out `null` and `undefined` ([Issue #355](https://github.com/storybook-astro/storybook-astro/issues/355)). A quoted key names the prop without its quotes, so `'aria-label': ariaLabel = 'Close'` is the default of `aria-label` ([Issue #373](https://github.com/storybook-astro/storybook-astro/issues/373)). When the destructuring has no default, a prop's `@default` tag supplies one, with the tag's text as both `value` and `source`, so the table and `apiDescription` print it as the tag writes it ([Issue #371](https://github.com/storybook-astro/storybook-astro/issues/371)). The tag doesn't change `required`: only a destructuring default lets a caller leave a non-optional prop out.
 
 | Frontmatter | `defaultValue` |
 |---|---|
@@ -181,7 +181,8 @@ Default values are read from the top-level `Astro.props` destructuring, includin
 | `const { a = 42 } = Astro.props` | `{ value: 42, source: '42' }` |
 | `const { a = null } = Astro.props` | `{ value: null, source: 'null' }` |
 | `const { a = defaultLinks } = Astro.props` | `{ value: 'defaultLinks', source: 'defaultLinks' }` |
-| `const { a } = Astro.props` + `/** @default 'x' */` | `"x"` |
+| `const { 'a-b': ab = 'x' } = Astro.props` | `{ value: 'x', source: "'x'" }`, on prop `a-b` |
+| `const { a } = Astro.props` + `/** @default 'x' */` | `{ value: "'x'", source: "'x'" }`, the tag's text as written ([Issue #371](https://github.com/storybook-astro/storybook-astro/issues/371)) |
 | `const { a } = Astro.props` | absent → prop is required |
 
 ## Slots

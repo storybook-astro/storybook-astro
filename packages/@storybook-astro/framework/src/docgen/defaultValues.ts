@@ -52,7 +52,7 @@ export function readAstroPropsBinding(
 
         // `{ class: className }` documents `class`, not `className`. The prior
         // art read the binding name here and so recorded the local alias.
-        const propName = (element.propertyName ?? element.name).getText(sourceFile);
+        const propName = propNameOf(typescript, element.propertyName ?? element.name, sourceFile);
 
         destructured.add(propName);
 
@@ -67,6 +67,27 @@ export function readAstroPropsBinding(
   }
 
   return { defaults, destructured };
+}
+
+/**
+ * A quoted key names the prop without its quotes: `'aria-label': ariaLabel`
+ * destructures `aria-label` (issue #373). A computed key keeps its source text.
+ */
+function propNameOf(
+  typescript: typeof ts,
+  name: ts.PropertyName | ts.BindingName,
+  sourceFile: ts.SourceFile
+): string {
+  if (
+    typescript.isIdentifier(name) ||
+    typescript.isStringLiteral(name) ||
+    typescript.isNumericLiteral(name) ||
+    typescript.isNoSubstitutionTemplateLiteral(name)
+  ) {
+    return name.text;
+  }
+
+  return name.getText(sourceFile);
 }
 
 /** Matches `Astro.props`, `Astro.props as Props` and `Astro.props satisfies Props`. */
