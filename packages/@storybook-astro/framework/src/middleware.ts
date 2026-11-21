@@ -76,7 +76,7 @@ export async function handlerFactory(
       );
 
       if (aliasedIsland) {
-        return `/@fs/${aliasedIsland}`;
+        return toFsPath(aliasedIsland);
       }
 
       return serveWindowsPathThroughFs(specifier);
