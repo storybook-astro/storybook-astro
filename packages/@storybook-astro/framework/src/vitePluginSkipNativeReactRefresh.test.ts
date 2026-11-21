@@ -43,6 +43,20 @@ function runConfigResolved(context: unknown, plugins: readonly unknown[]) {
   plugin.configResolved.call(context, { plugins });
 }
 
+// The plugin as Vite 6 runs it: its `configResolved` gets no `this`. In
+// `resolveConfig` it still runs in Vite's own hook order, so a test can check
+// the patch lands before Vite resolves each environment's plugins.
+function asOnVite6() {
+  const plugin = vitePluginSkipNativeReactRefresh() as unknown as { configResolved: ConfigResolvedHook };
+
+  return {
+    name: 'skip-native-react-refresh-as-on-vite6',
+    configResolved(config: { plugins: readonly unknown[] }) {
+      plugin.configResolved.call(undefined, config);
+    }
+  };
+}
+
 const vite6 = undefined;
 const plainVite7 = { meta: { viteVersion: '7.3.1', rollupVersion: '4.0.0' } };
 const rolldownVite7 = { meta: { viteVersion: '7.3.1', rolldownVersion: '1.0.0-beta.50' } };
@@ -106,30 +120,32 @@ describe("plugin-react's refresh wrapper on a Vite that can't run the builtin (#
     expect(await wrapper.applyToEnvironment()).toBe(otherPlugin);
   });
 
-  // Vite flattens the plugin list before `configResolved`; the resolved list
-  // is handed to the hook as Vite 6 would call it.
+  // The suite runs on Vite 8, so these check Vite 8's hook order with Vite 6's `this`.
   test('is found however plugin-react was listed, nested arrays and Promises included', async () => {
-    const wrapper = refreshWrapper(nativeBuiltin);
     const config = await resolveConfig(
-      { root, configFile: false, logLevel: 'silent', plugins: [Promise.resolve([[wrapper]])] },
+      {
+        root,
+        configFile: false,
+        logLevel: 'silent',
+        plugins: [asOnVite6(), Promise.resolve([[refreshWrapper(nativeBuiltin)]])]
+      },
       'serve'
     );
 
-    runConfigResolved(vite6, config.plugins);
-
-    expect(await wrapper.applyToEnvironment()).toBe(false);
+    expect(config.environments.client.plugins.map((plugin) => plugin.name)).not.toContain(
+      'builtin:vite-react-refresh-wrapper'
+    );
   });
 
   test('is found when plugin-react is listed before this plugin, as a later viteFinal or a Vitest config may', async () => {
-    const wrapper = refreshWrapper(nativeBuiltin);
     const config = await resolveConfig(
-      { root, configFile: false, logLevel: 'silent', plugins: [wrapper, vitePluginSkipNativeReactRefresh()] },
+      { root, configFile: false, logLevel: 'silent', plugins: [refreshWrapper(nativeBuiltin), asOnVite6()] },
       'serve'
     );
 
-    runConfigResolved(vite6, config.plugins);
-
-    expect(await wrapper.applyToEnvironment()).toBe(false);
+    expect(config.environments.client.plugins.map((plugin) => plugin.name)).not.toContain(
+      'builtin:vite-react-refresh-wrapper'
+    );
   });
 
   test('is patched once when the same plugin-react object is resolved again, as on a server restart', async () => {

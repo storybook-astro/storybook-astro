@@ -8,11 +8,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-- React Fast Refresh works again on Vite 8 / Astro 7 (#380). Editing a React component, or a React island in an Astro story, now keeps its state instead of reloading the preview.
-
 ## [1.17.0] - 2026-11-17
 
 ### Changed

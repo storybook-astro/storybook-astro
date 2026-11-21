@@ -16,7 +16,8 @@ const patchedPlugins = new WeakSet<Plugin>();
  *
  * On a Rolldown Vite (Vite 8, or rolldown-vite 7) the builtin is native and
  * kept, so Fast Refresh works. It used to be dropped there too, for a "Missing
- * field `moduleType`" 500 on iframe.html (#139) that no longer reproduces (#380).
+ * field `moduleType`" 500 on iframe.html (#139) that doesn't reproduce on any
+ * Vite 8 release and most likely came from the #379 mismatch (#380).
  *
  * The patch runs in `configResolved`, which Vite calls with every plugin,
  * flattened, before it asks each one which environments it applies to. That
