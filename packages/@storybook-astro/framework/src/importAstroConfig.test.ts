@@ -149,6 +149,37 @@ describe('importAstroConfig', () => {
     }
   });
 
+  // Node 24 throws ERR_REQUIRE_ESM_RACE_CONDITION when require() asks for a
+  // module that an import() from the same tick is still linking, as Vite's
+  // loadConfigFromFile can leave astro/config while loading astro.config.*.
+  test('loads an astro/config that import() started loading in the same tick', async () => {
+    await installFakeAstro({
+      'config.js': `
+        export function getViteConfig() {
+          return 'loaded';
+        }
+      `,
+      // Vitest sends import() in this file through its module runner, which
+      // starts Node's own load a tick later, but leaves a package in
+      // node_modules to Node, whose import() starts loading right away.
+      'start-import.js': `
+        export function importConfigThen(loadAgain) {
+          return [import('./config.js'), loadAgain()];
+        }
+      `
+    });
+
+    const helperPath = join(projectDir, 'node_modules', 'astro', 'start-import.js');
+    const { importConfigThen } = await import(/* @vite-ignore */ pathToFileURL(helperPath).href);
+
+    const [imported, loaded] = await Promise.all(
+      importConfigThen(() => importAstroConfig(projectDir))
+    );
+
+    expect(loaded.getViteConfig()).toBe('loaded');
+    expect(loaded.getViteConfig).toBe(imported.getViteConfig);
+  });
+
   test('reports an error astro/config throws while loading', async () => {
     await installFakeAstro({ 'config.js': `throw new Error('broken astro install');` });
 
