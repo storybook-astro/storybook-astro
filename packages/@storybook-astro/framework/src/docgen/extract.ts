@@ -73,13 +73,15 @@ export function extractAstroDocgen(
   const props: Record<string, AstroDocgenProp> = {};
 
   for (const { symbol, checker, componentFile } of properties) {
+    const ownDeclarations = ownDeclarationsOf(typescript, symbol, componentFile);
+
     // docs-tools looks for `@ignore` in the description, which holds no tags
     // here, so the extractor drops these itself (issue #356).
-    if (isIgnored(typescript, symbol, componentFile)) {
+    if (isIgnored(typescript, ownDeclarations)) {
       continue;
     }
 
-    const prop = buildProp(typescript, checker, symbol, binding);
+    const prop = buildProp(typescript, checker, symbol, ownDeclarations, binding);
 
     if (propFilter(prop, { name: displayName })) {
       props[prop.name] = prop;
@@ -214,6 +216,7 @@ function buildProp(
   typescript: typeof ts,
   checker: ts.TypeChecker,
   symbol: ts.Symbol,
+  ownDeclarations: ts.Declaration[],
   { defaults }: AstroPropsBinding
 ): AstroDocgenProp {
   const name = symbol.getName();
@@ -226,8 +229,11 @@ function buildProp(
   const destructuringDefault = defaults.get(name);
   // A `@default` tag documents a default the destructuring doesn't show, such
   // as one applied further down the frontmatter (issue #371). It's kept as
-  // written, like a destructuring default's source text.
-  const tagDefault = tags?.default ? { value: tags.default, source: tags.default } : undefined;
+  // written, like a destructuring default's source text. It's read from the
+  // component's own declarations, as `@ignore` is, so a base's tag doesn't
+  // override the component's or show on a prop the component redeclares.
+  const defaultTag = ownTagText(typescript, ownDeclarations, 'default');
+  const tagDefault = defaultTag ? { value: defaultTag, source: defaultTag } : undefined;
   const optional = (symbol.flags & typescript.SymbolFlags.Optional) !== 0;
   // Only a destructuring default lets a caller leave the prop out; the tag is
   // documentation.
@@ -354,33 +360,55 @@ function nearestNamedAncestor(typescript: typeof ts, declaration: ts.Declaration
 }
 
 /**
- * Whether the component hides a prop with `@ignore` (issue #356).
+ * The declarations of a prop the component's JSDoc tags are read from: those
+ * inside the component's own `Props`, or every declaration when `Props` only
+ * inherits the prop (issue #373).
  *
- * The tag counts only where the component's own `Props` declares the prop
- * (issue #373). `symbol.getJsDocTags` can't tell: it falls back to a base
+ * `symbol.getJsDocTags` can't make this distinction: it falls back to a base
  * interface's tags when an override has none, and merges the tags of every
- * declaration of an intersection's property, so `@ignore` on a base would
- * hide a prop the component redeclares. A prop `Props` only inherits, with no
- * declaration of its own there, is hidden when every declaration it comes
- * from says `@ignore`.
+ * declaration of an intersection's property, so a base's `@ignore` or
+ * `@default` would apply to a prop the component redeclares.
  */
-function isIgnored(
+function ownDeclarationsOf(
   typescript: typeof ts,
   symbol: ts.Symbol,
   componentFile: ts.SourceFile
-): boolean {
+): ts.Declaration[] {
   const declarations = symbol.declarations ?? [];
   const inProps = declarations.filter((declaration) =>
     isInComponentProps(typescript, declaration, componentFile)
   );
-  const own = inProps.length > 0 ? inProps : declarations;
 
-  return (
-    own.length > 0 &&
-    own.every((declaration) =>
-      typescript.getJSDocTags(declaration).some((tag) => tag.tagName.text === 'ignore')
-    )
+  return inProps.length > 0 ? inProps : declarations;
+}
+
+/**
+ * Whether the component hides a prop with `@ignore` (issues #356, #373): any
+ * of its own declarations says so. That keeps `@ignore` on one constituent of
+ * a union `Props` hiding the prop, and on a helper interface hiding a prop
+ * also declared in Astro's DOM types.
+ */
+function isIgnored(typescript: typeof ts, ownDeclarations: ts.Declaration[]): boolean {
+  return ownDeclarations.some((declaration) =>
+    typescript.getJSDocTags(declaration).some((tag) => tag.tagName.text === 'ignore')
   );
+}
+
+/** The text of the first `@<name>` tag on the prop's own declarations. */
+function ownTagText(
+  typescript: typeof ts,
+  ownDeclarations: ts.Declaration[],
+  name: string
+): string | undefined {
+  for (const declaration of ownDeclarations) {
+    const tag = typescript.getJSDocTags(declaration).find((each) => each.tagName.text === name);
+
+    if (tag) {
+      return typescript.getTextOfJSDocComment(tag.comment)?.trim();
+    }
+  }
+
+  return undefined;
 }
 
 /** Whether a declaration sits inside the component's top-level `Props`. */

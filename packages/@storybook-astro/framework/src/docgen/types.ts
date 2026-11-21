@@ -82,9 +82,12 @@ export interface AstroDocgenOptions {
   /**
    * Decides which props reach the table. By default props declared only under
    * `node_modules` are dropped, unless the component destructures them from
-   * `Astro.props` (docs/specs/docgen.md#prop-filtering). A prop whose JSDoc
-   * has `@ignore` is dropped before the filter runs, so a filter can't bring
-   * it back.
+   * `Astro.props` (docs/specs/docgen.md#prop-filtering). A prop is dropped
+   * before the filter runs, so a filter can't bring it back, when the
+   * component's own `Props` declaration marks it `@ignore`, or, for a prop
+   * `Props` only inherits, when any declaration it comes from does.
+   * `prop.tags` holds TypeScript's merged tags, so a prop the component
+   * redeclares over an ignored base can still show `tags.ignore`.
    */
   propFilter?: PropFilter;
   /** Overrides tsconfig discovery, which otherwise walks up from the component. */

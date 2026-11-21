@@ -52,7 +52,7 @@ type, and the defaults read from the `Astro.props` destructuring.
 | A default in the `Astro.props` destructuring | The **Default** column |
 | A union of string literals | A select control with those options |
 | A prop that is neither optional nor defaulted in the destructuring | Marked **Required** |
-| `@default` on a prop | The **Default** column, as the tag writes it, when the destructuring has none |
+| `@default` on a prop | The **Default** column, as the tag writes it, when the destructuring has none. On a base interface's prop, only when `Props` doesn't redeclare it |
 | `@ignore` on a prop | No row, no control and no line in the props AI agents read. On a base interface's prop, only when `Props` doesn't redeclare it |
 | A `<slot>` in the template | A row in the **Slots** section (see [Slots](#slots)) |
 
