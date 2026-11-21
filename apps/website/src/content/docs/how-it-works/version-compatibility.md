@@ -80,6 +80,12 @@ CSS Modules in framework components (React, Preact, Solid, …) need their class
 
 **Solution:** `cjsInteropPlugin()` (from `@storybook-astro/framework/testing`) auto-detects CJS modules and wraps them with ESM-compatible shims providing `module`, `exports`, `require`, `__dirname`, and `__filename`. It also redirects bare package imports to ESM entry points when available.
 
+### 8. Loading `astro/config` in tests — `importAstroConfig`
+
+**Problem:** Component tests build their Astro renderers from `astro/config`'s `getViteConfig`. Since Astro 7.4.9, a markdown plugin that `getViteConfig` loads calls `import.meta.resolve` as soon as it loads, which Vitest's module runner doesn't support, so `renderStory` started without the framework renderers and every story with a React, Vue, Svelte or other framework component failed with `NoMatchingRenderer`.
+
+**Solution:** The framework loads `astro/config` with Node's own `require` (Node's `require(esm)` support), outside Vitest's module runner. It falls back to `import()` only where Node can't require the module: Node versions without `require(esm)`, a module with top-level await, or a module that an `import()` is already loading. Under Vitest that fallback still fails on Astro 7.4.9+.
+
 ## Future outlook
 
 These layers can be simplified or removed as Astro evolves:
@@ -89,3 +95,4 @@ These layers can be simplified or removed as Astro evolves:
 - **Fonts** — can be simplified if Astro's font plugin handles the Storybook SSR context directly.
 - **Image service injection** — the global can be dropped along with support for Astro versions below 7.4, leaving only the `image.service.entrypoint` config.
 - **CJS interop** — will shrink as dependencies migrate to ESM.
+- **`astro/config` loading** — the `require` path can go if Astro stops calling `import.meta.resolve` while `astro/config` loads, or Vitest's module runner supports it.
