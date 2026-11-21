@@ -289,9 +289,9 @@ export const experimental_docgenProvider = async (
     return existing;
   }
 
-  // Test builds skip docgen on the builder path too: it costs a type check per
-  // component and nothing in a test build renders a props table.
-  if (storybookOptions.build?.test?.disableDocgen) {
+  const whereDocgenRuns = await whereDocgenCanRun(storybookOptions);
+
+  if (whereDocgenRuns === 'nowhere') {
     return existing;
   }
 
@@ -300,11 +300,10 @@ export const experimental_docgenProvider = async (
       'frameworkOptions'
     )) ?? {};
 
-  if (frameworkOptions.docgen === false) {
-    return existing;
-  }
-
-  if (frameworkOptions.docgen?.propFilter) {
+  // `isDocgenProviderEnabled` keeps the default off for a prop filter, so
+  // getting here means the project forced the Docgen Server flag on. The flag
+  // wins: the worker is registered and the filter is ignored, with a warning.
+  if (whereDocgenRuns === 'builder only') {
     console.warn(
       '[storybook-astro] The `docgen.propFilter` option is ignored when the Docgen Server is enabled: a filter is a function, and the Docgen Server hands its provider plain data across a worker boundary. Turn the feature off to keep your filter.'
     );
@@ -318,7 +317,8 @@ export const experimental_docgenProvider = async (
       ),
       options: {
         projectRoot: frameworkOptions.resolveFrom ?? dirname(storybookOptions.configDir),
-        tsconfigPath: frameworkOptions.docgen?.tsconfigPath,
+        // `docgen` isn't `false` here: `whereDocgenCanRun` returned early.
+        tsconfigPath: frameworkOptions.docgen ? frameworkOptions.docgen.tsconfigPath : undefined,
         // A static build writes the payloads into the output, and the stories
         // in it are pre-rendered, so their controls can't change anything
         // (issue #375). Matches the `isStaticMode` the preview gets.
@@ -395,47 +395,109 @@ export const experimental_manifests = async (
  * `@storybook/vue3` provide it. Storybook 10 doesn't read this hook, so there
  * the Docgen Server stays opt-in.
  *
- * Off when docgen is turned off, with a custom `docgen.propFilter` (a function
- * can't cross the worker boundary, so the Vite plugin keeps extracting), or
- * with no usable `typescript`. In that last case neither path extracts props:
- * Storybook's `isTypeScriptReadyForDocgen` warns with the fix, and our
- * extractor logs the same when a component loads. The check shipped
- * in 11.0.0-alpha.9 and isn't in 10.x, so it's looked up rather than imported
- * by name, which would fail to load on 10.x. A test build skips docgen anyway,
- * so it doesn't check TypeScript or warn.
+ * Off where only the builder path can extract (see `whereDocgenCanRun`), and
+ * with no usable `typescript`. In that last case neither path extracts props.
+ * The extractor warns about it on whichever path ends up running, so the
+ * project sees one message rather than Storybook's and then ours (issue #367).
+ * Without addon-docs the builder path doesn't run the extractor, so the hook
+ * gives the same warning itself, unless the main config sets `docgenServer`
+ * (see `mainConfigSetsDocgenServer`); `@storybook/addon-mcp` still turns the
+ * components manifest on there, and would otherwise get no props with no
+ * reason given. Core's `isTypeScriptReadyForDocgen` would warn, so this uses
+ * the check behind it. That shipped in 11.0.0-alpha.9 and isn't in 10.x,
+ * so it's looked up rather than imported by name, which would fail to load on
+ * 10.x.
  */
 export const isDocgenProviderEnabled = async (
   _existing: unknown,
   storybookOptions: Options
 ): Promise<boolean> => {
-  if (storybookOptions.build?.test?.disableDocgen) {
+  if ((await whereDocgenCanRun(storybookOptions)) !== 'anywhere') {
     return false;
   }
 
-  const frameworkOptions =
-    (await storybookOptions.presets.apply<FrameworkOptions | null | undefined>(
-      'frameworkOptions'
-    )) ?? {};
-
-  if (frameworkOptions.docgen === false || frameworkOptions.docgen?.propFilter) {
-    return false;
-  }
-
-  const { isTypeScriptReadyForDocgen } = (await import('storybook/internal/common')) as {
-    isTypeScriptReadyForDocgen?: (
-      resolve: (specifier: string) => string,
-      options: Options
-    ) => Promise<boolean>;
+  const { getTypeScriptForDocgenError } = (await import('storybook/internal/common')) as {
+    getTypeScriptForDocgenError?: (resolve: (specifier: string) => string) => Error | undefined;
   };
 
-  if (typeof isTypeScriptReadyForDocgen !== 'function') {
+  if (typeof getTypeScriptForDocgenError !== 'function') {
     return false;
   }
 
   // Resolved from this package, which declares `typescript` as a peer, so a
   // strict package manager finds the copy the docgen worker will import.
-  return isTypeScriptReadyForDocgen((specifier) => import.meta.resolve(specifier), storybookOptions);
+  const typescriptError = getTypeScriptForDocgenError((specifier) =>
+    import.meta.resolve(specifier)
+  );
+
+  if (typescriptError === undefined) {
+    return true;
+  }
+
+  const docsConfig = await storybookOptions.presets.apply('docs', {}, storybookOptions);
+
+  if (Object.keys(docsConfig ?? {}).length > 0) {
+    return false;
+  }
+
+  // A `docgenServer` the main config sets either way means this warning isn't
+  // ours to give: on `false` nothing extracts, and on `true` the worker's
+  // extractor reports the missing TypeScript itself.
+  if (await mainConfigSetsDocgenServer(storybookOptions)) {
+    return false;
+  }
+
+  // The extractor's own sentences (`docgen/index.ts`), so the project reads the
+  // same message whichever of the two reports it. Core reports only a missing
+  // package or a TypeScript 7 or later; an older TypeScript passes this check,
+  // and the extractor warns that it's too old. The check reads `data.version`
+  // because the TypeScript 7 message needs the version and only that error
+  // carries it, though the error's `name`
+  // (`SB_CORE-COMMON_0034 (TypeScriptWithoutCompilerApiError)`) would also
+  // identify it.
+  const version = (typescriptError as { data?: { version?: unknown } }).data?.version;
+
+  if (typeof version === 'string') {
+    warnOnce(
+      `TypeScript ${version} does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. To get them, install TypeScript 6 as \`typescript\`, keeping TypeScript ${version} under an alias if you use it: https://storybook.js.org/docs/configure/integration/typescript#typescript-7`
+    );
+  } else {
+    warnOnce(
+      'TypeScript is not installed, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
+    );
+  }
+
+  return false;
 };
+
+/**
+ * Where docgen can run in this Storybook, decided in one place for every hook
+ * that gates on it, so they can't disagree (issue #367):
+ *
+ * - `'nowhere'`: a test build, which skips docgen since it costs a type check
+ *   per component and nothing in it renders a props table, or `docgen: false`.
+ * - `'builder only'`: a custom `docgen.propFilter`. A filter is a function, and
+ *   the Docgen Server hands its provider plain data across a worker boundary.
+ * - `'anywhere'`: the Docgen Server or the Vite plugin.
+ */
+async function whereDocgenCanRun(
+  storybookOptions: Options
+): Promise<'nowhere' | 'builder only' | 'anywhere'> {
+  if (storybookOptions.build?.test?.disableDocgen) {
+    return 'nowhere';
+  }
+
+  const { docgen } =
+    (await storybookOptions.presets.apply<FrameworkOptions | null | undefined>(
+      'frameworkOptions'
+    )) ?? {};
+
+  if (docgen === false) {
+    return 'nowhere';
+  }
+
+  return docgen?.propFilter ? 'builder only' : 'anywhere';
+}
 
 /**
  * Turns on the components manifest that `@storybook/addon-mcp` reads on
@@ -504,6 +566,34 @@ async function usesDocgenService(storybookOptions: Options): Promise<boolean> {
 }
 
 /**
+ * Whether the main config sets `features.docgenServer` to a boolean in a plain
+ * `features` object. Core applies
+ * `isDocgenProviderEnabled` whatever the main config says, so the hook checks
+ * this before warning. Only that rare warning path reads the main config.
+ */
+async function mainConfigSetsDocgenServer(storybookOptions: Options): Promise<boolean> {
+  const { loadMainConfig } = (await import('storybook/internal/common')) as {
+    loadMainConfig?: (options: { configDir: string }) => Promise<{ features?: unknown }>;
+  };
+
+  if (typeof loadMainConfig !== 'function') {
+    return false;
+  }
+
+  try {
+    const { features } = await loadMainConfig({ configDir: storybookOptions.configDir });
+
+    return (
+      typeof features === 'object' &&
+      features !== null &&
+      typeof (features as { docgenServer?: unknown }).docgenServer === 'boolean'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The Docgen Server flag the running Storybook reads, and the one it ignores.
  * Storybook 11 renamed `experimentalDocgenServer` to `docgenServer` and stopped
  * reading the old name; 10.x reads only the old one. Honoring the name core
@@ -544,7 +634,7 @@ async function createDocgenIfEnabled(
   projectRoot: string,
   storybookOptions: Parameters<NonNullable<StorybookConfigVite['viteFinal']>>[1]
 ) {
-  if (options.docgen === false || storybookOptions.build?.test?.disableDocgen) {
+  if ((await whereDocgenCanRun(storybookOptions)) === 'nowhere') {
     return undefined;
   }
 
