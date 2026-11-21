@@ -7,7 +7,10 @@ const server = vi.hoisted(() => ({ render: vi.fn() }));
 
 type FrameworkRenderContext = {
   forceRemount: boolean;
-  storyContext: { id: string; parameters: { story?: string; fail?: boolean; waitFor?: Promise<void> } };
+  storyContext: {
+    id: string;
+    parameters: { story?: string; fail?: boolean; cleanupThrows?: boolean; waitFor?: Promise<void> };
+  };
 };
 
 // Stand-ins for the Storybook framework renderers a story delegates to, each
@@ -34,7 +37,7 @@ const frameworks = vi.hoisted(() => {
   }
 
   async function renderReact(ctx: FrameworkRenderContext, canvas: HTMLElement) {
-    const { story = 'react', fail, waitFor } = ctx.storyContext.parameters;
+    const { story = 'react', fail, cleanupThrows, waitFor } = ctx.storyContext.parameters;
 
     if (ctx.forceRemount) {
       unmountReact(canvas);
@@ -57,7 +60,14 @@ const frameworks = vi.hoisted(() => {
     root.story = story;
     root.node.textContent = story;
 
-    return async () => unmountReact(canvas);
+    return async () => {
+      // As when an effect cleanup throws: React rethrows from the unmount.
+      if (cleanupThrows) {
+        throw new Error('Effect cleanup failed');
+      }
+
+      unmountReact(canvas);
+    };
   }
 
   // Like Solid: one root per story id, which is the canvas id on a Docs page.
@@ -146,9 +156,14 @@ function renderFrameworkStory(
   canvas: HTMLElement,
   renderer: 'react' | 'solid',
   story: string,
-  { forceRemount = false, fail = false, waitFor }: { forceRemount?: boolean; fail?: boolean; waitFor?: Promise<void> } = {}
+  {
+    forceRemount = false,
+    fail = false,
+    cleanupThrows = false,
+    waitFor
+  }: { forceRemount?: boolean; fail?: boolean; cleanupThrows?: boolean; waitFor?: Promise<void> } = {}
 ) {
-  const context = storyContext(() => null, { renderer, story, fail, waitFor });
+  const context = storyContext(() => null, { renderer, story, fail, cleanupThrows, waitFor });
 
   return renderToCanvas({ ...context, forceRemount }, canvas);
 }
@@ -465,7 +480,7 @@ describe('the teardown renderToCanvas returns for a framework story (issue #238)
     expect(frameworks.unmounted).toEqual(['first']);
   });
 
-  test('leaves the canvas to a newer render when a render finishes after it', async () => {
+  test('a render that finishes after a newer one leaves the unmounting to the newer render\'s teardown', async () => {
     let finishSlowRender!: () => void;
     const slowRendering = renderFrameworkStory(canvas, 'react', 'first', {
       forceRemount: true,
@@ -476,12 +491,16 @@ describe('the teardown renderToCanvas returns for a framework story (issue #238)
     finishSlowRender();
     const slowTeardown = await slowRendering;
 
-    await slowTeardown?.();
-
+    // The framework may still write into its root late, which the renderer
+    // can't stop, but the stale render gets no teardown that could unmount
+    // the newer story.
+    expect(slowTeardown).toBeUndefined();
+    expect(frameworks.unmounted).toEqual([]);
     expect(canvas.childElementCount).toBe(1);
 
     await teardown?.();
 
+    expect(frameworks.unmounted).toHaveLength(1);
     expect(canvas.innerHTML).toBe('');
   });
 
@@ -504,6 +523,19 @@ describe('the teardown renderToCanvas returns for a framework story (issue #238)
 
     expect(canvas.innerHTML).toBe('<div>second</div>');
     expect(frameworks.unmounted).toEqual(['first']);
+  });
+
+  test('renders the next story when the previous story\'s cleanup throws', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await renderFrameworkStory(canvas, 'react', 'first', { forceRemount: true, cleanupThrows: true });
+
+    serverRespondsWith('second');
+    await renderAstro(canvas);
+
+    expect(canvas.innerHTML).toBe('<div>second</div>');
+    expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Effect cleanup failed' }));
+    consoleError.mockRestore();
   });
 
   test('disposes a Solid story before a Docs story block renders its canvas again, so the new story shows', async () => {

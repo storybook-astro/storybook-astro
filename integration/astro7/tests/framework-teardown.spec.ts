@@ -36,8 +36,14 @@ test.describe('leaving a framework story', () => {
     const errors: string[] = [];
     const preview = page.frameLocator('#storybook-preview-iframe');
 
+    // Only the preview's own errors, such as a removeChild DOMException from
+    // a late teardown. The manager's addons log errors of their own.
     page.on('console', (message) => {
-      if (message.type() === 'error') {
+      if (
+        message.type() === 'error' &&
+        message.location().url.includes('iframe.html') &&
+        !message.text().startsWith('Failed to load resource')
+      ) {
         errors.push(message.text());
       }
     });

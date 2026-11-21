@@ -150,14 +150,11 @@ const frameworkStoryByCanvas = new WeakMap<
   { render: object; teardown: TeardownRenderToCanvas }
 >();
 
-/** Unmounts the framework story the canvas holds, if any, while its DOM is still in the canvas. */
-async function unmountFrameworkStory(canvasElement: HTMLElement) {
-  const frameworkStory = frameworkStoryByCanvas.get(canvasElement);
-
-  if (!frameworkStory) {
-    return;
-  }
-
+/** Unmounts the framework story the canvas holds, while its DOM is still in the canvas. */
+async function unmountFrameworkStory(
+  canvasElement: HTMLElement,
+  frameworkStory: { teardown: TeardownRenderToCanvas }
+) {
   frameworkStoryByCanvas.delete(canvasElement);
   await frameworkStory.teardown();
 }
@@ -165,11 +162,13 @@ async function unmountFrameworkStory(canvasElement: HTMLElement) {
 /** Unmounts a framework story, unless the canvas has moved on to another render. */
 function teardownFrameworkStory(canvasElement: HTMLElement, renderToken: object): TeardownRenderToCanvas {
   return async () => {
-    if (frameworkStoryByCanvas.get(canvasElement)?.render !== renderToken) {
+    const frameworkStory = frameworkStoryByCanvas.get(canvasElement);
+
+    if (frameworkStory?.render !== renderToken) {
       return;
     }
 
-    await unmountFrameworkStory(canvasElement);
+    await unmountFrameworkStory(canvasElement, frameworkStory);
   };
 }
 
@@ -201,10 +200,18 @@ export async function renderToCanvas(
   // only honors in its own `mount`, never called for a delegated story.
   const rendererChanged = renderer !== lastRendererByCanvas.get(canvasElement);
 
+  const heldFrameworkStory = frameworkStoryByCanvas.get(canvasElement);
+
   // Checked first, so a canvas without a framework story renders without
-  // waiting a tick.
-  if ((rendererChanged || forceRemount) && frameworkStoryByCanvas.has(canvasElement)) {
-    await unmountFrameworkStory(canvasElement);
+  // waiting a tick. A teardown that throws is logged rather than failing
+  // this render, so the next story still renders, as it did before #238
+  // when the old story's teardown never ran.
+  if ((rendererChanged || forceRemount) && heldFrameworkStory) {
+    try {
+      await unmountFrameworkStory(canvasElement, heldFrameworkStory);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   // When this canvas's framework changes, clear it so the previous framework's
@@ -227,8 +234,9 @@ export async function renderToCanvas(
     hideRenderLoadingIndicator(canvasElement);
     releaseCanvasHeight(canvasElement);
     showMain();
-    // A framework that throws leaves the story the canvas held, and Storybook
-    // keeps that story's teardown, so it still unmounts it.
+    // A rerender that throws leaves the story the canvas held mounted, and
+    // Storybook keeps that story's teardown, so it still unmounts it. On a
+    // remount or a change of renderer, that story was already unmounted above.
     const teardown = await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
     if (renderer === 'svelte') {
