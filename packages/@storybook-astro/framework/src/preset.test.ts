@@ -53,6 +53,10 @@ const storybook11 = vi.hoisted(() => ({
   typescriptResolvedTo: undefined as string | undefined
 }));
 
+const typescriptMissing = vi.hoisted(
+  () => 'Storybook could not find the `typescript` package to run docgen.'
+);
+
 const isStorybook11 = () => Number.parseInt(installed.storybook, 10) >= 11;
 
 vi.mock('storybook/internal/common', async (importOriginal) => {
@@ -66,11 +70,28 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
         return installed.storybook;
       }
     },
+    // Core's check without a warning, which the framework uses.
+    get getTypeScriptForDocgenError() {
+      return isStorybook11()
+        ? (resolve: (specifier: string) => string) => {
+            storybook11.typescriptChecks += 1;
+            storybook11.typescriptResolvedTo = resolve('typescript/package.json');
+
+            return storybook11.typescriptReady ? undefined : new Error(typescriptMissing);
+          }
+        : undefined;
+    },
+    // Core's check that warns, as `@storybook/react` calls it. The framework
+    // doesn't, since its extractor warns too (issue #367).
     get isTypeScriptReadyForDocgen() {
       return isStorybook11()
         ? async (resolve: (specifier: string) => string) => {
             storybook11.typescriptChecks += 1;
             storybook11.typescriptResolvedTo = resolve('typescript/package.json');
+
+            if (!storybook11.typescriptReady) {
+              console.warn(typescriptMissing);
+            }
 
             return storybook11.typescriptReady;
           }
@@ -315,6 +336,17 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
     expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
   });
 
+  test('and says nothing about the missing TypeScript, which the extractor reports once (issue #367)', async () => {
+    installed.storybook = '11.0.0';
+    storybook11.typescriptReady = false;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await isDocgenProviderEnabled(false, storybookOptions());
+
+    expect(storybook11.typescriptChecks).toBe(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   test('but not when the project sets a prop filter, which the worker cannot run', async () => {
     installed.storybook = '11.0.0';
 
@@ -351,6 +383,41 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
 
   test('and stays off on a Storybook without the TypeScript check', async () => {
     expect(await isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+  });
+});
+
+describe('the default and an explicit docgenServer agree on where docgen runs (issue #367)', () => {
+  test.each([
+    ['a test build', { build: { test: { disableDocgen: true } } }],
+    ['docgen turned off', { frameworkOptions: { docgen: false as const } }]
+  ])('%s gets no Docgen Server by default, and none when the flag is set', async (_, scenario) => {
+    installed.storybook = '11.0.0';
+
+    expect(await isDocgenProviderEnabled(false, storybookOptions(scenario))).toBe(false);
+
+    const descriptors = await experimental_docgenProvider(
+      [],
+      storybookOptions({ ...scenario, features: { docgenServer: true } })
+    );
+
+    expect(descriptors).toEqual([]);
+  });
+
+  test('a prop filter keeps the builder path by default, and is reported when the flag forces the worker', async () => {
+    installed.storybook = '11.0.0';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const scenario = { frameworkOptions: { docgen: { propFilter: () => true } } };
+
+    expect(await isDocgenProviderEnabled(false, storybookOptions(scenario))).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
+
+    const descriptors = await experimental_docgenProvider(
+      [],
+      storybookOptions({ ...scenario, features: { docgenServer: true } })
+    );
+
+    expect(descriptors).toHaveLength(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('propFilter'));
   });
 });
 

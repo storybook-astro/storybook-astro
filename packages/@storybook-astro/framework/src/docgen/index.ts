@@ -176,7 +176,9 @@ async function startSession(
   try {
     typescript = (await import('typescript')).default;
   } catch {
-    warn('TypeScript is not installed, so component documentation cannot be extracted.');
+    warn(
+      'TypeScript is not installed, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
+    );
 
     return undefined;
   }

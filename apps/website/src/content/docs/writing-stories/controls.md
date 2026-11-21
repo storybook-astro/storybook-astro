@@ -203,7 +203,7 @@ On **Storybook 11** the Docgen Server is on by default, as it is for React and
 Vue, except in three cases. A project that sets a custom `docgen.propFilter`
 keeps extraction in the Vite plugin. A project with no usable TypeScript
 installed gets no props on either path, since both need TypeScript 5 or 6;
-Storybook and Storybook Astro both log how to fix it. A project that turns
+Storybook Astro logs how to fix it. A project that turns
 extraction off (`docgen: false`) turns it off on both paths. To turn the Docgen
 Server off yourself:
 
@@ -250,8 +250,11 @@ Two caveats:
   project that sets one. Turning it on anyway logs a warning.
 - Stories run by `@storybook/addon-vitest` get **no extracted props** with the
   Docgen Server on, since its worker doesn't run in Vitest ([#368](https://github.com/storybook-astro/storybook-astro/issues/368)).
-  `argTypes` a story declares still apply. React and Vue stories behave the same
-  way on Storybook 11.
+  The component has no `__docgenInfo` there, so Storybook infers no `argTypes`
+  from its props, and an `argTypesRegex` action only covers props the story
+  names in its `args` or `argTypes`. Stories render the same, and `argTypes` a
+  story declares still apply. React and Vue stories behave the same way on
+  Storybook 11.
 
 On Storybook 10.0–10.5 the flag is accepted but the helpers this builds on don't
 exist yet, so extraction stays in the builder and logs a note saying so.
