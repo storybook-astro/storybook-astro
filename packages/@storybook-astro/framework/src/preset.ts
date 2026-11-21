@@ -566,8 +566,8 @@ async function usesDocgenService(storybookOptions: Options): Promise<boolean> {
 }
 
 /**
- * Whether the main config sets `features.docgenServer` to a boolean, read as
- * core's own `getDocgenServerInMainConfig` reads it. Core applies
+ * Whether the main config sets `features.docgenServer` to a boolean in a plain
+ * `features` object. Core applies
  * `isDocgenProviderEnabled` whatever the main config says, so the hook checks
  * this before warning. Only that rare warning path reads the main config.
  */
