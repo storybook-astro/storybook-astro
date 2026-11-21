@@ -13,7 +13,9 @@ export async function importAstroConfig(resolveFrom: string) {
   // its top level, which the runner doesn't support (#329). Fall back to
   // import() only where Node can't require the module: Node versions without
   // require(esm) (before 20.19 and 22.12), a module with top-level await, or
-  // a module that import() is already loading or linking.
+  // a module that import() is already loading or linking. Node 22 reports
+  // a require() of a module an import() is still loading as an internal
+  // assertion, not ERR_REQUIRE_ESM_RACE_CONDITION.
   try {
     return require(astroConfigEntrypoint);
   } catch (error) {
@@ -22,6 +24,7 @@ export async function importAstroConfig(resolveFrom: string) {
     if (
       code !== 'ERR_REQUIRE_ESM' &&
       code !== 'ERR_REQUIRE_ESM_RACE_CONDITION' &&
+      code !== 'ERR_INTERNAL_ASSERTION' &&
       code !== 'ERR_REQUIRE_ASYNC_MODULE' &&
       code !== 'ERR_REQUIRE_CYCLE_MODULE'
     ) {

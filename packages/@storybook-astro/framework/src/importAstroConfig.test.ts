@@ -180,6 +180,33 @@ describe('importAstroConfig', () => {
     expect(loaded.getViteConfig).toBe(imported.getViteConfig);
   });
 
+  // Node 22 lets a same-tick require() through, but reports a require() a few
+  // microtasks into the import() as ERR_INTERNAL_ASSERTION.
+  test('loads an astro/config that import() started loading a few microtasks earlier', async () => {
+    await installFakeAstro({
+      'config.js': `
+        export function getViteConfig() {
+          return 'loaded';
+        }
+      `,
+      'start-import.js': `
+        export async function importConfigThen(loadAgain) {
+          const imported = import('./config.js');
+          for (let i = 0; i < 3; i++) await null;
+          return Promise.all([imported, loadAgain()]);
+        }
+      `
+    });
+
+    const helperPath = join(projectDir, 'node_modules', 'astro', 'start-import.js');
+    const { importConfigThen } = await import(/* @vite-ignore */ pathToFileURL(helperPath).href);
+
+    const [imported, loaded] = await importConfigThen(() => importAstroConfig(projectDir));
+
+    expect(loaded.getViteConfig()).toBe('loaded');
+    expect(loaded.getViteConfig).toBe(imported.getViteConfig);
+  });
+
   test('reports an error astro/config throws while loading', async () => {
     await installFakeAstro({ 'config.js': `throw new Error('broken astro install');` });
 
