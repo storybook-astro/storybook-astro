@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- React Fast Refresh works again on Vite 8 / Astro 7 (#380). The dev server used to drop `@vitejs/plugin-react`'s native refresh wrapper on Vite 8 to avoid a "Missing field `moduleType`" error on the preview's `iframe.html` (#139), which no longer occurs on the Vite 8 and plugin-react versions we support, so editing a React component reloaded the preview and lost its state. The wrapper is now kept on every Rolldown-based Vite (Vite 8 and rolldown-vite 7), so React stories and React islands in Astro stories keep their state across edits. On Vite 6 and plain Vite 7 it's still left out when plugin-react hands back a hoisted Vite 8's wrapper, which can't run there (#379).
 - On Windows, islands in Astro stories hydrate in `storybook dev` (#382). An island's `component-url` was its bare file path, such as `C:/project/src/ContactForm.tsx`, which the browser read as a URL with a `C:` scheme, so the island's import failed with "Not allowed to load local resource" and it stayed server-rendered HTML. It's now served through Vite's `/@fs/` route, as the island's `renderer-url` already was, and so is a mocked island's `component-url` and a component `<script>`'s `src`. Thanks to @Dan503 for the report and the fix.
 
 ## [1.17.0] - 2026-11-17

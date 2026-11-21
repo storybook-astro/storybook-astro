@@ -5,19 +5,18 @@ import type { Plugin } from 'vite';
 const patchedPlugins = new WeakSet<Plugin>();
 
 /**
- * Vite 8 dev-server compatibility (Astro 7+). On Vite 8, @vitejs/plugin-react's
- * `vite:react:refresh-wrapper` plugin swaps itself for a Rolldown builtin
- * (`builtin:vite-react-refresh-wrapper`) that throws "Missing field
- * `moduleType`" while transforming Storybook's iframe.html inline bootstrap
- * script, which 500s every preview load. There is no config opt-out, so when
- * the plugin hands back the builtin, it's left out of that environment instead.
- * React components still render; only Fast Refresh is lost (component edits
- * full-reload).
- *
+ * Leaves @vitejs/plugin-react's native refresh wrapper out of a Vite that can't
+ * run it. On Vite 8, plugin-react's `vite:react:refresh-wrapper` plugin swaps
+ * itself for a Rolldown builtin (`builtin:vite-react-refresh-wrapper`), but
  * plugin-react decides from the Vite next to it, which in a monorepo can
- * differ from the running one (#379). So the builtin is also left out on Vite 6
- * and 7, where it can't run at all, and kept only on rolldown-vite 7, where
- * it's native and the 500 was never seen.
+ * differ from the running one (#379). On Vite 6 or plain Vite 7 it can hand
+ * back a hoisted Vite 8's builtin, which fails every JSX transform there, so
+ * the builtin is left out of that environment. React components still render;
+ * only Fast Refresh is lost (component edits full-reload).
+ *
+ * On a Rolldown Vite (Vite 8, or rolldown-vite 7) the builtin is native and
+ * kept, so Fast Refresh works. It used to be dropped there too, for a "Missing
+ * field `moduleType`" 500 on iframe.html (#139) that no longer reproduces (#380).
  *
  * The patch runs in `configResolved`, which Vite calls with every plugin,
  * flattened, before it asks each one which environments it applies to. That
@@ -27,12 +26,10 @@ const patchedPlugins = new WeakSet<Plugin>();
 export function vitePluginSkipNativeReactRefresh(): Plugin {
   return {
     name: 'storybook-astro:skip-native-react-refresh',
-    configResolved(this: { meta?: { viteVersion?: string; rolldownVersion?: string } } | void, config) {
-      // Vite 6 calls this hook with no `this`; the patch goes ahead there.
-      const meta = this?.meta;
-      const runsOnRolldownVite7 = Boolean(meta?.rolldownVersion) && Boolean(meta?.viteVersion?.startsWith('7.'));
-
-      if (runsOnRolldownVite7) {
+    configResolved(this: { meta?: { rolldownVersion?: string } } | void, config) {
+      // Vite 6 calls this hook with no `this`, and plain Vite 7 passes `meta`
+      // without `rolldownVersion`; the patch goes ahead on both.
+      if (this?.meta?.rolldownVersion) {
         return;
       }
 
