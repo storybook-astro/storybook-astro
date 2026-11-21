@@ -126,7 +126,7 @@ The main ones:
 
 ## Astro Version Support
 
-Astro 5 (5.5.3+), 6 and 7 are supported. The integration apps pin Astro 5.17.2, 6.4.8 and 7.4.2. The code that adapts to each version is listed in [AGENTS.md's Astro Version Compatibility Layers](../../AGENTS.md#astro-version-compatibility-layers).
+Astro 5 (5.5.3+), 6 and 7 are supported. The integration apps pin Astro 5.17.2, 6.4.8 and 7.4.13. The code that adapts to each version is listed in [AGENTS.md's Astro Version Compatibility Layers](../../AGENTS.md#astro-version-compatibility-layers).
 
 ## Development Workflow
 
