@@ -395,7 +395,8 @@ export const experimental_manifests = async (
  * The extractor warns about it on whichever path ends up running, so the
  * project sees one message rather than Storybook's and then ours (issue #367).
  * Without addon-docs the builder path doesn't run the extractor, so the hook
- * gives the same warning itself; `@storybook/addon-mcp` still turns the
+ * gives the same warning itself, unless the main config sets `docgenServer`
+ * (see `mainConfigSetsDocgenServer`); `@storybook/addon-mcp` still turns the
  * components manifest on there, and would otherwise get no props with no
  * reason given. Core's `isTypeScriptReadyForDocgen` would warn, so this uses
  * the check behind it. That shipped in 11.0.0-alpha.9 and isn't in 10.x,
@@ -430,9 +431,28 @@ export const isDocgenProviderEnabled = async (
 
   const docsConfig = await storybookOptions.presets.apply('docs', {}, storybookOptions);
 
-  // The extractor's own sentence (`docgen/index.ts`), so the project reads the
-  // same message whichever of the two reports it.
-  if (Object.keys(docsConfig ?? {}).length === 0) {
+  if (Object.keys(docsConfig ?? {}).length > 0) {
+    return false;
+  }
+
+  // A `docgenServer` the main config sets either way means this warning isn't
+  // ours to give: on `false` nothing extracts, and on `true` the worker's
+  // extractor reports the missing TypeScript itself.
+  if (await mainConfigSetsDocgenServer(storybookOptions)) {
+    return false;
+  }
+
+  // The extractor's own sentences (`docgen/index.ts`), so the project reads the
+  // same message whichever of the two reports it. Core reports only a missing
+  // package or a TypeScript 7 or later; an older TypeScript passes this check,
+  // and the extractor warns that it's too old.
+  if (typescriptError.name === 'TypeScriptWithoutCompilerApiError') {
+    const version = (typescriptError as { data?: { version?: string } }).data?.version;
+
+    warnOnce(
+      `TypeScript ${version} does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.`
+    );
+  } else {
     warnOnce(
       'TypeScript is not installed, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
     );
@@ -531,6 +551,34 @@ async function usesDocgenService(storybookOptions: Options): Promise<boolean> {
   }
 
   return supported;
+}
+
+/**
+ * Whether the main config sets `features.docgenServer` to a boolean, read as
+ * core's own `getDocgenServerInMainConfig` reads it. Core applies
+ * `isDocgenProviderEnabled` whatever the main config says, so the hook checks
+ * this before warning. Only that rare warning path reads the main config.
+ */
+async function mainConfigSetsDocgenServer(storybookOptions: Options): Promise<boolean> {
+  const { loadMainConfig } = (await import('storybook/internal/common')) as {
+    loadMainConfig?: (options: { configDir: string }) => Promise<{ features?: unknown }>;
+  };
+
+  if (typeof loadMainConfig !== 'function') {
+    return false;
+  }
+
+  try {
+    const { features } = await loadMainConfig({ configDir: storybookOptions.configDir });
+
+    return (
+      typeof features === 'object' &&
+      features !== null &&
+      typeof (features as { docgenServer?: unknown }).docgenServer === 'boolean'
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

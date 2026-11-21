@@ -61,9 +61,14 @@ const installed = vi.hoisted(() => ({ storybook: '10.6.0' }));
 // they're only exported while the version above is 11 or newer.
 const storybook11 = vi.hoisted(() => ({
   typescriptReady: true,
+  /** The error core reports when `typescriptReady` is false; a missing package by default. */
+  typescriptError: undefined as Error | undefined,
   typescriptChecks: 0,
   typescriptResolvedTo: undefined as string | undefined
 }));
+
+// The project's main config, as core's `loadMainConfig` returns it.
+const mainConfig = vi.hoisted(() => ({ features: undefined as Record<string, unknown> | undefined }));
 
 const typescriptMissing = vi.hoisted(
   () => 'Storybook could not find the `typescript` package to run docgen.'
@@ -89,10 +94,13 @@ vi.mock('storybook/internal/common', async (importOriginal) => {
             storybook11.typescriptChecks += 1;
             storybook11.typescriptResolvedTo = resolve('typescript/package.json');
 
-            return storybook11.typescriptReady ? undefined : new Error(typescriptMissing);
+            return storybook11.typescriptReady
+              ? undefined
+              : (storybook11.typescriptError ?? new Error(typescriptMissing));
           }
         : undefined;
     },
+    loadMainConfig: async () => ({ features: mainConfig.features }),
     // Core's check that warns, as `@storybook/react` calls it. The framework
     // doesn't, since its extractor warns too (issue #367).
     get isTypeScriptReadyForDocgen() {
@@ -149,7 +157,9 @@ afterEach(() => {
   vi.restoreAllMocks();
   installed.storybook = '10.6.0';
   storybook11.typescriptReady = true;
+  storybook11.typescriptError = undefined;
   storybook11.typescriptChecks = 0;
+  mainConfig.features = undefined;
   storybook11.typescriptResolvedTo = undefined;
   storyDocsBuilder.error = undefined;
   storyDocsBuilder.loadError = undefined;
@@ -382,6 +392,44 @@ describe('the Docgen Server is on by default on Storybook 11 (issue #214)', () =
       '[storybook-astro] TypeScript is not installed, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
     );
   });
+
+  test('and without addon-docs names a TypeScript 7, which is installed but has no compiler API', async () => {
+    installed.storybook = '11.0.0';
+    storybook11.typescriptReady = false;
+    storybook11.typescriptError = Object.assign(new Error('no compiler API'), {
+      name: 'TypeScriptWithoutCompilerApiError',
+      data: { version: '7.0.0' }
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    vi.resetModules();
+    const preset = await import('./preset.ts');
+
+    expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      '[storybook-astro] TypeScript 7.0.0 does not include the compiler API that documentation extraction uses, so component descriptions and props tables are skipped. Install TypeScript 5 or 6 to get them.'
+    );
+  });
+
+  test.each([
+    ['false, so nothing extracts', false],
+    ['true, so the worker\'s extractor reports it', true]
+  ])(
+    'and without addon-docs leaves the warning out when the main config sets docgenServer to %s',
+    async (_, docgenServer) => {
+      installed.storybook = '11.0.0';
+      storybook11.typescriptReady = false;
+      mainConfig.features = { docgenServer };
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      vi.resetModules();
+      const preset = await import('./preset.ts');
+
+      expect(await preset.isDocgenProviderEnabled(false, storybookOptions())).toBe(false);
+      expect(warn).not.toHaveBeenCalled();
+    }
+  );
 
   test('but not when the project sets a prop filter, which the worker cannot run', async () => {
     installed.storybook = '11.0.0';
