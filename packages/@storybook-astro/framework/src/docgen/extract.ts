@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import type ts from 'typescript';
-import { readAstroPropsBinding, type AstroPropsBinding } from './defaultValues.ts';
+import { literalValueOf, readAstroPropsBinding, type AstroPropsBinding } from './defaultValues.ts';
 import { readComponentDescription } from './description.ts';
 import { createDefaultPropFilter } from './propFilter.ts';
 import { readSlots } from './slots.ts';
@@ -25,6 +25,17 @@ const MAX_UNION_CONSTITUENTS = 8;
 // importing TypeScript as a type only.
 const TS_UNDEFINED_FLAG = 32768;
 const TS_NULL_FLAG = 65536;
+
+/** Where the component's `Props` is declared, which decides whose JSDoc tags a prop takes. */
+interface PropsDeclarationInfo {
+  file: ts.SourceFile;
+  isUnion: boolean;
+}
+
+interface ComponentTag {
+  name: string;
+  text: string;
+}
 
 /**
  * Extracts docgen for one `.astro` component.
@@ -67,19 +78,27 @@ export function extractAstroDocgen(
   }
 
   const binding = readAstroPropsBinding(typescript, parsed);
-  const properties = resolveProps(typescript, project, astroFilePath, virtualSource, parsed);
+  const { properties, propsDeclarationInfo } = resolveProps(
+    typescript,
+    project,
+    astroFilePath,
+    virtualSource,
+    parsed
+  );
 
   const propFilter = options.propFilter ?? createDefaultPropFilter(binding.destructured);
   const props: Record<string, AstroDocgenProp> = {};
 
   for (const { symbol, checker } of properties) {
-    const prop = buildProp(typescript, checker, symbol, binding);
+    const componentTags = componentTagsOf(typescript, symbol, checker, propsDeclarationInfo);
 
     // docs-tools looks for `@ignore` in the description, which holds no tags
     // here, so the extractor drops these itself (issue #356).
-    if (prop.tags && 'ignore' in prop.tags) {
+    if (componentTags.some((tag) => tag.name === 'ignore')) {
       continue;
     }
+
+    const prop = buildProp(typescript, checker, symbol, componentTags, binding);
 
     if (propFilter(prop, { name: displayName })) {
       props[prop.name] = prop;
@@ -100,7 +119,10 @@ function resolveProps(
   astroFilePath: string,
   virtualSource: string,
   parsed: ts.SourceFile
-): Array<{ symbol: ts.Symbol; checker: ts.TypeChecker }> {
+): {
+  properties: Array<{ symbol: ts.Symbol; checker: ts.TypeChecker }>;
+  propsDeclarationInfo?: PropsDeclarationInfo;
+} {
   const virtualPath = virtualFilePathFor(astroFilePath);
   const constituents = unionConstituentsOfFirstDefault(typescript, parsed, MAX_UNION_CONSTITUENTS);
   // The default instantiation goes first so props common to every constituent
@@ -123,6 +145,10 @@ function resolveProps(
     }
 
     const checker = program.getTypeChecker();
+    const propsDeclarationInfo: PropsDeclarationInfo = {
+      file: sourceFile,
+      isUnion: isWrittenAsUnion(typescript, findPropsDeclaration(typescript, sourceFile))
+    };
     const seen = new Map<string, ts.Symbol>();
 
     for (const name of probes.names) {
@@ -136,6 +162,7 @@ function resolveProps(
 
     return {
       properties: [...seen.values()].map((symbol) => ({ symbol, checker })),
+      propsDeclarationInfo,
       sourceFile,
       program,
       probes
@@ -145,7 +172,7 @@ function resolveProps(
   const first = read(virtualSource);
 
   if (!first.sourceFile || !first.program) {
-    return first.properties;
+    return first;
   }
 
   // The rewrite is gated on the diagnostic rather than on an empty result:
@@ -156,21 +183,19 @@ function resolveProps(
     .some((diagnostic) => diagnostic.code === INTERFACE_EXTENDS_NON_OBJECT);
 
   if (!rejectedHeritage) {
-    return first.properties;
+    return first;
   }
 
   const rewritten = rewriteInterfaceToTypeAlias(typescript, virtualSource);
 
   if (rewritten === null) {
-    return first.properties;
+    return first;
   }
 
   const retried = read(rewritten);
 
   // Only take the rewrite when it actually recovered something.
-  return retried.properties.length > first.properties.length
-    ? retried.properties
-    : first.properties;
+  return retried.properties.length > first.properties.length ? retried : first;
 }
 
 function propertiesOfProbe(
@@ -206,10 +231,34 @@ function findPropsDeclaration(
   );
 }
 
+/**
+ * Whether `Props` is written as a union, such as `type Props = A | B`. Read from
+ * the syntax rather than the checker's type, because TypeScript normalizes
+ * `Base & Own & (A | B)` into a union of intersections, and that `Props`
+ * overrides `Base` like any other intersection (issue #373).
+ */
+function isWrittenAsUnion(
+  typescript: typeof ts,
+  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration | undefined
+): boolean {
+  if (!declaration || !typescript.isTypeAliasDeclaration(declaration)) {
+    return false;
+  }
+
+  let type = declaration.type;
+
+  while (typescript.isParenthesizedTypeNode(type)) {
+    type = type.type;
+  }
+
+  return typescript.isUnionTypeNode(type);
+}
+
 function buildProp(
   typescript: typeof ts,
   checker: ts.TypeChecker,
   symbol: ts.Symbol,
+  componentTags: ComponentTag[],
   { defaults }: AstroPropsBinding
 ): AstroDocgenProp {
   const name = symbol.getName();
@@ -218,21 +267,33 @@ function buildProp(
     ? checker.getTypeOfSymbolAtLocation(symbol, declaration)
     : checker.getDeclaredTypeOfSymbol(symbol);
 
-  const defaultValue = defaults.get(name) ?? null;
+  const tags = jsDocTagsOf(typescript, symbol, checker);
+  const destructuringDefault = defaults.get(name);
+  // A `@default` tag documents a default the destructuring doesn't show, such
+  // as one applied further down the frontmatter (issue #371). Its text is the
+  // source, and its value is parsed the way a destructuring default's is. It's
+  // read from the component's tags, as `@ignore` is, so a base's tag doesn't
+  // override the component's or show on a prop the component redeclares.
+  const defaultTag = componentTags.find((tag) => tag.name === 'default')?.text;
+  const tagDefault = defaultTag
+    ? { value: defaultTagValue(typescript, defaultTag), source: defaultTag }
+    : undefined;
   const optional = (symbol.flags & typescript.SymbolFlags.Optional) !== 0;
-  const required = !optional && !defaultValue;
+  // Only a destructuring default lets a caller leave the prop out; the tag is
+  // documentation.
+  const required = !optional && !destructuringDefault;
 
   return {
     name,
     required,
     type: describeType(typescript, checker, type, required),
     description: typescript.displayPartsToString(symbol.getDocumentationComment(checker)).trim(),
-    defaultValue,
+    defaultValue: destructuringDefault ?? tagDefault ?? null,
     parent: declarationRefOf(typescript, declaration),
     declarations: (symbol.declarations ?? [])
       .map((each) => declarationRefOf(typescript, each))
       .filter((each): each is DeclarationRef => each !== undefined),
-    tags: jsDocTagsOf(typescript, symbol, checker)
+    tags
   };
 }
 
@@ -340,6 +401,100 @@ function nearestNamedAncestor(typescript: typeof ts, declaration: ts.Declaration
   }
 
   return '';
+}
+
+/**
+ * The JSDoc tags that decide whether the component hides a prop (`@ignore`,
+ * issues #356, #373) and what default it documents (`@default`, issue #371).
+ *
+ * When the prop is declared in the component's own `Props`, only those
+ * declarations count. `symbol.getJsDocTags` can't make that distinction: it
+ * falls back to a base interface's tags when an override has none, and merges
+ * the tags of every declaration of an intersection's property, so a base's
+ * `@ignore` or `@default` would apply to a prop the component redeclares.
+ *
+ * Otherwise the merged tags count: for a prop `Props` only inherits, they
+ * include a base's tags however far up it is, and for a union `Props` each
+ * constituent's, since a union alternative isn't an override. A union `Props`
+ * is one written as a union (`isWrittenAsUnion`).
+ */
+function componentTagsOf(
+  typescript: typeof ts,
+  symbol: ts.Symbol,
+  checker: ts.TypeChecker,
+  propsDeclarationInfo: PropsDeclarationInfo | undefined
+): ComponentTag[] {
+  const inProps = !propsDeclarationInfo || propsDeclarationInfo.isUnion
+    ? []
+    : (symbol.declarations ?? []).filter((declaration) =>
+      isInComponentProps(typescript, declaration, propsDeclarationInfo.file)
+    );
+
+  if (inProps.length === 0) {
+    return symbol.getJsDocTags(checker).map((tag) => ({
+      name: tag.name,
+      text: typescript.displayPartsToString(tag.text ?? []).trim()
+    }));
+  }
+
+  return inProps.flatMap((declaration) =>
+    typescript.getJSDocTags(declaration).map((tag) => ({
+      name: tag.tagName.text,
+      text: typescript.getTextOfJSDocComment(tag.comment)?.trim() ?? ''
+    }))
+  );
+}
+
+/**
+ * Reads a `@default` tag's text as an expression, so `@default true` gives
+ * `true` and `@default 'md'` gives `'md'`, as the same defaults written in the
+ * destructuring do (issue #355). Text that isn't a single expression is kept
+ * as written.
+ */
+function defaultTagValue(typescript: typeof ts, text: string): string | number | boolean | null {
+  const sourceFile = typescript.createSourceFile(
+    'default.ts',
+    `(${text})`,
+    typescript.ScriptTarget.Latest,
+    true
+  );
+  const [statement] = sourceFile.statements;
+
+  // Text that doesn't parse leaves more than one statement, or an expression
+  // that doesn't span the whole text.
+  if (
+    sourceFile.statements.length !== 1 ||
+    !typescript.isExpressionStatement(statement) ||
+    !typescript.isParenthesizedExpression(statement.expression) ||
+    statement.expression.expression.getText(sourceFile) !== text
+  ) {
+    return text;
+  }
+
+  return literalValueOf(typescript, statement.expression.expression, sourceFile);
+}
+
+/** Whether a declaration sits inside the component's top-level `Props`. */
+function isInComponentProps(
+  typescript: typeof ts,
+  declaration: ts.Declaration,
+  componentFile: ts.SourceFile
+): boolean {
+  if (declaration.getSourceFile() !== componentFile) {
+    return false;
+  }
+
+  let statement: ts.Node = declaration;
+
+  while (statement.parent && !typescript.isSourceFile(statement.parent)) {
+    statement = statement.parent;
+  }
+
+  return (
+    (typescript.isInterfaceDeclaration(statement) ||
+      typescript.isTypeAliasDeclaration(statement)) &&
+    statement.name.text === 'Props'
+  );
 }
 
 function jsDocTagsOf(

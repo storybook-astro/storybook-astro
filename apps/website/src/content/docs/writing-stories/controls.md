@@ -51,9 +51,21 @@ type, and the defaults read from the `Astro.props` destructuring.
 | The prop's TypeScript type | The **Type** column |
 | A default in the `Astro.props` destructuring | The **Default** column |
 | A union of string literals | A select control with those options |
-| A prop that is neither optional nor defaulted | Marked **Required** |
-| `@default` on a prop | The **Default** column, when the destructuring has none |
+| A prop that is neither optional nor defaulted in the destructuring | Marked **Required** |
+| `@default` on a prop | The **Default** column, as the tag writes it, when the destructuring has none. On a base interface's prop, only when `Props` doesn't redeclare it as a member of its own declaration |
+| `@ignore` on a prop | No row, no control and no line in the props AI agents read. On a base interface's prop, only when `Props` doesn't redeclare it as a member of its own declaration |
 | A `<slot>` in the template | A row in the **Slots** section (see [Slots](#slots)) |
+
+A prop counts as redeclared only when the member is written in the `Props`
+declaration itself: inside `interface Props { … }`, or in an object literal in
+`type Props = …`. A redeclaration in a separate named interface that `Props`
+extends or intersects, such as `Own` in `type Props = BaseProps & Own`, counts
+as inherited, so a `@default` or `@ignore` on `BaseProps` still applies to it. In a
+`Props` written as a union, such as `type Props = LinkProps | ButtonProps`, a
+`@default` or `@ignore` on any of the alternatives applies to the prop. A `Props`
+that intersects a union, such as `type Props = BaseProps & Own & (A | B)`, isn't
+written as a union, so its own members override `BaseProps` as in any other
+intersection.
 
 Types imported from another file work too, including via tsconfig `paths`
 aliases — the extractor uses your project's `tsconfig.json`.
@@ -191,7 +203,7 @@ On **Storybook 11** the Docgen Server is on by default, as it is for React and
 Vue, except in three cases. A project that sets a custom `docgen.propFilter`
 keeps extraction in the Vite plugin. A project with no usable TypeScript
 installed gets no props on either path, since both need TypeScript 5 or 6;
-Storybook and Storybook Astro both log how to fix it. A project that turns
+Storybook Astro logs how to fix it. A project that turns
 extraction off (`docgen: false`) turns it off on both paths. To turn the Docgen
 Server off yourself:
 
@@ -238,8 +250,11 @@ Two caveats:
   project that sets one. Turning it on anyway logs a warning.
 - Stories run by `@storybook/addon-vitest` get **no extracted props** with the
   Docgen Server on, since its worker doesn't run in Vitest ([#368](https://github.com/storybook-astro/storybook-astro/issues/368)).
-  `argTypes` a story declares still apply. React and Vue stories behave the same
-  way on Storybook 11.
+  The component has no `__docgenInfo` there, so Storybook infers no `argTypes`
+  from its props, and an `argTypesRegex` action only covers props the story
+  names in its `args` or `argTypes`. Stories render the same, and `argTypes` a
+  story declares still apply. React and Vue stories behave the same way on
+  Storybook 11.
 
 On Storybook 10.0–10.5 the flag is accepted but the helpers this builds on don't
 exist yet, so extraction stays in the builder and logs a note saying so.
