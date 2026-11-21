@@ -139,11 +139,11 @@ describe('importAstroConfig', () => {
     try {
       const configPath = join(projectDir, 'node_modules', 'astro', 'config.js');
 
-      await import(/* @vite-ignore */ pathToFileURL(configPath).href);
+      const imported = await import(/* @vite-ignore */ pathToFileURL(configPath).href);
+      const loaded = await loadingAgain!;
 
-      const { getViteConfig } = await loadingAgain!;
-
-      expect(getViteConfig()).toBe('loaded');
+      expect(loaded.getViteConfig()).toBe('loaded');
+      expect(loaded.getViteConfig).toBe(imported.getViteConfig);
     } finally {
       delete (globalThis as Record<string, unknown>).__storybookAstroLoadConfig;
     }
