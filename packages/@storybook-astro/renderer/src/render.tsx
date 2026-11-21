@@ -139,6 +139,51 @@ function teardownAstroRender(canvasElement: HTMLElement, renderToken: object): T
   };
 }
 
+// The framework story a canvas holds: the render that mounted it and the
+// teardown its framework returned. Like an Astro teardown, a framework
+// teardown only unmounts while the canvas still holds its render's root
+// (#238). React and Svelte unmount whatever root the canvas has, Vue drops
+// whatever app the canvas has registered, and Solid disposes by story id, so a
+// late Docs teardown would otherwise unmount or orphan the newer story that
+// took the canvas over.
+const frameworkStoryByCanvas = new WeakMap<
+  HTMLElement,
+  { render: object; teardown: TeardownRenderToCanvas }
+>();
+
+/**
+ * Unmounts the framework story the canvas holds, while its DOM is still in the
+ * canvas. An error from the story's cleanup is logged rather than thrown, so
+ * the next story still renders, as it did before #238 when the old story's
+ * teardown never ran: Storybook awaits the teardown it holds without a catch
+ * before it renders the next story.
+ */
+async function unmountFrameworkStory(
+  canvasElement: HTMLElement,
+  frameworkStory: { teardown: TeardownRenderToCanvas }
+) {
+  frameworkStoryByCanvas.delete(canvasElement);
+
+  try {
+    await frameworkStory.teardown();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** Unmounts a framework story, unless the canvas has moved on to another render. */
+function teardownFrameworkStory(canvasElement: HTMLElement, renderToken: object): TeardownRenderToCanvas {
+  return async () => {
+    const frameworkStory = frameworkStoryByCanvas.get(canvasElement);
+
+    if (frameworkStory?.render !== renderToken) {
+      return;
+    }
+
+    await unmountFrameworkStory(canvasElement, frameworkStory);
+  };
+}
+
 /** The markup goes with its CSS, so the old story never shows unstyled while the next one renders. */
 function clearAstroRender(canvasElement: HTMLElement) {
   removeStoryStyles(canvasElement);
@@ -159,15 +204,43 @@ export async function renderToCanvas(
   // canvas container with it in docs view to preserve each component's own look.
   canvasElement.classList.toggle('sb-unstyled', storyContext?.viewMode === 'docs');
 
+  const thisRender = {};
+
+  // A framework story the canvas still holds is unmounted before anything
+  // else touches the canvas: its teardown removes its own DOM, which fails
+  // once that DOM has been cleared, and a Docs story block runs the teardown
+  // Storybook holds late, after this render has started (#238). That covers
+  // a switch to another framework or to Astro, and a remount, which Solid
+  // only honors in its own `mount`, never called for a delegated story.
+  // Checked first, so a canvas without a framework story renders without
+  // waiting a tick.
+  const heldFrameworkStory = frameworkStoryByCanvas.get(canvasElement);
+
+  if (heldFrameworkStory && (forceRemount || renderer !== lastRendererByCanvas.get(canvasElement))) {
+    // This render claims the canvas before it waits, so a render that starts
+    // during the unmount takes the canvas over and this one stands down,
+    // rather than resuming to clear and overwrite the newer story. That claims
+    // it before the story function runs, an exception to the rule below that
+    // only a story function that succeeds claims the canvas. It's harmless:
+    // a canvas holding a framework story has no Astro render in flight that
+    // this could make look out of date.
+    latestRenderByCanvas.set(canvasElement, thisRender);
+    await unmountFrameworkStory(canvasElement, heldFrameworkStory);
+
+    if (latestRenderByCanvas.get(canvasElement) !== thisRender) {
+      return;
+    }
+  }
+
+  const rendererChanged = renderer !== lastRendererByCanvas.get(canvasElement);
+
   // When this canvas's framework changes, clear it so the previous framework's
   // DOM doesn't stack alongside the new one. Same-framework rerenders are
   // unaffected.
-  if (renderer !== lastRendererByCanvas.get(canvasElement)) {
+  if (rendererChanged) {
     canvasElement.innerHTML = '';
   }
   lastRendererByCanvas.set(canvasElement, renderer);
-
-  const thisRender = {};
 
   if (renderer && Object.hasOwn(typedRenderers, renderer)) {
     latestRenderByCanvas.set(canvasElement, thisRender);
@@ -179,15 +252,25 @@ export async function renderToCanvas(
     hideRenderLoadingIndicator(canvasElement);
     releaseCanvasHeight(canvasElement);
     showMain();
-    // The framework's teardown isn't returned yet, so its root stays mounted
-    // until the next render of that framework into this canvas (#238).
-    await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
+    // A rerender that throws leaves the story the canvas held mounted, and
+    // Storybook keeps that story's teardown, so it still unmounts it. On a
+    // remount or a change of renderer, that story was already unmounted above.
+    const teardown = await typedRenderers[renderer].renderToCanvas(ctx, canvasElement);
 
     if (renderer === 'svelte') {
       astroRenderer.applyStyles?.();
     }
 
-    return;
+    // Preact returns no teardown, as under its own renderer. A newer render
+    // that started while this one mounted owns the canvas, so this render's
+    // teardown must leave it alone.
+    if (!teardown || latestRenderByCanvas.get(canvasElement) !== thisRender) {
+      return;
+    }
+
+    frameworkStoryByCanvas.set(canvasElement, { render: thisRender, teardown });
+
+    return teardownFrameworkStory(canvasElement, thisRender);
   }
 
   let element: ReturnType<typeof storyFn>;
@@ -203,8 +286,9 @@ export async function renderToCanvas(
     throw error;
   }
 
-  // Only once the story function succeeds, so a story that throws doesn't
-  // make an earlier render's response look out of date.
+  // Only once the story function succeeds (except after unmounting a held
+  // framework story, above), so a story that throws doesn't make an earlier
+  // render's response look out of date.
   latestRenderByCanvas.set(canvasElement, thisRender);
   showMain();
 
