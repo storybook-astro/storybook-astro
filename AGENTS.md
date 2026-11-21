@@ -87,7 +87,7 @@ Story File (.stories.jsx)
     ↓ [checks parameters.renderer]
     ↓ [delegates to framework renderToCanvas BEFORE calling storyFn()]
 Framework Renderer (e.g. @storybook/react-vite)
-    ↓ [manages its own reactive root]
+    ↓ [manages its own reactive root, and returns the teardown that unmounts it]
 Storybook Canvas (rendered component)
 ```
 
@@ -223,6 +223,7 @@ export function framework(options?: FrameworkOptions) {
 
 **Client-side (render.tsx)**:
 - `renderToCanvas` delegates to framework renderers BEFORE calling `storyFn()` — this ordering is critical for frameworks like Solid that manage their own reactive roots
+- A framework story's teardown is passed back to Storybook, wrapped so it only unmounts while the canvas still holds that render's root (`teardownFrameworkStory`), as an Astro teardown only clears the canvas while it still shows its render. A Docs story block runs teardowns late, and React, Vue and Svelte unmount whatever root the canvas has. Before another framework or an Astro story uses the canvas, and on a forced remount (Solid only remounts in its own `mount`), the held framework story is unmounted first, while its DOM is still there (#238)
 - Modify `renderAstroComponent` to change request/response handling
 - `astroRenderer.applyStyles` re-runs Vite's injected style modules in dev. Astro component styles don't go through it: they arrive with the rendered HTML (see [Styles Not Applying](#styles-not-applying))
 - `activateScriptTags` re-executes `<script>` tags after HTML injection for hydration
