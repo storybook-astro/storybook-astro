@@ -44,7 +44,9 @@ export const core = {
 
 export const viteFinal: StorybookConfigVite['viteFinal'] = async (config, storybookOptions) => {
   const { configType, presets, configDir } = storybookOptions;
-  const frameworkOptions = await presets.apply<FrameworkOptions>('frameworkOptions');
+  // Core hands back the framework's `options`: undefined for `framework: { name }`
+  // without them, and null with no framework config (#370).
+  const frameworkOptions = (await presets.apply<FrameworkOptions | undefined>('frameworkOptions')) ?? {};
   const resolveFrom = frameworkOptions.resolveFrom ?? dirname(configDir);
 
   // Auto-load fonts from the user's astro.config.* when the framework option
@@ -293,7 +295,7 @@ export const experimental_docgenProvider = async (
   }
 
   const frameworkOptions =
-    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+    (await storybookOptions.presets.apply<FrameworkOptions | undefined>('frameworkOptions')) ?? {};
 
   if (frameworkOptions.docgen === false) {
     return existing;
@@ -408,7 +410,7 @@ export const isDocgenProviderEnabled = async (
   }
 
   const frameworkOptions =
-    await storybookOptions.presets.apply<FrameworkOptions>('frameworkOptions');
+    (await storybookOptions.presets.apply<FrameworkOptions | undefined>('frameworkOptions')) ?? {};
 
   if (frameworkOptions.docgen === false || frameworkOptions.docgen?.propFilter) {
     return false;
