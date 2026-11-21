@@ -26,8 +26,8 @@ const MAX_UNION_CONSTITUENTS = 8;
 const TS_UNDEFINED_FLAG = 32768;
 const TS_NULL_FLAG = 65536;
 
-/** The component's `Props`, which decides whose JSDoc tags a prop takes. */
-interface ComponentProps {
+/** Where the component's `Props` is declared, which decides whose JSDoc tags a prop takes. */
+interface PropsDeclarationInfo {
   file: ts.SourceFile;
   isUnion: boolean;
 }
@@ -78,13 +78,19 @@ export function extractAstroDocgen(
   }
 
   const binding = readAstroPropsBinding(typescript, parsed);
-  const properties = resolveProps(typescript, project, astroFilePath, virtualSource, parsed);
+  const { properties, propsDeclarationInfo } = resolveProps(
+    typescript,
+    project,
+    astroFilePath,
+    virtualSource,
+    parsed
+  );
 
   const propFilter = options.propFilter ?? createDefaultPropFilter(binding.destructured);
   const props: Record<string, AstroDocgenProp> = {};
 
-  for (const { symbol, checker, componentProps } of properties) {
-    const componentTags = componentTagsOf(typescript, symbol, checker, componentProps);
+  for (const { symbol, checker } of properties) {
+    const componentTags = componentTagsOf(typescript, symbol, checker, propsDeclarationInfo);
 
     // docs-tools looks for `@ignore` in the description, which holds no tags
     // here, so the extractor drops these itself (issue #356).
@@ -113,7 +119,10 @@ function resolveProps(
   astroFilePath: string,
   virtualSource: string,
   parsed: ts.SourceFile
-): Array<{ symbol: ts.Symbol; checker: ts.TypeChecker; componentProps: ComponentProps }> {
+): {
+  properties: Array<{ symbol: ts.Symbol; checker: ts.TypeChecker }>;
+  propsDeclarationInfo?: PropsDeclarationInfo;
+} {
   const virtualPath = virtualFilePathFor(astroFilePath);
   const constituents = unionConstituentsOfFirstDefault(typescript, parsed, MAX_UNION_CONSTITUENTS);
   // The default instantiation goes first so props common to every constituent
@@ -136,10 +145,9 @@ function resolveProps(
     }
 
     const checker = program.getTypeChecker();
-    const propsName = findPropsDeclaration(typescript, sourceFile)?.name;
-    const componentProps: ComponentProps = {
+    const propsDeclarationInfo: PropsDeclarationInfo = {
       file: sourceFile,
-      isUnion: propsName ? checker.getTypeAtLocation(propsName).isUnion() : false
+      isUnion: isWrittenAsUnion(typescript, findPropsDeclaration(typescript, sourceFile))
     };
     const seen = new Map<string, ts.Symbol>();
 
@@ -153,7 +161,8 @@ function resolveProps(
     }
 
     return {
-      properties: [...seen.values()].map((symbol) => ({ symbol, checker, componentProps })),
+      properties: [...seen.values()].map((symbol) => ({ symbol, checker })),
+      propsDeclarationInfo,
       sourceFile,
       program,
       probes
@@ -163,7 +172,7 @@ function resolveProps(
   const first = read(virtualSource);
 
   if (!first.sourceFile || !first.program) {
-    return first.properties;
+    return first;
   }
 
   // The rewrite is gated on the diagnostic rather than on an empty result:
@@ -174,21 +183,19 @@ function resolveProps(
     .some((diagnostic) => diagnostic.code === INTERFACE_EXTENDS_NON_OBJECT);
 
   if (!rejectedHeritage) {
-    return first.properties;
+    return first;
   }
 
   const rewritten = rewriteInterfaceToTypeAlias(typescript, virtualSource);
 
   if (rewritten === null) {
-    return first.properties;
+    return first;
   }
 
   const retried = read(rewritten);
 
   // Only take the rewrite when it actually recovered something.
-  return retried.properties.length > first.properties.length
-    ? retried.properties
-    : first.properties;
+  return retried.properties.length > first.properties.length ? retried : first;
 }
 
 function propertiesOfProbe(
@@ -222,6 +229,29 @@ function findPropsDeclaration(
         typescript.isTypeAliasDeclaration(statement)) &&
       statement.name.text === 'Props'
   );
+}
+
+/**
+ * Whether `Props` is written as a union, such as `type Props = A | B`. Read from
+ * the syntax rather than the checker's type, because TypeScript normalizes
+ * `Base & Own & (A | B)` into a union of intersections, and that `Props`
+ * overrides `Base` like any other intersection (issue #373).
+ */
+function isWrittenAsUnion(
+  typescript: typeof ts,
+  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration | undefined
+): boolean {
+  if (!declaration || !typescript.isTypeAliasDeclaration(declaration)) {
+    return false;
+  }
+
+  let type = declaration.type;
+
+  while (typescript.isParenthesizedTypeNode(type)) {
+    type = type.type;
+  }
+
+  return typescript.isUnionTypeNode(type);
 }
 
 function buildProp(
@@ -385,18 +415,19 @@ function nearestNamedAncestor(typescript: typeof ts, declaration: ts.Declaration
  *
  * Otherwise the merged tags count: for a prop `Props` only inherits, they
  * include a base's tags however far up it is, and for a union `Props` each
- * constituent's, since a union alternative isn't an override.
+ * constituent's, since a union alternative isn't an override. A union `Props`
+ * is one written as a union (`isWrittenAsUnion`).
  */
 function componentTagsOf(
   typescript: typeof ts,
   symbol: ts.Symbol,
   checker: ts.TypeChecker,
-  componentProps: ComponentProps
+  propsDeclarationInfo: PropsDeclarationInfo | undefined
 ): ComponentTag[] {
-  const inProps = componentProps.isUnion
+  const inProps = !propsDeclarationInfo || propsDeclarationInfo.isUnion
     ? []
     : (symbol.declarations ?? []).filter((declaration) =>
-      isInComponentProps(typescript, declaration, componentProps.file)
+      isInComponentProps(typescript, declaration, propsDeclarationInfo.file)
     );
 
   if (inProps.length === 0) {

@@ -85,10 +85,11 @@ export interface AstroDocgenOptions {
    * `Astro.props` (docs/specs/docgen.md#prop-filtering). A prop is dropped
    * before the filter runs, so a filter can't bring it back, when the
    * component's own `Props` declaration marks it `@ignore`, or, for a prop
-   * `Props` only inherits or a union `Props`, when any declaration it comes
-   * from does.
+   * `Props` only inherits or a `Props` written as a union, when any
+   * declaration it comes from does.
    * `prop.tags` holds TypeScript's merged tags, so a prop the component
-   * redeclares over an ignored base can still show `tags.ignore`.
+   * redeclares over a base can still show the base's `tags.ignore` or
+   * `tags.default`. Read `prop.defaultValue` for the default the table shows.
    */
   propFilter?: PropFilter;
   /** Overrides tsconfig discovery, which otherwise walks up from the component. */

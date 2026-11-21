@@ -61,8 +61,11 @@ declaration itself: inside `interface Props { … }`, or in an object literal in
 `type Props = …`. A redeclaration in a separate named interface that `Props`
 extends or intersects, such as `Own` in `type Props = BaseProps & Own`, counts
 as inherited, so a `@default` or `@ignore` on `BaseProps` still applies to it. In a
-union `Props`, such as `type Props = LinkProps | ButtonProps`, a `@default` or
-`@ignore` on any of the alternatives applies to the prop.
+`Props` written as a union, such as `type Props = LinkProps | ButtonProps`, a
+`@default` or `@ignore` on any of the alternatives applies to the prop. A `Props`
+that intersects a union, such as `type Props = BaseProps & Own & (A | B)`, isn't
+written as a union, so its own members override `BaseProps` as in any other
+intersection.
 
 Types imported from another file work too, including via tsconfig `paths`
 aliases — the extractor uses your project's `tsconfig.json`.

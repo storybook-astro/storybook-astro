@@ -279,6 +279,47 @@ describe('@ignore counts only where the component declares the prop (issue #373)
     expect(Object.keys(docgen!.props)).toEqual(['kind']);
   });
 
+  test('an intersection with a discriminated union is not a union Props', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface Base {',
+          '  /** @ignore */',
+          '  label?: string;',
+          "  /** @default 'md' */",
+          '  size?: string;',
+          '}',
+          'type Props = Base & {',
+          '  label: string;',
+          "  size?: 'sm' | 'lg';",
+          "} & ({ kind: 'a' } | { kind: 'b' });",
+          'const { label, size, kind } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props).sort()).toEqual(['kind', 'label', 'size']);
+    expect(docgen!.props.size.defaultValue).toBeNull();
+  });
+
+  test('a union Props in parentheses is still a union Props', () => {
+    const docgen = docgenFor(
+      astro(
+        [
+          'interface A {',
+          '  /** @ignore */',
+          '  x?: string;',
+          "  kind: 'a';",
+          '}',
+          "type Props = (A | { kind: 'b'; x?: string });",
+          'const { x, kind } = Astro.props;'
+        ].join('\n')
+      )
+    );
+
+    expect(Object.keys(docgen!.props)).toEqual(['kind']);
+  });
+
   test('@ignore on a helper interface hides a prop also declared in DOM types', () => {
     const docgen = docgenFor(
       astro(
