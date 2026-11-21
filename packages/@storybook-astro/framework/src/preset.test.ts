@@ -443,7 +443,7 @@ describe('the Vite plugins viteFinal adds (#378)', () => {
       .filter((name) => name?.startsWith('storybook-astro:'));
   }
 
-  test('the dev server gets the optimizer options and the Fast Refresh workaround', async () => {
+  test('the dev server gets the optimizer options and the React refresh-wrapper guard', async () => {
     const names = await storybookAstroPluginNames('DEVELOPMENT');
 
     expect(names).toContain('storybook-astro:optimize-deps');
