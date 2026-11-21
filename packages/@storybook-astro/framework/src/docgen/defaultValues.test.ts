@@ -74,6 +74,15 @@ describe('the destructured set is the component author’s public surface', () =
     expect(binding.defaults.get('class')?.source).toBe("'card'");
   });
 
+  test('a quoted key records the prop name without its quotes (issue #373)', () => {
+    const binding = bindingFor(
+      `const { 'aria-label': ariaLabel = 'Close', "data-id": dataId } = Astro.props;`
+    );
+
+    expect([...binding.destructured]).toEqual(['aria-label', 'data-id']);
+    expect(binding.defaults.get('aria-label')?.source).toBe("'Close'");
+  });
+
   test('a rest element is not a prop', () => {
     const binding = bindingFor('const { as = "button", ...rest } = Astro.props;');
 

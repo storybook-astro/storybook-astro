@@ -57,6 +57,28 @@ beforeAll(() => {
     '<a href={href} data-tracking={trackingId}>{icon}{label}</a>'
   ]);
 
+  write('Chip.astro', [
+    '---',
+    'interface Props {',
+    "  /** Size. @default 'md' */",
+    '  size?: string;',
+    '}',
+    'const { size } = Astro.props;',
+    '---',
+    '<span class={size ?? "md"}>Chip</span>'
+  ]);
+
+  write('Chip.stories.jsx', [
+    "import Chip from './Chip.astro';",
+    '',
+    'export default {',
+    "  title: 'Astro/Chip',",
+    '  component: Chip',
+    '};',
+    '',
+    'export const Default = {};'
+  ]);
+
   write('Link.stories.jsx', [
     "import Link from './Link.astro';",
     '',
@@ -239,6 +261,16 @@ describe('an Astro story', () => {
 
     expect(Object.keys(payload?.argTypes ?? {})).toEqual(['href', 'label', 'icon']);
     expect(payload?.apiDescription).not.toContain('trackingId');
+
+    docgen.dispose();
+  });
+
+  test('shows a @default tag as the default when the destructuring has none (issue #371)', async () => {
+    const docgen = createAstroDocgen({ projectRoot: workingDir });
+    const payload = await build(storyEntry('Chip.stories.jsx', 'Astro/Chip'), docgen);
+
+    expect(payload?.argTypes?.size?.table?.defaultValue).toEqual({ summary: "'md'" });
+    expect(payload?.apiDescription).toContain("  size?: string = 'md';");
 
     docgen.dispose();
   });

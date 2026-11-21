@@ -51,9 +51,21 @@ type, and the defaults read from the `Astro.props` destructuring.
 | The prop's TypeScript type | The **Type** column |
 | A default in the `Astro.props` destructuring | The **Default** column |
 | A union of string literals | A select control with those options |
-| A prop that is neither optional nor defaulted | Marked **Required** |
-| `@default` on a prop | The **Default** column, when the destructuring has none |
+| A prop that is neither optional nor defaulted in the destructuring | Marked **Required** |
+| `@default` on a prop | The **Default** column, as the tag writes it, when the destructuring has none. On a base interface's prop, only when `Props` doesn't redeclare it as a member of its own declaration |
+| `@ignore` on a prop | No row, no control and no line in the props AI agents read. On a base interface's prop, only when `Props` doesn't redeclare it as a member of its own declaration |
 | A `<slot>` in the template | A row in the **Slots** section (see [Slots](#slots)) |
+
+A prop counts as redeclared only when the member is written in the `Props`
+declaration itself: inside `interface Props { … }`, or in an object literal in
+`type Props = …`. A redeclaration in a separate named interface that `Props`
+extends or intersects, such as `Own` in `type Props = BaseProps & Own`, counts
+as inherited, so a `@default` or `@ignore` on `BaseProps` still applies to it. In a
+`Props` written as a union, such as `type Props = LinkProps | ButtonProps`, a
+`@default` or `@ignore` on any of the alternatives applies to the prop. A `Props`
+that intersects a union, such as `type Props = BaseProps & Own & (A | B)`, isn't
+written as a union, so its own members override `BaseProps` as in any other
+intersection.
 
 Types imported from another file work too, including via tsconfig `paths`
 aliases — the extractor uses your project's `tsconfig.json`.
