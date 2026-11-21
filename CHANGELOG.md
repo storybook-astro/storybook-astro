@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- On Windows, islands in Astro stories hydrate in `storybook dev` (#382). An island's `component-url` was its bare file path, such as `C:/project/src/ContactForm.tsx`, which the browser read as a URL with a `C:` scheme, so the island's import failed with "Not allowed to load local resource" and it stayed server-rendered HTML. It's now served through Vite's `/@fs/` route, as the island's `renderer-url` already was. Thanks to @Dan503 for the report and the fix.
+- On Windows, islands in Astro stories hydrate in `storybook dev` (#382). An island's `component-url` was its bare file path, such as `C:/project/src/ContactForm.tsx`, which the browser read as a URL with a `C:` scheme, so the island's import failed with "Not allowed to load local resource" and it stayed server-rendered HTML. It's now served through Vite's `/@fs/` route, as the island's `renderer-url` already was, and so is a mocked island's `component-url` and a component `<script>`'s `src`. Thanks to @Dan503 for the report and the fix.
 
 ## [1.17.0] - 2026-11-17
 

@@ -8,6 +8,7 @@ import type { Integration } from './integrations/index.ts';
 import type { SanitizationOptions } from './lib/sanitization.ts';
 import type { ComponentStyles } from './lib/componentStyles.ts';
 import { resolveAliasedIsland } from './lib/resolve-aliased-island.ts';
+import { toFsPath } from './lib/staticHtmlRewriting.ts';
 import { resolveStoryModuleMock } from './module-mocks.ts';
 import { addRenderers, resolveClientModules } from 'virtual:astro-container-renderers';
 
@@ -26,6 +27,15 @@ type HandlerFactoryOptions = {
 
 export type { HandlerProps };
 
+// Astro puts an absolute file path the container resolves (an island's
+// component-url, a component `<script>` src) in the page as it's handed back.
+// On Windows it starts with a drive letter, which the browser reads as a URL
+// scheme (`C:`), so serve it through Vite's `/@fs/` route the way renderer-url
+// already is (#382).
+function serveWindowsPathThroughFs(path: string) {
+  return /^[a-zA-Z]:[/\\]/.test(path) ? toFsPath(path) : path;
+}
+
 export async function handlerFactory(
   _integrations: Integration[],
   options?: HandlerFactoryOptions
@@ -37,7 +47,7 @@ export async function handlerFactory(
       const mockedModule = resolveStoryModuleMock(specifier);
 
       if (mockedModule) {
-        return mockedModule;
+        return serveWindowsPathThroughFs(mockedModule);
       }
 
       const customResolution = options?.resolveModule?.(specifier);
@@ -69,15 +79,7 @@ export async function handlerFactory(
         return `/@fs/${aliasedIsland}`;
       }
 
-      // An island's absolute file path ends up as its component-url. On
-      // Windows it starts with a drive letter, which the browser reads as a
-      // URL scheme (`C:`), so serve it through Vite's `/@fs/` route the way
-      // renderer-url already is (#382).
-      if (/^[a-zA-Z]:[/\\]/.test(specifier)) {
-        return `/@fs/${specifier.replace(/\\/g, '/')}`;
-      }
-
-      return specifier;
+      return serveWindowsPathThroughFs(specifier);
     }
   });
 

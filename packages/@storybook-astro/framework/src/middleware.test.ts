@@ -9,6 +9,10 @@ vi.mock('astro/container', () => ({
   experimental_AstroContainer: { create: createContainer }
 }));
 
+const resolveStoryModuleMock = vi.hoisted(() => vi.fn((_specifier: string): string | undefined => undefined));
+
+vi.mock('./module-mocks.ts', () => ({ resolveStoryModuleMock }));
+
 vi.mock('virtual:astro-container-renderers', () => ({
   addRenderers: () => {},
   resolveClientModules: () => undefined
@@ -82,6 +86,20 @@ describe('middleware', () => {
       await expect(resolveIslandUrl('C:\\project\\src\\ContactForm.tsx')).resolves.toBe(
         '/@fs/C:/project/src/ContactForm.tsx'
       );
+    });
+
+    test('serves a mocked island on Windows through /@fs/ so it hydrates', async () => {
+      resolveStoryModuleMock.mockReturnValueOnce('C:/project/.storybook/mocks/Counter.tsx');
+
+      await expect(resolveIslandUrl('C:/project/src/Counter.tsx')).resolves.toBe(
+        '/@fs/C:/project/.storybook/mocks/Counter.tsx'
+      );
+    });
+
+    test('serves a component script on Windows through /@fs/ with its query', async () => {
+      await expect(
+        resolveIslandUrl('C:/project/src/Card.astro?astro&type=script&index=0&lang.ts')
+      ).resolves.toBe('/@fs/C:/project/src/Card.astro?astro&type=script&index=0&lang.ts');
     });
 
     test('leaves a Unix path as it is', async () => {
