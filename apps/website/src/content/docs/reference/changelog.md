@@ -8,6 +8,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-11-22
+
+### Changed
+- `@storybook-astro/renderer` no longer installs `@types/node` 20 into your project (#333). If your own code uses Node's types and your project doesn't list `@types/node`, add it: `npm i -D @types/node`.
+- On Storybook 11, Astro stories run by `@storybook/addon-vitest` get no extracted props while the Docgen Server is on, as React and Vue stories do; the Controls & ArgTypes docs now say so (#368).
+
+### Fixed
+- Component tests that use `renderStory` work on Astro 7.4.9 and later, on Node 20.19+ or 22.12+ (#329).
+- On Windows, islands in Astro stories hydrate in `storybook dev` (#382). Thanks to @Dan503 for the report and the fix.
+- Framework stories (React, Vue, Svelte, Solid) are unmounted when Storybook removes them, so their effects clean up (#238).
+- React Fast Refresh now works on Vite 8 / Astro 7, so React stories and islands keep their state across edits (#380).
+- `framework: { name: '@storybook-astro/framework' }` with no `options` no longer fails with "Cannot read properties of undefined (reading 'resolveFrom')" (#370).
+- A prop's `@default` JSDoc tag fills the props table's Default column, `@ignore` on a base interface no longer hides a prop the component redeclares, and a quoted key in the `Astro.props` destructuring keeps its default (#371, #373).
+- On Storybook 11, a project without a usable TypeScript gets one warning instead of two, and a TypeScript 7 project is told how to keep 7 alongside TypeScript 6 (#367).
+
 ## [1.17.0] - 2026-11-17
 
 ### Changed
