@@ -8,6 +8,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-11-27
+
+### Fixed
+- `storybook build` works for projects whose `.storybook/preview.ts` registers addon-docs, including the CSF-factories setup `npm create storybook` writes on Storybook 11; it failed with `ReferenceError: document is not defined` (#410). The static prerender now also applies that preview's global decorators and parameters to CSF3 stories.
+- In the static prerender, a decorator that reads a browser-only global such as `document` or `window` is skipped for the stories it wraps, with a warning, instead of leaving those stories out of the build; their other decorators still apply (#413). A `definePreview()` preview's global decorators aren't covered yet (#411).
+
 ## [1.18.0] - 2026-11-22
 
 ### Changed
