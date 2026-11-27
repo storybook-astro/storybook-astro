@@ -368,11 +368,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // in as externalized native imports, so a per-package stub can't reliably catch
 // every DOM-touching module they reach.
 //
-// Prerendering only needs each story's component and args, never preview-level
-// decorators/parameters or any addon. So we replace `@storybook/preview` with a
-// minimal CSF4 factory: `meta(input)` returns `{ input }` and `meta.story(input)`
-// returns the `{ _tag: 'Story', input, meta }` shape `resolveStoryAnnotations`
-// reads. This sidesteps the project preview and its entire addon graph.
+// A CSF4 story only needs its component and args from the prerender: its
+// preview-level decorators aren't applied (CSF3 stories do get the preview's
+// decorators, through the decorator-composition load below). So we replace
+// `@storybook/preview` with a minimal CSF4 factory: `meta(input)` returns
+// `{ input }` and `meta.story(input)` returns the `{ _tag: 'Story', input, meta }`
+// shape `resolveStoryAnnotations` reads. For stories that import
+// `@storybook/preview`, this sidesteps the project preview and its entire addon
+// graph.
 //
 // The docs-package stubs cover the paths that load `.storybook/preview.ts`
 // itself: the decorator-composition load in productionRenderRuntime.ts, and a
@@ -410,8 +413,10 @@ export function createStorybookBrowserStubPlugin(): Plugin {
 
   return {
     name: 'storybook-astro:storybook-browser-stubs',
-    // Must run before Astro's resolvers, which would otherwise resolve these
-    // bare specifiers to their real (browser-only) files before we can stub them.
+    // `enforce: 'pre'` runs this before Vite's own resolver, which would
+    // otherwise resolve these bare specifiers to their real browser-only files.
+    // It still runs after any earlier `enforce: 'pre'` plugin, Astro's included:
+    // createStorySsrViteServer lists it after them.
     enforce: 'pre',
     config() {
       return { ssr: { noExternal: STUBBED_PACKAGES } };
