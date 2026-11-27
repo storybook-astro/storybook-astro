@@ -186,6 +186,7 @@ describe('renderProductionStoryToHtml', () => {
     const [warning] = warnSpy.mock.calls[0] as [string];
 
     expect(warning).toContain('components-button--primary');
+    expect(warning).toContain('without a decorator that uses a browser-only global');
     expect(warning).toContain('window is not defined');
     expect(warning).toContain("typeof window !== 'undefined'");
 
@@ -315,7 +316,7 @@ describe('createProductionRenderRuntime with a project preview', () => {
     const storyWarnings = warnings.filter((message) => message.includes('button--primary'));
 
     expect(storyWarnings).toHaveLength(1);
-    expect(storyWarnings[0]).toContain('without a decorator');
+    expect(storyWarnings[0]).toContain('without a decorator that uses a browser-only global');
     expect(storyWarnings[0]).toContain('document is not defined');
     expect(storyWarnings[0]).toContain("typeof document !== 'undefined'");
   }, 60_000);

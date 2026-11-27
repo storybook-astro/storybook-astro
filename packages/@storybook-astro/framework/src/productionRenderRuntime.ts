@@ -503,8 +503,8 @@ function warnAboutSkippedDecorators(storyId: string, skippedDecorators: SkippedD
 
   console.warn(
     `[storybook-astro] Prerendered story "${storyId}" without ${
-      skippedDecorators.length === 1 ? 'a decorator' : `${skippedDecorators.length} decorators`
-    } that use a browser-only global, which the static build's Node prerender doesn't have (${reasons}). ` +
+      skippedDecorators.length === 1 ? 'a decorator that uses' : `${skippedDecorators.length} decorators that use`
+    } a browser-only global, which the static build's Node prerender doesn't have (${reasons}). ` +
       `Guard that code with ${guards} to keep the decorator in the prerender.`
   );
 }
