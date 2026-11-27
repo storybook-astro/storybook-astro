@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test, vi } from 'vitest';
@@ -80,6 +80,67 @@ describe('createStorySsrViteServer', () => {
 
       try {
         expect(viteServer.config.plugins.map((plugin) => plugin.name)).toContain('from-user-integration');
+      } finally {
+        await viteServer.close();
+      }
+    } finally {
+      await rm(fixtureDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  // `storybook init` on Storybook 11 writes a CSF-factories preview.ts that
+  // registers addon-docs, and stories that import that preview by path. Node
+  // can't load addon-docs (it reads `document` at module load), so the static
+  // build failed until the docs packages were kept out of Vite's SSR externals,
+  // where the stub plugin can't reach them (issue #410).
+  test('loads stories whose preview registers addon-docs, imported by relative path or subpath import (issue #410)', async () => {
+    const packageDir = fileURLToPath(new URL('..', import.meta.url));
+    const fixtureDir = await mkdtemp(join(packageDir, '.vitest-ssr-fixture-'));
+
+    try {
+      await writeFile(
+        join(fixtureDir, 'package.json'),
+        JSON.stringify({
+          name: 'ssr-fixture',
+          type: 'module',
+          private: true,
+          imports: { '#*': ['./*', './*.ts'] }
+        })
+      );
+      await writeFile(join(fixtureDir, 'astro.config.mjs'), 'export default {};');
+      await mkdir(join(fixtureDir, '.storybook'));
+      await writeFile(
+        join(fixtureDir, '.storybook', 'preview.ts'),
+        `import addonDocs from '@storybook/addon-docs';
+        import { Meta } from '@storybook/addon-docs/blocks';
+
+        export default { addons: [addonDocs()], blocks: [Meta], parameters: { layout: 'centered' } };`
+      );
+      await writeFile(
+        join(fixtureDir, 'RelativePath.stories.ts'),
+        `import preview from './.storybook/preview';
+
+        export const parameters = preview.parameters;`
+      );
+      await writeFile(
+        join(fixtureDir, 'SubpathImport.stories.ts'),
+        `import preview from '#.storybook/preview';
+
+        export const parameters = preview.parameters;`
+      );
+
+      const viteServer = await createStorySsrViteServer({
+        integrations: [],
+        trackedSpecifiers: new Set(),
+        resolveFrom: fixtureDir
+      });
+
+      try {
+        const relativePathStory = await viteServer.ssrLoadModule(join(fixtureDir, 'RelativePath.stories.ts'));
+        const subpathImportStory = await viteServer.ssrLoadModule(join(fixtureDir, 'SubpathImport.stories.ts'));
+
+        expect(relativePathStory.parameters).toEqual({ layout: 'centered' });
+        expect(subpathImportStory.parameters).toEqual({ layout: 'centered' });
       } finally {
         await viteServer.close();
       }
@@ -395,6 +456,7 @@ describe('createStorybookBrowserStubPlugin', () => {
     for (const specifier of [
       '@storybook/addon-docs',
       '@storybook/addon-docs/blocks',
+      '@storybook/addon-docs/preview',
       '@storybook/blocks'
     ]) {
       const resolved = callHook(plugin.resolveId, specifier);
