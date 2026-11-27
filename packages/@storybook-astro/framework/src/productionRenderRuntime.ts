@@ -1,7 +1,12 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ViteDevServer } from 'vite';
-import { isAstroComponentSlot, serializeAstroComponentMarkers, type SlotValue } from '@storybook-astro/renderer/types';
+import {
+  isAstroComponentFactory,
+  isAstroComponentSlot,
+  serializeAstroComponentMarkers,
+  type SlotValue
+} from '@storybook-astro/renderer/types';
 import { createAstroRenderHandler, type HandlerProps } from './astroRenderHandler.ts';
 import { splitStoryArgs } from '@storybook-astro/renderer/slotArgs';
 import { ssrLoadModuleWithFsFallback } from './lib/ssr-load-module-with-fs-fallback.ts';
@@ -19,20 +24,29 @@ import {
 
 type LoadedStoryModule = Record<string, unknown>;
 
+/** A decorator the prerender left out because it read a browser-only global under Node (issue #413). */
+export type SkippedDecorator = {
+  error: Error;
+  missingGlobal: string;
+};
+
 export type ProductionRenderRuntime = {
   loadModule: (moduleId: string) => Promise<LoadedStoryModule>;
   renderAstroStory: (data: HandlerProps) => Promise<string>;
   /**
    * Composes an Astro story's decorators (Decorator Support, Step 4 — Gap A)
    * into the `SlotValue` tree `astroRenderHandler.ts` resolves as
-   * `HandlerProps.node`. Returns `undefined` when the story has no decorators
+   * `HandlerProps.node`. `node` is `undefined` when the story has no decorators
    * (or is a CSF4 story-factory export, not supported here yet — see the inline
    * note below), so the caller keeps rendering it exactly as before.
+   * `skippedDecorators` lists the decorators left out because they read a
+   * browser-only global; any other error a decorator or the story throws
+   * rejects.
    */
   composeDecoratedTree: (options: {
     storyModule: LoadedStoryModule;
     exportName: string;
-  }) => Promise<SlotValue | undefined>;
+  }) => Promise<{ node: SlotValue | undefined; skippedDecorators: SkippedDecorator[] }>;
   close: () => Promise<void>;
 };
 
@@ -126,42 +140,68 @@ export async function createProductionRenderRuntime(
     }: {
       storyModule: LoadedStoryModule;
       exportName: string;
-    }): Promise<SlotValue | undefined> => {
+    }) => {
       const rawStoryExport = storyModule[exportName];
+      const skippedDecorators: SkippedDecorator[] = [];
 
       // CSF4 story-factory exports (`meta.story()`) aren't supported by
       // `composeStory` directly, and this SSR server stubs `@storybook/preview`
       // to a minimal factory (storySsrVite.ts) specifically so those modules can
-      // load at all under Node — the real preview.ts (and any decorators
-      // declared there) is never consulted for a CSF4 story either way. Leave
-      // these stories on the existing undecorated path (docs/specs/decorators.md#global-decorators
-      // covers CSF4 decorators).
+      // load at all under Node. A CSF4 story's preview decorators aren't
+      // applied here, whether it imports the `@storybook/preview` stub or the
+      // real preview by path. Leave these stories on the existing undecorated
+      // path (docs/specs/decorators.md#global-decorators covers CSF4
+      // decorators).
       if (isRecord(rawStoryExport) && rawStoryExport._tag === 'Story') {
-        return undefined;
+        return { node: undefined, skippedDecorators };
       }
 
       const meta = storyModule.default;
 
       if (!isRecord(meta)) {
-        return undefined;
+        return { node: undefined, skippedDecorators };
       }
+
+      // A decorator that reads `document` or `window` when it's called works
+      // in the browser but not in this Node prerender. Wrap each one so only
+      // that decorator is skipped and the story keeps its other decorators
+      // (issue #413).
+      const skipOnBrowserGlobalError = (annotations: Record<string, unknown>) =>
+        annotations.decorators == null
+          ? annotations
+          : {
+            ...annotations,
+            decorators: [annotations.decorators]
+              .flat()
+              .map((decorator) => skipDecoratorOnBrowserGlobalError(decorator, skippedDecorators))
+          };
+
+      // A CSF2 function story is its own render, and Storybook reads its
+      // `decorators`, `args` and the like from properties set on the function.
+      // Spreading them into an object story keeps those decorators wrapped too.
+      const storyAnnotations =
+        typeof rawStoryExport === 'function'
+          ? skipOnBrowserGlobalError({ ...rawStoryExport, render: rawStoryExport })
+          : isRecord(rawStoryExport)
+            ? skipOnBrowserGlobalError(rawStoryExport)
+            : rawStoryExport;
 
       // `composeStory` (portable-stories.ts) merges in `applyDecorators` by
       // default, same as `render` — no need to pass it explicitly here.
       const composedStory = composeStory(
-        rawStoryExport as never,
-        meta as never,
-        previewProjectAnnotations as never,
+        storyAnnotations as never,
+        skipOnBrowserGlobalError(meta) as never,
+        skipOnBrowserGlobalError(previewProjectAnnotations) as never,
         exportName
       );
       const tree: unknown = await composedStory();
 
       if (!isAstroComponentSlot(tree) && !Array.isArray(tree)) {
         // No decorator wrapped anything around the story — nothing to add.
-        return undefined;
+        return { node: undefined, skippedDecorators };
       }
 
-      return serializeAstroComponentMarkers(tree) as SlotValue;
+      return { node: serializeAstroComponentMarkers(tree) as SlotValue, skippedDecorators };
     };
 
     return {
@@ -272,10 +312,13 @@ export async function renderProductionStoryToHtml(options: {
   let node: SlotValue | undefined;
 
   try {
-    node = await options.runtime.composeDecoratedTree({
+    const composed = await options.runtime.composeDecoratedTree({
       storyModule,
       exportName: options.story.exportName
     });
+
+    node = composed.node;
+    warnAboutSkippedDecorators(options.story.id, composed.skippedDecorators);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
 
@@ -352,6 +395,117 @@ function mergeMetaArgsWithStoryArgs(
     ...(metaArgs ?? {}),
     ...(storyArgs ?? {})
   };
+}
+
+const BROWSER_ONLY_GLOBALS = new Set([
+  'window',
+  'document',
+  'navigator',
+  'location',
+  'localStorage',
+  'sessionStorage',
+  'customElements',
+  'getComputedStyle',
+  'matchMedia',
+  'requestAnimationFrame',
+  'MutationObserver',
+  'ResizeObserver',
+  'IntersectionObserver',
+  'self',
+  'innerWidth',
+  'innerHeight',
+  'outerWidth',
+  'outerHeight',
+  'devicePixelRatio',
+  'history',
+  'screen',
+  'scrollX',
+  'scrollY',
+  'cancelAnimationFrame',
+  'addEventListener',
+  'removeEventListener',
+  'DOMParser',
+  'Document',
+  'DocumentFragment',
+  'ShadowRoot'
+]);
+
+// Names users also define or import themselves (`Image` from astro:assets,
+// `Node`, `Element`) are left out, so a missing import of one is reported as a
+// bug. `Event` and `CustomEvent` are Node globals, so they never throw here.
+const DOM_EVENT_CLASS =
+  /^(UI|Keyboard|Mouse|Pointer|Focus|Input|Touch|Wheel|Drag|Clipboard|Animation|Transition|Composition)Event$/;
+
+/**
+ * The browser global a `ReferenceError` such as `document is not defined`
+ * names, or `undefined` for any other error. An allowlist rather than any
+ * missing name, so a real bug like a misspelled helper still drops the story.
+ */
+export function findMissingBrowserGlobal(error: unknown): string | undefined {
+  if (!(error instanceof Error) || error.name !== 'ReferenceError') {
+    return undefined;
+  }
+
+  const missingGlobal = /^(\S+) is not defined$/.exec(error.message)?.[1];
+
+  if (!missingGlobal) {
+    return undefined;
+  }
+
+  const isBrowserGlobal =
+    BROWSER_ONLY_GLOBALS.has(missingGlobal) ||
+    /^(HTML|SVG)\w*(Element|Document)$/.test(missingGlobal) ||
+    DOM_EVENT_CLASS.test(missingGlobal);
+
+  return isBrowserGlobal ? missingGlobal : undefined;
+}
+
+type DecoratorStory = (...args: unknown[]) => unknown;
+
+/**
+ * Wraps one decorator so that, when it throws a browser-global
+ * `ReferenceError`, the prerender records it and renders the inner story in
+ * its place. Bare Astro components in a `decorators` array run no code, so they're left as
+ * they are (and `applyDecorators` still recognizes them).
+ */
+function skipDecoratorOnBrowserGlobalError(decorator: unknown, skippedDecorators: SkippedDecorator[]) {
+  if (typeof decorator !== 'function' || isAstroComponentFactory(decorator)) {
+    return decorator;
+  }
+
+  return (Story: DecoratorStory, context: unknown) => {
+    try {
+      return decorator(Story, context);
+    } catch (error) {
+      const missingGlobal = findMissingBrowserGlobal(error);
+
+      if (!missingGlobal) {
+        throw error;
+      }
+
+      skippedDecorators.push({ error: error as Error, missingGlobal });
+
+      return Story();
+    }
+  };
+}
+
+function warnAboutSkippedDecorators(storyId: string, skippedDecorators: SkippedDecorator[]) {
+  if (skippedDecorators.length === 0) {
+    return;
+  }
+
+  const reasons = skippedDecorators.map(({ error }) => error.message).join('; ');
+  const guards = [...new Set(skippedDecorators.map(({ missingGlobal }) => missingGlobal))]
+    .map((missingGlobal) => `\`typeof ${missingGlobal} !== 'undefined'\``)
+    .join(' or ');
+
+  console.warn(
+    `[storybook-astro] Prerendered story "${storyId}" without ${
+      skippedDecorators.length === 1 ? 'a decorator that uses' : `${skippedDecorators.length} decorators that use`
+    } a browser-only global, which the static build's Node prerender doesn't have (${reasons}). ` +
+      `Guard that code with ${guards} to keep the decorator in the prerender.`
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
