@@ -132,10 +132,11 @@ export async function createProductionRenderRuntime(
       // CSF4 story-factory exports (`meta.story()`) aren't supported by
       // `composeStory` directly, and this SSR server stubs `@storybook/preview`
       // to a minimal factory (storySsrVite.ts) specifically so those modules can
-      // load at all under Node — the real preview.ts (and any decorators
-      // declared there) is never consulted for a CSF4 story either way. Leave
-      // these stories on the existing undecorated path (docs/specs/decorators.md#global-decorators
-      // covers CSF4 decorators).
+      // load at all under Node. A CSF4 story's preview decorators aren't
+      // applied here, whether it imports the `@storybook/preview` stub or the
+      // real preview by path. Leave these stories on the existing undecorated
+      // path (docs/specs/decorators.md#global-decorators covers CSF4
+      // decorators).
       if (isRecord(rawStoryExport) && rawStoryExport._tag === 'Story') {
         return undefined;
       }
