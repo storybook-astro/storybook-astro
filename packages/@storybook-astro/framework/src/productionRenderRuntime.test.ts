@@ -334,6 +334,31 @@ describe('createProductionRenderRuntime with a project preview', () => {
     expect(storyWarnings[0]).toContain('window is not defined');
   }, 60_000);
 
+  test('skips a CSF2 function story\'s own decorator that reads `document`', async () => {
+    const { html, warnings } = await prerenderWithPreviewDecorators(
+      '() => ({ component: Wrapper })',
+      `export const Primary = (args, { component }) => component;
+      Primary.decorators = [(Story) => { document.title; return Story(); }];`
+    );
+
+    expect(html).toMatch(/<section class="wrapper"[^>]*>\s*<button[^>]*>Prerendered<\/button>/);
+
+    const storyWarnings = warnings.filter((message) => message.includes('button--primary'));
+
+    expect(storyWarnings).toHaveLength(1);
+    expect(storyWarnings[0]).toContain('document is not defined');
+  }, 60_000);
+
+  test('prerenders a story whose `decorators` is null, as Storybook normalizes it to none', async () => {
+    const { html, warnings } = await prerenderWithPreviewDecorators(
+      '() => ({ component: Wrapper })',
+      'export const Primary = { decorators: null };'
+    );
+
+    expect(html).toMatch(/<section class="wrapper"[^>]*>\s*<button[^>]*>Prerendered<\/button>/);
+    expect(warnings.filter((message) => message.includes('button--primary'))).toHaveLength(0);
+  }, 60_000);
+
   test('drops the story when its own render reads `document`', async () => {
     const { html, warnings } = await prerenderWithPreviewDecorators(
       '() => ({ component: Wrapper })',

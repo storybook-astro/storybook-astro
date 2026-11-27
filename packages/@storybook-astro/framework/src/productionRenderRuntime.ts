@@ -167,7 +167,7 @@ export async function createProductionRenderRuntime(
       // that decorator is skipped and the story keeps its other decorators
       // (issue #413).
       const skipOnBrowserGlobalError = (annotations: Record<string, unknown>) =>
-        annotations.decorators === undefined
+        annotations.decorators == null
           ? annotations
           : {
             ...annotations,
@@ -176,10 +176,20 @@ export async function createProductionRenderRuntime(
               .map((decorator) => skipDecoratorOnBrowserGlobalError(decorator, skippedDecorators))
           };
 
+      // A CSF2 function story is its own render, and Storybook reads its
+      // `decorators`, `args` and the like from properties set on the function.
+      // Spreading them into an object story keeps those decorators wrapped too.
+      const storyAnnotations =
+        typeof rawStoryExport === 'function'
+          ? skipOnBrowserGlobalError({ ...rawStoryExport, render: rawStoryExport })
+          : isRecord(rawStoryExport)
+            ? skipOnBrowserGlobalError(rawStoryExport)
+            : rawStoryExport;
+
       // `composeStory` (portable-stories.ts) merges in `applyDecorators` by
       // default, same as `render` — no need to pass it explicitly here.
       const composedStory = composeStory(
-        (isRecord(rawStoryExport) ? skipOnBrowserGlobalError(rawStoryExport) : rawStoryExport) as never,
+        storyAnnotations as never,
         skipOnBrowserGlobalError(meta) as never,
         skipOnBrowserGlobalError(previewProjectAnnotations) as never,
         exportName
@@ -453,10 +463,8 @@ type DecoratorStory = (...args: unknown[]) => unknown;
 
 /**
  * Wraps one decorator so that, when it throws a browser-global
- * `ReferenceError` itself, the prerender records it and renders the inner
- * story in its place. An error from the inner story (the `Story` the
- * decorator calls) is rethrown unchanged, so it still drops the story. Bare
- * Astro components in a `decorators` array run no code, so they're left as
+ * `ReferenceError`, the prerender records it and renders the inner story in
+ * its place. Bare Astro components in a `decorators` array run no code, so they're left as
  * they are (and `applyDecorators` still recognizes them).
  */
 function skipDecoratorOnBrowserGlobalError(decorator: unknown, skippedDecorators: SkippedDecorator[]) {
@@ -465,20 +473,10 @@ function skipDecoratorOnBrowserGlobalError(decorator: unknown, skippedDecorators
   }
 
   return (Story: DecoratorStory, context: unknown) => {
-    let storyThrew = false;
-    const watchedStory: DecoratorStory = (...args) => {
-      try {
-        return Story(...args);
-      } catch (error) {
-        storyThrew = true;
-        throw error;
-      }
-    };
-
     try {
-      return decorator(watchedStory, context);
+      return decorator(Story, context);
     } catch (error) {
-      const missingGlobal = storyThrew ? undefined : findMissingBrowserGlobal(error);
+      const missingGlobal = findMissingBrowserGlobal(error);
 
       if (!missingGlobal) {
         throw error;
