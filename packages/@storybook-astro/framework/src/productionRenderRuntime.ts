@@ -280,11 +280,22 @@ export async function renderProductionStoryToHtml(options: {
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
 
-    console.warn(
-      `[storybook-astro] Dropped story "${options.story.id}" from the static build: decorator composition failed (${reason}).`
-    );
+    if (!isBrowserGlobalReferenceError(error)) {
+      console.warn(
+        `[storybook-astro] Dropped story "${options.story.id}" from the static build: decorator composition failed (${reason}).`
+      );
 
-    return undefined;
+      return undefined;
+    }
+
+    // A decorator that reads `document` or `window` when it's called works in
+    // the browser but not in this Node prerender. Prerender the story without
+    // its decorators rather than leaving it out of the build (issue #413).
+    console.warn(
+      `[storybook-astro] Prerendered story "${options.story.id}" without its decorators: a decorator uses a ` +
+        `browser-only global, which the static build's Node prerender doesn't have (${reason}). ` +
+        `Guard that code with \`typeof document !== 'undefined'\` to keep the decorator in the prerender.`
+    );
   }
 
   return options.runtime.renderAstroStory({
@@ -353,6 +364,39 @@ function mergeMetaArgsWithStoryArgs(
     ...(metaArgs ?? {}),
     ...(storyArgs ?? {})
   };
+}
+
+const BROWSER_ONLY_GLOBALS = new Set([
+  'window',
+  'document',
+  'navigator',
+  'location',
+  'localStorage',
+  'sessionStorage',
+  'customElements',
+  'getComputedStyle',
+  'matchMedia',
+  'requestAnimationFrame',
+  'Element',
+  'Node',
+  'MutationObserver',
+  'ResizeObserver',
+  'IntersectionObserver'
+]);
+
+/** True for the `ReferenceError` Node throws when code reads a browser global such as `document`. */
+function isBrowserGlobalReferenceError(error: unknown): boolean {
+  if (!(error instanceof Error) || error.name !== 'ReferenceError') {
+    return false;
+  }
+
+  const missingGlobal = /^(\S+) is not defined$/.exec(error.message)?.[1];
+
+  if (!missingGlobal) {
+    return false;
+  }
+
+  return BROWSER_ONLY_GLOBALS.has(missingGlobal) || /^(HTML|SVG)\w*Element$/.test(missingGlobal);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

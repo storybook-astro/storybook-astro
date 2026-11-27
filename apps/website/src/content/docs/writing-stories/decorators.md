@@ -123,7 +123,7 @@ const wrapVueStoryInGlobalDecorator = (story, ctx) => {
 |---|---|
 | **Dev** | Decorators re-run on every render, so `context.globals` (e.g. a theme toolbar) updates the wrapper live. |
 | **Server** | Same as dev — the decorated tree is resolved on each request against the deployed snapshot. |
-| **Static** | Decorators run once at **build time**. Whatever `context.globals` resolves to then (the story's `initialGlobals`) is frozen into the prerendered HTML — toggling a toolbar control in a static build does not re-render the decorator or the story. |
+| **Static** | Decorators run once at **build time**. Whatever `context.globals` resolves to then (the story's `initialGlobals`) is frozen into the prerendered HTML — toggling a toolbar control in a static build does not re-render the decorator or the story. The build runs in Node, so a decorator that reads `document`, `window` or another browser-only global when it's called can't run there: the stories it wraps are prerendered without their decorators, with a warning. Guard that code with `typeof document !== 'undefined'` to keep the decorator in the prerender. |
 
 ## Limitations
 
