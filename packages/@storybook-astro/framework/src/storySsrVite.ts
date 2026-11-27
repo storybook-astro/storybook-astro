@@ -370,7 +370,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 //
 // A CSF4 story only needs its component and args from the prerender: its
 // preview-level decorators aren't applied (CSF3 stories do get the preview's
-// decorators, through the decorator-composition load below). So we replace
+// decorators, through the decorator-composition load in
+// productionRenderRuntime.ts). So we replace
 // `@storybook/preview` with a minimal CSF4 factory: `meta(input)` returns
 // `{ input }` and `meta.story(input)` returns the `{ _tag: 'Story', input, meta }`
 // shape `resolveStoryAnnotations` reads. For stories that import
@@ -381,6 +382,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // itself: the decorator-composition load in productionRenderRuntime.ts, and a
 // story that imports the preview by relative path or a `#` subpath import, as
 // `storybook init`'s CSF-factories stories do (issue #410).
+// Every subpath of those packages is stubbed too (`/blocks`, `/preview`, …):
+// the prerender never renders docs blocks or MDX, and addon-docs' preset is
+// loaded by Storybook core, not this Vite server.
 // `@storybook/addon-docs`'s default export is called as a function in preview
 // config, so it stubs to a callable no-op; `blocks` are the docs block
 // components (used only inside MDX, never prerendered) and `@storybook/blocks`
@@ -392,11 +396,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // never sees them and addon-docs reads `document` at load.
 export function createStorybookBrowserStubPlugin(): Plugin {
   const STUBBED_PACKAGES = ['@storybook/addon-docs', '@storybook/blocks'];
-  const STUBBED_SPECIFIERS = new Set([
-    '@storybook/addon-docs',
-    '@storybook/addon-docs/blocks',
-    '@storybook/blocks'
-  ]);
   const STUB_ID = '\0storybook-astro-browser-stub';
   const PREVIEW_SPECIFIER = '@storybook/preview';
   const PREVIEW_STUB_ID = '\0storybook-astro-preview-stub';
@@ -426,7 +425,7 @@ export function createStorybookBrowserStubPlugin(): Plugin {
         return PREVIEW_STUB_ID;
       }
 
-      if (STUBBED_SPECIFIERS.has(id)) {
+      if (STUBBED_PACKAGES.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))) {
         return STUB_ID;
       }
 

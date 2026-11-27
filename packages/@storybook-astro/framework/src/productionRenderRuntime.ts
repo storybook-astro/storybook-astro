@@ -134,9 +134,9 @@ export async function createProductionRenderRuntime(
       // to a minimal factory (storySsrVite.ts) specifically so those modules can
       // load at all under Node. A CSF4 story's preview decorators aren't
       // applied here, whether it imports the `@storybook/preview` stub or the
-      // real preview by path. Leave
-      // these stories on the existing undecorated path (docs/specs/decorators.md#global-decorators
-      // covers CSF4 decorators).
+      // real preview by path. Leave these stories on the existing undecorated
+      // path (docs/specs/decorators.md#global-decorators covers CSF4
+      // decorators).
       if (isRecord(rawStoryExport) && rawStoryExport._tag === 'Story') {
         return undefined;
       }
