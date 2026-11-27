@@ -226,7 +226,11 @@ describe('findMissingBrowserGlobal', () => {
     ['KeyboardEvent is not defined', 'KeyboardEvent'],
     ['DocumentFragment is not defined', 'DocumentFragment'],
     ['formatLabel is not defined', undefined],
-    ['trackEvent is not defined', undefined]
+    ['trackEvent is not defined', undefined],
+    // Names a project imports itself, so a missing import is a real bug.
+    ['Image is not defined', undefined],
+    ['Node is not defined', undefined],
+    ['TrackingEvent is not defined', undefined]
   ])('%s → %s', (message, expected) => {
     expect(findMissingBrowserGlobal(new ReferenceError(message))).toBe(expected);
   });

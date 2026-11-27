@@ -408,8 +408,6 @@ const BROWSER_ONLY_GLOBALS = new Set([
   'getComputedStyle',
   'matchMedia',
   'requestAnimationFrame',
-  'Element',
-  'Node',
   'MutationObserver',
   'ResizeObserver',
   'IntersectionObserver',
@@ -427,13 +425,16 @@ const BROWSER_ONLY_GLOBALS = new Set([
   'addEventListener',
   'removeEventListener',
   'DOMParser',
-  'Image',
   'Document',
   'DocumentFragment',
-  'ShadowRoot',
-  'Event',
-  'CustomEvent'
+  'ShadowRoot'
 ]);
+
+// Names users also define or import themselves (`Image` from astro:assets,
+// `Node`, `Element`) are left out, so a missing import of one is reported as a
+// bug. `Event` and `CustomEvent` are Node globals, so they never throw here.
+const DOM_EVENT_CLASS =
+  /^(UI|Keyboard|Mouse|Pointer|Focus|Input|Touch|Wheel|Drag|Clipboard|Animation|Transition|Composition)Event$/;
 
 /**
  * The browser global a `ReferenceError` such as `document is not defined`
@@ -454,7 +455,7 @@ export function findMissingBrowserGlobal(error: unknown): string | undefined {
   const isBrowserGlobal =
     BROWSER_ONLY_GLOBALS.has(missingGlobal) ||
     /^(HTML|SVG)\w*(Element|Document)$/.test(missingGlobal) ||
-    /^[A-Z]\w*Event$/.test(missingGlobal);
+    DOM_EVENT_CLASS.test(missingGlobal);
 
   return isBrowserGlobal ? missingGlobal : undefined;
 }
