@@ -374,12 +374,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // returns the `{ _tag: 'Story', input, meta }` shape `resolveStoryAnnotations`
 // reads. This sidesteps the project preview and its entire addon graph.
 //
-// The docs-package stubs remain as defense in depth for any path that still loads
-// `.storybook/preview.ts` directly. `@storybook/addon-docs`'s default export is
-// called as a function in preview config, so it stubs to a callable no-op;
-// `blocks` are the docs block components (used only inside MDX, never prerendered)
-// and `@storybook/blocks` is the pre-Storybook-10 path for those same blocks.
+// The docs-package stubs cover the paths that load `.storybook/preview.ts`
+// itself: the decorator-composition load in productionRenderRuntime.ts, and a
+// story that imports the preview by relative path or a `#` subpath import, as
+// `storybook init`'s CSF-factories stories do (issue #410).
+// `@storybook/addon-docs`'s default export is called as a function in preview
+// config, so it stubs to a callable no-op; `blocks` are the docs block
+// components (used only inside MDX, never prerendered) and `@storybook/blocks`
+// is the pre-Storybook-10 path for those same blocks.
+//
+// Vite never asks a plugin to resolve an SSR import it externalizes (a bare
+// package import outside `ssr.noExternal`): Node imports the real package
+// directly. So the docs packages go in `ssr.noExternal`, or `resolveId` below
+// never sees them and addon-docs reads `document` at load.
 export function createStorybookBrowserStubPlugin(): Plugin {
+  const STUBBED_PACKAGES = ['@storybook/addon-docs', '@storybook/blocks'];
   const STUBBED_SPECIFIERS = new Set([
     '@storybook/addon-docs',
     '@storybook/addon-docs/blocks',
@@ -404,6 +413,9 @@ export function createStorybookBrowserStubPlugin(): Plugin {
     // Must run before Astro's resolvers, which would otherwise resolve these
     // bare specifiers to their real (browser-only) files before we can stub them.
     enforce: 'pre',
+    config() {
+      return { ssr: { noExternal: STUBBED_PACKAGES } };
+    },
     resolveId(id: string) {
       if (id === PREVIEW_SPECIFIER) {
         return PREVIEW_STUB_ID;
